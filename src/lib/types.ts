@@ -15,14 +15,27 @@ export interface RunRecord {
 	surface: string;
 	wanted_faster: boolean | null;
 	distance_km: number | null;
+	/** Clock time the run started, local `HH:mm` (not duration). */
+	start_time: string;
+	/** Moving duration, e.g. `45:12` or `1:15:01`. */
 	time: string;
+	/** Elapsed duration including pauses, same format as `time`. */
+	elapsed_time: string;
 	avg_pace: string;
 	avg_hr: number | null;
+	max_hr: number | null;
+	/** Elevation gain in meters. */
+	elev_gain: number | null;
+	calories: number | null;
+	kilojoules: number | null;
+	/** Max speed in km/h. */
+	max_speed: number | null;
 	cadence: number | null;
 	shoes: string;
 	summary_image: string;
 	splits_image: string;
 	strava_id: string;
+	route: string;
 	notes: string;
 	filepath: string;
 }
@@ -55,3 +68,9 @@ export interface CoachMessage {
 	role: 'user' | 'assistant';
 	content: string;
 }
+
+/** Downsampled lat/lng track for the dashboard all-routes map. */
+export type RouteTrack = {
+	id: string;
+	coords: [number, number][];
+};

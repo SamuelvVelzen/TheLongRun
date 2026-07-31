@@ -8,10 +8,11 @@ const root = process.env.DATA_DIR
 export const dataRoot = root;
 export const runsDir = path.join(root, 'runs');
 export const uploadsDir = path.join(root, 'uploads');
+export const routesDir = path.join(root, 'routes');
 export const contextDir = path.join(root, 'context');
 
 export function ensureDataDirs() {
-	for (const dir of [root, runsDir, uploadsDir, contextDir]) {
+	for (const dir of [root, runsDir, uploadsDir, routesDir, contextDir]) {
 		if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 	}
 }

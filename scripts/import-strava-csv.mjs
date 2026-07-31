@@ -137,6 +137,71 @@ function formatTime(seconds) {
 	return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
+const STRAVA_CONDITION = {
+	1: 'clear',
+	2: 'mainly clear',
+	3: 'cloudy',
+	4: 'cloudy',
+	5: 'foggy',
+	6: 'foggy',
+	7: 'drizzle',
+	8: 'rain',
+	9: 'heavy rain',
+	10: 'freezing rain',
+	11: 'freezing rain',
+	12: 'sleet',
+	13: 'sleet',
+	14: 'snow',
+	15: 'snow',
+	16: 'heavy snow',
+	17: 'showers',
+	18: 'heavy showers',
+	19: 'sleet',
+	20: 'sleet',
+	21: 'snow showers',
+	22: 'snow showers',
+	23: 'thunderstorms',
+	24: 'hail',
+	25: 'thunderstorms',
+	26: 'thunderstorms',
+	27: 'storm'
+};
+
+function numAny(raw) {
+	const s = String(raw ?? '').trim();
+	if (s === '') return null;
+	const n = Number(s);
+	return Number.isFinite(n) ? n : null;
+}
+
+/** Match server formatStravaDeviceWeather — prefer weather-block, else device temps. */
+function weatherFromRow(headers, row) {
+	const weatherTemp = numAny(getField(headers, row, 'Weather Temperature'));
+	const avgTemp = numAny(getField(headers, row, 'Average Temperature'));
+	const maxTemp = numAny(getField(headers, row, 'Max Temperature'));
+	const condition = numAny(getField(headers, row, 'Weather Condition'));
+	const humidityRaw = numAny(getField(headers, row, 'Humidity'));
+	const tempC = weatherTemp ?? avgTemp ?? maxTemp ?? null;
+	const sky =
+		condition != null && Number.isFinite(condition)
+			? STRAVA_CONDITION[Math.round(condition)] || ''
+			: '';
+	let humidityPct = null;
+	if (humidityRaw != null) {
+		humidityPct =
+			humidityRaw >= 0 && humidityRaw <= 1 ? humidityRaw * 100 : humidityRaw;
+	}
+	const humid =
+		humidityPct != null && humidityPct >= 65 ? 'humid' : '';
+	const temp =
+		tempC != null && Number.isFinite(tempC) ? `${Math.round(tempC)}°C` : '';
+	if (!temp && !sky) return '';
+	if (temp && humid && sky) return `${temp} ${humid} / ${sky}`;
+	if (temp && humid) return `${temp} ${humid}`;
+	if (temp && sky) return `${temp}, ${sky}`;
+	return temp || sky;
+}
+
 function formatPace(distanceKm, movingSeconds) {
 	const dist = Number(distanceKm);
 	const secs = Number(movingSeconds);
@@ -253,6 +318,35 @@ for (let r = 1; r < rows.length; r++) {
 
 	const avgHrRaw = Number(getField(headers, row, 'Average Heart Rate'));
 	const avgHr = Number.isFinite(avgHrRaw) && avgHrRaw > 0 ? Math.round(avgHrRaw) : null;
+	const maxHrRaw =
+		Number(getField(headers, row, 'Max Heart Rate', 1)) ||
+		Number(getField(headers, row, 'Max Heart Rate', 0));
+	const maxHr = Number.isFinite(maxHrRaw) && maxHrRaw > 0 ? Math.round(maxHrRaw) : null;
+
+	const elevRaw = Number(getField(headers, row, 'Elevation Gain'));
+	const elevGain = Number.isFinite(elevRaw) && elevRaw > 0 ? Math.round(elevRaw * 10) / 10 : null;
+
+	const calRaw = Number(getField(headers, row, 'Calories'));
+	const calories = Number.isFinite(calRaw) && calRaw > 0 ? Math.round(calRaw) : null;
+
+	const workRaw = Number(getField(headers, row, 'Total Work'));
+	let kilojoules = null;
+	if (Number.isFinite(workRaw) && workRaw > 0) {
+		const kj = workRaw >= 1000 ? workRaw / 1000 : workRaw;
+		kilojoules = Math.round(kj * 10) / 10;
+	}
+
+	const maxSpeedMps = Number(getField(headers, row, 'Max Speed'));
+	const maxSpeed =
+		Number.isFinite(maxSpeedMps) && maxSpeedMps > 0
+			? Math.round(maxSpeedMps * 3.6 * 10) / 10
+			: null;
+
+	const elapsedSecs =
+		Number(getField(headers, row, 'Elapsed Time', 1)) ||
+		Number(getField(headers, row, 'Elapsed Time', 0)) ||
+		0;
+	const elapsedTime = formatTime(elapsedSecs);
 
 	// Strava Average Cadence is often one-foot; store as reported, optionally *2 if clearly one-foot
 	let cadenceRaw = Number(getField(headers, row, 'Average Cadence'));
@@ -266,7 +360,18 @@ for (let r = 1; r < rows.length; r++) {
 	const day = preferredDayName(parsed.weekdayIndex);
 	const session = guessSession(day, distanceKm);
 	const time = formatTime(movingTime);
-	const avgPace = formatPace(distanceKm, movingTime);
+	const avgSpeed = Number(getField(headers, row, 'Average Speed'));
+	let avgPace = '';
+	if (Number.isFinite(avgSpeed) && avgSpeed > 0) {
+		const paceSec = 1000 / avgSpeed;
+		const m = Math.floor(paceSec / 60);
+		const s = Math.round(paceSec % 60);
+		avgPace = `${m}:${String(s).padStart(2, '0')}`;
+	} else {
+		avgPace = formatPace(distanceKm, movingTime);
+	}
+	const startTime = `${String(parsed.jsDate.getHours()).padStart(2, '0')}:${String(parsed.jsDate.getMinutes()).padStart(2, '0')}`;
+	const weather = weatherFromRow(headers, row);
 
 	let slug = `${parsed.date}-${day.toLowerCase()}`;
 	if (knownSlugs.has(slug)) {
@@ -282,13 +387,20 @@ for (let r = 1; r < rows.length; r++) {
 		shins: null,
 		legs: null,
 		energy: null,
-		weather: '',
+		weather,
 		surface: '',
 		wanted_faster: null,
 		distance_km: distanceKm,
+		start_time: startTime,
 		time,
+		elapsed_time: elapsedTime,
 		avg_pace: avgPace,
 		avg_hr: avgHr,
+		max_hr: maxHr,
+		elev_gain: elevGain,
+		calories,
+		kilojoules,
+		max_speed: maxSpeed,
 		cadence,
 		shoes: '',
 		summary_image: '',

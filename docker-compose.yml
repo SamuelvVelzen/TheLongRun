@@ -1,0 +1,15 @@
+services:
+  the-long-run:
+    build: .
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
+    volumes:
+      - the-long-run-data:/data
+    environment:
+      DATA_DIR: /data
+      BODY_SIZE_LIMIT: 20M
+
+volumes:
+  the-long-run-data:

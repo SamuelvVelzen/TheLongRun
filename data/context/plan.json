@@ -1,0 +1,90 @@
+[
+  {
+    "week": 1,
+    "dates": "03 Aug–09 Aug 2026",
+    "phase": "Build 1",
+    "focus": "Introduce formal structure; no racing",
+    "sessions": [
+      { "day": "Tuesday", "label": "Quality", "distance_km": 7.0, "detail": "7.0 km total incl. 3×6 min controlled tempo" },
+      { "day": "Friday", "label": "Easy", "distance_km": 7.0, "detail": "Easy 7.0 km" },
+      { "day": "Sunday", "label": "Long", "distance_km": 12.0, "detail": "Long 12.0 km" }
+    ]
+  },
+  {
+    "week": 2,
+    "dates": "10 Aug–16 Aug 2026",
+    "phase": "Build 2",
+    "focus": "Build threshold and endurance",
+    "sessions": [
+      { "day": "Tuesday", "label": "Easy", "distance_km": 7.0, "detail": "Easy 7.0 km" },
+      { "day": "Friday", "label": "Tempo", "distance_km": 7.5, "detail": "7.5 km total incl. 20 min steady-hard" },
+      { "day": "Sunday", "label": "Long", "distance_km": 12.5, "detail": "Long 12.5 km" }
+    ]
+  },
+  {
+    "week": 3,
+    "dates": "17 Aug–23 Aug 2026",
+    "phase": "Build 3",
+    "focus": "Highest load before recovery",
+    "sessions": [
+      { "day": "Tuesday", "label": "Easy + strides", "distance_km": 7.0, "detail": "Easy 7.0 km + 4×20 sec strides" },
+      { "day": "Friday", "label": "Quality", "distance_km": 7.5, "detail": "7.5 km total incl. 4×5 min tempo" },
+      { "day": "Sunday", "label": "Long", "distance_km": 13.0, "detail": "Long 13.0 km" }
+    ]
+  },
+  {
+    "week": 4,
+    "dates": "24 Aug–30 Aug 2026",
+    "phase": "Recovery",
+    "focus": "Reduce fatigue; keep rhythm",
+    "sessions": [
+      { "day": "Tuesday", "label": "Easy", "distance_km": 6.0, "detail": "Easy 6.0 km" },
+      { "day": "Friday", "label": "Steady", "distance_km": 6.5, "detail": "Steady 6.5 km" },
+      { "day": "Sunday", "label": "Long", "distance_km": 10.5, "detail": "Long 10.5 km" }
+    ]
+  },
+  {
+    "week": 5,
+    "dates": "31 Aug–06 Sep 2026",
+    "phase": "Race-specific 1",
+    "focus": "Practice controlled faster running",
+    "sessions": [
+      { "day": "Tuesday", "label": "Easy", "distance_km": 7.0, "detail": "Easy 7.0 km" },
+      { "day": "Friday", "label": "10K effort", "distance_km": 7.5, "detail": "7.5 km total incl. 3×1 km controlled 10K effort" },
+      { "day": "Sunday", "label": "Long", "distance_km": 12.5, "detail": "Long 12.5 km" }
+    ]
+  },
+  {
+    "week": 6,
+    "dates": "07 Sep–13 Sep 2026",
+    "phase": "Sharpen",
+    "focus": "Keep speed; lower fatigue",
+    "sessions": [
+      { "day": "Tuesday", "label": "Easy + strides", "distance_km": 6.5, "detail": "Easy 6.5 km + 4 strides" },
+      { "day": "Friday", "label": "Brisk", "distance_km": 7.0, "detail": "7.0 km total incl. 5×3 min brisk" },
+      { "day": "Sunday", "label": "Long", "distance_km": 11.0, "detail": "Long 11.0 km" }
+    ]
+  },
+  {
+    "week": 7,
+    "dates": "14 Sep–20 Sep 2026",
+    "phase": "Taper",
+    "focus": "Freshen up; no tests",
+    "sessions": [
+      { "day": "Tuesday", "label": "Easy + strides", "distance_km": 6.0, "detail": "Easy 6.0 km + 4 strides" },
+      { "day": "Friday", "label": "Easy", "distance_km": 5.0, "detail": "Easy 5.0 km" },
+      { "day": "Sunday", "label": "Easy", "distance_km": 8.0, "detail": "Easy 8.0 km" }
+    ]
+  },
+  {
+    "week": 8,
+    "dates": "21 Sep–27 Sep 2026",
+    "phase": "Race week",
+    "focus": "Start controlled; finish progressively",
+    "sessions": [
+      { "day": "Tuesday", "label": "Easy + strides", "distance_km": 5.0, "detail": "Easy 5.0 km + 4×15 sec strides" },
+      { "day": "Friday", "label": "Shakeout", "distance_km": 3.75, "detail": "Shakeout 3.5–4.0 km easy" },
+      { "day": "Sunday", "label": "Race", "distance_km": 10.0, "detail": "RACE 10 km" }
+    ]
+  }
+]

@@ -26,7 +26,7 @@ Updated 31 July 2026.
 ## Recent markers
 - Easy: 7.04 km at 6:29/km, avg HR 147
 - Faster: 6.66 km at 5:56/km, controlled negative split
-- Heat-tolerant easy: 6.76 km at 6:27/km in ~27°C after motorcycle practice
+- Heat-tolerant easy: 6.76 km at 6:27/km after motorcycle practice
 
 ## Decision rules
 1. Easy means conversational and deliberately restrained, even when the body wants to run faster.

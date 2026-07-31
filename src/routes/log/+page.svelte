@@ -1,5 +1,44 @@
 <script lang="ts">
+	import { dayFromIsoDate } from '$lib/format';
+	import { weekNumberForDate } from '$lib/plan';
+
 	let { data, form } = $props();
+
+	let weather = $state('');
+	let weatherManual = $state(false);
+	let weatherHint = $state('');
+	let dateValue = $state('');
+	let startTimeValue = $state('');
+	let durationValue = $state('');
+
+	const derivedDay = $derived(dayFromIsoDate(dateValue || data.defaults.date));
+	const derivedWeek = $derived(weekNumberForDate(dateValue || data.defaults.date));
+
+	async function fetchWeather(date: string, startTime: string, duration: string) {
+		if (!date || weatherManual) return;
+		weatherHint = 'Fetching…';
+		try {
+			const params = new URLSearchParams({ date });
+			if (startTime) params.set('time', startTime);
+			if (duration) params.set('duration', duration);
+			const res = await fetch(`/api/weather?${params}`);
+			const body = (await res.json()) as { weather?: string; error?: string };
+			if (!res.ok) {
+				weatherHint = body.error || 'Weather unavailable';
+				return;
+			}
+			weather = body.weather ?? '';
+			weatherHint = weather ? 'From Open-Meteo (hourly) — edit anytime' : 'No weather data for this date';
+		} catch {
+			weatherHint = 'Weather fetch failed';
+		}
+	}
+
+	$effect(() => {
+		const next = dateValue || data.defaults.date;
+		if (!dateValue && data.defaults.date) dateValue = data.defaults.date;
+		void fetchWeather(next, startTimeValue, durationValue);
+	});
 </script>
 
 <section class="hero">
@@ -32,19 +71,15 @@
 	<div class="form-grid">
 		<label class="field">
 			<span class="req">Date</span>
-			<input type="date" name="date" required value={data.defaults.date} />
-		</label>
-		<label class="field">
-			<span class="req">Run day</span>
-			<select name="day" required>
-				{#each ['Tuesday', 'Friday', 'Sunday'] as day}
-					<option value={day} selected={day === data.defaults.day}>{day}</option>
-				{/each}
-			</select>
-		</label>
-		<label class="field">
-			<span>Week #</span>
-			<input type="number" name="week" min="1" max="12" value={data.defaults.week ?? ''} />
+			<input
+				type="date"
+				name="date"
+				required
+				bind:value={dateValue}
+			/>
+			<span class="field-hint muted"
+				>{derivedDay}{#if derivedWeek != null} · week {derivedWeek}{/if}</span
+			>
 		</label>
 		<label class="field">
 			<span class="req">Session</span>
@@ -73,8 +108,12 @@
 			<input name="distance_km" type="number" step="0.01" placeholder="7.04" />
 		</label>
 		<label class="field">
-			<span>Time</span>
-			<input name="time" placeholder="45:12 or 1:15:01" />
+			<span>Start time</span>
+			<input type="time" name="start_time" bind:value={startTimeValue} />
+		</label>
+		<label class="field">
+			<span>Duration</span>
+			<input name="time" placeholder="45:12 or 1:15:01" bind:value={durationValue} />
 		</label>
 		<label class="field">
 			<span>Avg pace /km</span>
@@ -83,6 +122,14 @@
 		<label class="field">
 			<span>Avg HR</span>
 			<input name="avg_hr" type="number" placeholder="147" />
+		</label>
+		<label class="field">
+			<span>Max HR</span>
+			<input name="max_hr" type="number" placeholder="172" />
+		</label>
+		<label class="field">
+			<span>Elev gain (m)</span>
+			<input name="elev_gain" type="number" step="0.1" placeholder="48" />
 		</label>
 		<label class="field">
 			<span>Cadence</span>
@@ -113,7 +160,18 @@
 		</label>
 		<label class="field">
 			<span>Weather</span>
-			<input name="weather" placeholder="27C humid / cloudy" />
+			<input
+				name="weather"
+				placeholder="27°C humid / cloudy"
+				bind:value={weather}
+				oninput={() => {
+					weatherManual = true;
+					weatherHint = 'Manual override';
+				}}
+			/>
+			{#if weatherHint}
+				<span class="field-hint muted">{weatherHint}</span>
+			{/if}
 		</label>
 		<label class="field">
 			<span>Surface</span>

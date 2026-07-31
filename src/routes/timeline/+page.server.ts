@@ -1,5 +1,13 @@
-import { listRuns } from '$lib/server/runs';
-import type { PageServerLoad } from './$types';
+import { fail } from '@sveltejs/kit';
+import { deleteRun, listRuns, runHasMap } from '$lib/server/runs';
+import {
+	buildRangeStats,
+	filterRunsByRange,
+	parseDateRange,
+	type DateRange
+} from '$lib/date-range';
+import { buildTrainingTrends } from '$lib/trends';
+import type { Actions, PageServerLoad } from './$types';
 import type { RunRecord } from '$lib/types';
 
 function monthKey(date: string) {
@@ -12,9 +20,10 @@ function monthLabel(key: string) {
 	return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 }
 
-export const load: PageServerLoad = async () => {
-	const runs = listRuns();
-	const groupsMap = new Map<string, RunRecord[]>();
+type RunListItem = RunRecord & { has_map: boolean };
+
+function groupRuns(runs: RunListItem[]) {
+	const groupsMap = new Map<string, RunListItem[]>();
 	for (const run of runs) {
 		const key = monthKey(run.date);
 		const list = groupsMap.get(key) ?? [];
@@ -22,16 +31,41 @@ export const load: PageServerLoad = async () => {
 		groupsMap.set(key, list);
 	}
 
-	const groups = [...groupsMap.entries()].map(([key, items]) => ({
+	return [...groupsMap.entries()].map(([key, items]) => ({
 		key,
 		label: monthLabel(key),
 		runs: items,
 		totalKm: Math.round(items.reduce((acc, r) => acc + (r.distance_km ?? 0), 0) * 10) / 10
 	}));
+}
+
+export const load: PageServerLoad = async ({ url }) => {
+	const range: DateRange = parseDateRange(url.searchParams);
+	const allRuns = listRuns().map((r) => ({ ...r, has_map: runHasMap(r) }));
+	const runs = filterRunsByRange(allRuns, range);
+	const stats = buildRangeStats(runs);
+	const trends =
+		range.kind !== 'all' ? buildTrainingTrends(runs, { endDate: range.to, fromDate: range.from }) : null;
 
 	return {
-		groups,
-		runCount: runs.length,
-		totalKm: Math.round(runs.reduce((acc, r) => acc + (r.distance_km ?? 0), 0) * 10) / 10
+		groups: groupRuns(runs),
+		runCount: stats.runCount,
+		totalKm: stats.totalKm,
+		avgPace: stats.avgPace,
+		avgHr: stats.avgHr,
+		trends,
+		range,
+		totalAllTime: allRuns.length
 	};
+};
+
+export const actions: Actions = {
+	delete: async ({ request }) => {
+		const fd = await request.formData();
+		const slug = String(fd.get('slug') ?? '').trim();
+		if (!slug) return fail(400, { message: 'Missing slug' });
+		const ok = deleteRun(slug);
+		if (!ok) return fail(404, { message: 'Run not found' });
+		return { deleted: slug };
+	}
 };

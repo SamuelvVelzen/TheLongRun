@@ -8,7 +8,7 @@
 		{ href: '/', label: 'Dashboard' },
 		{ href: '/timeline', label: 'Timeline' },
 		{ href: '/log', label: 'Log run' },
-		{ href: '/goals', label: 'Goals' },
+		{ href: '/import', label: 'Import' },
 		{ href: '/context', label: 'Context' }
 	];
 </script>
@@ -21,7 +21,7 @@
 <div class="shell">
 	<header class="nav">
 		<a class="brand" href="/">The Long <span>Run</span></a>
-		<nav class="nav-links">
+		<nav class="nav-links" aria-label="Primary">
 			{#each links as link}
 				<a href={link.href} class:active={page.url.pathname === link.href}>{link.label}</a>
 			{/each}

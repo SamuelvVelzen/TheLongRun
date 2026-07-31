@@ -2,6 +2,8 @@ import { fail, redirect } from '@sveltejs/kit';
 import { currentPlanWeek, loadShoes } from '$lib/server/context';
 import { saveRun, runSlug } from '$lib/server/runs';
 import { saveUpload } from '$lib/server/uploads';
+import { fetchWeatherForDateTime } from '$lib/server/weather';
+import { dayFromIsoDate, normalizeStartTime } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -10,8 +12,7 @@ export const load: PageServerLoad = async () => {
 	const shoes = loadShoes();
 	const today = new Date();
 	const iso = today.toISOString().slice(0, 10);
-	const dow = today.getDay(); // 0 Sun ... 2 Tue ... 5 Fri
-	const day = dow === 2 ? 'Tuesday' : dow === 5 ? 'Friday' : dow === 0 ? 'Sunday' : 'Tuesday';
+	const day = dayFromIsoDate(iso);
 	return {
 		week,
 		shoes,
@@ -42,11 +43,12 @@ export const actions: Actions = {
 	default: async ({ request }) => {
 		const fd = await request.formData();
 		const date = String(fd.get('date') ?? '').trim();
-		const day = String(fd.get('day') ?? '').trim();
 		const session = String(fd.get('session') ?? '').trim();
-		if (!date || !day || !session) {
-			return fail(400, { message: 'Date, day and session are required.' });
+		if (!date || !session) {
+			return fail(400, { message: 'Date and session are required.' });
 		}
+		const day = dayFromIsoDate(date);
+		const week = weekNumberForDate(date);
 
 		const slug = runSlug(date, day);
 		let summary_image = '';
@@ -65,22 +67,31 @@ export const actions: Actions = {
 		}
 
 		const wanted = String(fd.get('wanted_faster') ?? '');
+		const start_time = normalizeStartTime(String(fd.get('start_time') ?? '').trim());
+		const time = String(fd.get('time') ?? '').trim();
+		let weather = String(fd.get('weather') ?? '').trim();
+		if (!weather) {
+			weather = await fetchWeatherForDateTime(date, start_time || null, null, null, time || null);
+		}
 		const run = saveRun({
 			date,
-			week: num(fd, 'week'),
+			week,
 			day,
 			session,
 			effort: num(fd, 'effort'),
 			shins: num(fd, 'shins'),
 			legs: num(fd, 'legs'),
 			energy: num(fd, 'energy'),
-			weather: String(fd.get('weather') ?? '').trim(),
+			weather,
 			surface: String(fd.get('surface') ?? '').trim(),
 			wanted_faster: wanted === 'Y' ? true : wanted === 'N' ? false : null,
 			distance_km: num(fd, 'distance_km'),
-			time: String(fd.get('time') ?? '').trim(),
+			start_time,
+			time,
 			avg_pace: String(fd.get('avg_pace') ?? '').trim(),
 			avg_hr: num(fd, 'avg_hr'),
+			max_hr: num(fd, 'max_hr'),
+			elev_gain: num(fd, 'elev_gain'),
 			cadence: num(fd, 'cadence'),
 			shoes: String(fd.get('shoes') ?? '').trim(),
 			summary_image,

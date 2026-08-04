@@ -1,67 +1,68 @@
 # The Long Run
 
-Personal run tracker for Samuël. No auth. Data lives in markdown under `data/`.
+Personal run tracker. **React + TanStack Start**, **Neon Postgres**, deployed to **Cloudflare Workers**.
 
 ## Stack
 
-**SvelteKit + Vite + adapter-node** — forms, file uploads, and markdown storage in one deployable Node app.
+- **TanStack Start** (React 19, Vite, SSR, file-based routing, server functions)
+- **Neon** — serverless Postgres over HTTP (works in the Workers runtime)
+- **Cloudflare Workers** via `@cloudflare/vite-plugin` + Wrangler
+- Maps: Leaflet (loaded from CDN); charts/sparklines are hand-rolled SVG
 
-## Quick start
+No filesystem at runtime — runs, GeoJSON route tracks, and context docs are all Postgres tables.
+
+## Quick start (local)
 
 ```bash
-cp .env.example .env
+cp .env.example .env          # fill in DATABASE_URL (Neon pooled string)
 npm install
+npm run migrate               # creates tables + loads data/ into Neon (one time)
 npm run dev
 ```
 
-Open http://localhost:5173
+Open the URL Vite prints (default http://localhost:3000).
 
-## Deploy (Docker)
+## Project layout
 
-```bash
-docker compose up --build
+```
+src/
+  routes/            TanStack routes: __root, index (dashboard), timeline,
+                     log, runs.$slug, context, goals (→ redirect)
+  components/        React: RouteMap, RoutesHeatmap, SplitsPanel, TrendsSection,
+                     Sparkline, DateRangeFilter
+  lib/               framework-agnostic logic: splits, trends, format, plan,
+                     date-range, hr-zones, markdown, leaflet, map-chrome, types
+  lib/server/        db (Neon), runs, routes, route-analytics, context, weather,
+                     functions (createServerFn wrappers = the data layer / RPC)
+  app.css            global styles     components.css   ported component styles
+scripts/migrate-to-neon.mjs            one-time data import
+schema.sql                             table definitions (also applied by migrate)
 ```
 
-App on http://localhost:3000 with a persistent `the-long-run-data` volume at `/data`.
+## Data model (Neon)
 
-## What you get
+| Table | Holds |
+|-------|-------|
+| `runs` | one row per run |
+| `routes` | `id` + GeoJSON track (splits / HR zones / km markers in `properties`) |
+| `context` | goals, shoes, plan.json, profile, injury, gear, race strategy |
 
-- **Log run** — Tue/Fri/Sun form, screenshots, effort/shins/legs/energy, notes; weather auto-filled from Open-Meteo for the run date
-- **Dashboard / Timeline** — race countdown, plan week, full history; map pin when a route GeoJSON is attached
-- **Import FIT** — Strava routes + weather backfill on create/update when weather is empty
-- **Goals + Context** — editable markdown for profile, plan, gear, and race notes
+## How data flows
+
+Route `loader`s call **server functions** (`src/lib/server/functions.ts`), which run only on
+the server and query Neon. Mutations (create / update / delete run, save context) are POST server
+functions called from the components, followed by `router.invalidate()`.
+
+`DATABASE_URL` is read via `process.env` **inside** each server-function handler (Cloudflare
+injects env per-request). Adding runs is currently the manual **Log run** form; automatic **Strava
+sync** is the planned next step.
+
+## Deploy → `longrun.vanvelzen.dev`
+
+See **GOLIVE.md**. Short version: create the Neon DB, `npm run migrate`, set `DATABASE_URL` as a
+Wrangler secret, `npm run deploy`, add the custom domain, lock it with Cloudflare Access.
 
 ## Weather
 
-Uses the free [Open-Meteo](https://open-meteo.com/) archive/forecast APIs (no API key). **Timezone:** `auto` (local at the query point). Location priority:
-
-1. Centroid of the run’s route GeoJSON under `data/routes/`
-2. `DEFAULT_LAT` / `DEFAULT_LON` from `.env`
-3. Centroid of any existing route file
-4. Hardcoded fallback `52.35, 5.63` (Harderwijk / Flevoland area — this athlete’s usual NL routes)
-
-Fields used:
-
-- **Temperature:** daily `temperature_2m_max` (daytime high, not mean/min)
-- **Sky + humidity:** modal weather code and mean RH for **afternoon hours 12–17 local** (avoids labelling a clear afternoon run from a morning drizzle)
-- **Source:** archive for past dates; forecast for today/future (forecast first was overwriting recent past with poorer values)
-
-Stored as a short string on the run, e.g. `28°C humid / cloudy`.
-
-Backfill empty weather, or re-fetch with `--force` (overwrites existing weather strings):
-
-```bash
-node scripts/backfill-weather.mjs
-node scripts/backfill-weather.mjs --force
-node scripts/backfill-weather.mjs --force --only=2026-07-21-tuesday,2026-07-22-tuesday
-```
-
-## Data layout
-
-```
-data/
-  context/   profile, plan, injury, gear, shoes, goals, race strategy
-  runs/      one markdown file per run
-  routes/    GeoJSON tracks from FIT import
-  uploads/   Apple Watch screenshots
-```
+Free [Open-Meteo](https://open-meteo.com/) (no key). Location: centroid of the run's stored route,
+else `DEFAULT_LAT`/`DEFAULT_LON`, else any stored route, else `52.35, 5.63` (NL).

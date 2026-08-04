@@ -1,7 +1,5 @@
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import path from 'node:path';
 import type { RouteTrack } from '$lib/types';
-import { ensureDataDirs, routesDir } from './paths';
+import { getSql } from './db';
 
 export type { RouteTrack };
 
@@ -27,7 +25,7 @@ function coordsFromGeoJson(raw: unknown): [number, number][] {
 		coordinates?: unknown;
 	};
 
-	let coordinates: unknown = geo.geometry?.coordinates ?? geo.coordinates;
+	const coordinates: unknown = geo.geometry?.coordinates ?? geo.coordinates;
 	const geomType = geo.geometry?.type ?? geo.type;
 
 	if (geomType === 'MultiLineString' && Array.isArray(coordinates)) {
@@ -57,22 +55,23 @@ function coordsFromGeoJson(raw: unknown): [number, number][] {
 	return out;
 }
 
-/** Read every GeoJSON under data/routes/ once; return downsampled lat/lng tracks. */
-export function listRouteTracks(): RouteTrack[] {
-	ensureDataDirs();
-	if (!existsSync(routesDir)) return [];
+/** Read every stored GeoJSON track; return downsampled lat/lng polylines. */
+export async function listRouteTracks(): Promise<RouteTrack[]> {
+	const sql = getSql();
+	const rows = (await sql`SELECT id, geojson FROM routes`) as {
+		id: string;
+		geojson: unknown;
+	}[];
 
 	const tracks: RouteTrack[] = [];
-	for (const file of readdirSync(routesDir)) {
-		if (!file.endsWith('.json')) continue;
+	for (const row of rows) {
 		try {
-			const raw = JSON.parse(readFileSync(path.join(routesDir, file), 'utf8'));
-			const coords = downsample(coordsFromGeoJson(raw), MAX_POINTS);
+			const coords = downsample(coordsFromGeoJson(row.geojson), MAX_POINTS);
 			if (coords.length >= 2) {
-				tracks.push({ id: file.replace(/\.json$/, ''), coords });
+				tracks.push({ id: String(row.id), coords });
 			}
 		} catch {
-			// skip corrupt / non-geojson files
+			// skip corrupt / non-geojson rows
 		}
 	}
 	return tracks;

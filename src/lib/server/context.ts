@@ -1,32 +1,37 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
 import matter from 'gray-matter';
 import type { Goals, PlanWeek } from '$lib/types';
-import { contextDir, ensureDataDirs } from './paths';
+import { getSql } from './db';
 
-export function readContextFile(name: string): string {
-	ensureDataDirs();
-	const filepath = path.join(contextDir, name);
-	if (!existsSync(filepath)) return '';
-	return readFileSync(filepath, 'utf8');
+export async function readContextFile(name: string): Promise<string> {
+	const sql = getSql();
+	const rows = (await sql`SELECT content FROM context WHERE name = ${name} LIMIT 1`) as {
+		content: string;
+	}[];
+	return rows.length ? String(rows[0]!.content ?? '') : '';
 }
 
-export function writeContextFile(name: string, content: string) {
-	ensureDataDirs();
-	writeFileSync(path.join(contextDir, name), content, 'utf8');
+export async function writeContextFile(name: string, content: string): Promise<void> {
+	const sql = getSql();
+	await sql`
+		INSERT INTO context (name, content) VALUES (${name}, ${content})
+		ON CONFLICT (name) DO UPDATE SET content = EXCLUDED.content
+	`;
 }
 
-export function loadPlan(): PlanWeek[] {
-	const raw = readContextFile('plan.json');
+export async function loadPlan(): Promise<PlanWeek[]> {
+	const raw = await readContextFile('plan.json');
 	if (!raw) return [];
-	return JSON.parse(raw) as PlanWeek[];
+	try {
+		return JSON.parse(raw) as PlanWeek[];
+	} catch {
+		return [];
+	}
 }
 
-export function currentPlanWeek(today = new Date()): PlanWeek | null {
-	const plan = loadPlan();
+export async function currentPlanWeek(today = new Date()): Promise<PlanWeek | null> {
+	const plan = await loadPlan();
 	if (!plan.length) return null;
-	// Weeks are labeled by start date in dates field like "03 Aug–09 Aug 2026"
-	// Prefer matching by week number from race block start: 2026-08-03
+	// Weeks are labeled by start date; race block starts 2026-08-03.
 	const start = new Date('2026-08-03T00:00:00');
 	const ms = today.getTime() - start.getTime();
 	const weekIndex = Math.floor(ms / (7 * 24 * 60 * 60 * 1000)) + 1;
@@ -54,8 +59,8 @@ function toIsoDate(value: unknown, fallback = '2026-09-27'): string {
 	return fallback;
 }
 
-export function loadGoals(): Goals {
-	const raw = readContextFile('goals.md');
+export async function loadGoals(): Promise<Goals> {
+	const raw = await readContextFile('goals.md');
 	if (!raw) {
 		return {
 			race_name: '10K',
@@ -83,7 +88,7 @@ export function loadGoals(): Goals {
 	};
 }
 
-export function saveGoals(goals: Goals) {
+export async function saveGoals(goals: Goals): Promise<void> {
 	const front = {
 		race_name: goals.race_name,
 		race_date: toIsoDate(goals.race_date),
@@ -91,11 +96,11 @@ export function saveGoals(goals: Goals) {
 		time_goal: goals.time_goal,
 		primary: goals.primary
 	};
-	writeContextFile('goals.md', matter.stringify(goals.notes ? `${goals.notes}\n` : '', front));
+	await writeContextFile('goals.md', matter.stringify(goals.notes ? `${goals.notes}\n` : '', front));
 }
 
-export function loadShoes(): { active: string; notes: string; rotation: string[] } {
-	const raw = readContextFile('shoes.md');
+export async function loadShoes(): Promise<{ active: string; notes: string; rotation: string[] }> {
+	const raw = await readContextFile('shoes.md');
 	if (!raw) return { active: '', notes: '', rotation: [] };
 	const { data, content } = matter(raw);
 	return {

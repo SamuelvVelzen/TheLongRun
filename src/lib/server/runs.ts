@@ -1,17 +1,6 @@
-import { readFileSync, readdirSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
-import path from 'node:path';
-import matter from 'gray-matter';
 import type { RunRecord } from '$lib/types';
 import { normalizeStartTime } from '$lib/format';
-import { ensureDataDirs, routesDir, runsDir } from './paths';
-
-function toBool(value: unknown): boolean | null {
-	if (value === true || value === 'true' || value === 'Y' || value === 'y' || value === 'yes')
-		return true;
-	if (value === false || value === 'false' || value === 'N' || value === 'n' || value === 'no')
-		return false;
-	return null;
-}
+import { getSql } from './db';
 
 function toNum(value: unknown): number | null {
 	if (value === null || value === undefined || value === '') return null;
@@ -19,77 +8,101 @@ function toNum(value: unknown): number | null {
 	return Number.isFinite(n) ? n : null;
 }
 
-function toIsoDate(value: unknown): string {
-	if (value instanceof Date && !Number.isNaN(value.getTime())) {
-		const y = value.getUTCFullYear();
-		const m = String(value.getUTCMonth() + 1).padStart(2, '0');
-		const d = String(value.getUTCDate()).padStart(2, '0');
-		return `${y}-${m}-${d}`;
-	}
-	const raw = String(value ?? '').trim();
-	if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-	const parsed = new Date(raw);
-	if (!Number.isNaN(parsed.getTime())) {
-		const y = parsed.getUTCFullYear();
-		const m = String(parsed.getUTCMonth() + 1).padStart(2, '0');
-		const d = String(parsed.getUTCDate()).padStart(2, '0');
-		return `${y}-${m}-${d}`;
-	}
-	return raw;
+function toStr(value: unknown): string {
+	return value === null || value === undefined ? '' : String(value);
 }
 
-function parseRunFile(filepath: string, slug: string): RunRecord {
-	const raw = readFileSync(filepath, 'utf8');
-	const { data, content } = matter(raw);
+function toBoolOrNull(value: unknown): boolean | null {
+	if (value === true || value === 'true' || value === 't') return true;
+	if (value === false || value === 'false' || value === 'f') return false;
+	return null;
+}
+
+/** Map a DB row to a RunRecord (columns are already typed by Postgres). */
+function rowToRun(row: Record<string, unknown>): RunRecord {
 	return {
-		slug,
-		date: toIsoDate(data.date),
-		week: toNum(data.week),
-		day: String(data.day ?? ''),
-		session: String(data.session ?? 'other'),
-		effort: toNum(data.effort),
-		shins: toNum(data.shins),
-		legs: toNum(data.legs),
-		energy: toNum(data.energy),
-		weather: String(data.weather ?? ''),
-		surface: String(data.surface ?? ''),
-		wanted_faster: toBool(data.wanted_faster),
-		distance_km: toNum(data.distance_km),
-		start_time: normalizeStartTime(String(data.start_time ?? '')),
-		time: String(data.time ?? ''),
-		elapsed_time: String(data.elapsed_time ?? ''),
-		avg_pace: String(data.avg_pace ?? ''),
-		avg_hr: toNum(data.avg_hr),
-		max_hr: toNum(data.max_hr),
-		elev_gain: toNum(data.elev_gain),
-		calories: toNum(data.calories),
-		kilojoules: toNum(data.kilojoules),
-		max_speed: toNum(data.max_speed),
-		cadence: toNum(data.cadence),
-		shoes: String(data.shoes ?? ''),
-		summary_image: String(data.summary_image ?? ''),
-		splits_image: String(data.splits_image ?? ''),
-		strava_id: String(data.strava_id ?? ''),
-		route: String(data.route ?? ''),
-		notes: content.trim(),
-		filepath
+		slug: toStr(row.slug),
+		date: toStr(row.date),
+		week: toNum(row.week),
+		day: toStr(row.day),
+		session: toStr(row.session) || 'other',
+		effort: toNum(row.effort),
+		shins: toNum(row.shins),
+		legs: toNum(row.legs),
+		energy: toNum(row.energy),
+		weather: toStr(row.weather),
+		surface: toStr(row.surface),
+		wanted_faster: toBoolOrNull(row.wanted_faster),
+		distance_km: toNum(row.distance_km),
+		start_time: normalizeStartTime(toStr(row.start_time)),
+		time: toStr(row.time),
+		elapsed_time: toStr(row.elapsed_time),
+		avg_pace: toStr(row.avg_pace),
+		avg_hr: toNum(row.avg_hr),
+		max_hr: toNum(row.max_hr),
+		elev_gain: toNum(row.elev_gain),
+		calories: toNum(row.calories),
+		kilojoules: toNum(row.kilojoules),
+		max_speed: toNum(row.max_speed),
+		cadence: toNum(row.cadence),
+		shoes: toStr(row.shoes),
+		summary_image: toStr(row.summary_image),
+		splits_image: toStr(row.splits_image),
+		strava_id: toStr(row.strava_id),
+		route: toStr(row.route),
+		notes: toStr(row.notes)
 	};
 }
 
-export function listRuns(): RunRecord[] {
-	ensureDataDirs();
-	if (!existsSync(runsDir)) return [];
-	return readdirSync(runsDir)
-		.filter((f) => f.endsWith('.md'))
-		.map((f) => parseRunFile(path.join(runsDir, f), f.replace(/\.md$/, '')))
-		.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+/** Full record used by the internal upsert (everything except the derived slug helpers). */
+type RunColumns = Omit<RunRecord, 'filepath'>;
+
+async function upsertRun(r: RunColumns): Promise<RunRecord> {
+	const sql = getSql();
+	const rows = (await sql`
+		INSERT INTO runs (
+			slug, date, week, day, session, effort, shins, legs, energy, weather, surface,
+			wanted_faster, distance_km, start_time, "time", elapsed_time, avg_pace, avg_hr, max_hr,
+			elev_gain, calories, kilojoules, max_speed, cadence, shoes, summary_image, splits_image,
+			strava_id, route, notes
+		) VALUES (
+			${r.slug}, ${r.date}, ${r.week}, ${r.day}, ${r.session}, ${r.effort}, ${r.shins},
+			${r.legs}, ${r.energy}, ${r.weather}, ${r.surface}, ${r.wanted_faster}, ${r.distance_km},
+			${r.start_time}, ${r.time}, ${r.elapsed_time}, ${r.avg_pace}, ${r.avg_hr}, ${r.max_hr},
+			${r.elev_gain}, ${r.calories}, ${r.kilojoules}, ${r.max_speed}, ${r.cadence}, ${r.shoes},
+			${r.summary_image}, ${r.splits_image}, ${r.strava_id}, ${r.route}, ${r.notes}
+		)
+		ON CONFLICT (slug) DO UPDATE SET
+			date = EXCLUDED.date, week = EXCLUDED.week, day = EXCLUDED.day, session = EXCLUDED.session,
+			effort = EXCLUDED.effort, shins = EXCLUDED.shins, legs = EXCLUDED.legs, energy = EXCLUDED.energy,
+			weather = EXCLUDED.weather, surface = EXCLUDED.surface, wanted_faster = EXCLUDED.wanted_faster,
+			distance_km = EXCLUDED.distance_km, start_time = EXCLUDED.start_time, "time" = EXCLUDED."time",
+			elapsed_time = EXCLUDED.elapsed_time, avg_pace = EXCLUDED.avg_pace, avg_hr = EXCLUDED.avg_hr,
+			max_hr = EXCLUDED.max_hr, elev_gain = EXCLUDED.elev_gain, calories = EXCLUDED.calories,
+			kilojoules = EXCLUDED.kilojoules, max_speed = EXCLUDED.max_speed, cadence = EXCLUDED.cadence,
+			shoes = EXCLUDED.shoes, summary_image = EXCLUDED.summary_image, splits_image = EXCLUDED.splits_image,
+			strava_id = EXCLUDED.strava_id, route = EXCLUDED.route, notes = EXCLUDED.notes
+		RETURNING *
+	`) as Record<string, unknown>[];
+	return rowToRun(rows[0]!);
 }
 
-export function getRun(slug: string): RunRecord | null {
-	ensureDataDirs();
-	const filepath = path.join(runsDir, `${slug}.md`);
-	if (!existsSync(filepath)) return null;
-	return parseRunFile(filepath, slug);
+export async function listRuns(): Promise<RunRecord[]> {
+	const sql = getSql();
+	const rows = (await sql`SELECT * FROM runs ORDER BY date DESC, slug DESC`) as Record<
+		string,
+		unknown
+	>[];
+	return rows.map(rowToRun);
+}
+
+export async function getRun(slug: string): Promise<RunRecord | null> {
+	const sql = getSql();
+	const rows = (await sql`SELECT * FROM runs WHERE slug = ${slug} LIMIT 1`) as Record<
+		string,
+		unknown
+	>[];
+	return rows.length ? rowToRun(rows[0]!) : null;
 }
 
 export function runSlug(date: string, day: string) {
@@ -129,34 +142,45 @@ export interface SaveRunInput {
 	notes: string;
 }
 
-export function findRunByStravaId(stravaId: string): RunRecord | null {
+export async function findRunByStravaId(stravaId: string): Promise<RunRecord | null> {
 	if (!stravaId) return null;
-	return listRuns().find((r) => r.strava_id === stravaId) ?? null;
+	const sql = getSql();
+	const rows = (await sql`
+		SELECT * FROM runs WHERE strava_id = ${stravaId} ORDER BY date DESC LIMIT 1
+	`) as Record<string, unknown>[];
+	return rows.length ? rowToRun(rows[0]!) : null;
 }
 
-export function findRunsByDate(date: string): RunRecord[] {
-	return listRuns().filter((r) => r.date === date);
+export async function findRunsByDate(date: string): Promise<RunRecord[]> {
+	const sql = getSql();
+	const rows = (await sql`SELECT * FROM runs WHERE date = ${date} ORDER BY slug`) as Record<
+		string,
+		unknown
+	>[];
+	return rows.map(rowToRun);
 }
 
-/** True if route frontmatter is set or a matching GeoJSON exists under data/routes/. */
-export function runHasMap(run: Pick<RunRecord, 'route' | 'strava_id'>): boolean {
-	const route = (run.route ?? '').trim();
-	if (route) {
-		const name = path.basename(route.split('?')[0] ?? route);
-		if (name.endsWith('.json') && existsSync(path.join(routesDir, name))) return true;
-		return true;
-	}
-	if (run.strava_id) {
-		return existsSync(path.join(routesDir, `${run.strava_id}.json`));
-	}
+/** Route ids that have a stored GeoJSON track (used to derive has_map without per-run queries). */
+export async function listRouteIds(): Promise<Set<string>> {
+	const sql = getSql();
+	const rows = (await sql`SELECT id FROM routes`) as Record<string, unknown>[];
+	return new Set(rows.map((r) => toStr(r.id)));
+}
+
+/** True when a run has a map: an explicit route link, or a stored track keyed by strava_id. */
+export function runHasMap(
+	run: Pick<RunRecord, 'route' | 'strava_id'>,
+	routeIds: Set<string>
+): boolean {
+	if ((run.route ?? '').trim()) return true;
+	if (run.strava_id && routeIds.has(run.strava_id)) return true;
 	return false;
 }
 
-export function saveRun(input: SaveRunInput): RunRecord {
-	ensureDataDirs();
+export async function saveRun(input: SaveRunInput): Promise<RunRecord> {
 	const slug = runSlug(input.date, input.day);
-	const filepath = path.join(runsDir, `${slug}.md`);
-	const front = {
+	return upsertRun({
+		slug,
 		date: input.date,
 		week: input.week,
 		day: input.day,
@@ -184,52 +208,46 @@ export function saveRun(input: SaveRunInput): RunRecord {
 		summary_image: input.summary_image,
 		splits_image: input.splits_image,
 		strava_id: input.strava_id || '',
-		route: input.route || ''
-	};
-	const body = `${matter.stringify(input.notes?.trim() ? `${input.notes.trim()}\n` : '', front)}`;
-	writeFileSync(filepath, body, 'utf8');
-	return parseRunFile(filepath, slug);
+		route: input.route || '',
+		notes: input.notes?.trim() ?? ''
+	});
 }
 
 function isSafeSlug(slug: string): boolean {
 	return Boolean(slug) && !slug.includes('..') && !slug.includes('/') && !slug.includes('\\');
 }
 
-function routeFilenamesForRun(run: Pick<RunRecord, 'route' | 'strava_id'>): string[] {
-	const names = new Set<string>();
+/** Route ids linked to a run (explicit `route` field and/or `{strava_id}.json`). */
+function routeIdsForRun(run: Pick<RunRecord, 'route' | 'strava_id'>): string[] {
+	const ids = new Set<string>();
 	const route = (run.route ?? '').trim();
 	if (route) {
-		const name = path.basename(route.split('?')[0] ?? route);
-		if (name.endsWith('.json')) names.add(name);
+		const name = route.split('?')[0]!.split('/').pop() ?? route;
+		if (name.endsWith('.json')) ids.add(name.replace(/\.json$/, ''));
 	}
-	if (run.strava_id) names.add(`${run.strava_id}.json`);
-	return [...names];
+	if (run.strava_id) ids.add(run.strava_id);
+	return [...ids];
 }
 
-/** Delete a run markdown file and its linked route JSON (if present). */
-export function deleteRun(slug: string): boolean {
-	ensureDataDirs();
+/** Delete a run and its linked route track(s). */
+export async function deleteRun(slug: string): Promise<boolean> {
 	if (!isSafeSlug(slug)) return false;
-	const run = getRun(slug);
+	const run = await getRun(slug);
 	if (!run) return false;
 
-	unlinkSync(run.filepath);
+	const sql = getSql();
+	await sql`DELETE FROM runs WHERE slug = ${slug}`;
 
-	const routesRoot = path.resolve(routesDir);
-	for (const name of routeFilenamesForRun(run)) {
-		if (!name || name.includes('..') || name.includes('/') || name.includes('\\')) continue;
-		const filepath = path.resolve(path.join(routesDir, name));
-		if (!filepath.startsWith(routesRoot + path.sep) && filepath !== routesRoot) continue;
-		if (existsSync(filepath)) unlinkSync(filepath);
+	for (const id of routeIdsForRun(run)) {
+		await sql`DELETE FROM routes WHERE id = ${id}`;
 	}
-
 	return true;
 }
 
-/** Overwrite an existing run file in place (keeps slug/path). */
-export function writeRun(run: RunRecord): RunRecord {
-	ensureDataDirs();
-	const front = {
+/** Overwrite an existing run (keeps slug). */
+export async function writeRun(run: RunRecord): Promise<RunRecord> {
+	return upsertRun({
+		slug: run.slug,
 		date: run.date,
 		week: run.week,
 		day: run.day,
@@ -257,11 +275,9 @@ export function writeRun(run: RunRecord): RunRecord {
 		summary_image: run.summary_image,
 		splits_image: run.splits_image,
 		strava_id: run.strava_id || '',
-		route: run.route || ''
-	};
-	const body = `${matter.stringify(run.notes?.trim() ? `${run.notes.trim()}\n` : '', front)}`;
-	writeFileSync(run.filepath, body, 'utf8');
-	return parseRunFile(run.filepath, run.slug);
+		route: run.route || '',
+		notes: run.notes?.trim() ?? ''
+	});
 }
 
 /** Editable fields for an existing run (preserves images, strava_id, route, FIT extras). */
@@ -290,13 +306,12 @@ export type UpdateRunFields = {
 };
 
 /**
- * Update a run in place. If date/day change the slug, writes the new file and removes the old
- * markdown (routes/images/strava_id are preserved on the record).
+ * Update a run in place. If date/day change the slug, writes the new row and removes the old
+ * (routes/images/strava_id are preserved on the record).
  */
-export function updateRun(slug: string, fields: UpdateRunFields): RunRecord {
-	ensureDataDirs();
+export async function updateRun(slug: string, fields: UpdateRunFields): Promise<RunRecord> {
 	if (!isSafeSlug(slug)) throw new Error('Invalid run slug.');
-	const existing = getRun(slug);
+	const existing = await getRun(slug);
 	if (!existing) throw new Error('Run not found.');
 
 	const date = fields.date.trim();
@@ -306,11 +321,12 @@ export function updateRun(slug: string, fields: UpdateRunFields): RunRecord {
 
 	const newSlug = runSlug(date, day);
 	if (!isSafeSlug(newSlug)) throw new Error('Invalid date or day for slug.');
-	if (newSlug !== slug && getRun(newSlug)) {
+	if (newSlug !== slug && (await getRun(newSlug))) {
 		throw new Error('A run already exists for that date and day.');
 	}
 
-	const saved = saveRun({
+	const saved = await upsertRun({
+		slug: newSlug,
 		date,
 		week: fields.week,
 		day,
@@ -323,7 +339,7 @@ export function updateRun(slug: string, fields: UpdateRunFields): RunRecord {
 		surface: fields.surface,
 		wanted_faster: fields.wanted_faster,
 		distance_km: fields.distance_km,
-		start_time: fields.start_time,
+		start_time: normalizeStartTime(fields.start_time),
 		time: fields.time,
 		elapsed_time: existing.elapsed_time,
 		avg_pace: fields.avg_pace,
@@ -342,8 +358,9 @@ export function updateRun(slug: string, fields: UpdateRunFields): RunRecord {
 		notes: fields.notes
 	});
 
-	if (newSlug !== slug && existsSync(existing.filepath)) {
-		unlinkSync(existing.filepath);
+	if (newSlug !== slug) {
+		const sql = getSql();
+		await sql`DELETE FROM runs WHERE slug = ${slug}`;
 	}
 
 	return saved;

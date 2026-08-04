@@ -1,9 +1,7 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import path from 'node:path';
 import type { RunRecord } from '$lib/types';
 import { normalizeStartTime, parseDurationSeconds } from '$lib/format';
-import { routesDir } from './paths';
-import { listRuns, writeRun } from './runs';
+import { getRouteGeoJson, routeIdForRun } from './route-analytics';
+import { getSql } from './db';
 
 /** Athlete default from typical route centroid (Harderwijk / Flevoland area, NL). Override with DEFAULT_LAT / DEFAULT_LON. */
 export const FALLBACK_LAT = 52.35;
@@ -73,51 +71,32 @@ export function centroidFromCoordinates(coordinates: unknown): LatLon | null {
 	return { lat: sumLat / n, lon: sumLon / n };
 }
 
-export function centroidFromRouteFile(filepath: string): LatLon | null {
-	if (!existsSync(filepath)) return null;
-	try {
-		const geo = JSON.parse(readFileSync(filepath, 'utf8')) as {
-			geometry?: { type?: string; coordinates?: unknown };
-		};
-		const coords = geo.geometry?.coordinates;
-		return centroidFromCoordinates(coords);
-	} catch {
-		return null;
-	}
+function centroidFromGeoJson(raw: unknown): LatLon | null {
+	const geo = raw as { geometry?: { coordinates?: unknown } } | null;
+	if (!geo) return null;
+	return centroidFromCoordinates(geo.geometry?.coordinates);
 }
 
-function centroidFromAnyRoute(): LatLon | null {
-	if (!existsSync(routesDir)) return null;
-	const files = readdirSync(routesDir).filter((f) => f.endsWith('.json'));
-	for (const f of files) {
-		const c = centroidFromRouteFile(path.join(routesDir, f));
-		if (c) return c;
-	}
-	return null;
+async function centroidFromAnyRoute(): Promise<LatLon | null> {
+	const sql = getSql();
+	const rows = (await sql`SELECT geojson FROM routes LIMIT 1`) as { geojson: unknown }[];
+	if (!rows.length) return null;
+	return centroidFromGeoJson(rows[0]!.geojson);
 }
 
-export function getDefaultLocation(): LatLon {
+export async function getDefaultLocation(): Promise<LatLon> {
 	const lat = envCoord('DEFAULT_LAT');
 	const lon = envCoord('DEFAULT_LON');
 	if (lat != null && lon != null) return { lat, lon };
-	return centroidFromAnyRoute() ?? { lat: FALLBACK_LAT, lon: FALLBACK_LON };
+	return (await centroidFromAnyRoute()) ?? { lat: FALLBACK_LAT, lon: FALLBACK_LON };
 }
 
-function routeFilename(routeField: string): string | null {
-	const raw = routeField.trim();
-	if (!raw) return null;
-	const base = path.basename(raw.split('?')[0] ?? raw);
-	return base.endsWith('.json') ? base : null;
-}
-
-export function locationForRun(run: Pick<RunRecord, 'route' | 'strava_id'>): LatLon {
-	const name = routeFilename(run.route ?? '');
-	if (name) {
-		const c = centroidFromRouteFile(path.join(routesDir, name));
-		if (c) return c;
-	}
-	if (run.strava_id) {
-		const c = centroidFromRouteFile(path.join(routesDir, `${run.strava_id}.json`));
+export async function locationForRun(
+	run: Pick<RunRecord, 'route' | 'strava_id'>
+): Promise<LatLon> {
+	const id = routeIdForRun(run);
+	if (id) {
+		const c = centroidFromGeoJson(await getRouteGeoJson(id));
 		if (c) return c;
 	}
 	return getDefaultLocation();
@@ -346,7 +325,7 @@ export async function fetchWeatherForDateTime(
 	duration?: string | null
 ): Promise<string> {
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '';
-	const def = getDefaultLocation();
+	const def = await getDefaultLocation();
 	const latitude = lat != null && Number.isFinite(lat) ? lat : def.lat;
 	const longitude = lon != null && Number.isFinite(lon) ? lon : def.lon;
 	const sampleMins = weatherSampleMinutes(timeHHmm, duration);
@@ -391,67 +370,6 @@ export async function fetchWeatherForDate(
 export async function weatherForRun(
 	run: Pick<RunRecord, 'date' | 'route' | 'strava_id' | 'start_time' | 'time'>
 ): Promise<string> {
-	const loc = locationForRun(run);
+	const loc = await locationForRun(run);
 	return fetchWeatherForDateTime(run.date, run.start_time, loc.lat, loc.lon, run.time);
-}
-
-export interface BackfillResult {
-	updated: number;
-	skipped: number;
-	failed: number;
-	defaultLocation: LatLon;
-	items: { slug: string; weather: string; status: 'updated' | 'skipped' | 'failed' }[];
-}
-
-/**
- * Fill weather frontmatter for runs via Open-Meteo.
- * Prefer applying Strava/device weather first (see scripts/backfill-weather.mjs /
- * backfillRunsFromCsv) — this only fills empty slots (or overwrites when force).
- * @param force When true, overwrite existing weather (re-fetch from Open-Meteo).
- * @param onlySlugs If set, only process these run slugs (still respects force/empty rules).
- */
-export async function backfillMissingWeather(opts?: {
-	force?: boolean;
-	onlySlugs?: string[];
-}): Promise<BackfillResult> {
-	const force = opts?.force === true;
-	const only = opts?.onlySlugs?.length ? new Set(opts.onlySlugs) : null;
-	const defaultLocation = getDefaultLocation();
-	const items: BackfillResult['items'] = [];
-	let updated = 0;
-	let skipped = 0;
-	let failed = 0;
-
-	for (const run of listRuns()) {
-		if (only && !only.has(run.slug)) continue;
-		if (!force && run.weather?.trim()) {
-			skipped++;
-			items.push({ slug: run.slug, weather: run.weather, status: 'skipped' });
-			continue;
-		}
-		try {
-			const weather = await weatherForRun(run);
-			if (!weather) {
-				failed++;
-				items.push({ slug: run.slug, weather: run.weather ?? '', status: 'failed' });
-				continue;
-			}
-			if (run.weather?.trim() === weather) {
-				skipped++;
-				items.push({ slug: run.slug, weather, status: 'skipped' });
-				continue;
-			}
-			run.weather = weather;
-			writeRun(run);
-			updated++;
-			items.push({ slug: run.slug, weather, status: 'updated' });
-			// Be gentle with the free API
-			await new Promise((r) => setTimeout(r, 120));
-		} catch {
-			failed++;
-			items.push({ slug: run.slug, weather: '', status: 'failed' });
-		}
-	}
-
-	return { updated, skipped, failed, defaultLocation, items };
 }

@@ -1,35 +1,36 @@
-import { readFileSync, existsSync } from 'node:fs';
-import path from 'node:path';
 import { analyticsFromProperties, type RouteAnalytics } from '$lib/splits';
-import { ensureDataDirs, routesDir } from './paths';
 import type { RunRecord } from '$lib/types';
+import { getSql } from './db';
 
-/** Resolve on-disk route id from a run (`/routes/{id}.json` or strava_id). */
+/** Resolve the stored route id from a run (`/routes/{id}.json` or strava_id). */
 export function routeIdForRun(run: Pick<RunRecord, 'route' | 'strava_id'>): string | null {
 	const fromRoute = String(run.route || '')
 		.trim()
-		.replace(/^\/routes\//, '')
+		.replace(/^.*\//, '')
+		.replace(/\?.*$/, '')
 		.replace(/\.json$/i, '');
 	if (fromRoute) return fromRoute;
 	const id = String(run.strava_id || '').trim();
 	return id || null;
 }
 
-export function routeFilePath(id: string): string {
-	return path.join(routesDir, `${id}.json`);
+/** Fetch the raw GeoJSON object for a route id, or null. */
+export async function getRouteGeoJson(id: string): Promise<unknown | null> {
+	if (!id) return null;
+	const sql = getSql();
+	const rows = (await sql`SELECT geojson FROM routes WHERE id = ${id} LIMIT 1`) as {
+		geojson: unknown;
+	}[];
+	return rows.length ? rows[0]!.geojson : null;
 }
 
-/** Load splits / HR zones / km markers stored on the route GeoJSON sidecar. */
-export function loadRouteAnalytics(run: Pick<RunRecord, 'route' | 'strava_id'>): RouteAnalytics | null {
-	ensureDataDirs();
+/** Load splits / HR zones / km markers stored on the route GeoJSON properties. */
+export async function loadRouteAnalytics(
+	run: Pick<RunRecord, 'route' | 'strava_id'>
+): Promise<RouteAnalytics | null> {
 	const id = routeIdForRun(run);
 	if (!id) return null;
-	const filepath = routeFilePath(id);
-	if (!existsSync(filepath)) return null;
-	try {
-		const geo = JSON.parse(readFileSync(filepath, 'utf8'));
-		return analyticsFromProperties(geo?.properties ?? null);
-	} catch {
-		return null;
-	}
+	const geo = (await getRouteGeoJson(id)) as { properties?: unknown } | null;
+	if (!geo) return null;
+	return analyticsFromProperties(geo.properties ?? null);
 }

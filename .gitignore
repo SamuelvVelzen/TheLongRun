@@ -5,8 +5,13 @@ node_modules
 .vercel
 .netlify
 .wrangler
-/.svelte-kit
-/build
+/dist
+
+# TanStack Router generated tree
+src/routeTree.gen.ts
+
+# Cloudflare local dev secrets
+.dev.vars
 
 # OS
 .DS_Store

@@ -37,7 +37,8 @@ export interface RunRecord {
 	strava_id: string;
 	route: string;
 	notes: string;
-	filepath: string;
+	/** Legacy filesystem path; unused since the move to Postgres. */
+	filepath?: string;
 }
 
 export interface Goals {
@@ -74,3 +75,6 @@ export type RouteTrack = {
 	id: string;
 	coords: [number, number][];
 };
+
+/** A run plus whether it has a stored map track (computed server-side). */
+export type RunWithMap = RunRecord & { has_map: boolean };

@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS runs (
 	date           text NOT NULL,
 	week           integer,
 	day            text NOT NULL DEFAULT '',
+	activity_type  text NOT NULL DEFAULT 'run',
 	session        text NOT NULL DEFAULT 'other',
 	effort         integer,
 	shins          integer,

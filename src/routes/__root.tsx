@@ -19,6 +19,7 @@ const links = [
 	{ href: '/', label: 'Dashboard' },
 	{ href: '/timeline', label: 'Timeline' },
 	{ href: '/log', label: 'Log run' },
+	{ href: '/import', label: 'Import' },
 	{ href: '/context', label: 'Context' }
 ] as const;
 

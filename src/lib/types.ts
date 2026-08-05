@@ -6,6 +6,7 @@ export interface RunRecord {
 	date: string;
 	week: number | null;
 	day: RunDay | string;
+	activity_type: string;
 	session: SessionType | string;
 	effort: number | null;
 	shins: number | null;

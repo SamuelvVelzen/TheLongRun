@@ -1,9 +1,10 @@
 import { createServerFn } from '@tanstack/react-start';
 import matter from 'gray-matter';
 import type { Goals, PlanWeek, RouteTrack, RunRecord, RunWithMap } from '$lib/types';
-import type { RouteAnalytics } from '$lib/splits';
-import { dayFromIsoDate, normalizeStartTime } from '$lib/format';
+import { analyticsToProperties, type RouteAnalytics } from '$lib/splits';
+import { dayFromIsoDate, guessSession, normalizeStartTime } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
+import { normalizeActivityType } from '$lib/activity';
 import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import {
 	deleteRun as dbDeleteRun,
@@ -16,9 +17,10 @@ import {
 	type UpdateRunFields
 } from './runs';
 import { listRouteTracks } from './routes';
-import { getRouteGeoJson, loadRouteAnalytics } from './route-analytics';
+import { getRouteGeoJson, loadRouteAnalytics, saveRouteGeoJson } from './route-analytics';
 import { currentPlanWeek, loadGoals, loadShoes, readContextFile, writeContextFile } from './context';
 import { fetchWeatherForDateTime } from './weather';
+import { parseGpx } from './gpx';
 
 const withMap = (runs: RunRecord[], routeIds: Set<string>): RunWithMap[] =>
 	runs.map((r) => ({ ...r, has_map: runHasMap(r, routeIds) }));
@@ -121,6 +123,7 @@ export const getContextData = createServerFn({ method: 'GET' }).handler(async ()
 
 export type CreateRunInput = {
 	date: string;
+	activity_type: string;
 	session: string;
 	effort: number | null;
 	shins: number | null;
@@ -159,6 +162,7 @@ export const createRun = createServerFn({ method: 'POST' })
 			date,
 			week,
 			day,
+			activity_type: normalizeActivityType(data.activity_type),
 			session,
 			effort: data.effort,
 			shins: data.shins,
@@ -184,9 +188,89 @@ export const createRun = createServerFn({ method: 'POST' })
 		return { slug: run.slug };
 	});
 
+export const importGpx = createServerFn({ method: 'POST' })
+	.validator((d: { xml: string; activityType?: string }) => d)
+	.handler(async ({ data }) => {
+		const parsed = parseGpx(data.xml);
+		if (!parsed.date) throw new Error('Could not read a date/time from that GPX file.');
+
+		const activity_type = normalizeActivityType(data.activityType || parsed.detectedType);
+		const day = dayFromIsoDate(parsed.date);
+		const week = weekNumberForDate(parsed.date);
+		const session = guessSession(day, parsed.distanceKm);
+
+		let route = '';
+		if (parsed.points.length >= 2) {
+			const id = crypto.randomUUID();
+			const geojson = {
+				type: 'Feature',
+				properties: {
+					date: parsed.date,
+					sport: activity_type,
+					distance_km: parsed.distanceKm,
+					point_count: parsed.points.length,
+					...(parsed.analytics ? analyticsToProperties(parsed.analytics) : {})
+				},
+				geometry: {
+					type: 'LineString',
+					coordinates: parsed.points.map((p) => [p.lng, p.lat])
+				}
+			};
+			await saveRouteGeoJson(id, geojson);
+			route = `/routes/${id}.json`;
+		}
+
+		const weather = await fetchWeatherForDateTime(
+			parsed.date,
+			parsed.startClock || null,
+			null,
+			null,
+			parsed.time || null
+		);
+
+		const run = await saveRun({
+			date: parsed.date,
+			week,
+			day,
+			activity_type,
+			session,
+			effort: null,
+			shins: null,
+			legs: null,
+			energy: null,
+			weather,
+			surface: '',
+			wanted_faster: null,
+			distance_km: parsed.distanceKm,
+			start_time: parsed.startClock,
+			time: parsed.time,
+			elapsed_time: parsed.elapsedTime,
+			avg_pace: parsed.avgPace,
+			avg_hr: parsed.avgHr,
+			max_hr: parsed.maxHr,
+			elev_gain: parsed.elevGain,
+			max_speed: parsed.maxSpeed,
+			cadence: null,
+			shoes: '',
+			summary_image: '',
+			splits_image: '',
+			strava_id: '',
+			route,
+			notes: 'Imported from GPX.'
+		});
+
+		return {
+			slug: run.slug,
+			activity_type,
+			distance_km: parsed.distanceKm,
+			has_route: Boolean(route)
+		};
+	});
+
 export type UpdateRunInput = {
 	slug: string;
 	date: string;
+	activity_type: string;
 	session: string;
 	effort: number | null;
 	shins: number | null;
@@ -219,6 +303,7 @@ export const updateRun = createServerFn({ method: 'POST' })
 			date,
 			week,
 			day,
+			activity_type: normalizeActivityType(data.activity_type),
 			session,
 			effort: data.effort,
 			shins: data.shins,

@@ -14,6 +14,15 @@ export function routeIdForRun(run: Pick<RunRecord, 'route' | 'strava_id'>): stri
 	return id || null;
 }
 
+/** Upsert a route's GeoJSON track by id. */
+export async function saveRouteGeoJson(id: string, geojson: unknown): Promise<void> {
+	const sql = getSql();
+	await sql`
+		INSERT INTO routes (id, geojson) VALUES (${id}, ${JSON.stringify(geojson)}::jsonb)
+		ON CONFLICT (id) DO UPDATE SET geojson = EXCLUDED.geojson
+	`;
+}
+
 /** Fetch the raw GeoJSON object for a route id, or null. */
 export async function getRouteGeoJson(id: string): Promise<unknown | null> {
 	if (!id) return null;

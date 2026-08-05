@@ -4,15 +4,13 @@ import type { DateRange, RangeKind } from '$lib/date-range';
 
 export type RangeSearch = { range?: RangeKind; from?: string; to?: string };
 
+/** Always returns all range keys (undefined clears them) so it can be merged over prior search. */
 export function rangeToSearch(kind: RangeKind, from?: string, to?: string): RangeSearch {
-	if (kind === 'all') return {};
 	if (kind === 'custom') {
-		const s: RangeSearch = { range: 'custom' };
-		if (from) s.from = from;
-		if (to) s.to = to;
-		return s;
+		return { range: 'custom', from: from || undefined, to: to || undefined };
 	}
-	return { range: kind };
+	if (kind === 'all') return { range: undefined, from: undefined, to: undefined };
+	return { range: kind, from: undefined, to: undefined };
 }
 
 const presets: { kind: RangeKind; label: string }[] = [
@@ -39,7 +37,13 @@ export function DateRangeFilter({ range, to }: { range: DateRange; to: string })
 
 	function applyCustom(e: React.FormEvent) {
 		e.preventDefault();
-		navigate({ to, search: rangeToSearch('custom', customFrom, customTo) });
+		navigate({
+			to,
+			search: (prev: Record<string, unknown>) => ({
+				...prev,
+				...rangeToSearch('custom', customFrom, customTo)
+			})
+		});
 	}
 
 	function openCustom() {
@@ -57,7 +61,7 @@ export function DateRangeFilter({ range, to }: { range: DateRange; to: string })
 					<Link
 						key={preset.kind}
 						to={to}
-						search={rangeToSearch(preset.kind)}
+						search={(prev: Record<string, unknown>) => ({ ...prev, ...rangeToSearch(preset.kind) })}
 						className={`range-chip${range.kind === preset.kind ? ' active' : ''}`}
 						aria-current={range.kind === preset.kind ? 'page' : undefined}
 					>

@@ -25,6 +25,7 @@ function rowToRun(row: Record<string, unknown>): RunRecord {
 		date: toStr(row.date),
 		week: toNum(row.week),
 		day: toStr(row.day),
+		activity_type: toStr(row.activity_type) || 'run',
 		session: toStr(row.session) || 'other',
 		effort: toNum(row.effort),
 		shins: toNum(row.shins),
@@ -61,19 +62,20 @@ async function upsertRun(r: RunColumns): Promise<RunRecord> {
 	const sql = getSql();
 	const rows = (await sql`
 		INSERT INTO runs (
-			slug, date, week, day, session, effort, shins, legs, energy, weather, surface,
+			slug, date, week, day, activity_type, session, effort, shins, legs, energy, weather, surface,
 			wanted_faster, distance_km, start_time, "time", elapsed_time, avg_pace, avg_hr, max_hr,
 			elev_gain, calories, kilojoules, max_speed, cadence, shoes, summary_image, splits_image,
 			strava_id, route, notes
 		) VALUES (
-			${r.slug}, ${r.date}, ${r.week}, ${r.day}, ${r.session}, ${r.effort}, ${r.shins},
+			${r.slug}, ${r.date}, ${r.week}, ${r.day}, ${r.activity_type}, ${r.session}, ${r.effort}, ${r.shins},
 			${r.legs}, ${r.energy}, ${r.weather}, ${r.surface}, ${r.wanted_faster}, ${r.distance_km},
 			${r.start_time}, ${r.time}, ${r.elapsed_time}, ${r.avg_pace}, ${r.avg_hr}, ${r.max_hr},
 			${r.elev_gain}, ${r.calories}, ${r.kilojoules}, ${r.max_speed}, ${r.cadence}, ${r.shoes},
 			${r.summary_image}, ${r.splits_image}, ${r.strava_id}, ${r.route}, ${r.notes}
 		)
 		ON CONFLICT (slug) DO UPDATE SET
-			date = EXCLUDED.date, week = EXCLUDED.week, day = EXCLUDED.day, session = EXCLUDED.session,
+			date = EXCLUDED.date, week = EXCLUDED.week, day = EXCLUDED.day,
+			activity_type = EXCLUDED.activity_type, session = EXCLUDED.session,
 			effort = EXCLUDED.effort, shins = EXCLUDED.shins, legs = EXCLUDED.legs, energy = EXCLUDED.energy,
 			weather = EXCLUDED.weather, surface = EXCLUDED.surface, wanted_faster = EXCLUDED.wanted_faster,
 			distance_km = EXCLUDED.distance_km, start_time = EXCLUDED.start_time, "time" = EXCLUDED."time",
@@ -114,6 +116,7 @@ export interface SaveRunInput {
 	date: string;
 	week: number | null;
 	day: string;
+	activity_type?: string;
 	session: string;
 	effort: number | null;
 	shins: number | null;
@@ -184,6 +187,7 @@ export async function saveRun(input: SaveRunInput): Promise<RunRecord> {
 		date: input.date,
 		week: input.week,
 		day: input.day,
+		activity_type: input.activity_type || 'run',
 		session: input.session,
 		effort: input.effort,
 		shins: input.shins,
@@ -251,6 +255,7 @@ export async function writeRun(run: RunRecord): Promise<RunRecord> {
 		date: run.date,
 		week: run.week,
 		day: run.day,
+		activity_type: run.activity_type || 'run',
 		session: run.session,
 		effort: run.effort,
 		shins: run.shins,
@@ -285,6 +290,7 @@ export type UpdateRunFields = {
 	date: string;
 	week: number | null;
 	day: string;
+	activity_type: string;
 	session: string;
 	effort: number | null;
 	shins: number | null;
@@ -330,6 +336,7 @@ export async function updateRun(slug: string, fields: UpdateRunFields): Promise<
 		date,
 		week: fields.week,
 		day,
+		activity_type: fields.activity_type || 'run',
 		session,
 		effort: fields.effort,
 		shins: fields.shins,

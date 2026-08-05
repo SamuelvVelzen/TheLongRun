@@ -3,6 +3,7 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { getLogDefaults, getWeather, createRun, type CreateRunInput } from '$lib/server/functions';
 import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
+import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
 
 export const Route = createFileRoute('/log')({
 	loader: () => getLogDefaults(),
@@ -20,6 +21,7 @@ function LogRun() {
 	const [weather, setWeather] = useState('');
 	const [weatherManual, setWeatherManual] = useState(false);
 	const [weatherHint, setWeatherHint] = useState('');
+	const [activityType, setActivityType] = useState('run');
 	const [message, setMessage] = useState('');
 
 	const derivedDay = dayFromIsoDate(dateValue || todayIso);
@@ -68,6 +70,7 @@ function LogRun() {
 		const wanted = String(fd.get('wanted_faster') ?? '');
 		const input: CreateRunInput = {
 			date: dateValue,
+			activity_type: activityType,
 			session: String(fd.get('session') ?? ''),
 			effort: num('effort'),
 			shins: num('shins'),
@@ -137,6 +140,16 @@ function LogRun() {
 							{derivedDay}
 							{derivedWeek != null && ` · week ${derivedWeek}`}
 						</span>
+					</label>
+					<label className="field">
+						<span className="req">Activity</span>
+						<select value={activityType} onChange={(e) => setActivityType(e.target.value)}>
+							{ACTIVITY_TYPES.map((t) => (
+								<option key={t} value={t}>
+									{activityLabel(t)}
+								</option>
+							))}
+						</select>
 					</label>
 					<label className="field">
 						<span className="req">Session</span>

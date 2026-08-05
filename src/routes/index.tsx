@@ -8,17 +8,23 @@ import {
 } from '$lib/date-range';
 import { buildDashboardStats, type DashboardStats } from '$lib/plan';
 import { buildTrainingTrends } from '$lib/trends';
+import { metricText, normalizeActivityType } from '$lib/activity';
 import { DateRangeFilter, rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
+import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 import { RoutesHeatmap } from '../components/RoutesHeatmap';
 
+type DashSearch = RangeSearch & { sport?: string };
+const SPORTS = ['all', 'run', 'walk', 'ride', 'swim'];
+
 export const Route = createFileRoute('/')({
-	validateSearch: (s: Record<string, unknown>): RangeSearch => ({
+	validateSearch: (s: Record<string, unknown>): DashSearch => ({
 		range: (['7d', '30d', 'all', 'custom'] as const).includes(s.range as RangeKind)
 			? (s.range as RangeKind)
 			: undefined,
 		from: typeof s.from === 'string' ? s.from : undefined,
-		to: typeof s.to === 'string' ? s.to : undefined
+		to: typeof s.to === 'string' ? s.to : undefined,
+		sport: SPORTS.includes(s.sport as string) ? (s.sport as string) : undefined
 	}),
 	loader: () => getDashboardData(),
 	component: Dashboard
@@ -46,11 +52,19 @@ function Dashboard() {
 	if (search.from) sp.set('from', search.from);
 	if (search.to) sp.set('to', search.to);
 	const range = parseDateRange(sp);
+	const sport = search.sport ?? 'run';
 
 	const allRuns = data.runs;
-	const runs = filterRunsByRange(allRuns, range);
+	const scoped =
+		sport === 'all'
+			? allRuns
+			: allRuns.filter((r) => normalizeActivityType(r.activity_type) === sport);
+	const runs = filterRunsByRange(scoped, range);
 	const trackIds = routeIdsForRuns(runs);
-	const tracks = range.kind === 'all' ? data.tracks : data.tracks.filter((t) => trackIds.has(t.id));
+	const tracks =
+		range.kind === 'all' && sport === 'all'
+			? data.tracks
+			: data.tracks.filter((t) => trackIds.has(t.id));
 	const recent = runs.slice(0, 8);
 
 	const raceDate = new Date(`${data.goals.race_date}T00:00:00`);
@@ -87,6 +101,7 @@ function Dashboard() {
 				</div>
 			</section>
 
+			<SportFilter sport={sport} to="/" />
 			<DateRangeFilter range={range} to="/" />
 
 			{filteredEmpty ? (
@@ -277,7 +292,7 @@ function Dashboard() {
 										</div>
 									</div>
 									<div>
-										{run.distance_km ?? '—'} km · {run.avg_pace || '—'}/km
+										{run.distance_km ?? '—'} km · {metricText(run)}
 									</div>
 									<div>
 										{run.avg_hr != null ? (

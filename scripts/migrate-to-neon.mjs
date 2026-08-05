@@ -69,6 +69,7 @@ async function createSchema() {
 			date text NOT NULL,
 			week integer,
 			day text NOT NULL DEFAULT '',
+			activity_type text NOT NULL DEFAULT 'run',
 			session text NOT NULL DEFAULT 'other',
 			effort integer, shins integer, legs integer, energy integer,
 			weather text NOT NULL DEFAULT '',
@@ -93,6 +94,8 @@ async function createSchema() {
 			notes text NOT NULL DEFAULT ''
 		)
 	`;
+	// Additive columns for already-migrated databases (idempotent).
+	await sql`ALTER TABLE runs ADD COLUMN IF NOT EXISTS activity_type text NOT NULL DEFAULT 'run'`;
 	await sql`CREATE INDEX IF NOT EXISTS runs_date_idx ON runs (date DESC)`;
 	await sql`CREATE INDEX IF NOT EXISTS runs_strava_id_idx ON runs (strava_id)`;
 	await sql`CREATE TABLE IF NOT EXISTS routes (id text PRIMARY KEY, geojson jsonb NOT NULL)`;
@@ -102,19 +105,20 @@ async function createSchema() {
 async function upsertRun(r) {
 	await sql`
 		INSERT INTO runs (
-			slug, date, week, day, session, effort, shins, legs, energy, weather, surface,
+			slug, date, week, day, activity_type, session, effort, shins, legs, energy, weather, surface,
 			wanted_faster, distance_km, start_time, "time", elapsed_time, avg_pace, avg_hr, max_hr,
 			elev_gain, calories, kilojoules, max_speed, cadence, shoes, summary_image, splits_image,
 			strava_id, route, notes
 		) VALUES (
-			${r.slug}, ${r.date}, ${r.week}, ${r.day}, ${r.session}, ${r.effort}, ${r.shins},
+			${r.slug}, ${r.date}, ${r.week}, ${r.day}, ${r.activity_type}, ${r.session}, ${r.effort}, ${r.shins},
 			${r.legs}, ${r.energy}, ${r.weather}, ${r.surface}, ${r.wanted_faster}, ${r.distance_km},
 			${r.start_time}, ${r.time}, ${r.elapsed_time}, ${r.avg_pace}, ${r.avg_hr}, ${r.max_hr},
 			${r.elev_gain}, ${r.calories}, ${r.kilojoules}, ${r.max_speed}, ${r.cadence}, ${r.shoes},
 			${r.summary_image}, ${r.splits_image}, ${r.strava_id}, ${r.route}, ${r.notes}
 		)
 		ON CONFLICT (slug) DO UPDATE SET
-			date = EXCLUDED.date, week = EXCLUDED.week, day = EXCLUDED.day, session = EXCLUDED.session,
+			date = EXCLUDED.date, week = EXCLUDED.week, day = EXCLUDED.day,
+			activity_type = EXCLUDED.activity_type, session = EXCLUDED.session,
 			effort = EXCLUDED.effort, shins = EXCLUDED.shins, legs = EXCLUDED.legs, energy = EXCLUDED.energy,
 			weather = EXCLUDED.weather, surface = EXCLUDED.surface, wanted_faster = EXCLUDED.wanted_faster,
 			distance_km = EXCLUDED.distance_km, start_time = EXCLUDED.start_time, "time" = EXCLUDED."time",
@@ -138,6 +142,7 @@ async function migrateRuns() {
 			date: toIsoDate(data.date),
 			week: toNum(data.week),
 			day: str(data.day),
+			activity_type: str(data.activity_type) || 'run',
 			session: str(data.session) || 'other',
 			effort: toNum(data.effort),
 			shins: toNum(data.shins),

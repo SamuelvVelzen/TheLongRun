@@ -7,6 +7,7 @@ import {
 	type RangeKind
 } from '$lib/date-range';
 import { buildTrainingTrends } from '$lib/trends';
+import { activityLabel, metricText } from '$lib/activity';
 import type { RunWithMap } from '$lib/types';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
 import { TrendsSection } from '../components/TrendsSection';
@@ -161,13 +162,14 @@ function Timeline() {
 															</span>
 														)}
 													</strong>
+													<span className="tag">{activityLabel(run.activity_type)}</span>
 													<span className="tag">{run.day}</span>
 													<span className="tag accent">{run.session}</span>
 													{run.week != null && <span className="tag">W{run.week}</span>}
 												</div>
 												<div className="timeline-metrics">
 													<span>{run.distance_km ?? '—'} km</span>
-													<span>{run.avg_pace || '—'}/km</span>
+													<span>{metricText(run)}</span>
 													{run.start_time && <span>start {run.start_time}</span>}
 													{run.time && <span>{run.time}</span>}
 													{run.avg_hr != null && (

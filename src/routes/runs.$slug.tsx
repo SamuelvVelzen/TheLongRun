@@ -3,6 +3,7 @@ import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-rout
 import { getRunDetail, updateRun, deleteRun, type UpdateRunInput } from '$lib/server/functions';
 import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
+import { ACTIVITY_TYPES, activityLabel, headlineMetric } from '$lib/activity';
 import { RouteMap } from '../components/RouteMap';
 import { SplitsPanel } from '../components/SplitsPanel';
 
@@ -43,6 +44,9 @@ function RunDetail() {
 			: null;
 	const wantedValue = r.wanted_faster === true ? 'Y' : r.wanted_faster === false ? 'N' : '';
 	const routeId = r.route ? routeIdFrom(r.route, r.strava_id) : '';
+	const metric = headlineMetric(r);
+	const metricSub =
+		metric.unit === 'km/h' ? 'avg km/h' : metric.unit === '/100m' ? 'pace /100m' : 'pace /km';
 
 	function startEditing() {
 		setEditDate(r.date);
@@ -69,6 +73,7 @@ function RunDetail() {
 		const input: UpdateRunInput = {
 			slug: r.slug,
 			date: editDate,
+			activity_type: String(fd.get('activity_type') ?? 'run'),
 			session: String(fd.get('session') ?? ''),
 			effort: num('effort'),
 			shins: num('shins'),
@@ -106,7 +111,7 @@ function RunDetail() {
 			<section className="hero">
 				<div>
 					<p className="muted">
-						{r.day} · {r.session}
+						{activityLabel(r.activity_type)} · {r.day} · {r.session}
 						{r.week != null && ` · week ${r.week}`}
 						{r.start_time && ` · started ${r.start_time}`}
 					</p>
@@ -189,6 +194,16 @@ function RunDetail() {
 								{derivedDay}
 								{derivedWeek != null && ` · week ${derivedWeek}`}
 							</span>
+						</label>
+						<label className="field">
+							<span className="req">Activity</span>
+							<select name="activity_type" defaultValue={r.activity_type || 'run'}>
+								{ACTIVITY_TYPES.map((t) => (
+									<option key={t} value={t}>
+										{activityLabel(t)}
+									</option>
+								))}
+							</select>
 						</label>
 						<label className="field">
 							<span className="req">Session</span>
@@ -302,8 +317,8 @@ function RunDetail() {
 							<span>km</span>
 						</div>
 						<div className="metric metric-emph">
-							<b>{r.avg_pace || '—'}</b>
-							<span>pace /km</span>
+							<b>{metric.value}</b>
+							<span>{metricSub}</span>
 						</div>
 						<div className="metric metric-emph">
 							<b>{r.time || '—'}</b>

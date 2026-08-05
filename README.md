@@ -9,6 +9,11 @@ Personal run tracker. **React + TanStack Start**, **Neon Postgres**, deployed to
 - **Cloudflare Workers** via `@cloudflare/vite-plugin` + Wrangler
 - Maps: Leaflet (loaded from CDN); charts/sparklines are hand-rolled SVG
 
+Activities are typed (**run / walk / ride / swim**) with sport-appropriate headline metrics
+(pace/km, km/h, /100m). Add them via the **Log run** form or **Import GPX** (parses the track and
+computes distance / pace / HR / elevation / per-km splits). The dashboard has a sport toggle
+(defaults to running). Automatic **Strava sync** is the planned next step.
+
 No filesystem at runtime — runs, GeoJSON route tracks, and context docs are all Postgres tables.
 
 ## Quick start (local)
@@ -53,9 +58,8 @@ Route `loader`s call **server functions** (`src/lib/server/functions.ts`), which
 the server and query Neon. Mutations (create / update / delete run, save context) are POST server
 functions called from the components, followed by `router.invalidate()`.
 
-`DATABASE_URL` is read via `process.env` **inside** each server-function handler (Cloudflare
-injects env per-request). Adding runs is currently the manual **Log run** form; automatic **Strava
-sync** is the planned next step.
+`DATABASE_URL` is read from the `cloudflare:workers` env binding (falling back to `process.env`)
+**inside** each server-function handler. Add activities via the **Log run** form or **Import GPX**.
 
 ## Deploy → `longrun.vanvelzen.dev`
 

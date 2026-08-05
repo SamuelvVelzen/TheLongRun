@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import type { DateRange, RangeKind } from '$lib/date-range';
 
 export type RangeSearch = { range?: RangeKind; from?: string; to?: string };
@@ -58,15 +58,23 @@ export function DateRangeFilter({ range, to }: { range: DateRange; to: string })
 		<div className="range-filter" role="group" aria-label="Date range">
 			<div className="range-presets">
 				{presets.map((preset) => (
-					<Link
+					<button
 						key={preset.kind}
-						to={to}
-						search={(prev: Record<string, unknown>) => ({ ...prev, ...rangeToSearch(preset.kind) })}
+						type="button"
 						className={`range-chip${range.kind === preset.kind ? ' active' : ''}`}
-						aria-current={range.kind === preset.kind ? 'page' : undefined}
+						aria-pressed={range.kind === preset.kind}
+						onClick={() =>
+							navigate({
+								to,
+								search: (prev: Record<string, unknown>) => ({
+									...prev,
+									...rangeToSearch(preset.kind)
+								})
+							})
+						}
 					>
 						{preset.label}
-					</Link>
+					</button>
 				))}
 				<button
 					type="button"

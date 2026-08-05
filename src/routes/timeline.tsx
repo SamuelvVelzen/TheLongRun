@@ -70,6 +70,7 @@ function Timeline() {
 	if (search.to) sp.set('to', search.to);
 	const range = parseDateRange(sp);
 	const sport = search.sport ?? 'all';
+	const availableSports = new Set(allRuns.map((r) => normalizeActivityType(r.activity_type)));
 
 	const scoped =
 		sport === 'all'
@@ -115,7 +116,7 @@ function Timeline() {
 			</section>
 
 			<div className="filter-bar">
-				<SportFilter sport={sport} to="/timeline" defaultSport="all" />
+				<SportFilter sport={sport} to="/timeline" defaultSport="all" available={availableSports} />
 				<DateRangeFilter range={range} to="/timeline" />
 			</div>
 

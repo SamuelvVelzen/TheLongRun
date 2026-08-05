@@ -55,6 +55,7 @@ function Dashboard() {
 	const sport = search.sport ?? 'run';
 
 	const allRuns = data.runs;
+	const availableSports = new Set(allRuns.map((r) => normalizeActivityType(r.activity_type)));
 	const scoped =
 		sport === 'all'
 			? allRuns
@@ -102,7 +103,7 @@ function Dashboard() {
 			</section>
 
 			<div className="filter-bar">
-				<SportFilter sport={sport} to="/" />
+				<SportFilter sport={sport} to="/" available={availableSports} />
 				<DateRangeFilter range={range} to="/" />
 			</div>
 

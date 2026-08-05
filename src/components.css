@@ -497,6 +497,23 @@
 	background: linear-gradient(90deg, rgb(125, 255, 168), rgb(232, 212, 90), rgb(255, 91, 91));
 }
 
+/* ---------- Coach brief preview ---------- */
+.coach-preview {
+	margin: 0;
+	max-height: 60vh;
+	overflow: auto;
+	white-space: pre-wrap;
+	word-break: break-word;
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 0.82rem;
+	line-height: 1.5;
+	color: var(--muted);
+	background: rgba(0, 0, 0, 0.22);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	padding: 0.85rem 1rem;
+}
+
 /* ---------- Log form sections ---------- */
 .form-section {
 	margin-top: 1.35rem;

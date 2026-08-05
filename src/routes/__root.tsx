@@ -20,7 +20,8 @@ const links = [
 	{ href: '/timeline', label: 'Timeline' },
 	{ href: '/log', label: 'Log activity' },
 	{ href: '/import', label: 'Import' },
-	{ href: '/context', label: 'Context' }
+	{ href: '/context', label: 'Context' },
+	{ href: '/coach', label: 'Coach' }
 ] as const;
 
 function RootComponent() {

@@ -4,7 +4,7 @@ import type { Goals, PlanWeek, RouteTrack, RunRecord, RunWithMap } from '$lib/ty
 import { analyticsToProperties, type RouteAnalytics } from '$lib/splits';
 import { dayFromIsoDate, guessSession, normalizeStartTime } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
-import { normalizeActivityType } from '$lib/activity';
+import { activityLabel, metricText, normalizeActivityType } from '$lib/activity';
 import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import {
 	deleteRun as dbDeleteRun,
@@ -18,7 +18,14 @@ import {
 } from './runs';
 import { listRouteTracks } from './routes';
 import { getRouteGeoJson, loadRouteAnalytics, saveRouteGeoJson } from './route-analytics';
-import { currentPlanWeek, loadGoals, loadShoes, readContextFile, writeContextFile } from './context';
+import {
+	currentPlanWeek,
+	loadGoals,
+	loadPlan,
+	loadShoes,
+	readContextFile,
+	writeContextFile
+} from './context';
 import { fetchWeatherForDateTime } from './weather';
 import { parseGpx } from './gpx';
 
@@ -118,6 +125,121 @@ export const getContextData = createServerFn({ method: 'GET' }).handler(async ()
 	const allContext = files.map((f) => `# ===== ${f.name} =====\n\n${f.body.trim()}`).join('\n\n');
 	return { shoes, files, allContext };
 });
+
+export const getCoachBrief = createServerFn({ method: 'GET' })
+	.validator((weeks: number) => (Number.isFinite(weeks) && weeks > 0 ? Math.floor(weeks) : 10))
+	.handler(async ({ data: weeks }) => {
+		const [allRuns, goals, plan, shoes, profile, injury, gear, raceStrategy] = await Promise.all([
+			listRuns(),
+			loadGoals(),
+			loadPlan(),
+			loadShoes(),
+			readContextFile('profile.md'),
+			readContextFile('injury.md'),
+			readContextFile('gear.md'),
+			readContextFile('race-strategy.md')
+		]);
+
+		const today = new Date();
+		const cutoff = new Date(today);
+		cutoff.setDate(cutoff.getDate() - weeks * 7);
+		const cutoffIso = cutoff.toISOString().slice(0, 10);
+		const windowRuns = allRuns
+			.filter((r) => r.date >= cutoffIso)
+			.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+		const raceDate = new Date(`${goals.race_date}T00:00:00`);
+		const weeksToRace = Number.isNaN(raceDate.getTime())
+			? null
+			: Math.max(0, Math.ceil((raceDate.getTime() - today.getTime()) / (7 * 86_400_000)));
+
+		const mondayOf = (iso: string) => {
+			const d = new Date(`${iso}T12:00:00`);
+			const off = (d.getDay() + 6) % 7;
+			d.setDate(d.getDate() - off);
+			return d.toISOString().slice(0, 10);
+		};
+		const weekMap = new Map<string, { runKm: number; runs: number; other: number }>();
+		for (const r of windowRuns) {
+			const wk = mondayOf(r.date);
+			const e = weekMap.get(wk) ?? { runKm: 0, runs: 0, other: 0 };
+			if (normalizeActivityType(r.activity_type) === 'run') {
+				e.runKm += r.distance_km ?? 0;
+				e.runs++;
+			} else {
+				e.other++;
+			}
+			weekMap.set(wk, e);
+		}
+		const weekLines =
+			[...weekMap.entries()]
+				.sort((a, b) => (a[0] < b[0] ? -1 : 1))
+				.map(
+					([wk, e]) =>
+						`- Week of ${wk}: ${e.runs} runs (${Math.round(e.runKm * 10) / 10} km run)${
+							e.other ? `, ${e.other} cross-training` : ''
+						}`
+				)
+				.join('\n') || '- (no activities in window)';
+
+		const rows =
+			windowRuns
+				.map((r) => {
+					const feel = [r.effort, r.shins, r.legs, r.energy]
+						.map((v) => (v == null ? '–' : v))
+						.join('/');
+					const notes = (r.notes || '')
+						.replace(/\s+/g, ' ')
+						.replace(/\|/g, '/')
+						.trim()
+						.slice(0, 140);
+					return `| ${r.date} | ${activityLabel(r.activity_type)} | ${r.distance_km ?? '–'} | ${metricText(r)} | ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} | ${feel} | ${notes} |`;
+				})
+				.join('\n') || '| – | – | – | – | – | – | – |';
+
+		return `# The Long Run — training context
+
+## Coaching brief
+You are my running coach. I'm training toward **${goals.race_name}** (${goals.race_distance_km} km) on **${goals.race_date}**${
+			weeksToRace != null ? ` — about **${weeksToRace} weeks** away` : ''
+		}. My run days are Tuesday / Friday / Sunday, and I cross-train by bike and walk. Below is my plan, my recent training with how each session felt (effort / shins / legs / energy, each 0–10), my weekly running volume, and my constraints.
+
+Please assess how my training is going and give me a concrete plan for **next week** — specific Tuesday / Friday / Sunday sessions with distance and intent — adjusted for how I've been recovering and laddering toward the race. Flag any red flags (injury risk, overtraining, under-recovery).
+
+## Goal
+- Race: ${goals.race_name} — ${goals.race_distance_km} km on ${goals.race_date}${weeksToRace != null ? ` (~${weeksToRace} weeks to go)` : ''}
+- Time goal: ${goals.time_goal || '—'}
+${(goals.primary ?? []).map((p) => `- Priority: ${p}`).join('\n')}
+${goals.notes ? `\n${goals.notes}\n` : ''}
+## Weekly running volume (last ${weeks} weeks)
+${weekLines}
+
+## Activity log (last ${weeks} weeks, oldest first)
+Feel = effort/shins/legs/energy (0–10, – = not recorded).
+
+| Date | Type | km | pace/speed | HR avg/max | Feel | Notes |
+|------|------|----|-----------|-----------|------|-------|
+${rows}
+
+## Training plan
+${plan.length ? '```json\n' + JSON.stringify(plan, null, 2) + '\n```' : '(no plan set)'}
+
+## Shoes
+- Active: ${shoes.active || '—'}${shoes.rotation?.length ? `\n- Rotation: ${shoes.rotation.join(', ')}` : ''}${shoes.notes ? `\n\n${shoes.notes}` : ''}
+
+## Runner profile
+${profile.trim() || '(none)'}
+
+## Injury rules
+${injury.trim() || '(none)'}
+
+## Gear & fueling
+${gear.trim() || '(none)'}
+
+## Race strategy
+${raceStrategy.trim() || '(none)'}
+`;
+	});
 
 // ---------- mutations ----------
 

@@ -2,7 +2,13 @@ import { createServerFn } from '@tanstack/react-start';
 import matter from 'gray-matter';
 import type { Goals, PlanWeek, RouteTrack, RunRecord, RunWithMap } from '$lib/types';
 import { analyticsToProperties, type RouteAnalytics } from '$lib/splits';
-import { dayFromIsoDate, guessSession, normalizeStartTime } from '$lib/format';
+import {
+	dayFromIsoDate,
+	formatDuration,
+	guessSession,
+	normalizeStartTime,
+	parseDurationSeconds
+} from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
 import { activityLabel, metricText, normalizeActivityType } from '$lib/activity';
 import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
@@ -171,6 +177,32 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		const nextWeek = Math.min(8, curWeek + 1);
 		const todayIso = today.toISOString().slice(0, 10);
 
+		// All-time summary (computed from every activity, so derived facts stay current).
+		const byType = { run: 0, ride: 0, walk: 0, swim: 0 } as Record<string, number>;
+		for (const r of allRuns) byType[normalizeActivityType(r.activity_type)]++;
+		const runsAll = allRuns.filter((r) => normalizeActivityType(r.activity_type) === 'run');
+		const totalRunKm = Math.round(runsAll.reduce((a, r) => a + (r.distance_km ?? 0), 0));
+		const longest = runsAll.reduce<RunRecord | null>(
+			(best, r) => ((r.distance_km ?? 0) > (best?.distance_km ?? 0) ? r : best),
+			null
+		);
+		const paceSecs = runsAll
+			.map((r) => parseDurationSeconds(r.avg_pace))
+			.filter((n): n is number => n != null && n > 0 && n < 20 * 60);
+		const avgRunPace = paceSecs.length
+			? formatDuration(Math.round(paceSecs.reduce((a, b) => a + b, 0) / paceSecs.length))
+			: '—';
+		const firstDate = allRuns.length
+			? allRuns.reduce((min, r) => (r.date < min ? r.date : min), allRuns[0]!.date)
+			: '—';
+		const shinRuns = runsAll
+			.filter((r) => r.shins != null)
+			.sort((a, b) => (a.date < b.date ? 1 : -1));
+		const avg = (arr: number[]) =>
+			arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : null;
+		const shinsRecent = avg(shinRuns.slice(0, 4).map((r) => r.shins!));
+		const shinsPrior = avg(shinRuns.slice(4, 8).map((r) => r.shins!));
+
 		const mondayOf = (iso: string) => {
 			const d = new Date(`${iso}T12:00:00`);
 			const off = (d.getDay() + 6) % 7;
@@ -234,6 +266,12 @@ ${goals.notes ? `\n${goals.notes}\n` : ''}
 - Plan block: Monday–Sunday, 8 weeks, from 2026-08-03 to race day ${goals.race_date}.
 - Current week: **week ${curWeek}** (${weekRange(curWeek)}).
 - The week to plan is **week ${nextWeek}** (${weekRange(nextWeek)}). In the JSON you return, set exactly \`"week": ${nextWeek}\` and \`"dates": "${weekRange(nextWeek)}"\`.
+
+## All-time summary (auto-computed from all logged activities — current, not hand-maintained)
+- Logged since ${firstDate}: ${byType.run} runs, ${byType.ride} rides, ${byType.walk} walks${byType.swim ? `, ${byType.swim} swims` : ''}.
+- Running: ${totalRunKm} km total across ${runsAll.length} runs; typical pace ~${avgRunPace}/km.
+- Longest run: ${longest ? `${longest.distance_km} km (${longest.avg_pace || '—'}/km) on ${longest.date}` : '—'}.
+- Shin trend (0–10, lower = better): last 4 runs avg ${shinsRecent ?? '—'} vs prior 4 ${shinsPrior ?? '—'}.
 
 ## Weekly running volume (last ${weeks} weeks)
 ${weekLines}

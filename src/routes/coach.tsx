@@ -20,7 +20,7 @@ export const Route = createFileRoute('/coach')({
 		const n = Number(s.weeks);
 		return { weeks: Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined };
 	},
-	loaderDeps: ({ search }) => ({ weeks: search.weeks ?? 8 }),
+	loaderDeps: ({ search }) => ({ weeks: search.weeks ?? 12 }),
 	loader: ({ deps }) => getCoachBrief({ data: deps.weeks }),
 	component: Coach
 });
@@ -30,7 +30,7 @@ function Coach() {
 	const search = Route.useSearch();
 	const navigate = useNavigate();
 	const router = useRouter();
-	const weeks = search.weeks ?? 8;
+	const weeks = search.weeks ?? 12;
 
 	const [question, setQuestion] = useState('');
 	const [copied, setCopied] = useState(false);

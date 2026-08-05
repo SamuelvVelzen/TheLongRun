@@ -238,6 +238,23 @@ ${gear.trim() || '(none)'}
 
 ## Race strategy
 ${raceStrategy.trim() || '(none)'}
+
+## When you reply
+Give your assessment and next week's sessions in prose. Then, so I can save it straight back into my app, also output **next week as one JSON object** in exactly this shape (real values, same keys):
+
+\`\`\`json
+{
+  "week": <next week number>,
+  "dates": "04 Aug–10 Aug 2026",
+  "phase": "base | build | peak | taper",
+  "focus": "one-line focus for the week",
+  "sessions": [
+    { "day": "Tuesday", "label": "Easy", "distance_km": 6, "detail": "how + why" },
+    { "day": "Friday", "label": "Tempo", "distance_km": 8, "detail": "how + why" },
+    { "day": "Sunday", "label": "Long", "distance_km": 14, "detail": "how + why" }
+  ]
+}
+\`\`\`
 `;
 	});
 
@@ -453,6 +470,32 @@ export const deleteRun = createServerFn({ method: 'POST' })
 	.validator((slug: string) => slug)
 	.handler(async ({ data: slug }) => {
 		return dbDeleteRun(slug);
+	});
+
+/** Merge AI-returned plan week(s) into plan.json (replace by week number, keep the rest). */
+export const savePlanWeeks = createServerFn({ method: 'POST' })
+	.validator((jsonText: string) => jsonText)
+	.handler(async ({ data: jsonText }) => {
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(jsonText);
+		} catch {
+			throw new Error('That is not valid JSON — paste just the JSON block your AI returned.');
+		}
+		const incoming = (Array.isArray(parsed) ? parsed : [parsed]).filter(
+			(w): w is PlanWeek => Boolean(w) && typeof w === 'object'
+		);
+		if (!incoming.length) throw new Error('No plan week found in that JSON.');
+		for (const w of incoming) {
+			if (typeof w.week !== 'number') throw new Error('Each week needs a numeric "week".');
+			if (!Array.isArray(w.sessions)) throw new Error(`Week ${w.week} has no "sessions" array.`);
+		}
+		const current = await loadPlan();
+		const byWeek = new Map<number, PlanWeek>(current.map((w) => [w.week, w]));
+		for (const w of incoming) byWeek.set(w.week, w);
+		const merged = [...byWeek.values()].sort((a, b) => a.week - b.week);
+		await writeContextFile('plan.json', `${JSON.stringify(merged, null, 2)}\n`);
+		return { weeks: merged.length, updated: incoming.map((w) => w.week) };
 	});
 
 export const saveShoes = createServerFn({ method: 'POST' })

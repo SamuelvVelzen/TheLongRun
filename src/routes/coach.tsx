@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { getCoachBrief } from '$lib/server/functions';
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router';
+import { getCoachBrief, savePlanWeeks } from '$lib/server/functions';
 
 type CoachSearch = { weeks?: number };
 
@@ -29,10 +29,25 @@ function Coach() {
 	const brief = Route.useLoaderData();
 	const search = Route.useSearch();
 	const navigate = useNavigate();
+	const router = useRouter();
 	const weeks = search.weeks ?? 8;
 
 	const [question, setQuestion] = useState('');
 	const [copied, setCopied] = useState(false);
+	const [planJson, setPlanJson] = useState('');
+	const [planMsg, setPlanMsg] = useState('');
+
+	async function savePlan() {
+		setPlanMsg('Saving…');
+		try {
+			const res = await savePlanWeeks({ data: planJson });
+			setPlanMsg(`Saved — plan now has ${res.weeks} weeks (updated week ${res.updated.join(', ')}).`);
+			setPlanJson('');
+			router.invalidate();
+		} catch (e) {
+			setPlanMsg(e instanceof Error ? e.message : 'Could not save plan.');
+		}
+	}
 
 	const fullDoc = `${brief}\n## My question\n${question.trim() || DEFAULT_QUESTION}\n`;
 
@@ -111,6 +126,34 @@ function Coach() {
 			<div className="panel">
 				<h3 style={{ marginBottom: '0.6rem' }}>Preview</h3>
 				<pre className="coach-preview">{fullDoc}</pre>
+			</div>
+
+			<div className="panel form" style={{ marginTop: '1rem' }}>
+				<h3>Save next week's plan</h3>
+				<p className="muted" style={{ marginTop: '0.3rem' }}>
+					Paste the JSON block your AI returned — it's merged into your plan (by week number) and
+					shows up in Context and the next brief.
+				</p>
+				{planMsg && <div className="flash">{planMsg}</div>}
+				<label className="field">
+					<textarea
+						className="editor"
+						rows={8}
+						placeholder='{ "week": 2, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'
+						value={planJson}
+						onChange={(e) => setPlanJson(e.target.value)}
+					/>
+				</label>
+				<div className="actions">
+					<button
+						className="btn btn-primary"
+						type="button"
+						onClick={savePlan}
+						disabled={!planJson.trim()}
+					>
+						Add to plan
+					</button>
+				</div>
 			</div>
 		</>
 	);

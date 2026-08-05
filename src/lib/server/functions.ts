@@ -12,6 +12,7 @@ import {
 import { weekNumberForDate } from '$lib/plan';
 import { activityLabel, metricText, normalizeActivityType } from '$lib/activity';
 import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
+import { parseStrengthNotes, strengthSummary } from '$lib/strength';
 import {
 	deleteRun as dbDeleteRun,
 	getRun,
@@ -238,11 +239,17 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 					const feel = [r.effort, r.shins, r.legs, r.energy]
 						.map((v) => (v == null ? '–' : v))
 						.join('/');
-					const notes = (r.notes || '')
+					const isStrength = normalizeActivityType(r.activity_type) === 'strength';
+					let notesText = r.notes || '';
+					if (isStrength) {
+						const p = parseStrengthNotes(r.notes);
+						notesText = [strengthSummary(p.exercises), p.extra].filter(Boolean).join(' — ');
+					}
+					const notes = notesText
 						.replace(/\s+/g, ' ')
 						.replace(/\|/g, '/')
 						.trim()
-						.slice(0, 140);
+						.slice(0, isStrength ? 400 : 140);
 					return `| ${r.date} | ${activityLabel(r.activity_type)} | ${r.distance_km ?? '–'} | ${metricText(r)} | ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} | ${feel} | ${notes} |`;
 				})
 				.join('\n') || '| – | – | – | – | – | – | – |';

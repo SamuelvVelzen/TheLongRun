@@ -4,6 +4,7 @@ import { getLogDefaults, getWeather, createRun, type CreateRunInput } from '$lib
 import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
 import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
+import { StrengthEditor } from '../components/StrengthEditor';
 
 export const Route = createFileRoute('/log')({
 	loader: () => getLogDefaults(),
@@ -22,6 +23,7 @@ function LogRun() {
 	const [weatherManual, setWeatherManual] = useState(false);
 	const [weatherHint, setWeatherHint] = useState('');
 	const [activityType, setActivityType] = useState('run');
+	const [strengthNotes, setStrengthNotes] = useState('');
 	const [message, setMessage] = useState('');
 
 	const derivedDay = dayFromIsoDate(dateValue || todayIso);
@@ -88,7 +90,7 @@ function LogRun() {
 			elev_gain: num('elev_gain'),
 			cadence: num('cadence'),
 			shoes: String(fd.get('shoes') ?? ''),
-			notes: String(fd.get('notes') ?? '')
+			notes: activityType === 'strength' ? strengthNotes : String(fd.get('notes') ?? '')
 		};
 		try {
 			const res = await createRun({ data: input });
@@ -272,10 +274,17 @@ function LogRun() {
 							<input name="shoes" defaultValue={data.shoes.active} />
 						</label>
 					</div>
-					<label className="field" style={{ marginTop: '0.85rem' }}>
-						<span>Notes</span>
-						<textarea name="notes" placeholder="How it felt, route, heat, fatigue…"></textarea>
-					</label>
+					{activityType === 'strength' ? (
+						<div className="field" style={{ marginTop: '0.85rem' }}>
+							<span>Sets</span>
+							<StrengthEditor initial={strengthNotes} onChange={setStrengthNotes} />
+						</div>
+					) : (
+						<label className="field" style={{ marginTop: '0.85rem' }}>
+							<span>Notes</span>
+							<textarea name="notes" placeholder="How it felt, route, heat, fatigue…"></textarea>
+						</label>
+					)}
 				</div>
 
 				<div className="actions">

@@ -3,9 +3,11 @@ import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-rout
 import { getRunDetail, updateRun, deleteRun, type UpdateRunInput } from '$lib/server/functions';
 import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
-import { ACTIVITY_TYPES, activityLabel, headlineMetric } from '$lib/activity';
+import { ACTIVITY_TYPES, activityLabel, headlineMetric, normalizeActivityType } from '$lib/activity';
+import { parseStrengthNotes, topSet, exerciseVolume } from '$lib/strength';
 import { RouteMap } from '../components/RouteMap';
 import { SplitsPanel } from '../components/SplitsPanel';
+import { StrengthEditor } from '../components/StrengthEditor';
 
 export const Route = createFileRoute('/runs/$slug')({
 	loader: async ({ params }) => {
@@ -33,6 +35,8 @@ function RunDetail() {
 
 	const [editing, setEditing] = useState(false);
 	const [editDate, setEditDate] = useState(r.date);
+	const [editActivity, setEditActivity] = useState(r.activity_type || 'run');
+	const [editNotes, setEditNotes] = useState(r.notes);
 	const [message, setMessage] = useState('');
 
 	const derivedDay = dayFromIsoDate(editDate || r.date);
@@ -44,6 +48,8 @@ function RunDetail() {
 			: null;
 	const wantedValue = r.wanted_faster === true ? 'Y' : r.wanted_faster === false ? 'N' : '';
 	const routeId = r.route ? routeIdFrom(r.route, r.strava_id) : '';
+	const strength =
+		normalizeActivityType(r.activity_type) === 'strength' ? parseStrengthNotes(r.notes) : null;
 	const metric = headlineMetric(r);
 	const metricSub =
 		metric.unit === ''
@@ -79,7 +85,7 @@ function RunDetail() {
 		const input: UpdateRunInput = {
 			slug: r.slug,
 			date: editDate,
-			activity_type: String(fd.get('activity_type') ?? 'run'),
+			activity_type: editActivity,
 			session: String(fd.get('session') ?? ''),
 			effort: num('effort'),
 			shins: num('shins'),
@@ -97,7 +103,7 @@ function RunDetail() {
 			elev_gain: num('elev_gain'),
 			cadence: num('cadence'),
 			shoes: String(fd.get('shoes') ?? ''),
-			notes: String(fd.get('notes') ?? '')
+			notes: editActivity === 'strength' ? editNotes : String(fd.get('notes') ?? '')
 		};
 		try {
 			const res = await updateRun({ data: input });
@@ -138,7 +144,9 @@ function RunDetail() {
 							</span>
 						)}
 					</h1>
-					{!editing && <p>{r.notes || 'No notes for this run.'}</p>}
+					{!editing && (
+						<p>{(strength ? strength.extra : r.notes) || 'No notes for this run.'}</p>
+					)}
 				</div>
 				<div className="actions">
 					{!editing && (
@@ -203,7 +211,11 @@ function RunDetail() {
 						</label>
 						<label className="field">
 							<span className="req">Activity</span>
-							<select name="activity_type" defaultValue={r.activity_type || 'run'}>
+							<select
+								name="activity_type"
+								value={editActivity}
+								onChange={(e) => setEditActivity(e.target.value)}
+							>
 								{ACTIVITY_TYPES.map((t) => (
 									<option key={t} value={t}>
 										{activityLabel(t)}
@@ -301,10 +313,17 @@ function RunDetail() {
 						</label>
 					</div>
 
-					<label className="field">
-						<span>Notes</span>
-						<textarea name="notes" defaultValue={r.notes}></textarea>
-					</label>
+					{editActivity === 'strength' ? (
+						<div className="field">
+							<span>Sets</span>
+							<StrengthEditor initial={r.notes} onChange={setEditNotes} />
+						</div>
+					) : (
+						<label className="field">
+							<span>Notes</span>
+							<textarea name="notes" defaultValue={r.notes}></textarea>
+						</label>
+					)}
 
 					<div className="actions">
 						<button className="btn btn-primary" type="submit">
@@ -402,6 +421,39 @@ function RunDetail() {
 							<span>energy</span>
 						</div>
 					</div>
+
+					{strength && strength.exercises.length > 0 && (
+						<div className="panel" style={{ marginBottom: '1rem' }}>
+							<div className="splits-head">
+								<h3>Sets</h3>
+								<p className="muted splits-sub">reps × kg</p>
+							</div>
+							<div className="strength-view-row strength-view-head">
+								<span>Exercise</span>
+								<span>Sets</span>
+								<span>Top</span>
+								<span>Volume</span>
+							</div>
+							{strength.exercises.map((ex, i) => {
+								const t = topSet(ex);
+								const vol = Math.round(exerciseVolume(ex));
+								return (
+									<div className="strength-view-row" key={i}>
+										<span>{ex.name}</span>
+										<span className="muted">
+											{ex.sets
+												.map((s) => (s.kg != null ? `${s.reps}×${s.kg}` : `${s.reps}`))
+												.join(', ')}
+										</span>
+										<span className="splits-pace">
+											{t ? (t.kg != null ? `${t.reps}×${t.kg}kg` : `${t.reps} reps`) : '—'}
+										</span>
+										<span className="muted">{vol ? `${vol} kg` : '—'}</span>
+									</div>
+								);
+							})}
+						</div>
+					)}
 
 					{r.route && routeId && (
 						<div

@@ -34,3 +34,6 @@ data/routes/*
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# esbuild temp from scripts/import-fit.mjs
+_analytics.mjs

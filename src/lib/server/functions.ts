@@ -178,7 +178,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		const todayIso = today.toISOString().slice(0, 10);
 
 		// All-time summary (computed from every activity, so derived facts stay current).
-		const byType = { run: 0, ride: 0, walk: 0, swim: 0 } as Record<string, number>;
+		const byType = { run: 0, ride: 0, walk: 0, swim: 0, strength: 0 } as Record<string, number>;
 		for (const r of allRuns) byType[normalizeActivityType(r.activity_type)]++;
 		const runsAll = allRuns.filter((r) => normalizeActivityType(r.activity_type) === 'run');
 		const totalRunKm = Math.round(runsAll.reduce((a, r) => a + (r.distance_km ?? 0), 0));
@@ -268,7 +268,7 @@ ${goals.notes ? `\n${goals.notes}\n` : ''}
 - The week to plan is **week ${nextWeek}** (${weekRange(nextWeek)}). In the JSON you return, set exactly \`"week": ${nextWeek}\` and \`"dates": "${weekRange(nextWeek)}"\`.
 
 ## All-time summary (auto-computed from all logged activities — current, not hand-maintained)
-- Logged since ${firstDate}: ${byType.run} runs, ${byType.ride} rides, ${byType.walk} walks${byType.swim ? `, ${byType.swim} swims` : ''}.
+- Logged since ${firstDate}: ${byType.run} runs, ${byType.ride} rides, ${byType.walk} walks${byType.swim ? `, ${byType.swim} swims` : ''}${byType.strength ? `, ${byType.strength} strength sessions` : ''}.
 - Running: ${totalRunKm} km total across ${runsAll.length} runs; typical pace ~${avgRunPace}/km.
 - Longest run: ${longest ? `${longest.distance_km} km (${longest.avg_pace || '—'}/km) on ${longest.date}` : '—'}.
 - Shin trend (0–10, lower = better): last 4 runs avg ${shinsRecent ?? '—'} vs prior 4 ${shinsPrior ?? '—'}.

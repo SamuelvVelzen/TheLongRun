@@ -14,7 +14,7 @@ import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 
 type TimelineSearch = RangeSearch & { sport?: string };
-const SPORTS = ['all', 'run', 'walk', 'ride', 'swim'];
+const SPORTS = ['all', 'run', 'walk', 'ride', 'swim', 'strength'];
 
 export const Route = createFileRoute('/timeline')({
 	validateSearch: (s: Record<string, unknown>): TimelineSearch => ({

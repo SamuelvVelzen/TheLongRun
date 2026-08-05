@@ -15,7 +15,7 @@ import { TrendsSection } from '../components/TrendsSection';
 import { RoutesHeatmap } from '../components/RoutesHeatmap';
 
 type DashSearch = RangeSearch & { sport?: string };
-const SPORTS = ['all', 'run', 'walk', 'ride', 'swim'];
+const SPORTS = ['all', 'run', 'walk', 'ride', 'swim', 'strength'];
 
 export const Route = createFileRoute('/')({
 	validateSearch: (s: Record<string, unknown>): DashSearch => ({

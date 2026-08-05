@@ -6,7 +6,8 @@ const OPTIONS: { value: 'all' | ActivityType; label: string }[] = [
 	{ value: 'run', label: 'Run' },
 	{ value: 'walk', label: 'Walk' },
 	{ value: 'ride', label: 'Ride' },
-	{ value: 'swim', label: 'Swim' }
+	{ value: 'swim', label: 'Swim' },
+	{ value: 'strength', label: 'Strength' }
 ];
 
 /**

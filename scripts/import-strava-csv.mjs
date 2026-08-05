@@ -153,6 +153,12 @@ function mapSport(type) {
 	)
 		return 'ride';
 	if (['swim', 'openwaterswim', 'lapswimming'].includes(t)) return 'swim';
+	if (
+		['strength', 'strengthtraining', 'weighttraining', 'weights', 'weightlifting', 'gym', 'workout', 'crossfit'].includes(
+			t
+		)
+	)
+		return 'strength';
 	return null;
 }
 function guessSession(day, distanceKm, sport) {

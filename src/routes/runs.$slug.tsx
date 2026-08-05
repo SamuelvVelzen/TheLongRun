@@ -46,7 +46,13 @@ function RunDetail() {
 	const routeId = r.route ? routeIdFrom(r.route, r.strava_id) : '';
 	const metric = headlineMetric(r);
 	const metricSub =
-		metric.unit === 'km/h' ? 'avg km/h' : metric.unit === '/100m' ? 'pace /100m' : 'pace /km';
+		metric.unit === ''
+			? 'duration'
+			: metric.unit === 'km/h'
+				? 'avg km/h'
+				: metric.unit === '/100m'
+					? 'pace /100m'
+					: 'pace /km';
 
 	function startEditing() {
 		setEditDate(r.date);

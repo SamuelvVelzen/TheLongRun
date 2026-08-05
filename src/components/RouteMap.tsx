@@ -76,33 +76,43 @@ export function RouteMap({
 					const valid = kmSec.filter((v) => v > 0);
 					const lo = Math.min(...valid);
 					const hi = Math.max(...valid);
-					const colorForKm = (km: number) => {
-						const sec = kmSec[Math.min(km, kmSec.length - 1)] || lo;
-						return paceColor(hi > lo ? (sec - lo) / (hi - lo) : 0.5);
+
+					// Cumulative distance at each coordinate.
+					const cum = [0];
+					for (let i = 1; i < coords.length; i++) {
+						cum[i] =
+							cum[i - 1]! +
+							haversineMeters(coords[i - 1]![0], coords[i - 1]![1], coords[i]![0], coords[i]![1]);
+					}
+
+					// Pace (sec/km) interpolated between km centres (km i is centred at i + 0.5 km) — a
+					// smooth curve instead of a step per km, so colours blend rather than jump.
+					const paceAt = (d: number) => {
+						const pos = d / 1000 - 0.5;
+						if (pos <= 0) return kmSec[0] || lo;
+						const i = Math.floor(pos);
+						if (i >= kmSec.length - 1) return kmSec[kmSec.length - 1] || lo;
+						const f = pos - i;
+						return (kmSec[i] || lo) * (1 - f) + (kmSec[i + 1] || lo) * f;
 					};
-					const drawSeg = (from: number, to: number, km: number) => {
-						if (to - from < 1) return;
-						L.polyline(coords.slice(from, to + 1), {
-							color: colorForKm(km),
+					const norm = (sec: number) => (hi > lo ? (sec - lo) / (hi - lo) : 0.5);
+
+					// Many short segments that follow the route → a smooth gradient. More GPS points
+					// simply means finer segments (up to a performance cap).
+					const N = coords.length;
+					const target = Math.min(N - 1, 300);
+					const stride = Math.max(1, Math.round((N - 1) / target));
+					for (let i = 0; i < N - 1; i += stride) {
+						const j = Math.min(i + stride, N - 1);
+						const midD = (cum[i]! + cum[j]!) / 2;
+						L.polyline(coords.slice(i, j + 1), {
+							color: paceColor(norm(paceAt(midD))),
 							weight: 4,
 							opacity: 0.95,
 							lineJoin: 'round',
 							lineCap: 'round'
 						}).addTo(map);
-					};
-					let cum = 0;
-					let segStart = 0;
-					let segKm = 0;
-					for (let i = 1; i < coords.length; i++) {
-						cum += haversineMeters(coords[i - 1]![0], coords[i - 1]![1], coords[i]![0], coords[i]![1]);
-						const km = Math.min(Math.floor(cum / 1000), kmSec.length - 1);
-						if (km !== segKm) {
-							drawSeg(segStart, i, segKm);
-							segStart = i;
-							segKm = km;
-						}
 					}
-					drawSeg(segStart, coords.length - 1, segKm);
 					setColored(true);
 				} else {
 					L.polyline(coords, {

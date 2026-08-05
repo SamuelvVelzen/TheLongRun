@@ -7,18 +7,23 @@ import {
 	type RangeKind
 } from '$lib/date-range';
 import { buildTrainingTrends } from '$lib/trends';
-import { activityLabel, metricText } from '$lib/activity';
+import { activityLabel, metricText, normalizeActivityType } from '$lib/activity';
 import type { RunWithMap } from '$lib/types';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
+import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 
+type TimelineSearch = RangeSearch & { sport?: string };
+const SPORTS = ['all', 'run', 'walk', 'ride', 'swim'];
+
 export const Route = createFileRoute('/timeline')({
-	validateSearch: (s: Record<string, unknown>): RangeSearch => ({
+	validateSearch: (s: Record<string, unknown>): TimelineSearch => ({
 		range: (['7d', '30d', 'all', 'custom'] as const).includes(s.range as RangeKind)
 			? (s.range as RangeKind)
 			: undefined,
 		from: typeof s.from === 'string' ? s.from : undefined,
-		to: typeof s.to === 'string' ? s.to : undefined
+		to: typeof s.to === 'string' ? s.to : undefined,
+		sport: SPORTS.includes(s.sport as string) ? (s.sport as string) : undefined
 	}),
 	loader: () => getTimelineRuns(),
 	component: Timeline
@@ -64,8 +69,13 @@ function Timeline() {
 	if (search.from) sp.set('from', search.from);
 	if (search.to) sp.set('to', search.to);
 	const range = parseDateRange(sp);
+	const sport = search.sport ?? 'all';
 
-	const runs = filterRunsByRange(allRuns, range);
+	const scoped =
+		sport === 'all'
+			? allRuns
+			: allRuns.filter((r) => normalizeActivityType(r.activity_type) === sport);
+	const runs = filterRunsByRange(scoped, range);
 	const stats = buildRangeStats(runs);
 	const groups = groupRuns(runs);
 	const trends =
@@ -104,6 +114,7 @@ function Timeline() {
 				</div>
 			</section>
 
+			<SportFilter sport={sport} to="/timeline" defaultSport="all" />
 			<DateRangeFilter range={range} to="/timeline" />
 
 			{neverLogged ? (

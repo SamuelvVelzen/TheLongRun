@@ -9,8 +9,16 @@ const OPTIONS: { value: 'all' | ActivityType; label: string }[] = [
 	{ value: 'all', label: 'All' }
 ];
 
-/** Dashboard activity-type toggle. Default (no `sport` param) = run. */
-export function SportFilter({ sport, to }: { sport: string; to: string }) {
+/** Activity-type toggle. The `defaultSport` option maps to no `sport` param. */
+export function SportFilter({
+	sport,
+	to,
+	defaultSport = 'run'
+}: {
+	sport: string;
+	to: string;
+	defaultSport?: string;
+}) {
 	return (
 		<div className="range-filter" role="group" aria-label="Activity type">
 			<div className="range-presets">
@@ -20,7 +28,7 @@ export function SportFilter({ sport, to }: { sport: string; to: string }) {
 						to={to}
 						search={(prev: Record<string, unknown>) => ({
 							...prev,
-							sport: o.value === 'run' ? undefined : o.value
+							sport: o.value === defaultSport ? undefined : o.value
 						})}
 						className={`range-chip${sport === o.value ? ' active' : ''}`}
 						aria-current={sport === o.value ? 'page' : undefined}

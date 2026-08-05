@@ -151,11 +151,10 @@ function Import() {
 						onClick={onImport}
 						disabled={busy || files.length === 0}
 					>
-						{busy ? progress || 'Importing…' : `Import ${files.length || ''} ${files.length === 1 ? 'file' : 'files'}`.trim()}
+						{busy
+							? progress || 'Importing…'
+							: `Import ${files.length || ''} ${files.length === 1 ? 'file' : 'files'}`.trim()}
 					</button>
-					<Link className="btn btn-ghost" to="/timeline">
-						Timeline
-					</Link>
 				</div>
 			</div>
 

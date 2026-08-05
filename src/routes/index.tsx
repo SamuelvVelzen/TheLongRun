@@ -8,7 +8,7 @@ import {
 } from '$lib/date-range';
 import { buildDashboardStats, type DashboardStats } from '$lib/plan';
 import { buildTrainingTrends } from '$lib/trends';
-import { metricText, normalizeActivityType } from '$lib/activity';
+import { activityPlural, metricText, normalizeActivityType } from '$lib/activity';
 import { DateRangeFilter, rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
@@ -93,7 +93,7 @@ function Dashboard() {
 				</div>
 				<div className="actions">
 					<Link className="btn btn-primary" to="/log">
-						Log a run
+						Log an activity
 					</Link>
 					<Link className="btn btn-ghost" to="/context">
 						Context
@@ -101,12 +101,16 @@ function Dashboard() {
 				</div>
 			</section>
 
-			<SportFilter sport={sport} to="/" />
-			<DateRangeFilter range={range} to="/" />
+			<div className="filter-bar">
+				<SportFilter sport={sport} to="/" />
+				<DateRangeFilter range={range} to="/" />
+			</div>
 
 			{filteredEmpty ? (
 				<div className="panel muted range-empty">
-					<p>No runs in {range.label.toLowerCase()}.</p>
+					<p>
+						No {activityPlural(sport)} in {range.label.toLowerCase()}.
+					</p>
 					<Link className="btn btn-ghost" to="/" search={{}}>
 						Show all time
 					</Link>
@@ -252,7 +256,7 @@ function Dashboard() {
 								Full timeline
 							</Link>
 							<Link className="btn btn-ghost" to="/log">
-								Add run
+								Add activity
 							</Link>
 						</div>
 					</div>

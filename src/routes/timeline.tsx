@@ -7,7 +7,7 @@ import {
 	type RangeKind
 } from '$lib/date-range';
 import { buildTrainingTrends } from '$lib/trends';
-import { activityLabel, metricText, normalizeActivityType } from '$lib/activity';
+import { activityLabel, activityPlural, metricText, normalizeActivityType } from '$lib/activity';
 import type { RunWithMap } from '$lib/types';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
 import { SportFilter } from '../components/SportFilter';
@@ -99,7 +99,7 @@ function Timeline() {
 			<section className="hero">
 				<div>
 					<p className="muted">
-						{stats.runCount} runs · {stats.totalKm} km
+						{stats.runCount} {activityPlural(sport)} · {stats.totalKm} km
 						{stats.avgPace && ` · avg ${stats.avgPace}/km`}
 						{stats.avgHr != null && ` · HR ${fmtHr(stats.avgHr)}`}
 						{range.kind !== 'all' && ` · ${range.label}`}
@@ -109,19 +109,23 @@ function Timeline() {
 				</div>
 				<div className="actions">
 					<Link className="btn btn-primary" to="/log">
-						Log a run
+						Log an activity
 					</Link>
 				</div>
 			</section>
 
-			<SportFilter sport={sport} to="/timeline" defaultSport="all" />
-			<DateRangeFilter range={range} to="/timeline" />
+			<div className="filter-bar">
+				<SportFilter sport={sport} to="/timeline" defaultSport="all" />
+				<DateRangeFilter range={range} to="/timeline" />
+			</div>
 
 			{neverLogged ? (
-				<div className="panel muted">No runs yet.</div>
+				<div className="panel muted">No activities yet.</div>
 			) : filteredEmpty ? (
 				<div className="panel muted range-empty">
-					<p>No runs in {range.label.toLowerCase()}.</p>
+					<p>
+						No {activityPlural(sport)} in {range.label.toLowerCase()}.
+					</p>
 					<Link className="btn btn-ghost" to="/timeline" search={{}}>
 						Show all time
 					</Link>

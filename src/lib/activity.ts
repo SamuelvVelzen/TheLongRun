@@ -27,6 +27,22 @@ export function activityLabel(v: string | null | undefined): string {
 	return LABELS[normalizeActivityType(v)];
 }
 
+/** Plural noun for empty-state messages; 'all' (or unknown) → "activities". */
+export function activityPlural(sport: string | null | undefined): string {
+	switch (sport) {
+		case 'run':
+			return 'runs';
+		case 'walk':
+			return 'walks';
+		case 'ride':
+			return 'rides';
+		case 'swim':
+			return 'swims';
+		default:
+			return 'activities';
+	}
+}
+
 export type HeadlineMetric = { value: string; unit: string };
 
 /** Sport-appropriate headline pace/speed: pace/km (run, walk), km/h (ride), /100m (swim). */

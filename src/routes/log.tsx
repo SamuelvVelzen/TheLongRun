@@ -71,7 +71,7 @@ function LogRun() {
 		const input: CreateRunInput = {
 			date: dateValue,
 			activity_type: activityType,
-			session: String(fd.get('session') ?? ''),
+			session: activityType === 'run' ? String(fd.get('session') ?? 'easy') : 'other',
 			effort: num('effort'),
 			shins: num('shins'),
 			legs: num('legs'),
@@ -104,9 +104,9 @@ function LogRun() {
 		<>
 			<section className="hero">
 				<div>
-					<p className="muted">Quick capture after the watch syncs</p>
-					<h1>Log a run</h1>
-					<p>Fill how it felt and the numbers, done. Weather auto-fills when left blank.</p>
+					<p className="muted">Quick manual entry</p>
+					<h1>Log an activity</h1>
+					<p>Pick the type, fill what you have — weather auto-fills when left blank.</p>
 				</div>
 			</section>
 
@@ -126,145 +126,161 @@ function LogRun() {
 			)}
 
 			<form className="panel form" method="POST" onSubmit={onSubmit}>
-				<div className="form-grid">
-					<label className="field">
-						<span className="req">Date</span>
-						<input
-							type="date"
-							name="date"
-							required
-							value={dateValue}
-							onChange={(e) => setDateValue(e.target.value)}
-						/>
-						<span className="field-hint muted">
-							{derivedDay}
-							{derivedWeek != null && ` · week ${derivedWeek}`}
-						</span>
-					</label>
-					<label className="field">
-						<span className="req">Activity</span>
-						<select value={activityType} onChange={(e) => setActivityType(e.target.value)}>
-							{ACTIVITY_TYPES.map((t) => (
-								<option key={t} value={t}>
-									{activityLabel(t)}
-								</option>
-							))}
-						</select>
-					</label>
-					<label className="field">
-						<span className="req">Session</span>
-						<select name="session" required defaultValue={defaultSession}>
-							{sessions.map((s) => (
-								<option key={s} value={s}>
-									{s}
-								</option>
-							))}
-						</select>
-					</label>
+				<div className="form-section">
+					<h3 className="form-section-title">Activity</h3>
+					<div className="form-grid">
+						<label className="field">
+							<span className="req">Date</span>
+							<input
+								type="date"
+								name="date"
+								required
+								value={dateValue}
+								onChange={(e) => setDateValue(e.target.value)}
+							/>
+							<span className="field-hint muted">
+								{derivedDay}
+								{derivedWeek != null && ` · week ${derivedWeek}`}
+							</span>
+						</label>
+						<label className="field">
+							<span className="req">Type</span>
+							<select value={activityType} onChange={(e) => setActivityType(e.target.value)}>
+								{ACTIVITY_TYPES.map((t) => (
+									<option key={t} value={t}>
+										{activityLabel(t)}
+									</option>
+								))}
+							</select>
+						</label>
+						{activityType === 'run' && (
+							<label className="field">
+								<span>Session</span>
+								<select name="session" defaultValue={defaultSession}>
+									{sessions.map((s) => (
+										<option key={s} value={s}>
+											{s}
+										</option>
+									))}
+								</select>
+							</label>
+						)}
+					</div>
 				</div>
 
-				<div className="form-grid">
-					<label className="field">
-						<span>Distance (km)</span>
-						<input name="distance_km" type="number" step="0.01" placeholder="7.04" />
-					</label>
-					<label className="field">
-						<span>Start time</span>
-						<input
-							type="time"
-							name="start_time"
-							value={startTimeValue}
-							onChange={(e) => setStartTimeValue(e.target.value)}
-						/>
-					</label>
-					<label className="field">
-						<span>Duration</span>
-						<input
-							name="time"
-							placeholder="45:12 or 1:15:01"
-							value={durationValue}
-							onChange={(e) => setDurationValue(e.target.value)}
-						/>
-					</label>
-					<label className="field">
-						<span>Avg pace /km</span>
-						<input name="avg_pace" placeholder="6:29" />
-					</label>
-					<label className="field">
-						<span>Avg HR</span>
-						<input name="avg_hr" type="number" placeholder="147" />
-					</label>
-					<label className="field">
-						<span>Max HR</span>
-						<input name="max_hr" type="number" placeholder="172" />
-					</label>
-					<label className="field">
-						<span>Elev gain (m)</span>
-						<input name="elev_gain" type="number" step="0.1" placeholder="48" />
-					</label>
-					<label className="field">
-						<span>Cadence</span>
-						<input name="cadence" type="number" placeholder="176" />
-					</label>
-					<label className="field">
-						<span>Shoes</span>
-						<input name="shoes" defaultValue={data.shoes.active} />
-					</label>
+				<div className="form-section">
+					<h3 className="form-section-title">Numbers</h3>
+					<div className="form-grid">
+						<label className="field">
+							<span>Distance (km)</span>
+							<input name="distance_km" type="number" step="0.01" placeholder="7.04" />
+						</label>
+						<label className="field">
+							<span>Duration</span>
+							<input
+								name="time"
+								placeholder="45:12 or 1:15:01"
+								value={durationValue}
+								onChange={(e) => setDurationValue(e.target.value)}
+							/>
+						</label>
+						<label className="field">
+							<span>Start time</span>
+							<input
+								type="time"
+								name="start_time"
+								value={startTimeValue}
+								onChange={(e) => setStartTimeValue(e.target.value)}
+							/>
+						</label>
+						<label className="field">
+							<span>Avg pace /km</span>
+							<input name="avg_pace" placeholder="6:29" />
+						</label>
+						<label className="field">
+							<span>Avg HR</span>
+							<input name="avg_hr" type="number" placeholder="147" />
+						</label>
+						<label className="field">
+							<span>Max HR</span>
+							<input name="max_hr" type="number" placeholder="172" />
+						</label>
+						<label className="field">
+							<span>Elev gain (m)</span>
+							<input name="elev_gain" type="number" step="0.1" placeholder="48" />
+						</label>
+						<label className="field">
+							<span>Cadence</span>
+							<input name="cadence" type="number" placeholder="176" />
+						</label>
+					</div>
 				</div>
 
-				<div className="form-grid">
-					<label className="field">
-						<span className="req">Effort (1–10)</span>
-						<input name="effort" type="number" min="1" max="10" required />
-					</label>
-					<label className="field">
-						<span className="req">Shins (0–10)</span>
-						<input name="shins" type="number" min="0" max="10" required />
-					</label>
-					<label className="field">
-						<span className="req">Legs (0–10)</span>
-						<input name="legs" type="number" min="0" max="10" required />
-					</label>
-					<label className="field">
-						<span className="req">Energy (1–10)</span>
-						<input name="energy" type="number" min="1" max="10" required />
-					</label>
-					<label className="field">
-						<span>Weather</span>
-						<input
-							name="weather"
-							placeholder="27°C humid / cloudy"
-							value={weather}
-							onChange={(e) => {
-								setWeather(e.target.value);
-								setWeatherManual(true);
-								setWeatherHint('Manual override');
-							}}
-						/>
-						{weatherHint && <span className="field-hint muted">{weatherHint}</span>}
-					</label>
-					<label className="field">
-						<span>Surface</span>
-						<input name="surface" placeholder="asphalt / mixed / trail" defaultValue="asphalt" />
-					</label>
-					<label className="field">
-						<span>Wanted to go faster?</span>
-						<select name="wanted_faster" defaultValue="">
-							<option value="">—</option>
-							<option value="Y">Y</option>
-							<option value="N">N</option>
-						</select>
-					</label>
+				<div className="form-section">
+					<h3 className="form-section-title">How it felt</h3>
+					<div className="form-grid">
+						<label className="field">
+							<span>Effort (1–10)</span>
+							<input name="effort" type="number" min="1" max="10" placeholder="6" />
+						</label>
+						<label className="field">
+							<span>Shins (0–10)</span>
+							<input name="shins" type="number" min="0" max="10" placeholder="2" />
+						</label>
+						<label className="field">
+							<span>Legs (0–10)</span>
+							<input name="legs" type="number" min="0" max="10" placeholder="7" />
+						</label>
+						<label className="field">
+							<span>Energy (1–10)</span>
+							<input name="energy" type="number" min="1" max="10" placeholder="7" />
+						</label>
+						<label className="field">
+							<span>Wanted to go faster?</span>
+							<select name="wanted_faster" defaultValue="">
+								<option value="">—</option>
+								<option value="Y">Yes</option>
+								<option value="N">No</option>
+							</select>
+						</label>
+					</div>
 				</div>
 
-				<label className="field">
-					<span>Notes</span>
-					<textarea name="notes" placeholder="How it felt, route, heat, fatigue…"></textarea>
-				</label>
+				<div className="form-section">
+					<h3 className="form-section-title">Details</h3>
+					<div className="form-grid">
+						<label className="field">
+							<span>Weather</span>
+							<input
+								name="weather"
+								placeholder="27°C humid / cloudy"
+								value={weather}
+								onChange={(e) => {
+									setWeather(e.target.value);
+									setWeatherManual(true);
+									setWeatherHint('Manual override');
+								}}
+							/>
+							{weatherHint && <span className="field-hint muted">{weatherHint}</span>}
+						</label>
+						<label className="field">
+							<span>Surface</span>
+							<input name="surface" placeholder="asphalt / mixed / trail" defaultValue="asphalt" />
+						</label>
+						<label className="field">
+							<span>Shoes</span>
+							<input name="shoes" defaultValue={data.shoes.active} />
+						</label>
+					</div>
+					<label className="field" style={{ marginTop: '0.85rem' }}>
+						<span>Notes</span>
+						<textarea name="notes" placeholder="How it felt, route, heat, fatigue…"></textarea>
+					</label>
+				</div>
 
 				<div className="actions">
 					<button className="btn btn-primary" type="submit">
-						Save run
+						Save activity
 					</button>
 					<Link className="btn btn-ghost" to="/">
 						Cancel

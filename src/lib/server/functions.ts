@@ -153,6 +153,24 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 			? null
 			: Math.max(0, Math.ceil((raceDate.getTime() - today.getTime()) / (7 * 86_400_000)));
 
+		// Plan block is Mon-anchored from 2026-08-03 (matches weekNumberForDate / currentPlanWeek).
+		const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+		const planAnchor = new Date('2026-08-03T00:00:00');
+		const weekRange = (n: number) => {
+			const s = new Date(planAnchor);
+			s.setDate(s.getDate() + (n - 1) * 7);
+			const e = new Date(s);
+			e.setDate(e.getDate() + 6);
+			const f = (d: Date) => `${String(d.getDate()).padStart(2, '0')} ${MON[d.getMonth()]}`;
+			return `${f(s)}–${f(e)} ${e.getFullYear()}`;
+		};
+		const curWeek = Math.min(
+			8,
+			Math.max(1, Math.floor((today.getTime() - planAnchor.getTime()) / (7 * 86_400_000)) + 1)
+		);
+		const nextWeek = Math.min(8, curWeek + 1);
+		const todayIso = today.toISOString().slice(0, 10);
+
 		const mondayOf = (iso: string) => {
 			const d = new Date(`${iso}T12:00:00`);
 			const off = (d.getDay() + 6) % 7;
@@ -211,6 +229,12 @@ Please assess how my training is going and give me a concrete plan for **next we
 - Time goal: ${goals.time_goal || '—'}
 ${(goals.primary ?? []).map((p) => `- Priority: ${p}`).join('\n')}
 ${goals.notes ? `\n${goals.notes}\n` : ''}
+## Timing (use these exact values — do not guess dates)
+- Today: ${todayIso}.
+- Plan block: Monday–Sunday, 8 weeks, from 2026-08-03 to race day ${goals.race_date}.
+- Current week: **week ${curWeek}** (${weekRange(curWeek)}).
+- The week to plan is **week ${nextWeek}** (${weekRange(nextWeek)}). In the JSON you return, set exactly \`"week": ${nextWeek}\` and \`"dates": "${weekRange(nextWeek)}"\`.
+
 ## Weekly running volume (last ${weeks} weeks)
 ${weekLines}
 
@@ -244,8 +268,8 @@ Give your assessment and next week's sessions in prose. Then, so I can save it s
 
 \`\`\`json
 {
-  "week": <next week number>,
-  "dates": "04 Aug–10 Aug 2026",
+  "week": ${nextWeek},
+  "dates": "${weekRange(nextWeek)}",
   "phase": "base | build | peak | taper",
   "focus": "one-line focus for the week",
   "sessions": [

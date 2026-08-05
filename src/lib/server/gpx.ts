@@ -93,33 +93,44 @@ export function parseGpx(xml: string): ParsedGpx {
 		if (tm) startClock = `${tm[1]}:${tm[2]}`;
 	}
 
-	// Aggregate distance / moving time / elevation / speed from the track.
+	// Aggregate distance / moving time / elevation from the track.
 	let distanceMeters = 0;
 	let movingSeconds = 0;
 	let elevGain = 0;
-	let maxSpeedKmh = 0;
 	const hrs: number[] = [];
+	// (time, cumulative distance) samples for a smoothed max-speed pass.
+	const series: { t: number; d: number }[] = [];
 
 	for (let i = 0; i < track.length; i++) {
 		const p = track[i]!;
 		if (p.hr != null) hrs.push(p.hr);
-		if (i === 0) continue;
-		const a = track[i - 1]!;
-		const seg = haversineMeters(a.lat, a.lng, p.lat, p.lng);
-		if (Number.isFinite(seg) && seg > 0 && seg <= 200) {
-			distanceMeters += seg;
-			if (a.timeMs != null && p.timeMs != null) {
-				const dt = (p.timeMs - a.timeMs) / 1000;
-				if (dt > 0 && dt <= MAX_MOVING_GAP_S) {
-					movingSeconds += dt;
-					const kmh = (seg / dt) * 3.6;
-					if (Number.isFinite(kmh) && kmh < 120 && kmh > maxSpeedKmh) maxSpeedKmh = kmh;
+		if (i > 0) {
+			const a = track[i - 1]!;
+			const seg = haversineMeters(a.lat, a.lng, p.lat, p.lng);
+			if (Number.isFinite(seg) && seg > 0 && seg <= 200) {
+				distanceMeters += seg;
+				if (a.timeMs != null && p.timeMs != null) {
+					const dt = (p.timeMs - a.timeMs) / 1000;
+					if (dt > 0 && dt <= MAX_MOVING_GAP_S) movingSeconds += dt;
 				}
 			}
+			if (a.elev != null && p.elev != null) {
+				const d = p.elev - a.elev;
+				if (d > 0 && d < 50) elevGain += d;
+			}
 		}
-		if (a.elev != null && p.elev != null) {
-			const d = p.elev - a.elev;
-			if (d > 0 && d < 50) elevGain += d;
+		if (p.timeMs != null) series.push({ t: p.timeMs, d: distanceMeters });
+	}
+
+	// Max speed over a rolling ~5s window — single-point GPS jitter no longer spikes it.
+	let maxSpeedKmh = 0;
+	const WIN_MS = 5000;
+	for (let i = 0, j = 0; i < series.length; i++) {
+		while (j < i && series[i]!.t - series[j]!.t > WIN_MS) j++;
+		const dt = (series[i]!.t - series[j]!.t) / 1000;
+		if (dt >= 2) {
+			const kmh = ((series[i]!.d - series[j]!.d) / dt) * 3.6;
+			if (Number.isFinite(kmh) && kmh > maxSpeedKmh && kmh < 120) maxSpeedKmh = kmh;
 		}
 	}
 

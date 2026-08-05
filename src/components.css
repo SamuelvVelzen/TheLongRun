@@ -473,6 +473,130 @@
 	border-color: rgba(255, 138, 91, 0.4);
 }
 
+.route-legend {
+	position: absolute;
+	z-index: 2;
+	right: 0.85rem;
+	bottom: 0.85rem;
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.3rem 0.55rem;
+	border-radius: 999px;
+	background: rgba(16, 20, 15, 0.85);
+	border: 1px solid var(--line);
+	color: var(--muted);
+	font-size: 0.72rem;
+}
+
+.route-legend-bar {
+	display: block;
+	width: 64px;
+	height: 6px;
+	border-radius: 999px;
+	background: linear-gradient(90deg, rgb(125, 255, 168), rgb(232, 212, 90), rgb(255, 91, 91));
+}
+
+/* ---------- Import dropzone ---------- */
+.dropzone {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.35rem;
+	padding: 2.25rem 1.2rem;
+	border: 2px dashed var(--line);
+	border-radius: var(--radius);
+	background: rgba(0, 0, 0, 0.18);
+	color: var(--muted);
+	cursor: pointer;
+	text-align: center;
+	transition:
+		border-color 0.15s ease,
+		background 0.15s ease,
+		color 0.15s ease;
+}
+
+.dropzone:hover {
+	border-color: var(--accent);
+	color: var(--text);
+}
+
+.dropzone.dragover {
+	border-color: var(--accent);
+	background: rgba(200, 242, 90, 0.08);
+	color: var(--text);
+}
+
+.dropzone strong {
+	font-family: var(--font-display);
+	font-size: 1.02rem;
+	color: var(--text);
+}
+
+.upload-list {
+	list-style: none;
+	margin: 0.9rem 0 0;
+	padding: 0;
+	display: grid;
+	gap: 0.4rem;
+}
+
+.upload-list li {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 0.5rem 0.7rem;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: rgba(0, 0, 0, 0.18);
+	font-size: 0.9rem;
+}
+
+.upload-list code {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.upload-remove {
+	border: 0;
+	background: transparent;
+	color: var(--muted);
+	font-size: 1.2rem;
+	line-height: 1;
+	cursor: pointer;
+	padding: 0 0.2rem;
+}
+
+.upload-remove:hover {
+	color: #ff8a5b;
+}
+
+.import-list {
+	list-style: none;
+	margin: 0.85rem 0 0;
+	padding: 0;
+	display: grid;
+	gap: 0.5rem;
+	font-size: 0.92rem;
+}
+
+.import-list li {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.45rem;
+	padding: 0.5rem 0;
+	border-bottom: 1px solid var(--line);
+}
+
+.import-list li:last-child {
+	border-bottom: 0;
+}
+
 /* ---------- RoutesHeatmap ---------- */
 .heatmap-wrap {
 	position: relative;

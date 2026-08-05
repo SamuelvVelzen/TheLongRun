@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { importGpx } from '$lib/server/functions';
 import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
 
@@ -7,35 +7,62 @@ export const Route = createFileRoute('/import')({
 	component: Import
 });
 
+type Result = {
+	name: string;
+	status: 'ok' | 'error';
+	slug?: string;
+	distanceKm?: number | null;
+	message?: string;
+};
+
 function Import() {
-	const router = useRouter();
+	const [files, setFiles] = useState<File[]>([]);
+	const [dragOver, setDragOver] = useState(false);
 	const [busy, setBusy] = useState(false);
-	const [message, setMessage] = useState('');
+	const [progress, setProgress] = useState('');
+	const [results, setResults] = useState<Result[]>([]);
 	const [activityType, setActivityType] = useState('');
 
-	async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-		e.preventDefault();
-		const fd = new FormData(e.currentTarget);
-		const file = fd.get('gpx');
-		if (!(file instanceof File) || !file.size) {
-			setMessage('Choose a .gpx file first.');
-			return;
-		}
-		if (!/\.gpx$/i.test(file.name)) {
-			setMessage(`Not a .gpx file: ${file.name}`);
-			return;
-		}
-		setBusy(true);
-		setMessage('Parsing & importing…');
-		try {
-			const xml = await file.text();
-			const res = await importGpx({ data: { xml, activityType } });
-			router.navigate({ to: '/runs/$slug', params: { slug: res.slug } });
-		} catch (err) {
-			setMessage(err instanceof Error ? err.message : 'Import failed');
-			setBusy(false);
-		}
+	function addFiles(list: FileList | null) {
+		if (!list) return;
+		const gpx = Array.from(list).filter((f) => /\.gpx$/i.test(f.name));
+		setFiles((prev) => {
+			const names = new Set(prev.map((f) => f.name));
+			return [...prev, ...gpx.filter((f) => !names.has(f.name))];
+		});
 	}
+
+	function removeFile(name: string) {
+		setFiles((prev) => prev.filter((f) => f.name !== name));
+	}
+
+	async function onImport() {
+		if (!files.length) return;
+		setBusy(true);
+		setResults([]);
+		const out: Result[] = [];
+		for (let i = 0; i < files.length; i++) {
+			const f = files[i]!;
+			setProgress(`Importing ${i + 1} / ${files.length}: ${f.name}`);
+			try {
+				const xml = await f.text();
+				const res = await importGpx({ data: { xml, activityType } });
+				out.push({ name: f.name, status: 'ok', slug: res.slug, distanceKm: res.distance_km });
+			} catch (err) {
+				out.push({
+					name: f.name,
+					status: 'error',
+					message: err instanceof Error ? err.message : 'Import failed'
+				});
+			}
+			setResults([...out]);
+		}
+		setProgress('');
+		setBusy(false);
+		setFiles([]);
+	}
+
+	const okCount = results.filter((r) => r.status === 'ok').length;
 
 	return (
 		<>
@@ -44,26 +71,70 @@ function Import() {
 					<p className="muted">Manual import</p>
 					<h1>Import GPX</h1>
 					<p>
-						Upload a <code>.gpx</code> track. Distance, pace, HR, elevation and per-km splits are
-						computed from the points and saved as a new activity with its route map.
+						Drop one or more <code>.gpx</code> tracks. Distance, pace, HR, elevation and per-km
+						splits are computed and each is saved as an activity with its route map.
 					</p>
 				</div>
 			</section>
 
-			{message && <div className="flash">{message}</div>}
-
-			<form className="panel form" method="POST" onSubmit={onSubmit}>
-				<label className="field file-box">
-					<span className="req">GPX file</span>
-					<input type="file" name="gpx" accept=".gpx,application/gpx+xml" required />
-					<span className="muted" style={{ fontSize: '0.85rem' }}>
-						A single <code>.gpx</code> track export
-					</span>
+			<div className="panel form">
+				<label
+					className={`dropzone${dragOver ? ' dragover' : ''}`}
+					onDragOver={(e) => {
+						e.preventDefault();
+						setDragOver(true);
+					}}
+					onDragLeave={() => setDragOver(false)}
+					onDrop={(e) => {
+						e.preventDefault();
+						setDragOver(false);
+						addFiles(e.dataTransfer.files);
+					}}
+				>
+					<input
+						type="file"
+						accept=".gpx,application/gpx+xml"
+						multiple
+						hidden
+						onChange={(e) => addFiles(e.target.files)}
+					/>
+					<svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true">
+						<path
+							fill="currentColor"
+							d="M19 13v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4h2v4h10v-4h2zM12 3l4 4h-3v6h-2V7H8l4-4z"
+						/>
+					</svg>
+					<strong>Drop .gpx files here</strong>
+					<span className="muted">or click to browse — multiple files supported</span>
 				</label>
+
+				{files.length > 0 && (
+					<ul className="upload-list">
+						{files.map((f) => (
+							<li key={f.name}>
+								<code>{f.name}</code>
+								<span className="muted">{(f.size / 1024).toFixed(0)} KB</span>
+								<button
+									type="button"
+									className="upload-remove"
+									aria-label={`Remove ${f.name}`}
+									onClick={() => removeFile(f.name)}
+									disabled={busy}
+								>
+									×
+								</button>
+							</li>
+						))}
+					</ul>
+				)}
 
 				<label className="field">
 					<span>Activity type</span>
-					<select value={activityType} onChange={(e) => setActivityType(e.target.value)}>
+					<select
+						value={activityType}
+						onChange={(e) => setActivityType(e.target.value)}
+						disabled={busy}
+					>
 						<option value="">Auto-detect from file</option>
 						{ACTIVITY_TYPES.map((t) => (
 							<option key={t} value={t}>
@@ -74,14 +145,45 @@ function Import() {
 				</label>
 
 				<div className="actions">
-					<button className="btn btn-primary" type="submit" disabled={busy}>
-						{busy ? 'Importing…' : 'Import GPX'}
+					<button
+						className="btn btn-primary"
+						type="button"
+						onClick={onImport}
+						disabled={busy || files.length === 0}
+					>
+						{busy ? progress || 'Importing…' : `Import ${files.length || ''} ${files.length === 1 ? 'file' : 'files'}`.trim()}
 					</button>
 					<Link className="btn btn-ghost" to="/timeline">
 						Timeline
 					</Link>
 				</div>
-			</form>
+			</div>
+
+			{results.length > 0 && (
+				<div className="panel" style={{ marginTop: '1rem' }}>
+					<h3>
+						Imported {okCount} / {results.length}
+					</h3>
+					<ul className="import-list">
+						{results.map((r) => (
+							<li key={r.name}>
+								<span className={`tag${r.status === 'ok' ? ' accent' : ''}`}>{r.status}</span>
+								<code>{r.name}</code>
+								{r.slug && (
+									<>
+										{' → '}
+										<Link to="/runs/$slug" params={{ slug: r.slug }}>
+											{r.slug}
+										</Link>
+									</>
+								)}
+								{r.distanceKm != null && <span className="muted">({r.distanceKm} km)</span>}
+								{r.message && <span className="muted">— {r.message}</span>}
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
 		</>
 	);
 }

@@ -1,8 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadLeaflet } from '$lib/leaflet';
 import { attachMapChrome, kmMarkerIcon, type MapChromeHandle } from '$lib/map-chrome';
-import { analyticsFromProperties, type KmMarker } from '$lib/splits';
+import { analyticsFromProperties, haversineMeters, type KmMarker } from '$lib/splits';
 import { getRouteGeoJsonFn } from '$lib/server/functions';
+
+/** Pace → colour: 0 = fastest (green), 1 = slowest (red), through yellow. */
+function paceColor(t: number): string {
+	const x = Math.max(0, Math.min(1, t));
+	const stops = [
+		[125, 255, 168],
+		[232, 212, 90],
+		[255, 91, 91]
+	];
+	const seg = x < 0.5 ? 0 : 1;
+	const lt = x < 0.5 ? x / 0.5 : (x - 0.5) / 0.5;
+	const a = stops[seg]!;
+	const b = stops[seg + 1]!;
+	const c = a.map((v, i) => Math.round(v + (b[i]! - v) * lt));
+	return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
 
 export function RouteMap({
 	routeId,
@@ -15,6 +31,7 @@ export function RouteMap({
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [status, setStatus] = useState('Loading map…');
 	const [failed, setFailed] = useState(false);
+	const [colored, setColored] = useState(false);
 
 	useEffect(() => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,13 +68,52 @@ export function RouteMap({
 					maxZoom: 19
 				}).addTo(map);
 
-				const line = L.polyline(coords, {
-					color: '#c8f25a',
-					weight: 3.5,
-					opacity: 0.92,
-					lineJoin: 'round',
-					lineCap: 'round'
-				}).addTo(map);
+				const splits = analytics?.splits ?? [];
+				const kmSec = splits.map((s) => (s.distanceKm > 0 ? s.seconds / s.distanceKm : 0));
+				const canColor = kmSec.filter((v) => v > 0).length >= 2;
+
+				if (canColor) {
+					const valid = kmSec.filter((v) => v > 0);
+					const lo = Math.min(...valid);
+					const hi = Math.max(...valid);
+					const colorForKm = (km: number) => {
+						const sec = kmSec[Math.min(km, kmSec.length - 1)] || lo;
+						return paceColor(hi > lo ? (sec - lo) / (hi - lo) : 0.5);
+					};
+					const drawSeg = (from: number, to: number, km: number) => {
+						if (to - from < 1) return;
+						L.polyline(coords.slice(from, to + 1), {
+							color: colorForKm(km),
+							weight: 4,
+							opacity: 0.95,
+							lineJoin: 'round',
+							lineCap: 'round'
+						}).addTo(map);
+					};
+					let cum = 0;
+					let segStart = 0;
+					let segKm = 0;
+					for (let i = 1; i < coords.length; i++) {
+						cum += haversineMeters(coords[i - 1]![0], coords[i - 1]![1], coords[i]![0], coords[i]![1]);
+						const km = Math.min(Math.floor(cum / 1000), kmSec.length - 1);
+						if (km !== segKm) {
+							drawSeg(segStart, i, segKm);
+							segStart = i;
+							segKm = km;
+						}
+					}
+					drawSeg(segStart, coords.length - 1, segKm);
+					setColored(true);
+				} else {
+					L.polyline(coords, {
+						color: '#c8f25a',
+						weight: 3.5,
+						opacity: 0.92,
+						lineJoin: 'round',
+						lineCap: 'round'
+					}).addTo(map);
+				}
+				const bounds = L.latLngBounds(coords);
 
 				L.circleMarker(coords[0], {
 					radius: 6,
@@ -90,7 +146,7 @@ export function RouteMap({
 						.addTo(map);
 				}
 
-				const fit = () => map.fitBounds(line.getBounds(), { padding: [28, 28] });
+				const fit = () => map.fitBounds(bounds, { padding: [28, 28] });
 				fit();
 
 				chrome = attachMapChrome({ map, wrap: wrapRef.current, onFit: fit });
@@ -111,6 +167,13 @@ export function RouteMap({
 	return (
 		<div className="route-map-wrap map-wrap" ref={wrapRef}>
 			{status && <p className={`route-map-status${failed ? ' error' : ''}`}>{status}</p>}
+			{colored && !status && (
+				<div className="route-legend" aria-hidden="true">
+					<span>faster</span>
+					<span className="route-legend-bar"></span>
+					<span>slower</span>
+				</div>
+			)}
 			<div className="route-map" ref={containerRef}></div>
 		</div>
 	);

@@ -204,6 +204,8 @@ function RunDetail() {
 
 			{editing ? (
 				<form className="panel form" method="POST" onSubmit={onUpdate}>
+					<div className="form-section">
+					<h3 className="form-section-title">Activity</h3>
 					<div className="form-grid">
 						<label className="field">
 							<span className="req">Date</span>
@@ -246,7 +248,10 @@ function RunDetail() {
 							</label>
 						)}
 					</div>
+					</div>
 
+					<div className="form-section">
+					<h3 className="form-section-title">Numbers</h3>
 					<div className="form-grid">
 						{showsField(editActivity, 'distance') && (
 							<label className="field">
@@ -304,7 +309,10 @@ function RunDetail() {
 							</label>
 						)}
 					</div>
+					</div>
 
+					<div className="form-section">
+					<h3 className="form-section-title">How it felt & details</h3>
 					<div className="form-grid">
 						<label className="field">
 							<span>Effort (1–10)</span>
@@ -349,6 +357,7 @@ function RunDetail() {
 								<option value="N">N</option>
 							</select>
 						</label>
+					</div>
 					</div>
 
 					{editActivity === 'strength' ? (

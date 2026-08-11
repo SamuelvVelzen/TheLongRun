@@ -993,3 +993,16 @@
 	color: var(--fg, #fff);
 	border-bottom-color: var(--accent);
 }
+
+/* ---------- Timeline country filter ---------- */
+.filter-country {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-size: 0.85rem;
+}
+.filter-country select {
+	width: auto;
+	padding: 0.35rem 0.6rem;
+	border-radius: 8px;
+}

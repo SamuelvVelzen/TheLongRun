@@ -546,7 +546,8 @@ export const importGpx = createServerFn({ method: 'POST' })
 			splits_image: '',
 			strava_id: '',
 			route,
-			notes: 'Imported from GPX.'
+			notes: 'Imported from GPX.',
+			country: parsed.country
 		});
 
 		return {

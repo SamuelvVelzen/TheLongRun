@@ -364,6 +364,7 @@ function RunDetail() {
 						{activityLabel(r.activity_type)} · {r.day} · {r.session}
 						{r.week != null && ` · week ${r.week}`}
 						{r.start_time && ` · started ${r.start_time}`}
+						{r.country && ` · ${r.country}`}
 					</p>
 					<h1 className="run-title">
 						{r.date}

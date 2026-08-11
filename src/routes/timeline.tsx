@@ -20,7 +20,7 @@ import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 
-type TimelineSearch = RangeSearch & { sport?: string };
+type TimelineSearch = RangeSearch & { sport?: string; country?: string };
 const SPORTS = ['all', 'run', 'walk', 'ride', 'swim', 'strength'];
 
 export const Route = createFileRoute('/timeline')({
@@ -30,7 +30,8 @@ export const Route = createFileRoute('/timeline')({
 			: undefined,
 		from: typeof s.from === 'string' ? s.from : undefined,
 		to: typeof s.to === 'string' ? s.to : undefined,
-		sport: SPORTS.includes(s.sport as string) ? (s.sport as string) : undefined
+		sport: SPORTS.includes(s.sport as string) ? (s.sport as string) : undefined,
+		country: typeof s.country === 'string' ? s.country : undefined
 	}),
 	loader: () => getTimelineRuns(),
 	component: Timeline
@@ -77,12 +78,13 @@ function Timeline() {
 	if (search.to) sp.set('to', search.to);
 	const range = parseDateRange(sp);
 	const sport = search.sport ?? 'all';
+	const country = search.country ?? 'all';
 	const availableSports = new Set(allRuns.map((r) => normalizeActivityType(r.activity_type)));
+	const availableCountries = [...new Set(allRuns.map((r) => r.country).filter(Boolean))].sort();
 
-	const scoped =
-		sport === 'all'
-			? allRuns
-			: allRuns.filter((r) => normalizeActivityType(r.activity_type) === sport);
+	const scoped = allRuns
+		.filter((r) => sport === 'all' || normalizeActivityType(r.activity_type) === sport)
+		.filter((r) => country === 'all' || r.country === country);
 	const runs = filterRunsByRange(scoped, range);
 	const stats = buildRangeStats(runs);
 	const groups = groupRuns(runs);
@@ -122,6 +124,30 @@ function Timeline() {
 			<div className="filter-bar">
 				<SportFilter sport={sport} to="/timeline" defaultSport="all" available={availableSports} />
 				<DateRangeFilter range={range} to="/timeline" />
+				{availableCountries.length > 1 && (
+					<label className="filter-country">
+						<span className="muted">Country</span>
+						<select
+							value={country}
+							onChange={(e) =>
+								router.navigate({
+									to: '/timeline',
+									search: (prev) => ({
+										...prev,
+										country: e.target.value === 'all' ? undefined : e.target.value
+									})
+								})
+							}
+						>
+							<option value="all">All countries</option>
+							{availableCountries.map((c) => (
+								<option key={c} value={c}>
+									{c}
+								</option>
+							))}
+						</select>
+					</label>
+				)}
 			</div>
 
 			{neverLogged ? (

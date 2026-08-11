@@ -43,6 +43,14 @@ function RootComponent() {
 								{l.label}
 							</Link>
 						))}
+						<a
+							href="https://brouter.de/brouter-web/"
+							target="_blank"
+							rel="noreferrer noopener"
+							className="nav-external"
+						>
+							Plan route ↗
+						</a>
 					</nav>
 				</header>
 				<Outlet />

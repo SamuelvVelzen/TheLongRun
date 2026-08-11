@@ -32,8 +32,12 @@ CREATE TABLE IF NOT EXISTS runs (
 	splits_image   text NOT NULL DEFAULT '',
 	strava_id      text NOT NULL DEFAULT '',
 	route          text NOT NULL DEFAULT '',
-	notes          text NOT NULL DEFAULT ''
+	notes          text NOT NULL DEFAULT '',
+	country        text NOT NULL DEFAULT ''
 );
+
+-- Added after initial schema: activity country, resolved from the start coordinate on import.
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS country text NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS runs_date_idx ON runs (date DESC);
 CREATE INDEX IF NOT EXISTS runs_strava_id_idx ON runs (strava_id);

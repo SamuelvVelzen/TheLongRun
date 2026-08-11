@@ -5,6 +5,7 @@ import {
 	type TrackSample
 } from '$lib/splits';
 import { formatDuration, formatPace } from '$lib/format';
+import { countryForCoord, timezoneForCoord } from './geo';
 
 export interface ParsedGpx {
 	/** YYYY-MM-DD taken from the first track time (as written in the file). */
@@ -24,6 +25,8 @@ export interface ParsedGpx {
 	analytics: RouteAnalytics | null;
 	/** Sport hint from the GPX `<type>` element, if any. */
 	detectedType: string;
+	/** Country resolved from the start coordinate (offline), or '' if unknown. */
+	country: string;
 }
 
 const MAX_MOVING_GAP_S = 45;
@@ -82,9 +85,11 @@ export function parseGpx(xml: string): ParsedGpx {
 		track.push(sample);
 	}
 
-	// Date / start clock from the first time. GPX times are UTC (…Z); convert to local so a
-	// morning ride reads as morning. Hardcoded to the athlete's zone (NL) — GPX carries no tz.
-	const TZ = 'Europe/Amsterdam';
+	// Date / start clock from the first time. GPX times are UTC (…Z); convert to the activity's
+	// LOCAL zone — resolved from its start coordinate — so a run in NL or Vietnam both read right.
+	const firstPoint = track.find((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+	const TZ = (firstPoint && timezoneForCoord(firstPoint.lat, firstPoint.lng)) || 'Europe/Amsterdam';
+	const country = firstPoint ? countryForCoord(firstPoint.lat, firstPoint.lng) : '';
 	let date = '';
 	let startClock = '';
 	const firstTime = blocks.map((b) => child(b, 'time')).find(Boolean) ?? child(xml, 'time');
@@ -177,6 +182,7 @@ export function parseGpx(xml: string): ParsedGpx {
 			2500
 		),
 		analytics,
-		detectedType
+		detectedType,
+		country
 	};
 }

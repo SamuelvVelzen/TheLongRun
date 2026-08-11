@@ -37,3 +37,4 @@ vite.config.ts.timestamp-*
 
 # esbuild temp from scripts/import-fit.mjs
 _analytics.mjs
+_backfill_lib.mjs

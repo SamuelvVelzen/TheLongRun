@@ -7,7 +7,7 @@ export const HR_ZONE_DEFS = [
 	{ zone: 5, label: 'Max', minPct: 90, maxPct: 100 }
 ] as const;
 
-export type HrZoneSource = 'activity' | 'profile';
+export type HrZoneSource = 'activity' | 'profile' | 'alltime';
 
 export interface HrZoneBand {
 	zone: number;

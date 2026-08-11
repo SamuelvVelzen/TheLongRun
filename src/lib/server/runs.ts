@@ -98,6 +98,14 @@ export async function listRuns(): Promise<RunRecord[]> {
 	return rows.map(rowToRun);
 }
 
+/** Highest observed max HR across all activities — the "dynamic" HRmax fallback. */
+export async function getMaxHrAllTime(): Promise<number | null> {
+	const sql = getSql();
+	const rows = (await sql`SELECT MAX(max_hr) AS m FROM runs`) as { m: number | null }[];
+	const m = rows[0]?.m;
+	return m != null && Number.isFinite(Number(m)) ? Number(m) : null;
+}
+
 export async function getRun(slug: string): Promise<RunRecord | null> {
 	const sql = getSql();
 	const rows = (await sql`SELECT * FROM runs WHERE slug = ${slug} LIMIT 1`) as Record<

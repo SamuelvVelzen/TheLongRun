@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start';
 import matter from 'gray-matter';
 import type { Goals, PlanWeek, RouteTrack, RunRecord, RunWithMap } from '$lib/types';
 import { analyticsToProperties, type RouteAnalytics } from '$lib/splits';
+import { buildHrZoneSummary } from '$lib/hr-zones';
 import {
 	dayFromIsoDate,
 	formatDuration,
@@ -15,6 +16,7 @@ import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import { parseStrengthNotes, strengthSummary } from '$lib/strength';
 import {
 	deleteRun as dbDeleteRun,
+	getMaxHrAllTime,
 	getRun,
 	listRouteIds,
 	listRuns,
@@ -29,8 +31,10 @@ import {
 	currentPlanWeek,
 	loadGoals,
 	loadPlan,
+	loadSettings,
 	loadShoes,
 	readContextFile,
+	saveHrMaxSetting,
 	writeContextFile
 } from './context';
 import { fetchWeatherForDateTime } from './weather';
@@ -75,16 +79,44 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 	.handler(async ({ data: slug }) => {
 		const run = await getRun(slug);
 		if (!run) return null;
-		const [analytics, routeIds, shoes] = await Promise.all([
+		const [analytics, routeIds, shoes, settings, allTimeMaxHr] = await Promise.all([
 			loadRouteAnalytics(run),
 			listRouteIds(),
-			loadShoes()
+			loadShoes(),
+			loadSettings(),
+			getMaxHrAllTime()
 		]);
+
+		// HR zones honour a manually-set HRmax; otherwise the all-time max across activities
+		// (never just this one run's noisy peak). Time-in-zone needs the stored per-point HR
+		// series — present for newer imports, absent for older ones (falls back to avg-zone).
+		const hrMaxManual = settings.hrMax;
+		const hrMaxEffective = hrMaxManual ?? allTimeMaxHr ?? null;
+		let out = analytics as RouteAnalytics | null;
+		if (hrMaxEffective && (run.avg_hr != null || (out?.hrSamples?.length ?? 0) > 0)) {
+			const hrZones = buildHrZoneSummary({
+				hrMax: hrMaxEffective,
+				source: hrMaxManual != null ? 'profile' : 'alltime',
+				avgHr: run.avg_hr,
+				samples: (out?.hrSamples ?? []).map((s) => ({ timeMs: s.t * 1000, hr: s.hr }))
+			});
+			out = out ? { ...out, hrZones } : { splits: [], kmMarkers: [], hrZones };
+		}
+
 		return {
 			run: { ...run, has_map: runHasMap(run, routeIds) } as RunWithMap,
-			analytics: analytics as RouteAnalytics | null,
-			shoes
+			analytics: out,
+			shoes,
+			hrMaxManual,
+			hrMaxAllTime: allTimeMaxHr
 		};
+	});
+
+export const saveHrMax = createServerFn({ method: 'POST' })
+	.validator((hrMax: number | null) => hrMax)
+	.handler(async ({ data }) => {
+		await saveHrMaxSetting(data);
+		return { ok: true };
 	});
 
 export const getLogDefaults = createServerFn({ method: 'GET' }).handler(async () => {

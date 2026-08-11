@@ -30,6 +30,8 @@ export interface RouteAnalytics {
 	splits: KmSplit[];
 	hrZones: HrZoneSummary | null;
 	kmMarkers: KmMarker[];
+	/** Downsampled per-point HR series (epoch seconds + bpm) for recomputing zones. */
+	hrSamples?: { t: number; hr: number }[];
 }
 
 const EARTH_M = 6371000;
@@ -174,13 +176,14 @@ export function computeRouteAnalytics(
 	}
 
 	const hrMax = opts?.profileMaxHr ?? opts?.maxHr ?? null;
+	const hrSamplesFull = pts
+		.filter((p) => p.timeMs != null && p.hr != null && p.hr > 0)
+		.map((p) => ({ timeMs: p.timeMs!, hr: p.hr! }));
 	const hrZones = buildHrZoneSummary({
 		hrMax,
 		source: opts?.profileMaxHr != null ? 'profile' : 'activity',
 		avgHr: opts?.avgHr ?? null,
-		samples: pts
-			.filter((p) => p.timeMs != null && p.hr != null && p.hr > 0)
-			.map((p) => ({ timeMs: p.timeMs!, hr: p.hr! }))
+		samples: hrSamplesFull
 	});
 
 	if (!splits.length && !kmMarkers.length && !hrZones) return null;
@@ -188,16 +191,26 @@ export function computeRouteAnalytics(
 	return {
 		splits: canPace ? splits : [],
 		hrZones,
-		kmMarkers
+		kmMarkers,
+		hrSamples: hrSamplesFull.map((s) => ({ t: Math.round(s.timeMs / 1000), hr: s.hr }))
 	};
 }
 
 /** Serialize for GeoJSON properties (compact). */
 export function analyticsToProperties(analytics: RouteAnalytics): Record<string, unknown> {
+	// Cap the stored HR series so properties stay small; ~360 points keeps zone math faithful.
+	const series = analytics.hrSamples ?? [];
+	const cap = 360;
+	const step = series.length > cap ? (series.length - 1) / (cap - 1) : 1;
+	const hrSeries =
+		series.length > cap
+			? Array.from({ length: cap }, (_, i) => series[Math.round(i * step)]!)
+			: series;
 	return {
 		splits: analytics.splits,
 		hr_zones: analytics.hrZones,
-		km_markers: analytics.kmMarkers
+		km_markers: analytics.kmMarkers,
+		hr_series: hrSeries.map((s) => [s.t, s.hr])
 	};
 }
 
@@ -209,6 +222,11 @@ export function analyticsFromProperties(props: unknown): RouteAnalytics | null {
 	const kmMarkers = Array.isArray(p.km_markers) ? (p.km_markers as KmMarker[]) : [];
 	const hrZones =
 		p.hr_zones && typeof p.hr_zones === 'object' ? (p.hr_zones as HrZoneSummary) : null;
-	if (!splits.length && !kmMarkers.length && !hrZones) return null;
-	return { splits, hrZones, kmMarkers };
+	const hrSamples = Array.isArray(p.hr_series)
+		? (p.hr_series as [number, number][])
+				.filter((pair) => Array.isArray(pair) && pair.length === 2)
+				.map(([t, hr]) => ({ t, hr }))
+		: [];
+	if (!splits.length && !kmMarkers.length && !hrZones && !hrSamples.length) return null;
+	return { splits, hrZones, kmMarkers, hrSamples };
 }

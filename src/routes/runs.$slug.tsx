@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
-import { getRunDetail, updateRun, deleteRun, type UpdateRunInput } from '$lib/server/functions';
+import {
+	getRunDetail,
+	updateRun,
+	deleteRun,
+	saveHrMax,
+	type UpdateRunInput
+} from '$lib/server/functions';
 import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
 import {
@@ -154,8 +160,13 @@ function InlineText({
 }
 
 function RunDetail() {
-	const { run: r, analytics, shoes } = Route.useLoaderData();
+	const { run: r, analytics, shoes, hrMaxManual, hrMaxAllTime } = Route.useLoaderData();
 	const router = useRouter();
+
+	async function onSaveHrMax(hrMax: number | null) {
+		await saveHrMax({ data: hrMax });
+		await router.invalidate();
+	}
 
 	const [editing, setEditing] = useState(false);
 	const [editDate, setEditDate] = useState(r.date);
@@ -660,7 +671,12 @@ function RunDetail() {
 					)}
 
 					{analytics && (analytics.splits.length || analytics.hrZones) && (
-						<SplitsPanel analytics={analytics} />
+						<SplitsPanel
+							analytics={analytics}
+							hrMaxManual={hrMaxManual}
+							hrMaxAllTime={hrMaxAllTime}
+							onSaveHrMax={onSaveHrMax}
+						/>
 					)}
 
 					<div className="panel quick-panel" style={{ marginBottom: '1rem' }}>

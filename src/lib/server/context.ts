@@ -99,6 +99,25 @@ export async function saveGoals(goals: Goals): Promise<void> {
 	await writeContextFile('goals.md', matter.stringify(goals.notes ? `${goals.notes}\n` : '', front));
 }
 
+/** App-wide settings persisted as a JSON blob in the context table. */
+export async function loadSettings(): Promise<{ hrMax: number | null }> {
+	const raw = await readContextFile('settings.json');
+	if (!raw) return { hrMax: null };
+	try {
+		const o = JSON.parse(raw) as { hrMax?: unknown };
+		const n = Number(o.hrMax);
+		return { hrMax: Number.isFinite(n) && n > 0 ? Math.round(n) : null };
+	} catch {
+		return { hrMax: null };
+	}
+}
+
+export async function saveHrMaxSetting(hrMax: number | null): Promise<void> {
+	const current = await loadSettings();
+	const next = { ...current, hrMax: hrMax != null && hrMax > 0 ? Math.round(hrMax) : null };
+	await writeContextFile('settings.json', JSON.stringify(next));
+}
+
 export async function loadShoes(): Promise<{ active: string; notes: string; rotation: string[] }> {
 	const raw = await readContextFile('shoes.md');
 	if (!raw) return { active: '', notes: '', rotation: [] };

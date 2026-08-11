@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { formatDuration } from '$lib/format';
 import type { KmSplit, RouteAnalytics } from '$lib/splits';
 
@@ -9,9 +10,30 @@ const zoneColors: Record<number, string> = {
 	5: '#ff5b5b'
 };
 
-export function SplitsPanel({ analytics }: { analytics: RouteAnalytics }) {
+export function SplitsPanel({
+	analytics,
+	hrMaxManual = null,
+	hrMaxAllTime = null,
+	onSaveHrMax
+}: {
+	analytics: RouteAnalytics;
+	/** User-set HRmax (null = using the dynamic all-time max). */
+	hrMaxManual?: number | null;
+	/** All-time max HR across activities, shown as the dynamic option. */
+	hrMaxAllTime?: number | null;
+	/** Persist a new HRmax (null clears back to dynamic). Enables the inline editor. */
+	onSaveHrMax?: (hrMax: number | null) => void;
+}) {
 	const splits = analytics.splits;
 	const zones = analytics.hrZones;
+	const [editingMax, setEditingMax] = useState(false);
+	const [maxInput, setMaxInput] = useState(String(hrMaxManual ?? zones?.hrMax ?? ''));
+
+	function saveMax() {
+		const n = Number(maxInput);
+		onSaveHrMax?.(Number.isFinite(n) && n > 0 ? Math.round(n) : null);
+		setEditingMax(false);
+	}
 
 	const paceSeconds = splits
 		.map((s) => (s.pace && s.seconds > 0 ? s.seconds / s.distanceKm : 0))
@@ -79,15 +101,66 @@ export function SplitsPanel({ analytics }: { analytics: RouteAnalytics }) {
 
 			{zones && (
 				<div className={`zones-block${splits.length > 0 ? ' zones-spaced' : ''}`}>
-					<div className="splits-head">
-						<h3>Heart rate zones</h3>
-						<p className="muted splits-sub">
-							% of HRmax {zones.hrMax}
-							{zones.source === 'activity' && ' (from this run’s max)'}
-							{zones.avgZone != null && zones.avgHr != null && (
-								<> · avg {zones.avgHr} → Z{zones.avgZone}</>
-							)}
-						</p>
+					<div className="splits-head zones-head">
+						<div>
+							<h3>Heart rate zones</h3>
+							<p className="muted splits-sub">
+								% of HRmax {zones.hrMax}
+								{zones.source === 'activity' && ' (from this run’s max)'}
+								{zones.source === 'profile' && ' (your HRmax)'}
+								{zones.source === 'alltime' && ' (all-time max)'}
+								{zones.avgZone != null && zones.avgHr != null && (
+									<> · avg {zones.avgHr} → Z{zones.avgZone}</>
+								)}
+							</p>
+						</div>
+						{onSaveHrMax &&
+							(editingMax ? (
+								<div className="hrmax-edit">
+									<input
+										type="number"
+										value={maxInput}
+										autoFocus
+										placeholder="e.g. 190"
+										onChange={(e) => setMaxInput(e.target.value)}
+										onKeyDown={(e) => {
+											if (e.key === 'Enter') saveMax();
+											if (e.key === 'Escape') setEditingMax(false);
+										}}
+									/>
+									<button type="button" className="btn btn-primary btn-sm" onClick={saveMax}>
+										Save
+									</button>
+									{hrMaxManual != null && (
+										<button
+											type="button"
+											className="btn btn-ghost btn-sm"
+											title={
+												hrMaxAllTime
+													? `Use the all-time max (${hrMaxAllTime})`
+													: 'Use the dynamic max'
+											}
+											onClick={() => {
+												onSaveHrMax(null);
+												setEditingMax(false);
+											}}
+										>
+											Use dynamic
+										</button>
+									)}
+								</div>
+							) : (
+								<button
+									type="button"
+									className="btn btn-ghost btn-sm hrmax-btn"
+									onClick={() => {
+										setMaxInput(String(hrMaxManual ?? zones.hrMax ?? ''));
+										setEditingMax(true);
+									}}
+								>
+									Set HRmax
+								</button>
+							))}
 					</div>
 
 					{zones.distribution?.some((z) => z.seconds > 0) ? (

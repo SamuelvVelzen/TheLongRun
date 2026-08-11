@@ -945,3 +945,24 @@
 	margin: 0.4rem 0 0;
 	font-size: 0.82rem;
 }
+
+/* ---------- HR-zone HRmax control ---------- */
+.zones-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 0.75rem;
+}
+.hrmax-btn {
+	flex: 0 0 auto;
+}
+.hrmax-edit {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+.hrmax-edit input {
+	width: 5.5rem;
+}

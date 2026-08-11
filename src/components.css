@@ -822,3 +822,118 @@
 .map-wrap .leaflet-control-attribution a {
 	color: var(--accent) !important;
 }
+
+/* ---------- Detail-page inline quick-edit ("Context & feel") ---------- */
+.quick-panel .splits-head {
+	margin-bottom: 0.9rem;
+}
+.quick-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 0.75rem 1rem;
+	margin-bottom: 1rem;
+}
+.quick-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.28rem;
+	min-width: 0;
+}
+.quick-field-wide {
+	grid-column: 1 / -1;
+}
+.quick-label {
+	font-size: 0.72rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+.quick-value {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	width: 100%;
+	text-align: left;
+	background: var(--panel-2, rgba(255, 255, 255, 0.03));
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	padding: 0.5rem 0.65rem;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+	transition: border-color 0.15s ease, background 0.15s ease;
+}
+.quick-value:hover {
+	border-color: var(--accent);
+	background: rgba(200, 242, 90, 0.06);
+}
+.quick-value-text {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+.quick-edit-pencil {
+	flex: 0 0 auto;
+	opacity: 0;
+	color: var(--accent);
+	font-size: 0.85rem;
+	transition: opacity 0.15s ease;
+}
+.quick-value:hover .quick-edit-pencil {
+	opacity: 1;
+}
+.quick-edit-row {
+	display: flex;
+	gap: 0.4rem;
+	align-items: center;
+}
+.quick-edit-row.col {
+	flex-direction: column;
+	align-items: stretch;
+}
+.quick-edit-row input,
+.quick-edit-row textarea {
+	flex: 1;
+	min-width: 0;
+}
+.quick-edit-actions {
+	display: flex;
+	gap: 0.35rem;
+	flex: 0 0 auto;
+}
+.quick-edit-row.col .quick-edit-actions {
+	justify-content: flex-end;
+}
+.btn-sm {
+	min-height: auto;
+	padding: 0.35rem 0.7rem;
+	font-size: 0.82rem;
+}
+.quick-wanted {
+	display: flex;
+	gap: 0.3rem;
+}
+.chip {
+	flex: 1;
+	background: var(--panel-2, rgba(255, 255, 255, 0.03));
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	padding: 0.5rem 0.4rem;
+	color: var(--muted);
+	font: inherit;
+	font-size: 0.85rem;
+	cursor: pointer;
+	transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.chip:hover {
+	border-color: var(--accent);
+}
+.chip.active {
+	border-color: var(--accent);
+	background: rgba(200, 242, 90, 0.12);
+	color: var(--fg, #fff);
+	font-weight: 600;
+}
+.quick-start {
+	margin: 0.4rem 0 0;
+	font-size: 0.82rem;
+}

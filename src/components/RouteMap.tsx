@@ -4,6 +4,14 @@ import { attachMapChrome, kmMarkerIcon, type MapChromeHandle } from '$lib/map-ch
 import { analyticsFromProperties, haversineMeters, type KmMarker } from '$lib/splits';
 import { getRouteGeoJsonFn } from '$lib/server/functions';
 
+/** Seconds-per-km → `m:ss /km`. */
+function fmtPace(secPerKm: number): string {
+	if (!Number.isFinite(secPerKm) || secPerKm <= 0) return '';
+	const m = Math.floor(secPerKm / 60);
+	const s = Math.round(secPerKm % 60);
+	return `${m}:${String(s).padStart(2, '0')} /km`;
+}
+
 /** Pace → colour: 0 = fastest (green), 1 = slowest (red), through yellow. */
 function paceColor(t: number): string {
 	const x = Math.max(0, Math.min(1, t));
@@ -105,13 +113,20 @@ export function RouteMap({
 					for (let i = 0; i < N - 1; i += stride) {
 						const j = Math.min(i + stride, N - 1);
 						const midD = (cum[i]! + cum[j]!) / 2;
-						L.polyline(coords.slice(i, j + 1), {
-							color: paceColor(norm(paceAt(midD))),
+						const secPerKm = paceAt(midD);
+						const seg = L.polyline(coords.slice(i, j + 1), {
+							color: paceColor(norm(secPerKm)),
 							weight: 4,
 							opacity: 0.95,
 							lineJoin: 'round',
 							lineCap: 'round'
 						}).addTo(map);
+						const label = fmtPace(secPerKm);
+						if (label) {
+							seg.bindTooltip(label, { sticky: true, direction: 'top', opacity: 0.95 });
+							seg.on('mouseover', () => seg.setStyle({ weight: 7 }));
+							seg.on('mouseout', () => seg.setStyle({ weight: 4 }));
+						}
 					}
 					setColored(true);
 				} else {

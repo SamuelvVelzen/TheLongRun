@@ -37,6 +37,122 @@ function routeIdFrom(route: string, stravaId: string): string {
 	return id || stravaId || '';
 }
 
+/** A single value you can click to edit in place, saved on its own (no full form). */
+function InlineText({
+	label,
+	value,
+	placeholder,
+	multiline = false,
+	numeric = false,
+	datalistId,
+	options,
+	onSave
+}: {
+	label: string;
+	value: string;
+	placeholder?: string;
+	multiline?: boolean;
+	numeric?: boolean;
+	datalistId?: string;
+	options?: string[];
+	onSave: (v: string) => Promise<void>;
+}) {
+	const [editing, setEditing] = useState(false);
+	const [val, setVal] = useState(value);
+	const [busy, setBusy] = useState(false);
+
+	async function save() {
+		setBusy(true);
+		try {
+			await onSave(val.trim());
+			setEditing(false);
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	if (!editing) {
+		return (
+			<div className={`quick-field${multiline ? ' quick-field-wide' : ''}`}>
+				<span className="muted quick-label">{label}</span>
+				<button
+					type="button"
+					className="quick-value"
+					onClick={() => {
+						setVal(value);
+						setEditing(true);
+					}}
+					title="Click to edit"
+				>
+					{value ? (
+						<span className="quick-value-text">{value}</span>
+					) : (
+						<span className="muted">— add</span>
+					)}
+					<span className="quick-edit-pencil" aria-hidden="true">
+						✎
+					</span>
+				</button>
+			</div>
+		);
+	}
+
+	return (
+		<div className={`quick-field editing${multiline ? ' quick-field-wide' : ''}`}>
+			<span className="muted quick-label">{label}</span>
+			<div className={`quick-edit-row${multiline ? ' col' : ''}`}>
+				{multiline ? (
+					<textarea
+						value={val}
+						placeholder={placeholder}
+						rows={3}
+						autoFocus
+						onChange={(e) => setVal(e.target.value)}
+					/>
+				) : (
+					<input
+						value={val}
+						type={numeric ? 'number' : 'text'}
+						placeholder={placeholder}
+						list={datalistId}
+						autoFocus
+						onChange={(e) => setVal(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter') save();
+							if (e.key === 'Escape') setEditing(false);
+						}}
+					/>
+				)}
+				{datalistId && options && (
+					<datalist id={datalistId}>
+						{[...new Set(options.map((o) => o.trim()).filter(Boolean))].map((o) => (
+							<option key={o} value={o} />
+						))}
+					</datalist>
+				)}
+				<div className="quick-edit-actions">
+					<button
+						type="button"
+						className="btn btn-primary btn-sm"
+						onClick={save}
+						disabled={busy}
+					>
+						{busy ? '…' : 'Save'}
+					</button>
+					<button
+						type="button"
+						className="btn btn-ghost btn-sm"
+						onClick={() => setEditing(false)}
+						disabled={busy}
+					>
+						Cancel
+					</button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 function RunDetail() {
 	const { run: r, analytics, shoes } = Route.useLoaderData();
 	const router = useRouter();
@@ -125,6 +241,43 @@ function RunDetail() {
 			}
 		} catch (err) {
 			setMessage(err instanceof Error ? err.message : 'Update failed');
+		}
+	}
+
+	/** Full current values as an UpdateRunInput, so a quick-edit only overrides one field. */
+	function runToInput(): UpdateRunInput {
+		return {
+			slug: r.slug,
+			date: r.date,
+			activity_type: r.activity_type || 'run',
+			session: r.session || 'other',
+			effort: r.effort,
+			shins: r.shins,
+			legs: r.legs,
+			energy: r.energy,
+			weather: r.weather || '',
+			surface: r.surface || '',
+			wanted_faster: r.wanted_faster,
+			distance_km: r.distance_km,
+			start_time: r.start_time || '',
+			time: r.time || '',
+			avg_pace: r.avg_pace || '',
+			avg_hr: r.avg_hr,
+			max_hr: r.max_hr,
+			elev_gain: r.elev_gain,
+			cadence: r.cadence,
+			shoes: r.shoes || '',
+			notes: r.notes || ''
+		};
+	}
+
+	/** Patch a few fields inline without opening the full edit form. */
+	async function patchRun(partial: Partial<UpdateRunInput>) {
+		try {
+			await updateRun({ data: { ...runToInput(), ...partial } });
+			await router.invalidate();
+		} catch (err) {
+			setMessage(err instanceof Error ? err.message : 'Quick save failed');
 		}
 	}
 
@@ -384,18 +537,22 @@ function RunDetail() {
 			) : (
 				<>
 					<div className="metrics metrics-primary" style={{ marginBottom: '0.75rem' }}>
-						<div className="metric metric-emph">
-							<b>{r.distance_km ?? '—'}</b>
-							<span>km</span>
-						</div>
+						{showsField(r.activity_type, 'distance') && (
+							<div className="metric metric-emph">
+								<b>{r.distance_km ?? '—'}</b>
+								<span>km</span>
+							</div>
+						)}
 						<div className="metric metric-emph">
 							<b>{metric.value}</b>
 							<span>{metricSub}</span>
 						</div>
-						<div className="metric metric-emph">
-							<b>{r.time || '—'}</b>
-							<span>moving</span>
-						</div>
+						{metric.unit !== '' && (
+							<div className="metric metric-emph">
+								<b>{r.time || '—'}</b>
+								<span>moving</span>
+							</div>
+						)}
 						{r.elapsed_time && r.elapsed_time !== r.time && (
 							<div className="metric">
 								<b>{r.elapsed_time}</b>
@@ -425,14 +582,18 @@ function RunDetail() {
 								<span>HR</span>
 							</div>
 						)}
-						<div className="metric">
-							<b>{r.elev_gain != null ? r.elev_gain : '—'}</b>
-							<span>elev m</span>
-						</div>
-						<div className="metric">
-							<b>{r.cadence ?? '—'}</b>
-							<span>cadence</span>
-						</div>
+						{showsField(r.activity_type, 'elevation') && (
+							<div className="metric">
+								<b>{r.elev_gain != null ? r.elev_gain : '—'}</b>
+								<span>elev m</span>
+							</div>
+						)}
+						{showsField(r.activity_type, 'cadence') && (
+							<div className="metric">
+								<b>{r.cadence ?? '—'}</b>
+								<span>cadence</span>
+							</div>
+						)}
 						{r.calories != null && (
 							<div className="metric">
 								<b>{r.calories}</b>
@@ -451,22 +612,6 @@ function RunDetail() {
 								<span>max km/h</span>
 							</div>
 						)}
-						<div className="metric">
-							<b>{r.effort ?? '—'}</b>
-							<span>effort</span>
-						</div>
-						<div className="metric">
-							<b>{r.shins ?? '—'}</b>
-							<span>shins</span>
-						</div>
-						<div className="metric">
-							<b>{r.legs ?? '—'}</b>
-							<span>legs</span>
-						</div>
-						<div className="metric">
-							<b>{r.energy ?? '—'}</b>
-							<span>energy</span>
-						</div>
 					</div>
 
 					{strength && strength.exercises.length > 0 && (
@@ -518,36 +663,100 @@ function RunDetail() {
 						<SplitsPanel analytics={analytics} />
 					)}
 
-					<div className="panel" style={{ marginBottom: '1rem' }}>
-						<div className="grid grid-2">
-							<p>
-								<span className="muted">Weather</span>
-								<br />
-								{r.weather || '—'}
-							</p>
-							<p>
-								<span className="muted">Surface</span>
-								<br />
-								{r.surface || '—'}
-							</p>
-							<p>
-								<span className="muted">Wanted faster</span>
-								<br />
-								{r.wanted_faster == null ? '—' : r.wanted_faster ? 'Yes' : 'No'}
-							</p>
-							<p>
-								<span className="muted">Shoes</span>
-								<br />
-								{r.shoes || '—'}
-							</p>
-							{r.start_time && (
-								<p>
-									<span className="muted">Start time</span>
-									<br />
-									{r.start_time}
-								</p>
-							)}
+					<div className="panel quick-panel" style={{ marginBottom: '1rem' }}>
+						<div className="splits-head">
+							<h3>Context &amp; feel</h3>
+							<p className="muted splits-sub">Click any value to update it — no need to open the editor</p>
 						</div>
+
+						<div className="quick-grid">
+							<InlineText
+								label="Effort (1–10)"
+								value={r.effort != null ? String(r.effort) : ''}
+								numeric
+								placeholder="6"
+								onSave={(v) => patchRun({ effort: v ? Number(v) : null })}
+							/>
+							<InlineText
+								label="Energy (1–10)"
+								value={r.energy != null ? String(r.energy) : ''}
+								numeric
+								placeholder="7"
+								onSave={(v) => patchRun({ energy: v ? Number(v) : null })}
+							/>
+							<InlineText
+								label="Shins (0–10)"
+								value={r.shins != null ? String(r.shins) : ''}
+								numeric
+								placeholder="2"
+								onSave={(v) => patchRun({ shins: v ? Number(v) : null })}
+							/>
+							<InlineText
+								label="Legs (0–10)"
+								value={r.legs != null ? String(r.legs) : ''}
+								numeric
+								placeholder="7"
+								onSave={(v) => patchRun({ legs: v ? Number(v) : null })}
+							/>
+							<InlineText
+								label="Weather"
+								value={r.weather || ''}
+								placeholder="14°C drizzle"
+								onSave={(v) => patchRun({ weather: v })}
+							/>
+							<InlineText
+								label="Surface"
+								value={r.surface || ''}
+								placeholder="asphalt / trail"
+								onSave={(v) => patchRun({ surface: v })}
+							/>
+							<InlineText
+								label="Shoes"
+								value={r.shoes || ''}
+								placeholder="Shoe"
+								datalistId="quick-shoes"
+								options={[shoes.active, ...shoes.rotation, r.shoes]}
+								onSave={(v) => patchRun({ shoes: v })}
+							/>
+							<div className="quick-field">
+								<span className="muted quick-label">Wanted faster</span>
+								<div className="quick-wanted">
+									{(['Y', 'N', ''] as const).map((opt) => {
+										const active =
+											(opt === 'Y' && r.wanted_faster === true) ||
+											(opt === 'N' && r.wanted_faster === false) ||
+											(opt === '' && r.wanted_faster == null);
+										return (
+											<button
+												key={opt || 'none'}
+												type="button"
+												className={`chip${active ? ' active' : ''}`}
+												onClick={() =>
+													patchRun({
+														wanted_faster: opt === 'Y' ? true : opt === 'N' ? false : null
+													})
+												}
+											>
+												{opt === 'Y' ? 'Yes' : opt === 'N' ? 'No' : '—'}
+											</button>
+										);
+									})}
+								</div>
+							</div>
+						</div>
+
+						{!strength && (
+							<InlineText
+								label="Notes & mid-run context"
+								value={r.notes || ''}
+								multiline
+								placeholder="Shins flared at 4 km, backed off. Legs opened up after the turnaround…"
+								onSave={(v) => patchRun({ notes: v })}
+							/>
+						)}
+						{r.start_time && (
+							<p className="muted quick-start">Started {r.start_time}</p>
+						)}
 					</div>
 				</>
 			)}

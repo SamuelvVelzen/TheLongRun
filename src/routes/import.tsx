@@ -13,6 +13,7 @@ type Result = {
 	slug?: string;
 	distanceKm?: number | null;
 	message?: string;
+	duplicate?: boolean;
 };
 
 function Import() {
@@ -47,7 +48,13 @@ function Import() {
 			try {
 				const xml = await f.text();
 				const res = await importGpx({ data: { xml, activityType } });
-				out.push({ name: f.name, status: 'ok', slug: res.slug, distanceKm: res.distance_km });
+				out.push({
+					name: f.name,
+					status: 'ok',
+					slug: res.slug,
+					distanceKm: res.distance_km,
+					duplicate: res.duplicate
+				});
 			} catch (err) {
 				out.push({
 					name: f.name,
@@ -177,6 +184,7 @@ function Import() {
 									</>
 								)}
 								{r.distanceKm != null && <span className="muted">({r.distanceKm} km)</span>}
+								{r.duplicate && <span className="muted">— already logged, refreshed its map</span>}
 								{r.message && <span className="muted">— {r.message}</span>}
 							</li>
 						))}

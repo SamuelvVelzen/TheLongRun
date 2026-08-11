@@ -162,6 +162,12 @@ export async function findRunByStravaId(stravaId: string): Promise<RunRecord | n
 	return rows.length ? rowToRun(rows[0]!) : null;
 }
 
+/** Point a run at a route track (used when import attaches/refreshes a map). */
+export async function setRunRoute(slug: string, route: string): Promise<void> {
+	const sql = getSql();
+	await sql`UPDATE runs SET route = ${route} WHERE slug = ${slug}`;
+}
+
 export async function findRunsByDate(date: string): Promise<RunRecord[]> {
 	const sql = getSql();
 	const rows = (await sql`SELECT * FROM runs WHERE date = ${date} ORDER BY slug`) as Record<

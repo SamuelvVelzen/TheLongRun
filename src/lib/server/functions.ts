@@ -16,17 +16,24 @@ import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import { parseStrengthNotes, strengthSummary } from '$lib/strength';
 import {
 	deleteRun as dbDeleteRun,
+	findRunsByDate,
 	getMaxHrAllTime,
 	getRun,
 	listRouteIds,
 	listRuns,
 	runHasMap,
 	saveRun,
+	setRunRoute,
 	updateRun as dbUpdateRun,
 	type UpdateRunFields
 } from './runs';
 import { listRouteTracks } from './routes';
-import { getRouteGeoJson, loadRouteAnalytics, saveRouteGeoJson } from './route-analytics';
+import {
+	getRouteGeoJson,
+	loadRouteAnalytics,
+	routeIdForRun,
+	saveRouteGeoJson
+} from './route-analytics';
 import {
 	currentPlanWeek,
 	loadGoals,
@@ -444,9 +451,33 @@ export const importGpx = createServerFn({ method: 'POST' })
 		const week = weekNumberForDate(parsed.date);
 		const session = guessSession(day, parsed.distanceKm);
 
-		let route = '';
+		// Dedup: an activity of the same type on the same day that matches on start time (or,
+		// lacking one, on distance) is treated as the same activity — refresh its track in place
+		// instead of creating a `-2` duplicate. This also backfills analytics (incl. HR series).
+		const sameDay = await findRunsByDate(parsed.date);
+		const existingDup =
+			sameDay.find(
+				(r) =>
+					normalizeActivityType(r.activity_type) === activity_type &&
+					parsed.startClock &&
+					r.start_time &&
+					r.start_time === parsed.startClock
+			) ??
+			sameDay.find(
+				(r) =>
+					normalizeActivityType(r.activity_type) === activity_type &&
+					(!parsed.startClock || !r.start_time) &&
+					parsed.distanceKm != null &&
+					r.distance_km != null &&
+					Math.abs(r.distance_km - parsed.distanceKm) <= 0.2
+			) ??
+			null;
+
+		let route = existingDup?.route || '';
 		if (parsed.points.length >= 2) {
-			const id = crypto.randomUUID();
+			// Reuse the existing track id when refreshing a duplicate; else mint a new one.
+			const id =
+				(existingDup && routeIdForRun(existingDup)) || crypto.randomUUID();
 			const geojson = {
 				type: 'Feature',
 				properties: {
@@ -462,7 +493,19 @@ export const importGpx = createServerFn({ method: 'POST' })
 				}
 			};
 			await saveRouteGeoJson(id, geojson);
-			route = `/routes/${id}.json`;
+			route = existingDup?.route || `/routes/${id}.json`;
+		}
+
+		// Matched an existing activity → refresh its map/analytics, keep subjective data, no dup.
+		if (existingDup) {
+			if (route && route !== existingDup.route) await setRunRoute(existingDup.slug, route);
+			return {
+				slug: existingDup.slug,
+				activity_type,
+				distance_km: parsed.distanceKm,
+				has_route: Boolean(route),
+				duplicate: true
+			};
 		}
 
 		const weather = await fetchWeatherForDateTime(
@@ -508,7 +551,8 @@ export const importGpx = createServerFn({ method: 'POST' })
 			slug: run.slug,
 			activity_type,
 			distance_km: parsed.distanceKm,
-			has_route: Boolean(route)
+			has_route: Boolean(route),
+			duplicate: false
 		};
 	});
 

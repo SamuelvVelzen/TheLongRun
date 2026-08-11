@@ -605,7 +605,7 @@ function RunDetail() {
 				</form>
 			) : (
 				<>
-					<div className="metrics metrics-primary" style={{ marginBottom: '0.75rem' }}>
+					<div className="metrics metrics-primary" style={{ marginBottom: '1rem' }}>
 						{showsField(r.activity_type, 'distance') && (
 							<div className="metric metric-emph">
 								<b>{r.distance_km ?? '—'}</b>
@@ -626,9 +626,6 @@ function RunDetail() {
 								</span>
 							</div>
 						)}
-					</div>
-
-					<div className="metrics" style={{ marginBottom: '1.25rem' }}>
 						{r.avg_hr != null || r.max_hr != null ? (
 							<div className="metric metric-hr">
 								<div className="metric-hr-vals">

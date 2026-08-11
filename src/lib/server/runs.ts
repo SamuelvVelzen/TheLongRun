@@ -168,6 +168,48 @@ export async function setRunRoute(slug: string, route: string): Promise<void> {
 	await sql`UPDATE runs SET route = ${route} WHERE slug = ${slug}`;
 }
 
+export type FeelingsPatch = {
+	effort?: number | null;
+	shins?: number | null;
+	legs?: number | null;
+	energy?: number | null;
+	wanted_faster?: boolean | null;
+	surface?: string;
+	notes?: string;
+};
+
+/**
+ * Update only the subjective "feel" columns of a run, leaving device data untouched. Fields not
+ * present in the patch keep their current value. Returns false if the slug does not exist.
+ */
+export async function updateRunFeelings(slug: string, p: FeelingsPatch): Promise<boolean> {
+	const run = await getRun(slug);
+	if (!run) return false;
+	const pick = <T>(v: T | undefined, cur: T): T => (v === undefined ? cur : v);
+	const merged = {
+		effort: pick(p.effort, run.effort),
+		shins: pick(p.shins, run.shins),
+		legs: pick(p.legs, run.legs),
+		energy: pick(p.energy, run.energy),
+		wanted_faster: pick(p.wanted_faster, run.wanted_faster),
+		surface: pick(p.surface, run.surface),
+		notes: pick(p.notes, run.notes)
+	};
+	const sql = getSql();
+	await sql`
+		UPDATE runs SET
+			effort = ${merged.effort},
+			shins = ${merged.shins},
+			legs = ${merged.legs},
+			energy = ${merged.energy},
+			wanted_faster = ${merged.wanted_faster},
+			surface = ${merged.surface},
+			notes = ${merged.notes}
+		WHERE slug = ${slug}
+	`;
+	return true;
+}
+
 export async function findRunsByDate(date: string): Promise<RunRecord[]> {
 	const sql = getSql();
 	const rows = (await sql`SELECT * FROM runs WHERE date = ${date} ORDER BY slug`) as Record<

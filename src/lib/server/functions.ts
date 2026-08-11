@@ -25,6 +25,8 @@ import {
 	saveRun,
 	setRunRoute,
 	updateRun as dbUpdateRun,
+	updateRunFeelings,
+	type FeelingsPatch,
 	type UpdateRunFields
 } from './runs';
 import { listRouteTracks } from './routes';
@@ -646,6 +648,148 @@ export const savePlanWeeks = createServerFn({ method: 'POST' })
 		const merged = [...byWeek.values()].sort((a, b) => a.week - b.week);
 		await writeContextFile('plan.json', `${JSON.stringify(merged, null, 2)}\n`);
 		return { weeks: merged.length, updated: incoming.map((w) => w.week) };
+	});
+
+// ---------- weekly feelings round-trip ----------
+
+/** An imported run whose notes are just the import placeholder counts as "no feel yet". */
+function isImportNote(n: string): boolean {
+	return /^imported from/i.test(n.trim());
+}
+
+/** True when a run already carries any subjective "how it felt" data. */
+function hasFeel(r: RunRecord): boolean {
+	return (
+		r.effort != null ||
+		r.shins != null ||
+		r.legs != null ||
+		r.energy != null ||
+		r.wanted_faster != null ||
+		(r.surface ?? '').trim() !== '' ||
+		((r.notes ?? '').trim() !== '' && !isImportNote(r.notes))
+	);
+}
+
+/**
+ * Build a ready-to-paste prompt asking the AI to summarise, per activity, how each one felt —
+ * using the week's conversation. `scope: 'window'` covers the last `weeks`; `scope: 'missing'`
+ * covers every activity that still lacks feel data. The AI returns JSON keyed by slug, saved back
+ * via saveFeelings.
+ */
+export const getFeelingsPrompt = createServerFn({ method: 'GET' })
+	.validator((d: { scope: 'window' | 'missing'; weeks: number }) => ({
+		scope: d.scope === 'missing' ? 'missing' : 'window',
+		weeks: Number.isFinite(d.weeks) && d.weeks > 0 ? Math.floor(d.weeks) : 1
+	}))
+	.handler(async ({ data }) => {
+		const all = (await listRuns()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+		let targets: RunRecord[];
+		let rangeLabel: string;
+		if (data.scope === 'missing') {
+			targets = all.filter((r) => !hasFeel(r));
+			rangeLabel = 'all activities still missing how they felt';
+		} else {
+			const cutoff = new Date();
+			cutoff.setDate(cutoff.getDate() - data.weeks * 7);
+			const cutoffIso = cutoff.toISOString().slice(0, 10);
+			targets = all.filter((r) => r.date >= cutoffIso);
+			rangeLabel = `the last ${data.weeks} week${data.weeks === 1 ? '' : 's'}`;
+		}
+
+		const from = targets[0]?.date ?? '—';
+		const to = targets[targets.length - 1]?.date ?? '—';
+
+		const table = targets.length
+			? targets
+					.map((r) => {
+						const feel = hasFeel(r) ? 'has notes — refine only if I said more' : 'none yet';
+						return `| ${r.slug} | ${r.date} | ${activityLabel(r.activity_type)} | ${
+							r.distance_km != null ? `${r.distance_km} km` : '—'
+						} | ${feel} |`;
+					})
+					.join('\n')
+			: '| — | — | — | — | — |';
+
+		const prompt = `# The Long Run — capture how each activity felt
+
+From our conversation, summarise how I felt for each activity below (${rangeLabel}). I describe things like the road/terrain, shin soreness, energy, whether I wanted to run more or faster, and how my legs felt.
+
+Return ONLY a JSON block in exactly this shape — no prose before or after:
+
+\`\`\`json
+{
+  "activities": [
+    {
+      "slug": "PASTE-EXACT-SLUG",
+      "effort": 6,
+      "shins": 3,
+      "legs": 7,
+      "energy": 7,
+      "wanted_faster": true,
+      "surface": "wet asphalt",
+      "notes": "Shins tight the first 2 km, opened up after the turnaround."
+    }
+  ]
+}
+\`\`\`
+
+Rules:
+- Use the exact \`slug\` values from the table. Scores are 0–10 (effort/energy 1–10). \`wanted_faster\` is true/false.
+- Omit any field you have no information for; omit an activity entirely if I said nothing about it.
+- Keep \`notes\` short and in my voice (first person).
+
+## Activities (${from} → ${to})
+| slug | date | type | distance | current feel |
+|------|------|------|----------|--------------|
+${table}
+`;
+		return { prompt, count: targets.length, from, to };
+	});
+
+/** Save AI-summarised feelings back onto activities by slug (subjective fields only). */
+export const saveFeelings = createServerFn({ method: 'POST' })
+	.validator((jsonText: string) => jsonText)
+	.handler(async ({ data: jsonText }) => {
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(jsonText);
+		} catch {
+			throw new Error('That is not valid JSON — paste just the JSON block your AI returned.');
+		}
+		const list = Array.isArray(parsed)
+			? parsed
+			: parsed && typeof parsed === 'object' && Array.isArray((parsed as { activities?: unknown }).activities)
+				? (parsed as { activities: unknown[] }).activities
+				: [parsed];
+		const rows = list.filter(
+			(a): a is Record<string, unknown> =>
+				Boolean(a) && typeof a === 'object' && typeof (a as { slug?: unknown }).slug === 'string'
+		);
+		if (!rows.length) throw new Error('No activities with a "slug" were found in that JSON.');
+
+		const score = (v: unknown, lo: number, hi: number): number | null => {
+			const n = Number(v);
+			if (!Number.isFinite(n)) return null;
+			return Math.max(lo, Math.min(hi, Math.round(n)));
+		};
+
+		const updated: string[] = [];
+		const missing: string[] = [];
+		for (const a of rows) {
+			const slug = String(a.slug);
+			const patch: FeelingsPatch = {};
+			if ('effort' in a) patch.effort = score(a.effort, 1, 10);
+			if ('shins' in a) patch.shins = score(a.shins, 0, 10);
+			if ('legs' in a) patch.legs = score(a.legs, 0, 10);
+			if ('energy' in a) patch.energy = score(a.energy, 1, 10);
+			if ('wanted_faster' in a)
+				patch.wanted_faster = a.wanted_faster === true ? true : a.wanted_faster === false ? false : null;
+			if (typeof a.surface === 'string') patch.surface = a.surface.trim();
+			if (typeof a.notes === 'string') patch.notes = a.notes.trim();
+			const ok = await updateRunFeelings(slug, patch);
+			(ok ? updated : missing).push(slug);
+		}
+		return { updated: updated.length, missing };
 	});
 
 export const saveShoes = createServerFn({ method: 'POST' })

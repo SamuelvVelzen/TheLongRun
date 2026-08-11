@@ -177,10 +177,15 @@ export function parseGpx(xml: string): ParsedGpx {
 		maxHr,
 		elevGain: elevGain > 0 ? Math.round(elevGain * 10) / 10 : null,
 		maxSpeed: maxSpeedKmh > 0 ? Math.round(maxSpeedKmh * 10) / 10 : null,
-		points: downsample(
-			track.map((p) => ({ lat: p.lat, lng: p.lng })),
-			2500
-		),
+		// A treadmill/indoor run is a single static point repeated — no real route. Skip the track
+		// so no bogus one-point map gets stored.
+		points:
+			distanceMeters > 50
+				? downsample(
+						track.map((p) => ({ lat: p.lat, lng: p.lng })),
+						2500
+					)
+				: [],
 		analytics,
 		detectedType,
 		country

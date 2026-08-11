@@ -137,7 +137,7 @@ p {
 }
 
 .hero p {
-	max-width: 42ch;
+	max-width: 68ch;
 	color: var(--muted);
 	font-size: 1.05rem;
 }

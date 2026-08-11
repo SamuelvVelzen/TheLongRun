@@ -79,10 +79,7 @@ function Timeline() {
 	const runs = filterRunsByRange(scoped, range);
 	const stats = buildRangeStats(runs);
 	const groups = groupRuns(runs);
-	const trends =
-		range.kind !== 'all'
-			? buildTrainingTrends(runs, { endDate: range.to, fromDate: range.from })
-			: null;
+	const trends = buildTrainingTrends(runs, { endDate: range.to, fromDate: range.from });
 
 	const totalAllTime = allRuns.length;
 	const neverLogged = totalAllTime === 0;
@@ -134,7 +131,14 @@ function Timeline() {
 			) : (
 				<>
 					{trends?.series.length ? (
-						<TrendsSection trends={trends} caption={`Within ${range.label.toLowerCase()}`} />
+						<TrendsSection
+							trends={trends}
+							caption={
+								range.kind === 'all'
+									? 'Progress over recent weeks and runs'
+									: `Within ${range.label.toLowerCase()}`
+							}
+						/>
 					) : null}
 
 					{groups.map((group) => (

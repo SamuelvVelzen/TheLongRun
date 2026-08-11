@@ -620,10 +620,9 @@
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 0.55rem 1.5rem;
-	margin: 0 0 1.5rem;
-	padding: 0.85rem 0;
+	margin: 0 0 0.5rem;
+	padding: 0.85rem 0 0.35rem;
 	border-top: 1px solid var(--line);
-	border-bottom: 1px solid var(--line);
 }
 
 /* Let the two filter groups become direct children of the row. */

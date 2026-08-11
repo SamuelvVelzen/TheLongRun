@@ -75,10 +75,15 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 	.handler(async ({ data: slug }) => {
 		const run = await getRun(slug);
 		if (!run) return null;
-		const [analytics, routeIds] = await Promise.all([loadRouteAnalytics(run), listRouteIds()]);
+		const [analytics, routeIds, shoes] = await Promise.all([
+			loadRouteAnalytics(run),
+			listRouteIds(),
+			loadShoes()
+		]);
 		return {
 			run: { ...run, has_map: runHasMap(run, routeIds) } as RunWithMap,
-			analytics: analytics as RouteAnalytics | null
+			analytics: analytics as RouteAnalytics | null,
+			shoes
 		};
 	});
 

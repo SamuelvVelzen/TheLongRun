@@ -3,11 +3,19 @@ import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-rout
 import { getRunDetail, updateRun, deleteRun, type UpdateRunInput } from '$lib/server/functions';
 import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
-import { ACTIVITY_TYPES, activityLabel, headlineMetric, normalizeActivityType } from '$lib/activity';
+import {
+	ACTIVITY_TYPES,
+	activityLabel,
+	headlineMetric,
+	normalizeActivityType,
+	showsField
+} from '$lib/activity';
 import { parseStrengthNotes, topSet, exerciseVolume } from '$lib/strength';
 import { RouteMap } from '../components/RouteMap';
 import { SplitsPanel } from '../components/SplitsPanel';
 import { StrengthEditor } from '../components/StrengthEditor';
+import { ShoesField } from '../components/ShoesField';
+import { WeatherField } from '../components/WeatherField';
 
 export const Route = createFileRoute('/runs/$slug')({
 	loader: async ({ params }) => {
@@ -30,13 +38,15 @@ function routeIdFrom(route: string, stravaId: string): string {
 }
 
 function RunDetail() {
-	const { run: r, analytics } = Route.useLoaderData();
+	const { run: r, analytics, shoes } = Route.useLoaderData();
 	const router = useRouter();
 
 	const [editing, setEditing] = useState(false);
 	const [editDate, setEditDate] = useState(r.date);
 	const [editActivity, setEditActivity] = useState(r.activity_type || 'run');
 	const [editNotes, setEditNotes] = useState(r.notes);
+	const [editWeather, setEditWeather] = useState(r.weather || '');
+	const [editStart, setEditStart] = useState(r.start_time || '');
 	const [message, setMessage] = useState('');
 
 	const derivedDay = dayFromIsoDate(editDate || r.date);
@@ -86,16 +96,16 @@ function RunDetail() {
 			slug: r.slug,
 			date: editDate,
 			activity_type: editActivity,
-			session: String(fd.get('session') ?? ''),
+			session: editActivity === 'run' ? String(fd.get('session') ?? 'easy') : r.session || 'other',
 			effort: num('effort'),
 			shins: num('shins'),
 			legs: num('legs'),
 			energy: num('energy'),
-			weather: String(fd.get('weather') ?? ''),
+			weather: editWeather,
 			surface: String(fd.get('surface') ?? ''),
 			wanted_faster: wanted === 'Y' ? true : wanted === 'N' ? false : null,
 			distance_km: num('distance_km'),
-			start_time: String(fd.get('start_time') ?? ''),
+			start_time: editStart,
 			time: String(fd.get('time') ?? ''),
 			avg_pace: String(fd.get('avg_pace') ?? ''),
 			avg_hr: num('avg_hr'),
@@ -223,35 +233,51 @@ function RunDetail() {
 								))}
 							</select>
 						</label>
-						<label className="field">
-							<span className="req">Session</span>
-							<select name="session" required defaultValue={r.session}>
-								{sessions.map((s) => (
-									<option key={s} value={s}>
-										{s}
-									</option>
-								))}
-							</select>
-						</label>
+						{editActivity === 'run' && (
+							<label className="field">
+								<span>Session</span>
+								<select name="session" defaultValue={r.session}>
+									{sessions.map((s) => (
+										<option key={s} value={s}>
+											{s}
+										</option>
+									))}
+								</select>
+							</label>
+						)}
 					</div>
 
 					<div className="form-grid">
-						<label className="field">
-							<span>Distance (km)</span>
-							<input name="distance_km" type="number" step="0.01" defaultValue={r.distance_km ?? ''} />
-						</label>
+						{showsField(editActivity, 'distance') && (
+							<label className="field">
+								<span>Distance (km)</span>
+								<input
+									name="distance_km"
+									type="number"
+									step="0.01"
+									defaultValue={r.distance_km ?? ''}
+								/>
+							</label>
+						)}
 						<label className="field">
 							<span>Start time</span>
-							<input type="time" name="start_time" defaultValue={r.start_time || ''} />
+							<input
+								type="time"
+								name="start_time"
+								value={editStart}
+								onChange={(e) => setEditStart(e.target.value)}
+							/>
 						</label>
 						<label className="field">
 							<span>Duration</span>
 							<input name="time" placeholder="45:12 or 1:15:01" defaultValue={r.time || ''} />
 						</label>
-						<label className="field">
-							<span>Avg pace /km</span>
-							<input name="avg_pace" placeholder="6:29" defaultValue={r.avg_pace || ''} />
-						</label>
+						{showsField(editActivity, 'pace') && (
+							<label className="field">
+								<span>Avg pace /km</span>
+								<input name="avg_pace" placeholder="6:29" defaultValue={r.avg_pace || ''} />
+							</label>
+						)}
 						<label className="field">
 							<span>Avg HR</span>
 							<input name="avg_hr" type="number" defaultValue={r.avg_hr ?? ''} />
@@ -260,18 +286,23 @@ function RunDetail() {
 							<span>Max HR</span>
 							<input name="max_hr" type="number" defaultValue={r.max_hr ?? ''} />
 						</label>
-						<label className="field">
-							<span>Elev gain (m)</span>
-							<input name="elev_gain" type="number" step="0.1" defaultValue={r.elev_gain ?? ''} />
-						</label>
-						<label className="field">
-							<span>Cadence</span>
-							<input name="cadence" type="number" defaultValue={r.cadence ?? ''} />
-						</label>
-						<label className="field">
-							<span>Shoes</span>
-							<input name="shoes" defaultValue={r.shoes || ''} />
-						</label>
+						{showsField(editActivity, 'elevation') && (
+							<label className="field">
+								<span>Elev gain (m)</span>
+								<input
+									name="elev_gain"
+									type="number"
+									step="0.1"
+									defaultValue={r.elev_gain ?? ''}
+								/>
+							</label>
+						)}
+						{showsField(editActivity, 'cadence') && (
+							<label className="field">
+								<span>Cadence</span>
+								<input name="cadence" type="number" defaultValue={r.cadence ?? ''} />
+							</label>
+						)}
 					</div>
 
 					<div className="form-grid">
@@ -291,10 +322,13 @@ function RunDetail() {
 							<span>Energy (1–10)</span>
 							<input name="energy" type="number" min="1" max="10" defaultValue={r.energy ?? ''} />
 						</label>
-						<label className="field">
-							<span>Weather</span>
-							<input name="weather" placeholder="27°C humid / cloudy" defaultValue={r.weather || ''} />
-						</label>
+						<WeatherField
+							value={editWeather}
+							onChange={setEditWeather}
+							date={editDate}
+							time={editStart}
+							duration={r.time}
+						/>
 						<label className="field">
 							<span>Surface</span>
 							<input
@@ -303,6 +337,10 @@ function RunDetail() {
 								defaultValue={r.surface || ''}
 							/>
 						</label>
+						<ShoesField
+							options={[shoes.active, ...shoes.rotation, r.shoes]}
+							defaultValue={r.shoes || ''}
+						/>
 						<label className="field">
 							<span>Wanted to go faster?</span>
 							<select name="wanted_faster" defaultValue={wantedValue}>

@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
-import { getLogDefaults, getWeather, createRun, type CreateRunInput } from '$lib/server/functions';
+import { getLogDefaults, createRun, type CreateRunInput } from '$lib/server/functions';
 import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
-import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
+import { ACTIVITY_TYPES, activityLabel, showsField } from '$lib/activity';
 import { StrengthEditor } from '../components/StrengthEditor';
+import { ShoesField } from '../components/ShoesField';
+import { WeatherField } from '../components/WeatherField';
 
 export const Route = createFileRoute('/log')({
 	loader: () => getLogDefaults(),
@@ -20,8 +22,6 @@ function LogRun() {
 	const [startTimeValue, setStartTimeValue] = useState('');
 	const [durationValue, setDurationValue] = useState('');
 	const [weather, setWeather] = useState('');
-	const [weatherManual, setWeatherManual] = useState(false);
-	const [weatherHint, setWeatherHint] = useState('');
 	const [activityType, setActivityType] = useState('run');
 	const [strengthNotes, setStrengthNotes] = useState('');
 	const [message, setMessage] = useState('');
@@ -37,28 +37,6 @@ function LogRun() {
 			: planSession
 				? 'quality'
 				: 'easy';
-
-	useEffect(() => {
-		if (!dateValue || weatherManual) return;
-		let cancelled = false;
-		setWeatherHint('Fetching…');
-		getWeather({
-			data: { date: dateValue, time: startTimeValue || null, duration: durationValue || null }
-		})
-			.then((w) => {
-				if (cancelled) return;
-				setWeather(w ?? '');
-				setWeatherHint(
-					w ? 'From Open-Meteo (hourly) — edit anytime' : 'No weather data for this date'
-				);
-			})
-			.catch(() => {
-				if (!cancelled) setWeatherHint('Weather fetch failed');
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [dateValue, startTimeValue, durationValue, weatherManual]);
 
 	async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
 		e.preventDefault();
@@ -108,7 +86,7 @@ function LogRun() {
 				<div>
 					<p className="muted">Quick manual entry</p>
 					<h1>Log an activity</h1>
-					<p>Pick the type, fill what you have — weather auto-fills when left blank.</p>
+					<p>Pick the type, fill what you have — fields adapt to the activity, and weather fetches on demand.</p>
 				</div>
 			</section>
 
@@ -173,10 +151,12 @@ function LogRun() {
 				<div className="form-section">
 					<h3 className="form-section-title">Numbers</h3>
 					<div className="form-grid">
-						<label className="field">
-							<span>Distance (km)</span>
-							<input name="distance_km" type="number" step="0.01" placeholder="7.04" />
-						</label>
+						{showsField(activityType, 'distance') && (
+							<label className="field">
+								<span>Distance (km)</span>
+								<input name="distance_km" type="number" step="0.01" placeholder="7.04" />
+							</label>
+						)}
 						<label className="field">
 							<span>Duration</span>
 							<input
@@ -195,10 +175,12 @@ function LogRun() {
 								onChange={(e) => setStartTimeValue(e.target.value)}
 							/>
 						</label>
-						<label className="field">
-							<span>Avg pace /km</span>
-							<input name="avg_pace" placeholder="6:29" />
-						</label>
+						{showsField(activityType, 'pace') && (
+							<label className="field">
+								<span>Avg pace /km</span>
+								<input name="avg_pace" placeholder="6:29" />
+							</label>
+						)}
 						<label className="field">
 							<span>Avg HR</span>
 							<input name="avg_hr" type="number" placeholder="147" />
@@ -207,14 +189,18 @@ function LogRun() {
 							<span>Max HR</span>
 							<input name="max_hr" type="number" placeholder="172" />
 						</label>
-						<label className="field">
-							<span>Elev gain (m)</span>
-							<input name="elev_gain" type="number" step="0.1" placeholder="48" />
-						</label>
-						<label className="field">
-							<span>Cadence</span>
-							<input name="cadence" type="number" placeholder="176" />
-						</label>
+						{showsField(activityType, 'elevation') && (
+							<label className="field">
+								<span>Elev gain (m)</span>
+								<input name="elev_gain" type="number" step="0.1" placeholder="48" />
+							</label>
+						)}
+						{showsField(activityType, 'cadence') && (
+							<label className="field">
+								<span>Cadence</span>
+								<input name="cadence" type="number" placeholder="176" />
+							</label>
+						)}
 					</div>
 				</div>
 
@@ -251,28 +237,21 @@ function LogRun() {
 				<div className="form-section">
 					<h3 className="form-section-title">Details</h3>
 					<div className="form-grid">
-						<label className="field">
-							<span>Weather</span>
-							<input
-								name="weather"
-								placeholder="27°C humid / cloudy"
-								value={weather}
-								onChange={(e) => {
-									setWeather(e.target.value);
-									setWeatherManual(true);
-									setWeatherHint('Manual override');
-								}}
-							/>
-							{weatherHint && <span className="field-hint muted">{weatherHint}</span>}
-						</label>
+						<WeatherField
+							value={weather}
+							onChange={setWeather}
+							date={dateValue}
+							time={startTimeValue}
+							duration={durationValue}
+						/>
 						<label className="field">
 							<span>Surface</span>
 							<input name="surface" placeholder="asphalt / mixed / trail" defaultValue="asphalt" />
 						</label>
-						<label className="field">
-							<span>Shoes</span>
-							<input name="shoes" defaultValue={data.shoes.active} />
-						</label>
+						<ShoesField
+							options={[data.shoes.active, ...data.shoes.rotation]}
+							defaultValue={data.shoes.active}
+						/>
 					</div>
 					{activityType === 'strength' ? (
 						<div className="field" style={{ marginTop: '0.85rem' }}>

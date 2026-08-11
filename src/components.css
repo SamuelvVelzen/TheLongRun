@@ -594,6 +594,22 @@
 	padding: 0.85rem 1rem;
 }
 
+/* ---------- Weather fetch field ---------- */
+.weather-row {
+	display: flex;
+	gap: 0.4rem;
+	align-items: stretch;
+}
+.weather-row input {
+	flex: 1;
+	min-width: 0;
+}
+.weather-fetch {
+	flex: 0 0 auto;
+	min-height: auto;
+	padding: 0 0.9rem;
+}
+
 /* ---------- Log form sections ---------- */
 .form-section {
 	margin-top: 1.35rem;

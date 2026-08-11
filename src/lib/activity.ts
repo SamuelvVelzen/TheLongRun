@@ -53,6 +53,25 @@ export function activityPlural(sport: string | null | undefined): string {
 	}
 }
 
+/** Which numeric fields make sense to show/edit for a given activity type. */
+export function showsField(
+	activity: string | null | undefined,
+	field: 'distance' | 'pace' | 'hr' | 'elevation' | 'cadence'
+): boolean {
+	const t = normalizeActivityType(activity);
+	if (t === 'strength') return field === 'hr'; // + duration/start always shown separately
+	switch (field) {
+		case 'pace':
+			return t === 'run' || t === 'walk';
+		case 'cadence':
+			return t === 'run';
+		case 'elevation':
+			return t !== 'swim';
+		default:
+			return true; // distance, hr
+	}
+}
+
 export type HeadlineMetric = { value: string; unit: string };
 
 /** Sport-appropriate headline pace/speed: pace/km (run, walk), km/h (ride), /100m (swim). */

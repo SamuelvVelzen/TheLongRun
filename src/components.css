@@ -966,3 +966,30 @@
 .hrmax-edit input {
 	width: 5.5rem;
 }
+
+/* ---------- Coach tabs ---------- */
+.coach-tabs {
+	display: flex;
+	gap: 0.3rem;
+	margin: 0 0 1rem;
+	border-bottom: 1px solid var(--line);
+}
+.coach-tab {
+	appearance: none;
+	background: transparent;
+	border: 0;
+	border-bottom: 2px solid transparent;
+	margin-bottom: -1px;
+	padding: 0.55rem 0.9rem;
+	font: inherit;
+	font-weight: 600;
+	color: var(--muted);
+	cursor: pointer;
+}
+.coach-tab:hover {
+	color: var(--fg, #fff);
+}
+.coach-tab.active {
+	color: var(--fg, #fff);
+	border-bottom-color: var(--accent);
+}

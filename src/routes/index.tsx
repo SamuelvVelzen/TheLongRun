@@ -8,7 +8,8 @@ import {
 } from '$lib/date-range';
 import { buildDashboardStats, type DashboardStats } from '$lib/plan';
 import { buildTrainingTrends } from '$lib/trends';
-import { activityPlural, metricText, normalizeActivityType } from '$lib/activity';
+import { activityPlural, hasContext, metricText, normalizeActivityType } from '$lib/activity';
+import { FeelBadge } from '../components/FeelBadge';
 import { DateRangeFilter, rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
@@ -268,6 +269,7 @@ function Dashboard() {
 													</svg>
 												</span>
 											)}
+											{hasContext(run) && <FeelBadge />}
 										</strong>
 										<div className="muted">
 											{run.day} · {run.session}

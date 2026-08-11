@@ -494,6 +494,16 @@ p {
 	vertical-align: middle;
 }
 
+.feel-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--muted);
+	opacity: 0.85;
+	flex-shrink: 0;
+	margin-left: 0.1rem;
+}
+
 .field-hint {
 	display: block;
 	margin-top: 0.35rem;

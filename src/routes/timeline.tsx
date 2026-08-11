@@ -7,7 +7,14 @@ import {
 	type RangeKind
 } from '$lib/date-range';
 import { buildTrainingTrends } from '$lib/trends';
-import { activityLabel, activityPlural, metricText, normalizeActivityType } from '$lib/activity';
+import {
+	activityLabel,
+	activityPlural,
+	hasContext,
+	metricText,
+	normalizeActivityType
+} from '$lib/activity';
+import { FeelBadge } from '../components/FeelBadge';
 import type { RunWithMap } from '$lib/types';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
 import { SportFilter } from '../components/SportFilter';
@@ -181,6 +188,7 @@ function Timeline() {
 																</svg>
 															</span>
 														)}
+														{hasContext(run) && <FeelBadge />}
 													</strong>
 													<span className="tag">{activityLabel(run.activity_type)}</span>
 													<span className="tag">{run.day}</span>

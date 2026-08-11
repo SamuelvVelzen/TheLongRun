@@ -113,3 +113,21 @@ export function metricText(
 	const m = headlineMetric(run);
 	return m.unit === 'km/h' ? `${m.value} km/h` : `${m.value}${m.unit}`;
 }
+
+/**
+ * True when a run carries subjective "how it felt" data — the feel scores, wanted-faster, or
+ * surface. Notes are deliberately excluded: Strava imports dump the activity title there, which
+ * is not "how it felt" and would flag almost everything.
+ */
+export function hasContext(
+	run: Pick<RunRecord, 'effort' | 'shins' | 'legs' | 'energy' | 'wanted_faster' | 'surface'>
+): boolean {
+	return (
+		run.effort != null ||
+		run.shins != null ||
+		run.legs != null ||
+		run.energy != null ||
+		run.wanted_faster != null ||
+		(run.surface ?? '').trim() !== ''
+	);
+}

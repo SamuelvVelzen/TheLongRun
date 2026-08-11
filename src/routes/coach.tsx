@@ -37,6 +37,7 @@ function Coach() {
 	const router = useRouter();
 	const weeks = search.weeks ?? 12;
 
+	const [tab, setTab] = useState<'context' | 'feelings'>('context');
 	const [question, setQuestion] = useState('');
 	const [copied, setCopied] = useState(false);
 	const [planJson, setPlanJson] = useState('');
@@ -131,15 +132,38 @@ function Coach() {
 			<section className="hero">
 				<div>
 					<p className="muted">Context for your AI coach</p>
-					<h1>Coach brief</h1>
+					<h1>Coach</h1>
 					<p>
-						A ready-to-paste snapshot of your training — goal, plan, recent activities with how they
-						felt, and your constraints. Download it (or copy it) and drop it into your AI each week
-						to get your next plan.
+						Two halves of your weekly loop: the <strong>Context</strong> brief you paste in at the
+						start of the week to get a plan, and <strong>Feelings</strong> at the end to pull how
+						each activity felt back into the app.
 					</p>
 				</div>
 			</section>
 
+			<div className="coach-tabs" role="tablist">
+				<button
+					type="button"
+					role="tab"
+					aria-selected={tab === 'context'}
+					className={`coach-tab${tab === 'context' ? ' active' : ''}`}
+					onClick={() => setTab('context')}
+				>
+					Context &amp; plan
+				</button>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={tab === 'feelings'}
+					className={`coach-tab${tab === 'feelings' ? ' active' : ''}`}
+					onClick={() => setTab('feelings')}
+				>
+					Feelings
+				</button>
+			</div>
+
+			{tab === 'context' && (
+				<>
 			<div className="panel form" style={{ marginBottom: '1rem' }}>
 				<div className="form-grid">
 					<label className="field">
@@ -207,80 +231,100 @@ function Coach() {
 					</button>
 				</div>
 			</div>
+				</>
+			)}
 
-			<div className="panel form" style={{ marginTop: '1rem' }}>
-				<h3>Capture how it felt</h3>
-				<p className="muted" style={{ marginTop: '0.3rem' }}>
-					At the end of the week, generate a prompt that asks your AI to summarise — per activity —
-					how each run/ride felt from your chat. Paste its JSON back here to save the feelings onto
-					each activity (shins, energy, surface, notes…). Objective numbers are never touched.
-				</p>
-				{feelMsg && <div className="flash">{feelMsg}</div>}
+			{tab === 'feelings' && (
+				<>
+					<div className="panel form" style={{ marginBottom: '1rem' }}>
+						<p className="muted" style={{ marginTop: 0 }}>
+							At the end of the week, generate a prompt that asks your AI to summarise — per
+							activity — how each run/ride felt from your chat. Paste its JSON back to save the
+							feelings onto each activity (shins, energy, surface, notes…). Objective numbers are
+							never touched.
+						</p>
+						<div className="form-grid">
+							<label className="field">
+								<span>Which activities</span>
+								<select
+									value={feelScope}
+									onChange={(e) => setFeelScope(e.target.value as 'window' | 'missing')}
+								>
+									<option value="window">Recent weeks</option>
+									<option value="missing">All still missing feel</option>
+								</select>
+							</label>
+							{feelScope === 'window' && (
+								<label className="field">
+									<span>Duration</span>
+									<select value={feelWeeks} onChange={(e) => setFeelWeeks(Number(e.target.value))}>
+										{[1, 2, 3, 4, 6, 8].map((w) => (
+											<option key={w} value={w}>
+												{w} week{w === 1 ? '' : 's'}
+											</option>
+										))}
+									</select>
+								</label>
+							)}
+						</div>
+						<div className="actions">
+							<button
+								className="btn btn-primary"
+								type="button"
+								onClick={generateFeelPrompt}
+								disabled={feelBusy}
+							>
+								{feelBusy ? 'Building…' : 'Generate prompt'}
+							</button>
+							{feelPrompt && (
+								<button className="btn btn-ghost" type="button" onClick={copyFeelPrompt}>
+									{feelCopied ? 'Copied' : 'Copy prompt'}
+								</button>
+							)}
+							{feelCount != null && (
+								<span className="muted" style={{ alignSelf: 'center' }}>
+									{feelCount} activit{feelCount === 1 ? 'y' : 'ies'}
+								</span>
+							)}
+						</div>
+					</div>
 
-				<div className="form-grid">
-					<label className="field">
-						<span>Which activities</span>
-						<select
-							value={feelScope}
-							onChange={(e) => setFeelScope(e.target.value as 'window' | 'missing')}
-						>
-							<option value="window">Recent weeks</option>
-							<option value="missing">All still missing feel</option>
-						</select>
-					</label>
-					{feelScope === 'window' && (
-						<label className="field">
-							<span>Duration</span>
-							<select value={feelWeeks} onChange={(e) => setFeelWeeks(Number(e.target.value))}>
-								{[1, 2, 3, 4, 6, 8].map((w) => (
-									<option key={w} value={w}>
-										{w} week{w === 1 ? '' : 's'}
-									</option>
-								))}
-							</select>
-						</label>
-					)}
-				</div>
-
-				<div className="actions">
-					<button className="btn btn-primary" type="button" onClick={generateFeelPrompt} disabled={feelBusy}>
-						{feelBusy ? 'Building…' : 'Generate prompt'}
-					</button>
 					{feelPrompt && (
-						<button className="btn btn-ghost" type="button" onClick={copyFeelPrompt}>
-							{feelCopied ? 'Copied' : 'Copy prompt'}
-						</button>
+						<div className="panel">
+							<h3 style={{ marginBottom: '0.6rem' }}>Prompt</h3>
+							<pre className="coach-preview">{feelPrompt}</pre>
+						</div>
 					)}
-					{feelCount != null && (
-						<span className="muted" style={{ alignSelf: 'center' }}>
-							{feelCount} activit{feelCount === 1 ? 'y' : 'ies'}
-						</span>
-					)}
-				</div>
 
-				{feelPrompt && (
-					<label className="field" style={{ marginTop: '0.6rem' }}>
-						<span>Prompt (copy into your weekly chat)</span>
-						<textarea className="editor" rows={10} readOnly value={feelPrompt} />
-					</label>
-				)}
-
-				<label className="field" style={{ marginTop: '0.6rem' }}>
-					<span>Paste the JSON your AI returned</span>
-					<textarea
-						className="editor"
-						rows={8}
-						placeholder='{ "activities": [ { "slug": "…", "shins": 3, "notes": "…" } ] }'
-						value={feelJson}
-						onChange={(e) => setFeelJson(e.target.value)}
-					/>
-				</label>
-				<div className="actions">
-					<button className="btn btn-primary" type="button" onClick={saveFeel} disabled={!feelJson.trim()}>
-						Save feelings
-					</button>
-				</div>
-			</div>
+					<div className="panel form" style={{ marginTop: '1rem' }}>
+						<h3>Save the feelings</h3>
+						<p className="muted" style={{ marginTop: '0.3rem' }}>
+							Paste the JSON block your AI returned — the feelings are written onto each activity by
+							slug, and objective device data is never touched.
+						</p>
+						{feelMsg && <div className="flash">{feelMsg}</div>}
+						<label className="field">
+							<textarea
+								className="editor"
+								rows={8}
+								placeholder='{ "activities": [ { "slug": "…", "shins": 3, "notes": "…" } ] }'
+								value={feelJson}
+								onChange={(e) => setFeelJson(e.target.value)}
+							/>
+						</label>
+						<div className="actions">
+							<button
+								className="btn btn-primary"
+								type="button"
+								onClick={saveFeel}
+								disabled={!feelJson.trim()}
+							>
+								Save feelings
+							</button>
+						</div>
+					</div>
+				</>
+			)}
 		</>
 	);
 }

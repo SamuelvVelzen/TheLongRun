@@ -2,16 +2,18 @@
  * Training trend series for dashboard / timeline sparklines.
  */
 import { formatDuration, parseDurationSeconds } from '$lib/format';
-import { avg, sumDistance } from '$lib/plan';
+import { avg, sumDistance, weekNumberForDate } from '$lib/plan';
 import { isoDateLocal } from '$lib/date-range';
 import type { RunRecord } from '$lib/types';
 
 export type TrendPoint = {
-	/** Short axis label (week start or run date). */
+	/** Short axis label (week number or run date). */
 	label: string;
 	value: number;
 	/** Formatted value for tooltips / captions. */
 	display: string;
+	/** Run slug for per-run points, so a point can link to its activity. */
+	slug?: string;
 };
 
 export type TrendSeries = {
@@ -118,9 +120,16 @@ export function buildWeeklyDistance(
 		buckets.set(key, (buckets.get(key) ?? 0) + (run.distance_km ?? 0));
 	}
 
-	return [...buckets.entries()].map(([label, raw]) => {
+	const entries = [...buckets.entries()];
+	const lastIdx = entries.length - 1;
+	return entries.map(([iso, raw], i) => {
 		const value = round1(raw);
-		return { label: shortWeekLabel(label), value, display: `${value} km` };
+		const weeksAgo = lastIdx - i;
+		// Axis reads in weeks, not calendar dates: "now", "-1w", "-2w"…
+		const label = weeksAgo === 0 ? 'now' : `-${weeksAgo}w`;
+		const wk = weekNumberForDate(iso);
+		const wkNote = wk != null ? ` · plan wk ${wk}` : '';
+		return { label, value, display: `${value} km · wk of ${shortWeekLabel(iso)}${wkNote}` };
 	});
 }
 
@@ -149,7 +158,8 @@ function buildPaceSeries(runs: RunRecord[]): TrendSeries | null {
 	const points: TrendPoint[] = rows.map(({ run, value }) => ({
 		label: run.date.slice(5),
 		value,
-		display: `${formatDuration(value)}/km`
+		display: `${formatDuration(value)}/km`,
+		slug: run.slug
 	}));
 	const first = points[0]!;
 	const last = points[points.length - 1]!;
@@ -183,7 +193,8 @@ function buildScoreSeries(
 	const points: TrendPoint[] = rows.map(({ run, value }) => ({
 		label: run.date.slice(5),
 		value,
-		display: `${round1(value)}/10`
+		display: `${round1(value)}/10`,
+		slug: run.slug
 	}));
 	const first = points[0]!;
 	const last = points[points.length - 1]!;
@@ -209,7 +220,8 @@ function buildHrSeries(runs: RunRecord[]): TrendSeries | null {
 	const points: TrendPoint[] = rows.map(({ run, value }) => ({
 		label: run.date.slice(5),
 		value,
-		display: `${Math.round(value)} bpm`
+		display: `${Math.round(value)} bpm`,
+		slug: run.slug
 	}));
 	const first = points[0]!;
 	const last = points[points.length - 1]!;

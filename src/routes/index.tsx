@@ -119,7 +119,7 @@ function Dashboard() {
 			) : (
 				<>
 					<section className="stats-strip" aria-label="Training stats">
-						<div className="stats-strip-item">
+						<div className="stats-strip-item stats-strip-lead">
 							<span className="stats-strip-label">Days to {data.goals.race_name}</span>
 							<strong className="stats-strip-value">{stats.daysToRace ?? '—'}</strong>
 						</div>
@@ -130,7 +130,18 @@ function Dashboard() {
 								<span className="stats-strip-unit"> km</span>
 							</strong>
 						</div>
-						{!rangeActive ? (
+						<div className="stats-strip-item">
+							<span className="stats-strip-label">Sessions</span>
+							<strong className="stats-strip-value">{stats.runCount}</strong>
+						</div>
+						<div className="stats-strip-item">
+							<span className="stats-strip-label">Longest</span>
+							<strong className="stats-strip-value">
+								{stats.longestKm ?? '—'}
+								{stats.longestKm != null && <span className="stats-strip-unit"> km</span>}
+							</strong>
+						</div>
+						{!rangeActive && (
 							<>
 								<div className="stats-strip-item">
 									<span className="stats-strip-label">This month</span>
@@ -147,37 +158,7 @@ function Dashboard() {
 									</strong>
 								</div>
 							</>
-						) : (
-							<div className="stats-strip-item">
-								<span className="stats-strip-label">Runs</span>
-								<strong className="stats-strip-value">{stats.runCount}</strong>
-							</div>
 						)}
-						<div className="stats-strip-item">
-							<span className="stats-strip-label">Longest</span>
-							<strong className="stats-strip-value">
-								{stats.longestKm ?? '—'}
-								{stats.longestKm != null && <span className="stats-strip-unit"> km</span>}
-							</strong>
-						</div>
-						<div className="stats-strip-item">
-							<span className="stats-strip-label">Avg pace</span>
-							<strong className="stats-strip-value">
-								{stats.avgPace || '—'}
-								{stats.avgPace && <span className="stats-strip-unit">/km</span>}
-							</strong>
-						</div>
-						<div className="stats-strip-item">
-							<span className="stats-strip-label">Avg HR</span>
-							<strong className="stats-strip-value">{fmt(stats.avgHr, 0)}</strong>
-						</div>
-						<div className="stats-strip-item">
-							<span className="stats-strip-label">Elev gain</span>
-							<strong className="stats-strip-value">
-								{stats.elevGain}
-								<span className="stats-strip-unit"> m</span>
-							</strong>
-						</div>
 					</section>
 					<p className="stats-meta muted">
 						Shins {shinLabel(stats)}
@@ -185,36 +166,7 @@ function Dashboard() {
 						Tue/Fri/Sun streak {stats.streak || '—'}
 						<span aria-hidden="true"> · </span>
 						{stats.mappedRuns}/{stats.runCount} mapped
-						<span aria-hidden="true"> · </span>
-						Effort {fmt(stats.avgEffort)} / shins {fmt(stats.avgShins)} avg
 					</p>
-
-					{trends.series.length > 0 && (
-						<TrendsSection
-							trends={trends}
-							caption={
-								rangeActive
-									? `Within ${range.label.toLowerCase()}`
-									: 'Progress over recent weeks and runs'
-							}
-						/>
-					)}
-
-					<section className="map-section" aria-labelledby="routes-heading">
-						<div className="section-title map-section-head">
-							<div>
-								<h2 id="routes-heading">{rangeActive ? 'Routes in range' : 'All routes'}</h2>
-								<p>
-									{tracks.length
-										? `${tracks.length} tracks overlaid · overlaps glow brighter`
-										: rangeActive
-											? 'No GPS routes in this range'
-											: 'Heatmap appears when GPS routes are imported'}
-								</p>
-							</div>
-						</div>
-						<RoutesHeatmap tracks={tracks} />
-					</section>
 
 					{data.week && (
 						<section className="week-strip" aria-labelledby="week-heading">
@@ -244,6 +196,33 @@ function Dashboard() {
 							</div>
 						</section>
 					)}
+
+					{trends.series.length > 0 && (
+						<TrendsSection
+							trends={trends}
+							caption={
+								rangeActive
+									? `Within ${range.label.toLowerCase()}`
+									: 'Progress over recent weeks and runs'
+							}
+						/>
+					)}
+
+					<section className="map-section" aria-labelledby="routes-heading">
+						<div className="section-title map-section-head">
+							<div>
+								<h2 id="routes-heading">{rangeActive ? 'Routes in range' : 'All routes'}</h2>
+								<p>
+									{tracks.length
+										? `${tracks.length} tracks overlaid · overlaps glow brighter`
+										: rangeActive
+											? 'No GPS routes in this range'
+											: 'Heatmap appears when GPS routes are imported'}
+								</p>
+							</div>
+						</div>
+						<RoutesHeatmap tracks={tracks} />
+					</section>
 
 					<div className="section-title">
 						<div>

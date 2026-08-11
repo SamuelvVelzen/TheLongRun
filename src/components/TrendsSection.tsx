@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { Sparkline } from './Sparkline';
 import type { TrainingTrends, TrendSeries } from '$lib/trends';
 
@@ -16,6 +17,7 @@ export function TrendsSection({
 	const [activeBar, setActiveBar] = useState<number | null>(null);
 	const [barPinned, setBarPinned] = useState(false);
 	const barChartRef = useRef<HTMLDivElement>(null);
+	const navigate = useNavigate();
 
 	function maxBar(series: TrendSeries): number {
 		return Math.max(...series.points.map((p) => p.value), 0.1);
@@ -145,6 +147,14 @@ export function TrendsSection({
 										tips={series.points.map((p) => ({ label: p.label, display: p.display }))}
 										label={`${series.title}: ${series.points.map((p) => p.display).join(', ')}`}
 										height={44}
+										onPick={
+											series.points.some((p) => p.slug)
+												? (i) => {
+														const slug = series.points[i]?.slug;
+														if (slug) navigate({ to: '/runs/$slug', params: { slug } });
+													}
+												: undefined
+										}
 									/>
 									<div className="spark-ends muted" aria-hidden="true">
 										<span>{series.points[0]?.label}</span>

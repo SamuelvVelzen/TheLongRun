@@ -259,7 +259,7 @@ p {
 
 .stats-strip {
 	display: grid;
-	grid-template-columns: repeat(6, minmax(0, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 	gap: 0;
 	margin: 0 0 0.55rem;
 	padding: 0.85rem 0;
@@ -280,6 +280,16 @@ p {
 
 .stats-strip-item:not(:first-child) {
 	padding-left: 0.85rem;
+}
+
+/* The lead card (days to race) gets extra emphasis. */
+.stats-strip-lead .stats-strip-label {
+	color: var(--accent);
+	font-weight: 600;
+}
+.stats-strip-lead .stats-strip-value {
+	font-size: 2.1rem;
+	color: var(--accent);
 }
 
 .stats-strip-label {
@@ -629,6 +639,10 @@ p {
 
 	.stats-strip-value {
 		font-size: 1.2rem;
+	}
+
+	.stats-strip-lead .stats-strip-value {
+		font-size: 1.7rem;
 	}
 
 	.section-title {

@@ -10,6 +10,8 @@ type Props = {
 	color?: string;
 	label?: string;
 	pad?: number;
+	/** Called with the point index when a point is clicked/tapped (e.g. to open its activity). */
+	onPick?: (index: number) => void;
 };
 
 export function Sparkline({
@@ -19,7 +21,8 @@ export function Sparkline({
 	height = 40,
 	color = 'var(--accent)',
 	label = 'Trend',
-	pad = 0.08
+	pad = 0.08,
+	onPick
 }: Props) {
 	const rootRef = useRef<HTMLDivElement>(null);
 	const [active, setActive] = useState<number | null>(null);
@@ -74,12 +77,23 @@ export function Sparkline({
 		const i = nearestIndex(e.clientX, e.currentTarget);
 		if (!tipFor(i)) return;
 		if (pinned && active === i) {
+			// Second tap on the same point opens it (if pickable), else dismiss.
+			if (onPick) {
+				onPick(i);
+				return;
+			}
 			setPinned(false);
 			setActive(null);
 			return;
 		}
 		setPinned(true);
 		setActive(i);
+	}
+
+	function onClick(e: React.MouseEvent) {
+		if (!onPick || values.length < 2) return;
+		const i = nearestIndex(e.clientX, e.currentTarget);
+		if (tipFor(i)) onPick(i);
 	}
 
 	useEffect(() => {
@@ -107,9 +121,11 @@ export function Sparkline({
 				role="img"
 				aria-label={label}
 				preserveAspectRatio="none"
+				style={onPick ? { cursor: 'pointer' } : undefined}
 				onPointerMove={onPointerMove}
 				onPointerLeave={onPointerLeave}
 				onPointerUp={onPointerUp}
+				onClick={onClick}
 			>
 				{geometry.area && <path className="spark-area" d={geometry.area} fill={color} />}
 				{geometry.path && (
@@ -143,6 +159,7 @@ export function Sparkline({
 				>
 					<span className="spark-tip-value">{activeTip.display}</span>
 					<span className="spark-tip-label">{activeTip.label}</span>
+					{onPick && <span className="spark-tip-open">open →</span>}
 				</div>
 			)}
 		</div>

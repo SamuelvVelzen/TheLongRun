@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
+import { createFileRoute, notFound, useRouter } from '@tanstack/react-router';
 import {
 	getRunDetail,
 	updateRun,
@@ -353,12 +353,6 @@ function RunDetail() {
 									/>
 								</svg>
 							</button>
-							<Link className="btn btn-ghost" to="/log">
-								Log another
-							</Link>
-							<Link className="btn btn-ghost" to="/context">
-								Copy context
-							</Link>
 						</>
 					)}
 				</div>
@@ -561,13 +555,11 @@ function RunDetail() {
 						{metric.unit !== '' && (
 							<div className="metric metric-emph">
 								<b>{r.time || '—'}</b>
-								<span>moving</span>
-							</div>
-						)}
-						{r.elapsed_time && r.elapsed_time !== r.time && (
-							<div className="metric">
-								<b>{r.elapsed_time}</b>
-								<span>elapsed</span>
+								<span>
+									{r.elapsed_time && r.elapsed_time !== r.time
+										? `moving · ${r.elapsed_time} elapsed`
+										: 'time'}
+								</span>
 							</div>
 						)}
 					</div>
@@ -624,60 +616,6 @@ function RunDetail() {
 							</div>
 						)}
 					</div>
-
-					{strength && strength.exercises.length > 0 && (
-						<div className="panel" style={{ marginBottom: '1rem' }}>
-							<div className="splits-head">
-								<h3>Sets</h3>
-								<p className="muted splits-sub">reps × kg</p>
-							</div>
-							<div className="strength-view-row strength-view-head">
-								<span>Exercise</span>
-								<span>Sets</span>
-								<span>Top</span>
-								<span>Volume</span>
-							</div>
-							{strength.exercises.map((ex, i) => {
-								const t = topSet(ex);
-								const vol = Math.round(exerciseVolume(ex));
-								return (
-									<div className="strength-view-row" key={i}>
-										<span>{ex.name}</span>
-										<span className="muted">
-											{ex.sets
-												.map((s) => (s.kg != null ? `${s.reps}×${s.kg}` : `${s.reps}`))
-												.join(', ')}
-										</span>
-										<span className="splits-pace">
-											{t ? (t.kg != null ? `${t.reps}×${t.kg}kg` : `${t.reps} reps`) : '—'}
-										</span>
-										<span className="muted">{vol ? `${vol} kg` : '—'}</span>
-									</div>
-								);
-							})}
-						</div>
-					)}
-
-					{r.route && routeId && (
-						<div
-							className="panel"
-							style={{ marginBottom: '1rem', padding: 0, overflow: 'hidden' }}
-						>
-							<div style={{ padding: '1.1rem 1.2rem 0.6rem' }}>
-								<h3>Route</h3>
-							</div>
-							<RouteMap routeId={routeId} kmMarkers={analytics?.kmMarkers ?? null} />
-						</div>
-					)}
-
-					{analytics && (analytics.splits.length || analytics.hrZones) && (
-						<SplitsPanel
-							analytics={analytics}
-							hrMaxManual={hrMaxManual}
-							hrMaxAllTime={hrMaxAllTime}
-							onSaveHrMax={onSaveHrMax}
-						/>
-					)}
 
 					<div className="panel quick-panel" style={{ marginBottom: '1rem' }}>
 						<div className="splits-head">
@@ -774,6 +712,60 @@ function RunDetail() {
 							<p className="muted quick-start">Started {r.start_time}</p>
 						)}
 					</div>
+
+					{strength && strength.exercises.length > 0 && (
+						<div className="panel" style={{ marginBottom: '1rem' }}>
+							<div className="splits-head">
+								<h3>Sets</h3>
+								<p className="muted splits-sub">reps × kg</p>
+							</div>
+							<div className="strength-view-row strength-view-head">
+								<span>Exercise</span>
+								<span>Sets</span>
+								<span>Top</span>
+								<span>Volume</span>
+							</div>
+							{strength.exercises.map((ex, i) => {
+								const t = topSet(ex);
+								const vol = Math.round(exerciseVolume(ex));
+								return (
+									<div className="strength-view-row" key={i}>
+										<span>{ex.name}</span>
+										<span className="muted">
+											{ex.sets
+												.map((s) => (s.kg != null ? `${s.reps}×${s.kg}` : `${s.reps}`))
+												.join(', ')}
+										</span>
+										<span className="splits-pace">
+											{t ? (t.kg != null ? `${t.reps}×${t.kg}kg` : `${t.reps} reps`) : '—'}
+										</span>
+										<span className="muted">{vol ? `${vol} kg` : '—'}</span>
+									</div>
+								);
+							})}
+						</div>
+					)}
+
+					{r.route && routeId && (
+						<div
+							className="panel"
+							style={{ marginBottom: '1rem', padding: 0, overflow: 'hidden' }}
+						>
+							<div style={{ padding: '1.1rem 1.2rem 0.6rem' }}>
+								<h3>Route</h3>
+							</div>
+							<RouteMap routeId={routeId} kmMarkers={analytics?.kmMarkers ?? null} />
+						</div>
+					)}
+
+					{analytics && (analytics.splits.length || analytics.hrZones) && (
+						<SplitsPanel
+							analytics={analytics}
+							hrMaxManual={hrMaxManual}
+							hrMaxAllTime={hrMaxAllTime}
+							onSaveHrMax={onSaveHrMax}
+						/>
+					)}
 				</>
 			)}
 		</>

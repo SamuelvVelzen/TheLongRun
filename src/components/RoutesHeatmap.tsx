@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { loadLeaflet } from '$lib/leaflet';
 import { attachMapChrome, type MapChromeHandle } from '$lib/map-chrome';
 import type { RouteTrack } from '$lib/types';
 
-export function RoutesHeatmap({ tracks }: { tracks: RouteTrack[] }) {
+/** Per-track hover/click metadata, keyed by route id. */
+export type RouteMeta = Record<string, { slug: string; title: string; sub: string }>;
+
+export function RoutesHeatmap({ tracks, meta = {} }: { tracks: RouteTrack[]; meta?: RouteMeta }) {
 	const wrapRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [status, setStatus] = useState('Loading map…');
 	const [failed, setFailed] = useState(false);
+	const navigate = useNavigate();
 
 	useEffect(() => {
 		if (!tracks.length) {
@@ -39,6 +44,7 @@ export function RoutesHeatmap({ tracks }: { tracks: RouteTrack[] }) {
 				const bounds = L.latLngBounds([]);
 				for (const track of tracks) {
 					if (track.coords.length < 2) continue;
+					const info = meta[track.id];
 					const line = L.polyline(track.coords, {
 						color: '#c8f25a',
 						weight: 2.5,
@@ -46,6 +52,17 @@ export function RoutesHeatmap({ tracks }: { tracks: RouteTrack[] }) {
 						lineJoin: 'round',
 						lineCap: 'round'
 					}).addTo(map);
+					if (info) {
+						line.bindTooltip(`<strong>${info.title}</strong><br>${info.sub}`, {
+							sticky: true,
+							opacity: 0.95
+						});
+						line.on('mouseover', () => line.setStyle({ weight: 5, opacity: 1 }));
+						line.on('mouseout', () => line.setStyle({ weight: 2.5, opacity: 0.38 }));
+						line.on('click', () => navigate({ to: '/runs/$slug', params: { slug: info.slug } }));
+						const el = line.getElement?.();
+						if (el) el.style.cursor = 'pointer';
+					}
 					bounds.extend(line.getBounds());
 				}
 
@@ -71,7 +88,7 @@ export function RoutesHeatmap({ tracks }: { tracks: RouteTrack[] }) {
 			chrome?.destroy();
 			map?.remove?.();
 		};
-	}, [tracks]);
+	}, [tracks, meta, navigate]);
 
 	if (!tracks.length) {
 		return (

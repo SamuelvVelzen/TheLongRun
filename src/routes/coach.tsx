@@ -40,11 +40,11 @@ function Coach() {
 	const [tab, setTab] = useState<'context' | 'feelings'>('context');
 	const [question, setQuestion] = useState('');
 	const [copied, setCopied] = useState(false);
+	const [briefText, setBriefText] = useState('');
 	const [planJson, setPlanJson] = useState('');
 	const [planMsg, setPlanMsg] = useState('');
 
 	// Weekly feelings round-trip
-	const [feelScope, setFeelScope] = useState<'window' | 'missing'>('window');
 	const [feelWeeks, setFeelWeeks] = useState(1);
 	const [feelPrompt, setFeelPrompt] = useState('');
 	const [feelCount, setFeelCount] = useState<number | null>(null);
@@ -57,7 +57,7 @@ function Coach() {
 		setFeelBusy(true);
 		setFeelMsg('');
 		try {
-			const res = await getFeelingsPrompt({ data: { scope: feelScope, weeks: feelWeeks } });
+			const res = await getFeelingsPrompt({ data: { scope: 'window', weeks: feelWeeks } });
 			setFeelPrompt(res.prompt);
 			setFeelCount(res.count);
 		} catch (e) {
@@ -104,9 +104,13 @@ function Coach() {
 
 	const fullDoc = `${brief}\n## My question\n${question.trim() || DEFAULT_QUESTION}\n`;
 
+	function generateBrief() {
+		setBriefText(fullDoc);
+	}
+
 	function download() {
 		const date = new Date().toISOString().slice(0, 10);
-		const blob = new Blob([fullDoc], { type: 'text/markdown;charset=utf-8' });
+		const blob = new Blob([briefText], { type: 'text/markdown;charset=utf-8' });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
@@ -119,7 +123,7 @@ function Coach() {
 
 	async function copy() {
 		try {
-			await navigator.clipboard.writeText(fullDoc);
+			await navigator.clipboard.writeText(briefText);
 			setCopied(true);
 			setTimeout(() => setCopied(false), 1800);
 		} catch {
@@ -190,19 +194,33 @@ function Coach() {
 					/>
 				</label>
 				<div className="actions">
-					<button className="btn btn-primary" type="button" onClick={download}>
-						Download .md
-					</button>
-					<button className="btn btn-ghost" type="button" onClick={copy}>
-						{copied ? 'Copied' : 'Copy'}
+					<button className="btn btn-primary" type="button" onClick={generateBrief}>
+						{briefText ? 'Regenerate prompt' : 'Generate prompt'}
 					</button>
 				</div>
 			</div>
 
-			<div className="panel">
-				<h3 style={{ marginBottom: '0.6rem' }}>Preview</h3>
-				<pre className="coach-preview">{fullDoc}</pre>
-			</div>
+			{briefText && (
+				<div className="panel form">
+					<h3>Prompt (editable — tweak before you copy)</h3>
+					<label className="field" style={{ marginTop: '0.5rem' }}>
+						<textarea
+							className="editor"
+							rows={16}
+							value={briefText}
+							onChange={(e) => setBriefText(e.target.value)}
+						/>
+					</label>
+					<div className="actions">
+						<button className="btn btn-primary" type="button" onClick={download}>
+							Download .md
+						</button>
+						<button className="btn btn-ghost" type="button" onClick={copy}>
+							{copied ? 'Copied' : 'Copy'}
+						</button>
+					</div>
+				</div>
+			)}
 
 			<div className="panel form" style={{ marginTop: '1rem' }}>
 				<h3>Save next week's plan</h3>
@@ -245,27 +263,15 @@ function Coach() {
 						</p>
 						<div className="form-grid">
 							<label className="field">
-								<span>Which activities</span>
-								<select
-									value={feelScope}
-									onChange={(e) => setFeelScope(e.target.value as 'window' | 'missing')}
-								>
-									<option value="window">Recent weeks</option>
-									<option value="missing">All still missing feel</option>
+								<span>Duration</span>
+								<select value={feelWeeks} onChange={(e) => setFeelWeeks(Number(e.target.value))}>
+									{[1, 2, 3, 4, 6, 8].map((w) => (
+										<option key={w} value={w}>
+											{w} week{w === 1 ? '' : 's'}
+										</option>
+									))}
 								</select>
 							</label>
-							{feelScope === 'window' && (
-								<label className="field">
-									<span>Duration</span>
-									<select value={feelWeeks} onChange={(e) => setFeelWeeks(Number(e.target.value))}>
-										{[1, 2, 3, 4, 6, 8].map((w) => (
-											<option key={w} value={w}>
-												{w} week{w === 1 ? '' : 's'}
-											</option>
-										))}
-									</select>
-								</label>
-							)}
 						</div>
 						<div className="actions">
 							<button
@@ -290,9 +296,16 @@ function Coach() {
 					</div>
 
 					{feelPrompt && (
-						<div className="panel">
-							<h3 style={{ marginBottom: '0.6rem' }}>Prompt</h3>
-							<pre className="coach-preview">{feelPrompt}</pre>
+						<div className="panel form">
+							<h3>Prompt (editable — tweak before you copy)</h3>
+							<label className="field" style={{ marginTop: '0.5rem' }}>
+								<textarea
+									className="editor"
+									rows={14}
+									value={feelPrompt}
+									onChange={(e) => setFeelPrompt(e.target.value)}
+								/>
+							</label>
 						</div>
 					)}
 

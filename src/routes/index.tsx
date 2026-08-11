@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { getDashboardData } from '$lib/server/functions';
 import {
@@ -8,12 +9,18 @@ import {
 } from '$lib/date-range';
 import { buildDashboardStats, type DashboardStats } from '$lib/plan';
 import { buildTrainingTrends } from '$lib/trends';
-import { activityPlural, hasContext, metricText, normalizeActivityType } from '$lib/activity';
+import {
+	activityLabel,
+	activityPlural,
+	hasContext,
+	metricText,
+	normalizeActivityType
+} from '$lib/activity';
 import { FeelBadge } from '../components/FeelBadge';
 import { DateRangeFilter, rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
-import { RoutesHeatmap } from '../components/RoutesHeatmap';
+import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 
 type DashSearch = RangeSearch & { sport?: string };
 const SPORTS = ['all', 'run', 'walk', 'ride', 'swim', 'strength'];
@@ -68,6 +75,25 @@ function Dashboard() {
 			? data.tracks
 			: data.tracks.filter((t) => trackIds.has(t.id));
 	const recent = runs.slice(0, 8);
+
+	// Map each route track back to its run so heatmap lines can show a tooltip + open the run.
+	const routeMeta = useMemo<RouteMeta>(() => {
+		const m: RouteMeta = {};
+		for (const run of allRuns) {
+			const id =
+				String(run.route || '')
+					.trim()
+					.replace(/^.*\//, '')
+					.replace(/\.json$/i, '') || String(run.strava_id || '').trim();
+			if (!id) continue;
+			m[id] = {
+				slug: run.slug,
+				title: `${run.date} · ${activityLabel(run.activity_type)}`,
+				sub: `${run.distance_km ?? '—'} km · ${metricText(run)}`
+			};
+		}
+		return m;
+	}, [allRuns]);
 
 	const raceDate = new Date(`${data.goals.race_date}T00:00:00`);
 	const daysToRace = Number.isNaN(raceDate.getTime())
@@ -222,7 +248,7 @@ function Dashboard() {
 								</p>
 							</div>
 						</div>
-						<RoutesHeatmap tracks={tracks} />
+						<RoutesHeatmap tracks={tracks} meta={routeMeta} />
 					</section>
 
 					<div className="section-title">

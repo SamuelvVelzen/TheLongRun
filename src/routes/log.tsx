@@ -92,19 +92,6 @@ function LogRun() {
 
 			{message && <div className="flash">{message}</div>}
 
-			{data.week && (
-				<div className="panel" style={{ marginBottom: '1rem' }}>
-					<span className="tag accent">Plan week {data.week.week}</span>
-					<p style={{ marginTop: '0.6rem' }}>
-						{data.week.sessions.map((s, i) => (
-							<span key={i} className="muted">
-								{s.day}: {s.detail}.{' '}
-							</span>
-						))}
-					</p>
-				</div>
-			)}
-
 			<form className="panel form" method="POST" onSubmit={onSubmit}>
 				<div className="form-section">
 					<h3 className="form-section-title">Activity</h3>

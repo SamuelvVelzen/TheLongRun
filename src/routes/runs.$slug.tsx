@@ -159,6 +159,70 @@ function InlineText({
 	);
 }
 
+/** A metric tile (like the pace/HR tiles) that you click to edit the score in place. */
+function FeelTile({
+	label,
+	value,
+	min,
+	max,
+	onSave
+}: {
+	label: string;
+	value: number | null;
+	min: number;
+	max: number;
+	onSave: (v: number | null) => void;
+}) {
+	const [editing, setEditing] = useState(false);
+	const [val, setVal] = useState(value != null ? String(value) : '');
+
+	function commit() {
+		setEditing(false);
+		const t = val.trim();
+		if (t === '') {
+			onSave(null);
+			return;
+		}
+		const n = Math.max(min, Math.min(max, Math.round(Number(t))));
+		onSave(Number.isFinite(n) ? n : null);
+	}
+
+	if (editing) {
+		return (
+			<div className="metric metric-emph metric-edit">
+				<input
+					type="number"
+					min={min}
+					max={max}
+					value={val}
+					autoFocus
+					onChange={(e) => setVal(e.target.value)}
+					onBlur={commit}
+					onKeyDown={(e) => {
+						if (e.key === 'Enter') commit();
+						if (e.key === 'Escape') setEditing(false);
+					}}
+				/>
+				<span>{label}</span>
+			</div>
+		);
+	}
+	return (
+		<button
+			type="button"
+			className="metric metric-emph metric-editable"
+			title="Click to edit"
+			onClick={() => {
+				setVal(value != null ? String(value) : '');
+				setEditing(true);
+			}}
+		>
+			<b>{value ?? '—'}</b>
+			<span>{label}</span>
+		</button>
+	);
+}
+
 function RunDetail() {
 	const { run: r, analytics, shoes, hrMaxManual, hrMaxAllTime } = Route.useLoaderData();
 	const router = useRouter();
@@ -617,100 +681,11 @@ function RunDetail() {
 						)}
 					</div>
 
-					<div className="panel quick-panel" style={{ marginBottom: '1rem' }}>
-						<div className="splits-head">
-							<h3>Context &amp; feel</h3>
-							<p className="muted splits-sub">Click any value to update it — no need to open the editor</p>
-						</div>
-
-						<div className="quick-grid">
-							<InlineText
-								label="Effort (1–10)"
-								value={r.effort != null ? String(r.effort) : ''}
-								numeric
-								placeholder="6"
-								onSave={(v) => patchRun({ effort: v ? Number(v) : null })}
-							/>
-							<InlineText
-								label="Energy (1–10)"
-								value={r.energy != null ? String(r.energy) : ''}
-								numeric
-								placeholder="7"
-								onSave={(v) => patchRun({ energy: v ? Number(v) : null })}
-							/>
-							<InlineText
-								label="Shins (0–10)"
-								value={r.shins != null ? String(r.shins) : ''}
-								numeric
-								placeholder="2"
-								onSave={(v) => patchRun({ shins: v ? Number(v) : null })}
-							/>
-							<InlineText
-								label="Legs (0–10)"
-								value={r.legs != null ? String(r.legs) : ''}
-								numeric
-								placeholder="7"
-								onSave={(v) => patchRun({ legs: v ? Number(v) : null })}
-							/>
-							<InlineText
-								label="Weather"
-								value={r.weather || ''}
-								placeholder="14°C drizzle"
-								onSave={(v) => patchRun({ weather: v })}
-							/>
-							<InlineText
-								label="Surface"
-								value={r.surface || ''}
-								placeholder="asphalt / trail"
-								onSave={(v) => patchRun({ surface: v })}
-							/>
-							<InlineText
-								label="Shoes"
-								value={r.shoes || ''}
-								placeholder="Shoe"
-								datalistId="quick-shoes"
-								options={[shoes.active, ...shoes.rotation, r.shoes]}
-								onSave={(v) => patchRun({ shoes: v })}
-							/>
-							<div className="quick-field">
-								<span className="muted quick-label">Wanted faster</span>
-								<div className="quick-wanted">
-									{(['Y', 'N', ''] as const).map((opt) => {
-										const active =
-											(opt === 'Y' && r.wanted_faster === true) ||
-											(opt === 'N' && r.wanted_faster === false) ||
-											(opt === '' && r.wanted_faster == null);
-										return (
-											<button
-												key={opt || 'none'}
-												type="button"
-												className={`chip${active ? ' active' : ''}`}
-												onClick={() =>
-													patchRun({
-														wanted_faster: opt === 'Y' ? true : opt === 'N' ? false : null
-													})
-												}
-											>
-												{opt === 'Y' ? 'Yes' : opt === 'N' ? 'No' : '—'}
-											</button>
-										);
-									})}
-								</div>
-							</div>
-						</div>
-
-						{!strength && (
-							<InlineText
-								label="Notes & mid-run context"
-								value={r.notes || ''}
-								multiline
-								placeholder="Shins flared at 4 km, backed off. Legs opened up after the turnaround…"
-								onSave={(v) => patchRun({ notes: v })}
-							/>
-						)}
-						{r.start_time && (
-							<p className="muted quick-start">Started {r.start_time}</p>
-						)}
+					<div className="metrics feel-metrics" style={{ marginBottom: '1.25rem' }}>
+						<FeelTile label="effort" value={r.effort} min={1} max={10} onSave={(v) => patchRun({ effort: v })} />
+						<FeelTile label="energy" value={r.energy} min={1} max={10} onSave={(v) => patchRun({ energy: v })} />
+						<FeelTile label="shins" value={r.shins} min={0} max={10} onSave={(v) => patchRun({ shins: v })} />
+						<FeelTile label="legs" value={r.legs} min={0} max={10} onSave={(v) => patchRun({ legs: v })} />
 					</div>
 
 					{strength && strength.exercises.length > 0 && (
@@ -766,6 +741,70 @@ function RunDetail() {
 							onSaveHrMax={onSaveHrMax}
 						/>
 					)}
+
+					<div className="panel quick-panel" style={{ marginBottom: '1rem' }}>
+						<div className="splits-head">
+							<h3>Notes &amp; conditions</h3>
+							<p className="muted splits-sub">Click any value to update it</p>
+						</div>
+						<div className="quick-grid">
+							<InlineText
+								label="Weather"
+								value={r.weather || ''}
+								placeholder="14°C drizzle"
+								onSave={(v) => patchRun({ weather: v })}
+							/>
+							<InlineText
+								label="Surface"
+								value={r.surface || ''}
+								placeholder="asphalt / trail"
+								onSave={(v) => patchRun({ surface: v })}
+							/>
+							<InlineText
+								label="Shoes"
+								value={r.shoes || ''}
+								placeholder="Shoe"
+								datalistId="quick-shoes"
+								options={[shoes.active, ...shoes.rotation, r.shoes]}
+								onSave={(v) => patchRun({ shoes: v })}
+							/>
+							<div className="quick-field">
+								<span className="muted quick-label">Wanted faster</span>
+								<div className="quick-wanted">
+									{(['Y', 'N', ''] as const).map((opt) => {
+										const active =
+											(opt === 'Y' && r.wanted_faster === true) ||
+											(opt === 'N' && r.wanted_faster === false) ||
+											(opt === '' && r.wanted_faster == null);
+										return (
+											<button
+												key={opt || 'none'}
+												type="button"
+												className={`chip${active ? ' active' : ''}`}
+												onClick={() =>
+													patchRun({
+														wanted_faster: opt === 'Y' ? true : opt === 'N' ? false : null
+													})
+												}
+											>
+												{opt === 'Y' ? 'Yes' : opt === 'N' ? 'No' : '—'}
+											</button>
+										);
+									})}
+								</div>
+							</div>
+						</div>
+						{!strength && (
+							<InlineText
+								label="Notes & mid-run context"
+								value={r.notes || ''}
+								multiline
+								placeholder="Shins flared at 4 km, backed off. Legs opened up after the turnaround…"
+								onSave={(v) => patchRun({ notes: v })}
+							/>
+						)}
+						{r.start_time && <p className="muted quick-start">Started {r.start_time}</p>}
+					</div>
 				</>
 			)}
 		</>

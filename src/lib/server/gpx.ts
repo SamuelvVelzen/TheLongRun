@@ -82,15 +82,29 @@ export function parseGpx(xml: string): ParsedGpx {
 		track.push(sample);
 	}
 
-	// Date / start clock from the first available time (as written in the file).
+	// Date / start clock from the first time. GPX times are UTC (…Z); convert to local so a
+	// morning ride reads as morning. Hardcoded to the athlete's zone (NL) — GPX carries no tz.
+	const TZ = 'Europe/Amsterdam';
 	let date = '';
 	let startClock = '';
 	const firstTime = blocks.map((b) => child(b, 'time')).find(Boolean) ?? child(xml, 'time');
 	if (firstTime) {
-		const dm = firstTime.match(/^(\d{4}-\d{2}-\d{2})/);
-		if (dm) date = dm[1]!;
-		const tm = firstTime.match(/T(\d{2}):(\d{2})/);
-		if (tm) startClock = `${tm[1]}:${tm[2]}`;
+		const ms = Date.parse(firstTime);
+		if (!Number.isNaN(ms)) {
+			const d = new Date(ms);
+			date = new Intl.DateTimeFormat('en-CA', {
+				timeZone: TZ,
+				year: 'numeric',
+				month: '2-digit',
+				day: '2-digit'
+			}).format(d);
+			startClock = new Intl.DateTimeFormat('en-GB', {
+				timeZone: TZ,
+				hour: '2-digit',
+				minute: '2-digit',
+				hour12: false
+			}).format(d);
+		}
 	}
 
 	// Aggregate distance / moving time / elevation from the track.

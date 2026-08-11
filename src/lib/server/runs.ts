@@ -180,8 +180,18 @@ export function runHasMap(
 	return false;
 }
 
+/** First unused slug: base, then base-2, base-3… so same-day activities never overwrite. */
+async function nextFreeSlug(base: string): Promise<string> {
+	if (!(await getRun(base))) return base;
+	for (let i = 2; i < 50; i++) {
+		const candidate = `${base}-${i}`;
+		if (!(await getRun(candidate))) return candidate;
+	}
+	return `${base}-${Date.now()}`;
+}
+
 export async function saveRun(input: SaveRunInput): Promise<RunRecord> {
-	const slug = runSlug(input.date, input.day);
+	const slug = await nextFreeSlug(runSlug(input.date, input.day));
 	return upsertRun({
 		slug,
 		date: input.date,

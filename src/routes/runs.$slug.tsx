@@ -22,6 +22,7 @@ import { SplitsPanel } from '../components/SplitsPanel';
 import { StrengthEditor } from '../components/StrengthEditor';
 import { ShoesField } from '../components/ShoesField';
 import { WeatherField } from '../components/WeatherField';
+import { FeelChips, WantedFasterChips } from '../components/FeelChips';
 
 export const Route = createFileRoute('/runs/$slug')({
 	loader: async ({ params }) => {
@@ -427,7 +428,8 @@ function RunDetail() {
 			{message && <div className="flash">{message}</div>}
 
 			{editing ? (
-				<form className="panel form" method="POST" onSubmit={onUpdate}>
+				<form className="form" method="POST" onSubmit={onUpdate}>
+					<div className="panel">
 					<div className="form-section">
 					<h3 className="form-section-title">Activity</h3>
 					<div className="form-grid">
@@ -482,17 +484,18 @@ function RunDetail() {
 								<span>Distance (km)</span>
 								<input
 									name="distance_km"
-									type="number"
-									step="0.01"
+									type="text"
+									inputMode="decimal"
 									defaultValue={r.distance_km ?? ''}
 								/>
 							</label>
 						)}
 						<label className="field">
-							<span>Start time</span>
+							<span className="req">Start time</span>
 							<input
 								type="time"
 								name="start_time"
+								required
 								value={editStart}
 								onChange={(e) => setEditStart(e.target.value)}
 							/>
@@ -504,24 +507,39 @@ function RunDetail() {
 						{showsField(editActivity, 'pace') && (
 							<label className="field">
 								<span>Avg pace /km</span>
-								<input name="avg_pace" placeholder="6:29" defaultValue={r.avg_pace || ''} />
+								<input
+									name="avg_pace"
+									inputMode="decimal"
+									placeholder="6:29"
+									defaultValue={r.avg_pace || ''}
+								/>
 							</label>
 						)}
 						<label className="field">
 							<span>Avg HR</span>
-							<input name="avg_hr" type="number" defaultValue={r.avg_hr ?? ''} />
+							<input
+								name="avg_hr"
+								type="text"
+								inputMode="numeric"
+								defaultValue={r.avg_hr ?? ''}
+							/>
 						</label>
 						<label className="field">
 							<span>Max HR</span>
-							<input name="max_hr" type="number" defaultValue={r.max_hr ?? ''} />
+							<input
+								name="max_hr"
+								type="text"
+								inputMode="numeric"
+								defaultValue={r.max_hr ?? ''}
+							/>
 						</label>
 						{showsField(editActivity, 'elevation') && (
 							<label className="field">
 								<span>Elev gain (m)</span>
 								<input
 									name="elev_gain"
-									type="number"
-									step="0.1"
+									type="text"
+									inputMode="decimal"
 									defaultValue={r.elev_gain ?? ''}
 								/>
 							</label>
@@ -529,7 +547,12 @@ function RunDetail() {
 						{showsField(editActivity, 'cadence') && (
 							<label className="field">
 								<span>Cadence</span>
-								<input name="cadence" type="number" defaultValue={r.cadence ?? ''} />
+								<input
+									name="cadence"
+									type="text"
+									inputMode="numeric"
+									defaultValue={r.cadence ?? ''}
+								/>
 							</label>
 						)}
 					</div>
@@ -538,22 +561,11 @@ function RunDetail() {
 					<div className="form-section">
 					<h3 className="form-section-title">How it felt & details</h3>
 					<div className="form-grid">
-						<label className="field">
-							<span>Effort (1–10)</span>
-							<input name="effort" type="number" min="1" max="10" defaultValue={r.effort ?? ''} />
-						</label>
-						<label className="field">
-							<span>Shins (0–10)</span>
-							<input name="shins" type="number" min="0" max="10" defaultValue={r.shins ?? ''} />
-						</label>
-						<label className="field">
-							<span>Legs (0–10)</span>
-							<input name="legs" type="number" min="0" max="10" defaultValue={r.legs ?? ''} />
-						</label>
-						<label className="field">
-							<span>Energy (1–10)</span>
-							<input name="energy" type="number" min="1" max="10" defaultValue={r.energy ?? ''} />
-						</label>
+						<FeelChips name="effort" label="Effort (1–10)" min={1} max={10} defaultValue={r.effort} />
+						<FeelChips name="shins" label="Shins (0–10)" min={0} max={10} defaultValue={r.shins} />
+						<FeelChips name="legs" label="Legs (0–10)" min={0} max={10} defaultValue={r.legs} />
+						<FeelChips name="energy" label="Energy (1–10)" min={1} max={10} defaultValue={r.energy} />
+						<WantedFasterChips defaultValue={wantedValue} />
 						<WeatherField
 							value={editWeather}
 							onChange={setEditWeather}
@@ -573,14 +585,6 @@ function RunDetail() {
 							options={[shoes.active, ...shoes.rotation, r.shoes]}
 							defaultValue={r.shoes || ''}
 						/>
-						<label className="field">
-							<span>Wanted to go faster?</span>
-							<select name="wanted_faster" defaultValue={wantedValue}>
-								<option value="">—</option>
-								<option value="Y">Y</option>
-								<option value="N">N</option>
-							</select>
-						</label>
 					</div>
 					</div>
 
@@ -595,8 +599,9 @@ function RunDetail() {
 							<textarea name="notes" defaultValue={r.notes}></textarea>
 						</label>
 					)}
+					</div>
 
-					<div className="actions">
+					<div className="actions form-sticky-actions">
 						<button className="btn btn-primary" type="submit">
 							Save changes
 						</button>

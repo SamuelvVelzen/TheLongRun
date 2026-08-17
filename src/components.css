@@ -646,6 +646,104 @@
 	border-bottom: 1px solid var(--line);
 }
 
+/* ---------- Sticky Save (log + run edit) ---------- */
+.form:has(> .form-sticky-actions) > .panel {
+	padding-bottom: 1.35rem;
+}
+
+.form-sticky-actions {
+	position: sticky;
+	z-index: 20;
+	bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem 1rem;
+	border: 1px solid var(--line);
+	border-radius: 16px;
+	background: rgba(16, 20, 15, 0.92);
+	backdrop-filter: blur(10px);
+	box-shadow: var(--shadow);
+}
+
+.form-sticky-actions .btn-primary {
+	flex: 1 1 10rem;
+}
+
+.form-sticky-actions .btn-ghost {
+	flex: 0 1 auto;
+}
+
+@media (max-width: 640px) {
+	.form-sticky-actions {
+		bottom: calc(4.35rem + env(safe-area-inset-bottom, 0px));
+		gap: 0.55rem;
+	}
+
+	.form > .actions.form-sticky-actions .btn,
+	.form .actions.form-sticky-actions .btn {
+		width: auto;
+	}
+
+	.form > .actions.form-sticky-actions .btn-primary,
+	.form .actions.form-sticky-actions .btn-primary {
+		flex: 1 1 auto;
+		min-width: min(100%, 9rem);
+	}
+}
+
+/* ---------- Feel tap chips ---------- */
+.feel-field {
+	display: grid;
+	gap: 0.35rem;
+	font-size: 0.9rem;
+	color: var(--muted);
+	grid-column: 1 / -1;
+}
+
+.feel-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.3rem;
+}
+
+.feel-chip {
+	flex: 1 1 2.5rem;
+	min-width: 44px;
+	min-height: 44px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: rgba(0, 0, 0, 0.25);
+	color: var(--muted);
+	font: inherit;
+	font-variant-numeric: tabular-nums;
+	cursor: pointer;
+	transition:
+		border-color 0.15s ease,
+		color 0.15s ease,
+		background 0.15s ease;
+}
+
+.feel-chip:active {
+	border-color: var(--accent);
+}
+
+.feel-chip.active {
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--accent-ink);
+	font-weight: 600;
+}
+
+.feel-chips-wanted .feel-chip {
+	flex: 1 1 4rem;
+}
+
 /* ---------- Filter bar (sport + date on one row) ---------- */
 .filter-bar {
 	display: flex;
@@ -1243,6 +1341,10 @@
 	}
 
 	.chip:hover {
+		border-color: var(--accent);
+	}
+
+	.feel-chip:hover {
 		border-color: var(--accent);
 	}
 

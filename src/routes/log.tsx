@@ -7,6 +7,7 @@ import { ACTIVITY_TYPES, activityLabel, showsField } from '$lib/activity';
 import { StrengthEditor } from '../components/StrengthEditor';
 import { ShoesField } from '../components/ShoesField';
 import { WeatherField } from '../components/WeatherField';
+import { FeelChips, WantedFasterChips } from '../components/FeelChips';
 
 export const Route = createFileRoute('/log')({
 	loader: () => getLogDefaults(),
@@ -92,7 +93,8 @@ function LogRun() {
 
 			{message && <div className="flash">{message}</div>}
 
-			<form className="panel form" method="POST" onSubmit={onSubmit}>
+			<form className="form" method="POST" onSubmit={onSubmit}>
+				<div className="panel">
 				<div className="form-section">
 					<h3 className="form-section-title">Activity</h3>
 					<div className="form-grid">
@@ -141,7 +143,12 @@ function LogRun() {
 						{showsField(activityType, 'distance') && (
 							<label className="field">
 								<span>Distance (km)</span>
-								<input name="distance_km" type="number" step="0.01" placeholder="7.04" />
+								<input
+									name="distance_km"
+									type="text"
+									inputMode="decimal"
+									placeholder="7.04"
+								/>
 							</label>
 						)}
 						<label className="field">
@@ -154,10 +161,11 @@ function LogRun() {
 							/>
 						</label>
 						<label className="field">
-							<span>Start time</span>
+							<span className="req">Start time</span>
 							<input
 								type="time"
 								name="start_time"
+								required
 								value={startTimeValue}
 								onChange={(e) => setStartTimeValue(e.target.value)}
 							/>
@@ -165,27 +173,32 @@ function LogRun() {
 						{showsField(activityType, 'pace') && (
 							<label className="field">
 								<span>Avg pace /km</span>
-								<input name="avg_pace" placeholder="6:29" />
+								<input name="avg_pace" inputMode="decimal" placeholder="6:29" />
 							</label>
 						)}
 						<label className="field">
 							<span>Avg HR</span>
-							<input name="avg_hr" type="number" placeholder="147" />
+							<input name="avg_hr" type="text" inputMode="numeric" placeholder="147" />
 						</label>
 						<label className="field">
 							<span>Max HR</span>
-							<input name="max_hr" type="number" placeholder="172" />
+							<input name="max_hr" type="text" inputMode="numeric" placeholder="172" />
 						</label>
 						{showsField(activityType, 'elevation') && (
 							<label className="field">
 								<span>Elev gain (m)</span>
-								<input name="elev_gain" type="number" step="0.1" placeholder="48" />
+								<input
+									name="elev_gain"
+									type="text"
+									inputMode="decimal"
+									placeholder="48"
+								/>
 							</label>
 						)}
 						{showsField(activityType, 'cadence') && (
 							<label className="field">
 								<span>Cadence</span>
-								<input name="cadence" type="number" placeholder="176" />
+								<input name="cadence" type="text" inputMode="numeric" placeholder="176" />
 							</label>
 						)}
 					</div>
@@ -194,30 +207,11 @@ function LogRun() {
 				<div className="form-section">
 					<h3 className="form-section-title">How it felt</h3>
 					<div className="form-grid">
-						<label className="field">
-							<span>Effort (1–10)</span>
-							<input name="effort" type="number" min="1" max="10" placeholder="6" />
-						</label>
-						<label className="field">
-							<span>Shins (0–10)</span>
-							<input name="shins" type="number" min="0" max="10" placeholder="2" />
-						</label>
-						<label className="field">
-							<span>Legs (0–10)</span>
-							<input name="legs" type="number" min="0" max="10" placeholder="7" />
-						</label>
-						<label className="field">
-							<span>Energy (1–10)</span>
-							<input name="energy" type="number" min="1" max="10" placeholder="7" />
-						</label>
-						<label className="field">
-							<span>Wanted to go faster?</span>
-							<select name="wanted_faster" defaultValue="">
-								<option value="">—</option>
-								<option value="Y">Yes</option>
-								<option value="N">No</option>
-							</select>
-						</label>
+						<FeelChips name="effort" label="Effort (1–10)" min={1} max={10} />
+						<FeelChips name="shins" label="Shins (0–10)" min={0} max={10} />
+						<FeelChips name="legs" label="Legs (0–10)" min={0} max={10} />
+						<FeelChips name="energy" label="Energy (1–10)" min={1} max={10} />
+						<WantedFasterChips />
 					</div>
 				</div>
 
@@ -252,8 +246,9 @@ function LogRun() {
 						</label>
 					)}
 				</div>
+				</div>
 
-				<div className="actions">
+				<div className="actions form-sticky-actions">
 					<button className="btn btn-primary" type="submit">
 						Save activity
 					</button>

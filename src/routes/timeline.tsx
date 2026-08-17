@@ -12,7 +12,8 @@ import {
 	activityPlural,
 	hasContext,
 	metricText,
-	normalizeActivityType
+	normalizeActivityType,
+	showsField
 } from '$lib/activity';
 import { FeelBadge } from '../components/FeelBadge';
 import type { RunWithMap } from '$lib/types';
@@ -289,26 +290,39 @@ function Timeline() {
 														)}
 														{hasContext(run) && <FeelBadge />}
 													</strong>
-													<span className="tag">{activityLabel(run.activity_type)}</span>
-													<span className="tag">{run.day}</span>
-													<span className="tag accent">{run.session}</span>
-													{run.week != null && <span className="tag">W{run.week}</span>}
+													<span className="tag accent">{activityLabel(run.activity_type)}</span>
 												</div>
+												{(run.day ||
+													(run.session && run.session !== 'other') ||
+													run.week != null ||
+													run.start_time) && (
+													<p className="muted timeline-sub">
+														{[
+															run.day || null,
+															run.session && run.session !== 'other' ? run.session : null,
+															run.week != null ? `W${run.week}` : null,
+															run.start_time || null
+														]
+															.filter(Boolean)
+															.join(' · ')}
+													</p>
+												)}
 												<div className="timeline-metrics">
-													<span>{run.distance_km ?? '—'} km</span>
+													{showsField(run.activity_type, 'distance') && (
+														<span>{run.distance_km ?? '—'} km</span>
+													)}
 													<span>{metricText(run)}</span>
-													{run.start_time && <span>start {run.start_time}</span>}
-													{run.time && <span>{run.time}</span>}
-													{run.avg_hr != null && (
+													{run.avg_hr != null ? (
 														<span>
 															HR {run.avg_hr}
 															{run.max_hr != null && `/${run.max_hr}`}
 														</span>
-													)}
-													{run.elev_gain != null && <span>↑ {run.elev_gain} m</span>}
-													<span>Effort {run.effort ?? '—'}</span>
-													<span>Shins {run.shins ?? '—'}</span>
-													{run.energy != null && <span>Energy {run.energy}</span>}
+													) : run.elev_gain != null &&
+													  showsField(run.activity_type, 'elevation') ? (
+														<span>↑ {run.elev_gain} m</span>
+													) : run.time && normalizeActivityType(run.activity_type) !== 'strength' ? (
+														<span>{run.time}</span>
+													) : null}
 												</div>
 												{run.notes && <p className="muted timeline-notes">{run.notes}</p>}
 											</Link>

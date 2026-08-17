@@ -1000,8 +1000,18 @@ p {
 	}
 
 	.timeline-metrics {
-		gap: 0.45rem 0.75rem;
-		font-size: 0.88rem;
+		gap: 0.25rem 0.7rem;
+		font-size: 0.84rem;
+		margin-top: 0.3rem;
+	}
+
+	.timeline-sub {
+		font-size: 0.76rem;
+	}
+
+	.timeline-notes {
+		-webkit-line-clamp: 1;
+		margin-top: 0.28rem;
 	}
 
 	.timeline-actions .btn:not(.btn-icon),
@@ -1593,22 +1603,27 @@ textarea.editor {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 0.4rem;
+	gap: 0.35rem 0.5rem;
+}
+
+.timeline-sub {
+	margin-top: 0.2rem;
+	font-size: 0.82rem;
 }
 
 .timeline-metrics {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0.65rem 1rem;
-	margin-top: 0.65rem;
+	gap: 0.35rem 0.85rem;
+	margin-top: 0.4rem;
 	color: var(--muted);
-	font-size: 0.92rem;
+	font-size: 0.9rem;
 }
 
 .timeline-notes {
-	margin-top: 0.55rem;
+	margin-top: 0.35rem;
 	display: -webkit-box;
-	-webkit-line-clamp: 2;
+	-webkit-line-clamp: 1;
 	-webkit-box-orient: vertical;
 	overflow: hidden;
 }

@@ -1348,19 +1348,23 @@ textarea.editor {
 }
 
 .range-presets {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.45rem;
+	display: inline-flex;
+	width: fit-content;
+	max-width: 100%;
+	overflow: hidden;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: rgba(16, 20, 15, 0.85);
 }
 
 .range-chip {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-height: 2.5rem;
-	padding: 0.45rem 0.9rem;
-	border-radius: 999px;
-	border: 1px solid var(--line);
+	min-height: 2.25rem;
+	padding: 0.4rem 0.85rem;
+	border: 0;
+	border-radius: 0;
 	background: transparent;
 	color: var(--muted);
 	cursor: pointer;
@@ -1376,13 +1380,11 @@ a.range-chip {
 
 .range-chip:hover {
 	color: var(--text);
-	border-color: rgba(200, 242, 90, 0.35);
 }
 
 .range-chip.active {
 	color: var(--accent-ink);
 	background: var(--accent);
-	border-color: var(--accent);
 	font-weight: 600;
 }
 
@@ -1431,11 +1433,11 @@ a.range-chip {
 	}
 
 	.range-presets {
-		gap: 0.4rem;
+		overflow-x: auto;
 	}
 
 	.range-chip {
-		flex: 1 1 calc(50% - 0.4rem);
+		flex: 0 0 auto;
 		padding: 0.55rem 0.75rem;
 	}
 }

@@ -14,9 +14,9 @@ export function rangeToSearch(kind: RangeKind, from?: string, to?: string): Rang
 }
 
 const presets: { kind: RangeKind; label: string }[] = [
-	{ kind: '7d', label: 'Last 7 days' },
-	{ kind: '30d', label: 'Last 30 days' },
-	{ kind: 'all', label: 'All time' }
+	{ kind: 'all', label: 'All time' },
+	{ kind: '30d', label: '30 days' },
+	{ kind: '7d', label: '7 days' }
 ];
 
 export function DateRangeFilter({ range, to }: { range: DateRange; to: string }) {

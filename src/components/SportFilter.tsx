@@ -11,8 +11,8 @@ const OPTIONS: { value: 'all' | ActivityType; label: string }[] = [
 ];
 
 /**
- * Activity-type toggle. Starts on `defaultSport`; clicking the active chip deselects it
- * (falls back to "all"). `available` (when given) hides sports that have no activities at all.
+ * Activity-type toggle. Starts on `defaultSport`; `available` (when given) hides sports
+ * that have no activities at all.
  */
 export function SportFilter({
 	sport,
@@ -33,8 +33,6 @@ export function SportFilter({
 			<div className="range-presets">
 				{options.map((o) => {
 					const active = sport === o.value;
-					// Clicking the active chip deselects → all; otherwise select the chip.
-					const target = active ? 'all' : o.value;
 					return (
 						<button
 							key={o.value}
@@ -46,7 +44,7 @@ export function SportFilter({
 									to,
 									search: (prev: Record<string, unknown>) => ({
 										...prev,
-										sport: target === defaultSport ? undefined : target
+										sport: o.value === defaultSport ? undefined : o.value
 									})
 								})
 							}

@@ -1,21 +1,19 @@
 # Samuël Van Velzen — Current Runner Profile
 
-Updated 31 July 2026.
+Updated August 2026. Distances, longest run, and recent sessions in the coach brief’s computed summary and activity log are the source of truth if this file lags.
 
 ## Status
-- 3 runs per week
-- Longest run: **11.29 km** in 1:15:01 at 6:39/km, avg HR 153
+- A few runs per week, plus bike and walk as cross-training
+- Longest run as of this update: about 13 km easy-long (~6:39/km) — prefer the auto-computed All-time summary in the coach brief for the current figure
 - Hamstring symptoms resolved; shin awareness stable but monitored
 
 ## Weekly rhythm
-| Day | Role |
-|---|---|
-| Tuesday | Easy or quality depending on the weekly plan |
-| Friday | Complementary: quality if Tuesday was easy; easy if Tuesday became hard |
-| Sunday | Long aerobic run |
-| Thursday | Bike + optional controlled gym |
-| Monday | Fuller gym session |
-| Saturday | Optional hike |
+Days can move week to week. Typical pattern (not locked):
+- A few runs spread through the week (easy / quality / long as the plan needs)
+- Bike and optional gym on a midweek day
+- Optional walk or hike on a free day
+
+Do not assume Tuesday / Friday / Sunday.
 
 ## Paces (effort-first)
 - Cadence: usually 174–180 spm — do not force higher
@@ -24,9 +22,7 @@ Updated 31 July 2026.
 - Long-run: usually 6:35–6:50/km by effort
 
 ## Recent markers
-- Easy: 7.04 km at 6:29/km, avg HR 147
-- Faster: 6.66 km at 5:56/km, controlled negative split
-- Heat-tolerant easy: 6.76 km at 6:27/km after motorcycle practice
+See the computed activity log in the coach brief. This file does not keep a rolling highlight reel.
 
 ## Decision rules
 1. Easy means conversational and deliberately restrained, even when the body wants to run faster.

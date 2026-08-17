@@ -1244,6 +1244,33 @@
 	border-bottom-color: var(--accent);
 }
 
+.coach-flow {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+.coach-flow > li {
+	padding: 0;
+}
+.coach-flow > li > strong {
+	display: block;
+	font-size: 1.05rem;
+}
+.coach-flow > li > .muted {
+	display: block;
+	margin-top: 0.25rem;
+}
+.coach-flow-run {
+	margin: 0.45rem 0 0;
+	font-weight: 600;
+}
+.coach-flow > li.done > strong {
+	color: var(--accent);
+}
+
 /* ---------- Timeline country filter ---------- */
 .filter-country {
 	display: inline-flex;

@@ -1,13 +1,17 @@
-import { useState } from 'react';
-import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router';
+import { useEffect, useState } from 'react';
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import {
 	getCoachBrief,
+	getDebriefPrompt,
 	getFeelingsPrompt,
+	saveDebrief,
 	saveFeelings,
 	savePlanWeeks
 } from '$lib/server/functions';
+import { GpxImport } from '../components/GpxImport';
 
-type CoachSearch = { weeks?: number };
+type CoachTab = 'debrief' | 'plan' | 'feelings';
+type CoachSearch = { weeks?: number; tab?: CoachTab; slug?: string };
 
 const WEEK_OPTIONS = [
 	{ value: 4, label: '4 weeks' },
@@ -18,33 +22,51 @@ const WEEK_OPTIONS = [
 ];
 
 const DEFAULT_QUESTION =
-	'What should next week look like? Give me specific Tuesday / Friday / Sunday sessions with distance and intent, and flag anything to watch.';
+	'What should next week look like? Give me specific sessions with day, distance and intent (days can move), and flag anything to watch.';
+
+function parseTab(v: unknown): CoachTab {
+	if (v === 'plan' || v === 'feelings' || v === 'debrief') return v;
+	return 'debrief';
+}
 
 export const Route = createFileRoute('/coach')({
 	validateSearch: (s: Record<string, unknown>): CoachSearch => {
 		const n = Number(s.weeks);
-		return { weeks: Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined };
+		return {
+			weeks: Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined,
+			tab: parseTab(s.tab),
+			slug: typeof s.slug === 'string' && s.slug ? s.slug : undefined
+		};
 	},
-	loaderDeps: ({ search }) => ({ weeks: search.weeks ?? 12 }),
-	loader: ({ deps }) => getCoachBrief({ data: deps.weeks }),
+	loaderDeps: ({ search }) => ({ weeks: search.weeks ?? 12, slug: search.slug ?? '' }),
+	loader: async ({ deps }) => {
+		const [brief, debrief] = await Promise.all([
+			getCoachBrief({ data: deps.weeks }),
+			getDebriefPrompt({ data: deps.slug })
+		]);
+		return { brief, debrief };
+	},
 	component: Coach
 });
 
 function Coach() {
-	const brief = Route.useLoaderData();
+	const { brief, debrief } = Route.useLoaderData();
 	const search = Route.useSearch();
-	const navigate = useNavigate();
 	const router = useRouter();
 	const weeks = search.weeks ?? 12;
+	const tab = search.tab ?? 'debrief';
 
-	const [tab, setTab] = useState<'context' | 'feelings'>('context');
 	const [question, setQuestion] = useState('');
 	const [copied, setCopied] = useState(false);
 	const [briefText, setBriefText] = useState('');
 	const [planJson, setPlanJson] = useState('');
 	const [planMsg, setPlanMsg] = useState('');
 
-	// Weekly feelings round-trip
+	const [debriefPrompt, setDebriefPrompt] = useState(debrief.prompt);
+	const [debriefJson, setDebriefJson] = useState('');
+	const [debriefMsg, setDebriefMsg] = useState('');
+	const [debriefCopied, setDebriefCopied] = useState(false);
+
 	const [feelWeeks, setFeelWeeks] = useState(1);
 	const [feelPrompt, setFeelPrompt] = useState('');
 	const [feelCount, setFeelCount] = useState<number | null>(null);
@@ -52,6 +74,17 @@ function Coach() {
 	const [feelCopied, setFeelCopied] = useState(false);
 	const [feelJson, setFeelJson] = useState('');
 	const [feelMsg, setFeelMsg] = useState('');
+
+	useEffect(() => {
+		setDebriefPrompt(debrief.prompt);
+	}, [debrief.prompt]);
+
+	function setTab(next: CoachTab) {
+		router.navigate({
+			to: '/coach',
+			search: { tab: next, weeks: search.weeks, slug: next === 'debrief' ? search.slug : undefined }
+		});
+	}
 
 	async function generateFeelPrompt() {
 		setFeelBusy(true);
@@ -82,7 +115,9 @@ function Coach() {
 		try {
 			const res = await saveFeelings({ data: feelJson });
 			const miss = res.missing.length ? ` (${res.missing.length} slug(s) not found)` : '';
-			setFeelMsg(`Saved feelings to ${res.updated} activit${res.updated === 1 ? 'y' : 'ies'}${miss}.`);
+			setFeelMsg(
+				`Saved feelings to ${res.updated} activit${res.updated === 1 ? 'y' : 'ies'}${miss}.`
+			);
 			setFeelJson('');
 			router.invalidate();
 		} catch (e) {
@@ -99,6 +134,28 @@ function Coach() {
 			router.invalidate();
 		} catch (e) {
 			setPlanMsg(e instanceof Error ? e.message : 'Could not save plan.');
+		}
+	}
+
+	async function saveDebriefReply() {
+		setDebriefMsg('Saving…');
+		try {
+			const res = await saveDebrief({ data: debriefJson });
+			const bits: string[] = [];
+			if (res.feelingsUpdated) {
+				bits.push(
+					`feelings on ${res.feelingsUpdated} activit${res.feelingsUpdated === 1 ? 'y' : 'ies'}`
+				);
+			}
+			if (res.planUpdated.length) bits.push(`week ${res.planUpdated.join(', ')} updated`);
+			const miss = res.feelingsMissing.length
+				? ` (${res.feelingsMissing.length} slug(s) not found)`
+				: '';
+			setDebriefMsg(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
+			setDebriefJson('');
+			router.invalidate();
+		} catch (e) {
+			setDebriefMsg(e instanceof Error ? e.message : 'Could not save debrief.');
 		}
 	}
 
@@ -131,16 +188,27 @@ function Coach() {
 		}
 	}
 
+	async function copyDebrief() {
+		try {
+			await navigator.clipboard.writeText(debriefPrompt);
+			setDebriefCopied(true);
+			setTimeout(() => setDebriefCopied(false), 1800);
+		} catch {
+			/* ignore */
+		}
+	}
+
+	const run = debrief.run;
+
 	return (
 		<>
 			<section className="hero">
 				<div>
-					<p className="muted">Context for your AI coach</p>
+					<p className="muted">After a run · then Sunday’s next week</p>
 					<h1>Coach</h1>
 					<p>
-						Two halves of your weekly loop: the <strong>Context</strong> brief you paste in at the
-						start of the week to get a plan, and <strong>Feelings</strong> at the end to pull how
-						each activity felt back into the app.
+						Import the GPX, copy the debrief prompt into ChatGPT with your Strava screenshots and
+						how it felt, then paste the JSON back. Next session on the dashboard is up to date.
 					</p>
 				</div>
 			</section>
@@ -149,11 +217,20 @@ function Coach() {
 				<button
 					type="button"
 					role="tab"
-					aria-selected={tab === 'context'}
-					className={`coach-tab${tab === 'context' ? ' active' : ''}`}
-					onClick={() => setTab('context')}
+					aria-selected={tab === 'debrief'}
+					className={`coach-tab${tab === 'debrief' ? ' active' : ''}`}
+					onClick={() => setTab('debrief')}
 				>
-					Context &amp; plan
+					After a run
+				</button>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={tab === 'plan'}
+					className={`coach-tab${tab === 'plan' ? ' active' : ''}`}
+					onClick={() => setTab('plan')}
+				>
+					Plan next week
 				</button>
 				<button
 					type="button"
@@ -162,93 +239,200 @@ function Coach() {
 					className={`coach-tab${tab === 'feelings' ? ' active' : ''}`}
 					onClick={() => setTab('feelings')}
 				>
-					Feelings
+					Week review
 				</button>
 			</div>
 
-			{tab === 'context' && (
+			{tab === 'debrief' && (
 				<>
-			<div className="panel form" style={{ marginBottom: '1rem' }}>
-				<div className="form-grid">
-					<label className="field">
-						<span>History window</span>
-						<select
-							value={weeks}
-							onChange={(e) => navigate({ to: '/coach', search: { weeks: Number(e.target.value) } })}
-						>
-							{WEEK_OPTIONS.map((o) => (
-								<option key={o.value} value={o.value}>
-									{o.label}
-								</option>
-							))}
-						</select>
-					</label>
-				</div>
-				<label className="field">
-					<span>Your question for the AI (optional)</span>
-					<textarea
-						placeholder={DEFAULT_QUESTION}
-						value={question}
-						onChange={(e) => setQuestion(e.target.value)}
-						rows={2}
-					/>
-				</label>
-				<div className="actions">
-					<button className="btn btn-primary" type="button" onClick={generateBrief}>
-						{briefText ? 'Regenerate prompt' : 'Generate prompt'}
-					</button>
-				</div>
-			</div>
-
-			{briefText && (
-				<div className="panel form">
-					<h3>Prompt (editable — tweak before you copy)</h3>
-					<label className="field" style={{ marginTop: '0.5rem' }}>
-						<textarea
-							className="editor"
-							rows={16}
-							value={briefText}
-							onChange={(e) => setBriefText(e.target.value)}
-						/>
-					</label>
-					<div className="actions">
-						<button className="btn btn-primary" type="button" onClick={download}>
-							Download .md
-						</button>
-						<button className="btn btn-ghost" type="button" onClick={copy}>
-							{copied ? 'Copied' : 'Copy'}
-						</button>
-					</div>
-				</div>
+					<ol className="coach-flow">
+						<li className={run ? 'done' : 'current'}>
+							<strong>1. Import the GPX</strong>
+							<span className="muted">
+								Download from Strava, then drop it here. ChatGPT can wait — the prompt needs this
+								run in the app first.
+							</span>
+							{run && (
+								<p className="coach-flow-run">
+									Latest in the prompt:{' '}
+									<Link to="/runs/$slug" params={{ slug: run.slug }}>
+										{run.date}
+										{run.day ? ` · ${run.day}` : ''}
+										{run.distance_km != null ? ` · ${run.distance_km} km` : ''}
+									</Link>
+									{run.hasFeel ? ' · feel already saved' : ' · no feel yet'}
+								</p>
+							)}
+							<div className="panel form" style={{ marginTop: '0.75rem' }}>
+								<GpxImport
+									onImported={(ok) => {
+										const last = ok[ok.length - 1];
+										if (last?.slug) {
+											router.navigate({
+												to: '/coach',
+												search: { tab: 'debrief', slug: last.slug, weeks: search.weeks }
+											});
+										}
+									}}
+								/>
+							</div>
+							<p className="muted" style={{ marginTop: '0.5rem' }}>
+								No GPS?{' '}
+								<Link to="/import" search={{ mode: 'manual' }}>
+									Log manually
+								</Link>
+								.
+							</p>
+						</li>
+						<li className={run && debriefPrompt ? 'current' : undefined}>
+							<strong>2. Copy the prompt</strong>
+							<span className="muted">
+								In ChatGPT: attach the Strava general + pace screenshots, paste this, and say how
+								the run felt.
+							</span>
+							{debrief.error && !debriefPrompt && (
+								<p className="muted" style={{ marginTop: '0.4rem' }}>
+									{debrief.error}
+								</p>
+							)}
+							{debriefPrompt && (
+								<div className="panel form" style={{ marginTop: '0.75rem' }}>
+									<label className="field">
+										<textarea
+											className="editor"
+											rows={14}
+											value={debriefPrompt}
+											onChange={(e) => setDebriefPrompt(e.target.value)}
+										/>
+									</label>
+									<div className="actions">
+										<button className="btn btn-primary" type="button" onClick={copyDebrief}>
+											{debriefCopied ? 'Copied' : 'Copy prompt'}
+										</button>
+									</div>
+								</div>
+							)}
+						</li>
+						<li>
+							<strong>3. Paste ChatGPT’s JSON</strong>
+							<span className="muted">
+								Feelings for this run plus the updated rest of the week. Days can change.
+							</span>
+							<div className="panel form" style={{ marginTop: '0.75rem' }}>
+								{debriefMsg && <div className="flash">{debriefMsg}</div>}
+								<label className="field">
+									<textarea
+										className="editor"
+										rows={8}
+										placeholder='{ "feelings": { "slug": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
+										value={debriefJson}
+										onChange={(e) => setDebriefJson(e.target.value)}
+									/>
+								</label>
+								<div className="actions">
+									<button
+										className="btn btn-primary"
+										type="button"
+										onClick={saveDebriefReply}
+										disabled={!debriefJson.trim()}
+									>
+										Save debrief
+									</button>
+								</div>
+							</div>
+						</li>
+					</ol>
+				</>
 			)}
 
-			<div className="panel form" style={{ marginTop: '1rem' }}>
-				<h3>Save next week's plan</h3>
-				<p className="muted" style={{ marginTop: '0.3rem' }}>
-					Paste the JSON block your AI returned — it's merged into your plan (by week number) and
-					shows up in Context and the next brief.
-				</p>
-				{planMsg && <div className="flash">{planMsg}</div>}
-				<label className="field">
-					<textarea
-						className="editor"
-						rows={8}
-						placeholder='{ "week": 2, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'
-						value={planJson}
-						onChange={(e) => setPlanJson(e.target.value)}
-					/>
-				</label>
-				<div className="actions">
-					<button
-						className="btn btn-primary"
-						type="button"
-						onClick={savePlan}
-						disabled={!planJson.trim()}
-					>
-						Add to plan
-					</button>
-				</div>
-			</div>
+			{tab === 'plan' && (
+				<>
+					<div className="panel form" style={{ marginBottom: '1rem' }}>
+						<div className="form-grid">
+							<label className="field">
+								<span>History window</span>
+								<select
+									value={weeks}
+									onChange={(e) =>
+										router.navigate({
+											to: '/coach',
+											search: { tab: 'plan', weeks: Number(e.target.value) }
+										})
+									}
+								>
+									{WEEK_OPTIONS.map((o) => (
+										<option key={o.value} value={o.value}>
+											{o.label}
+										</option>
+									))}
+								</select>
+							</label>
+						</div>
+						<label className="field">
+							<span>Your question for the AI (optional)</span>
+							<textarea
+								placeholder={DEFAULT_QUESTION}
+								value={question}
+								onChange={(e) => setQuestion(e.target.value)}
+								rows={2}
+							/>
+						</label>
+						<div className="actions">
+							<button className="btn btn-primary" type="button" onClick={generateBrief}>
+								{briefText ? 'Regenerate prompt' : 'Generate prompt'}
+							</button>
+						</div>
+					</div>
+
+					{briefText && (
+						<div className="panel form">
+							<h3>Prompt (editable — tweak before you copy)</h3>
+							<label className="field" style={{ marginTop: '0.5rem' }}>
+								<textarea
+									className="editor"
+									rows={16}
+									value={briefText}
+									onChange={(e) => setBriefText(e.target.value)}
+								/>
+							</label>
+							<div className="actions">
+								<button className="btn btn-primary" type="button" onClick={download}>
+									Download .md
+								</button>
+								<button className="btn btn-ghost" type="button" onClick={copy}>
+									{copied ? 'Copied' : 'Copy'}
+								</button>
+							</div>
+						</div>
+					)}
+
+					<div className="panel form" style={{ marginTop: '1rem' }}>
+						<h3>Save next week’s plan</h3>
+						<p className="muted" style={{ marginTop: '0.3rem' }}>
+							Paste the JSON block your AI returned — merged by week number. Sessions can be any
+							days.
+						</p>
+						{planMsg && <div className="flash">{planMsg}</div>}
+						<label className="field">
+							<textarea
+								className="editor"
+								rows={8}
+								placeholder='{ "week": 3, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'
+								value={planJson}
+								onChange={(e) => setPlanJson(e.target.value)}
+							/>
+						</label>
+						<div className="actions">
+							<button
+								className="btn btn-primary"
+								type="button"
+								onClick={savePlan}
+								disabled={!planJson.trim()}
+							>
+								Add to plan
+							</button>
+						</div>
+					</div>
 				</>
 			)}
 
@@ -256,10 +440,8 @@ function Coach() {
 				<>
 					<div className="panel form" style={{ marginBottom: '1rem' }}>
 						<p className="muted" style={{ marginTop: 0 }}>
-							At the end of the week, generate a prompt that asks your AI to summarise — per
-							activity — how each run/ride felt from your chat. Paste its JSON back to save the
-							feelings onto each activity (shins, energy, surface, notes…). Objective numbers are
-							never touched.
+							End-of-week dump from a long ChatGPT thread. If you debriefed each run already, you
+							can skip this.
 						</p>
 						<div className="form-grid">
 							<label className="field">
@@ -312,8 +494,8 @@ function Coach() {
 					<div className="panel form" style={{ marginTop: '1rem' }}>
 						<h3>Save the feelings</h3>
 						<p className="muted" style={{ marginTop: '0.3rem' }}>
-							Paste the JSON block your AI returned — the feelings are written onto each activity by
-							slug, and objective device data is never touched.
+							Paste the JSON block — feelings are written onto each activity by slug. Device data is
+							never touched.
 						</p>
 						{feelMsg && <div className="flash">{feelMsg}</div>}
 						<label className="field">

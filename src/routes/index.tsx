@@ -124,7 +124,7 @@ function Dashboard() {
 
 	return (
 		<>
-			<section className="hero">
+			<section className="hero hero-home">
 				<div>
 					<p className="muted">Personal training desk · no accounts</p>
 					<h1>The Long Run</h1>

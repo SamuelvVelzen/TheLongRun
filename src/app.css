@@ -754,6 +754,10 @@ p {
 		background: var(--panel);
 	}
 
+	.hero-home {
+		display: none;
+	}
+
 	.hero {
 		gap: 0.95rem;
 		margin-bottom: 1.35rem;

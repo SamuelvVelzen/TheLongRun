@@ -14,7 +14,8 @@ import {
 	activityPlural,
 	hasContext,
 	metricText,
-	normalizeActivityType
+	normalizeActivityType,
+	showsField
 } from '$lib/activity';
 import { FeelBadge } from '../components/FeelBadge';
 import { DateRangeFilter, rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
@@ -42,6 +43,25 @@ export const Route = createFileRoute('/')({
 function fmt(n: number | null, digits = 1) {
 	if (n == null) return '—';
 	return n.toFixed(digits);
+}
+
+function compactRunSub(run: {
+	day: string;
+	session: string;
+	week: number | null;
+	avg_hr: number | null;
+	elev_gain: number | null;
+	activity_type: string;
+}) {
+	const parts: string[] = [];
+	if (run.day) parts.push(run.day.slice(0, 3));
+	if (run.session && run.session !== 'other') parts.push(run.session);
+	if (run.week != null) parts.push(`W${run.week}`);
+	if (run.avg_hr != null) parts.push(`HR ${run.avg_hr}`);
+	if (run.elev_gain != null && showsField(run.activity_type, 'elevation')) {
+		parts.push(`↑ ${run.elev_gain} m`);
+	}
+	return parts.join(' · ');
 }
 
 function shinLabel(s: DashboardStats) {
@@ -288,56 +308,35 @@ function Dashboard() {
 							recent.map((run, i) => (
 								<Link
 									key={run.slug}
-									className="run-row"
+									className="run-row run-row-compact"
 									to="/runs/$slug"
 									params={{ slug: run.slug }}
 									style={{ animationDelay: `${i * 40}ms` }}
 								>
-									<div>
-										<strong className="run-title">
-											{run.date}
-											{run.has_map && (
-												<span
-													className="map-badge"
-													title="Route map available"
-													aria-label="Has route map"
-												>
-													<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-														<path
-															fill="currentColor"
-															d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"
-														/>
-													</svg>
-												</span>
-											)}
-											{hasContext(run) && <FeelBadge />}
-										</strong>
-										<div className="muted">
-											{run.day} · {run.session}
-											{run.week != null && ` · W${run.week}`}
-											{run.start_time && ` · ${run.start_time}`}
-										</div>
-									</div>
-									<div>
-										{run.distance_km ?? '—'} km · {metricText(run)}
-									</div>
-									<div>
-										{run.avg_hr != null ? (
-											<>
-												HR {run.avg_hr}
-												{run.max_hr != null && `/${run.max_hr}`}
-											</>
-										) : (
-											<>Effort {run.effort ?? '—'}/10</>
+									<strong className="run-title">
+										{run.date}
+										{run.has_map && (
+											<span
+												className="map-badge"
+												title="Route map available"
+												aria-label="Has route map"
+											>
+												<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+													<path
+														fill="currentColor"
+														d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"
+													/>
+												</svg>
+											</span>
 										)}
+										{hasContext(run) && <FeelBadge />}
+									</strong>
+									<div className="run-row-metric">
+										{showsField(run.activity_type, 'distance')
+											? `${run.distance_km ?? '—'} km · ${metricText(run)}`
+											: metricText(run)}
 									</div>
-									<div>
-										{run.elev_gain != null ? (
-											<>↑ {run.elev_gain} m</>
-										) : (
-											<>Shins {run.shins ?? '—'}/10</>
-										)}
-									</div>
+									<div className="muted run-row-sub">{compactRunSub(run)}</div>
 								</Link>
 							))
 						) : (

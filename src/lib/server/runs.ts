@@ -52,7 +52,9 @@ function rowToRun(row: Record<string, unknown>): RunRecord {
 		strava_id: toStr(row.strava_id),
 		route: toStr(row.route),
 		notes: toStr(row.notes),
-		country: toStr(row.country)
+		country: toStr(row.country),
+		province: toStr(row.province),
+		place: toStr(row.place)
 	};
 }
 
@@ -66,13 +68,14 @@ async function upsertRun(r: RunColumns): Promise<RunRecord> {
 			slug, date, week, day, activity_type, session, effort, shins, legs, energy, weather, surface,
 			wanted_faster, distance_km, start_time, "time", elapsed_time, avg_pace, avg_hr, max_hr,
 			elev_gain, calories, kilojoules, max_speed, cadence, shoes, summary_image, splits_image,
-			strava_id, route, notes, country
+			strava_id, route, notes, country, province, place
 		) VALUES (
 			${r.slug}, ${r.date}, ${r.week}, ${r.day}, ${r.activity_type}, ${r.session}, ${r.effort}, ${r.shins},
 			${r.legs}, ${r.energy}, ${r.weather}, ${r.surface}, ${r.wanted_faster}, ${r.distance_km},
 			${r.start_time}, ${r.time}, ${r.elapsed_time}, ${r.avg_pace}, ${r.avg_hr}, ${r.max_hr},
 			${r.elev_gain}, ${r.calories}, ${r.kilojoules}, ${r.max_speed}, ${r.cadence}, ${r.shoes},
-			${r.summary_image}, ${r.splits_image}, ${r.strava_id}, ${r.route}, ${r.notes}, ${r.country}
+			${r.summary_image}, ${r.splits_image}, ${r.strava_id}, ${r.route}, ${r.notes}, ${r.country},
+			${r.province}, ${r.place}
 		)
 		ON CONFLICT (slug) DO UPDATE SET
 			date = EXCLUDED.date, week = EXCLUDED.week, day = EXCLUDED.day,
@@ -85,7 +88,7 @@ async function upsertRun(r: RunColumns): Promise<RunRecord> {
 			kilojoules = EXCLUDED.kilojoules, max_speed = EXCLUDED.max_speed, cadence = EXCLUDED.cadence,
 			shoes = EXCLUDED.shoes, summary_image = EXCLUDED.summary_image, splits_image = EXCLUDED.splits_image,
 			strava_id = EXCLUDED.strava_id, route = EXCLUDED.route, notes = EXCLUDED.notes,
-			country = EXCLUDED.country
+			country = EXCLUDED.country, province = EXCLUDED.province, place = EXCLUDED.place
 		RETURNING *
 	`) as Record<string, unknown>[];
 	return rowToRun(rows[0]!);
@@ -154,6 +157,8 @@ export interface SaveRunInput {
 	route?: string;
 	notes: string;
 	country?: string;
+	province?: string;
+	place?: string;
 }
 
 export async function findRunByStravaId(stravaId: string): Promise<RunRecord | null> {
@@ -283,7 +288,9 @@ export async function saveRun(input: SaveRunInput): Promise<RunRecord> {
 		strava_id: input.strava_id || '',
 		route: input.route || '',
 		notes: input.notes?.trim() ?? '',
-		country: input.country || ''
+		country: input.country || '',
+		province: input.province || '',
+		place: input.place || ''
 	});
 }
 
@@ -352,7 +359,9 @@ export async function writeRun(run: RunRecord): Promise<RunRecord> {
 		strava_id: run.strava_id || '',
 		route: run.route || '',
 		notes: run.notes?.trim() ?? '',
-		country: run.country || ''
+		country: run.country || '',
+		province: run.province || '',
+		place: run.place || ''
 	});
 }
 
@@ -434,7 +443,9 @@ export async function updateRun(slug: string, fields: UpdateRunFields): Promise<
 		strava_id: existing.strava_id,
 		route: existing.route,
 		notes: fields.notes,
-		country: existing.country
+		country: existing.country,
+		province: existing.province,
+		place: existing.place
 	});
 
 	if (newSlug !== slug) {

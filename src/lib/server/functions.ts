@@ -48,6 +48,7 @@ import {
 } from './context';
 import { fetchWeatherForDateTime } from './weather';
 import { parseGpx } from './gpx';
+import { reverseGeocode } from './geo';
 
 const withMap = (runs: RunRecord[], routeIds: Set<string>): RunWithMap[] =>
 	runs.map((r) => ({ ...r, has_map: runHasMap(r, routeIds) }));
@@ -518,6 +519,12 @@ export const importGpx = createServerFn({ method: 'POST' })
 			parsed.time || null
 		);
 
+		// Reverse-geocode the start coordinate for country / province / municipality (best-effort).
+		const geo =
+			parsed.startLat != null && parsed.startLng != null
+				? await reverseGeocode(parsed.startLat, parsed.startLng)
+				: { country: '', province: '', place: '' };
+
 		const run = await saveRun({
 			date: parsed.date,
 			week,
@@ -547,7 +554,9 @@ export const importGpx = createServerFn({ method: 'POST' })
 			strava_id: '',
 			route,
 			notes: 'Imported from GPX.',
-			country: parsed.country
+			country: geo.country,
+			province: geo.province,
+			place: geo.place
 		});
 
 		return {

@@ -38,8 +38,10 @@ export interface RunRecord {
 	strava_id: string;
 	route: string;
 	notes: string;
-	/** Country resolved from the activity's start coordinate (offline), or '' if unknown. */
+	/** Location reverse-geocoded from the activity's start coordinate (Nominatim), '' if unknown. */
 	country: string;
+	province: string;
+	place: string;
 	/** Legacy filesystem path; unused since the move to Postgres. */
 	filepath?: string;
 }

@@ -5,7 +5,7 @@ import {
 	type TrackSample
 } from '$lib/splits';
 import { formatDuration, formatPace } from '$lib/format';
-import { countryForCoord, timezoneForCoord } from './geo';
+import { timezoneForCoord } from './geo';
 
 export interface ParsedGpx {
 	/** YYYY-MM-DD taken from the first track time (as written in the file). */
@@ -25,8 +25,9 @@ export interface ParsedGpx {
 	analytics: RouteAnalytics | null;
 	/** Sport hint from the GPX `<type>` element, if any. */
 	detectedType: string;
-	/** Country resolved from the start coordinate (offline), or '' if unknown. */
-	country: string;
+	/** Start coordinate (for reverse-geocoding the location), or null if none. */
+	startLat: number | null;
+	startLng: number | null;
 }
 
 const MAX_MOVING_GAP_S = 45;
@@ -89,7 +90,6 @@ export function parseGpx(xml: string): ParsedGpx {
 	// LOCAL zone — resolved from its start coordinate — so a run in NL or Vietnam both read right.
 	const firstPoint = track.find((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
 	const TZ = (firstPoint && timezoneForCoord(firstPoint.lat, firstPoint.lng)) || 'Europe/Amsterdam';
-	const country = firstPoint ? countryForCoord(firstPoint.lat, firstPoint.lng) : '';
 	let date = '';
 	let startClock = '';
 	const firstTime = blocks.map((b) => child(b, 'time')).find(Boolean) ?? child(xml, 'time');
@@ -188,6 +188,7 @@ export function parseGpx(xml: string): ParsedGpx {
 				: [],
 		analytics,
 		detectedType,
-		country
+		startLat: firstPoint?.lat ?? null,
+		startLng: firstPoint?.lng ?? null
 	};
 }

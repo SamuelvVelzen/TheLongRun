@@ -10,6 +10,7 @@ import {
 } from '$lib/server/functions';
 import { PLAN_WEEK_COUNT, planWeekIndex, weekToPlan } from '$lib/plan';
 import { GpxImport } from '../components/GpxImport';
+import { DeferredData } from '../components/DeferredData';
 
 type CoachTab = 'debrief' | 'plan' | 'feelings';
 type CoachSearch = { weeks?: number; tab?: CoachTab; slug?: string };
@@ -50,18 +51,85 @@ export const Route = createFileRoute('/coach')({
 		weeks: search.weeks ?? ALL_TIME_WEEKS,
 		slug: search.slug ?? ''
 	}),
-	loader: async ({ deps }) => {
-		const [brief, debrief] = await Promise.all([
+	loader: ({ deps }) => ({
+		page: Promise.all([
 			getCoachBrief({ data: deps.weeks }),
 			getDebriefPrompt({ data: deps.slug })
-		]);
-		return { brief, debrief };
-	},
+		]).then(([brief, debrief]) => ({ brief, debrief }))
+	}),
 	component: Coach
 });
 
 function Coach() {
-	const { brief, debrief } = Route.useLoaderData();
+	const { page } = Route.useLoaderData();
+	const search = Route.useSearch();
+	const router = useRouter();
+	const tab = search.tab ?? 'debrief';
+	const weekPhrase = planWeekPhrase();
+
+	function setTab(next: CoachTab) {
+		router.navigate({
+			to: '/coach',
+			search: { tab: next, weeks: search.weeks, slug: next === 'debrief' ? search.slug : undefined }
+		});
+	}
+
+	return (
+		<>
+			<section className="hero">
+				<div>
+					<p className="muted">After a run · then {weekPhrase}</p>
+					<h1>Coach</h1>
+					<p>
+						Import the GPX, copy the debrief prompt into ChatGPT with your Strava screenshots and
+						how it felt, then paste the JSON back. Next session on the dashboard is up to date.
+					</p>
+				</div>
+			</section>
+
+			<div className="coach-tabs" role="tablist">
+				<button
+					type="button"
+					role="tab"
+					aria-selected={tab === 'debrief'}
+					className={`coach-tab${tab === 'debrief' ? ' active' : ''}`}
+					onClick={() => setTab('debrief')}
+				>
+					After a run
+				</button>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={tab === 'plan'}
+					className={`coach-tab${tab === 'plan' ? ' active' : ''}`}
+					onClick={() => setTab('plan')}
+				>
+					Plan {weekPhrase}
+				</button>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={tab === 'feelings'}
+					className={`coach-tab${tab === 'feelings' ? ' active' : ''}`}
+					onClick={() => setTab('feelings')}
+				>
+					Week review
+				</button>
+			</div>
+			<DeferredData promise={page}>
+				{(data) => <CoachPanels brief={data.brief} debrief={data.debrief} />}
+			</DeferredData>
+		</>
+	);
+}
+
+function CoachPanels({
+	brief,
+	debrief
+}: {
+	brief: string;
+	debrief: Awaited<ReturnType<typeof getDebriefPrompt>>;
+}) {
 	const search = Route.useSearch();
 	const router = useRouter();
 	const weeks = search.weeks ?? ALL_TIME_WEEKS;
@@ -89,13 +157,6 @@ function Coach() {
 	useEffect(() => {
 		setDebriefPrompt(debrief.prompt);
 	}, [debrief.prompt]);
-
-	function setTab(next: CoachTab) {
-		router.navigate({
-			to: '/coach',
-			search: { tab: next, weeks: search.weeks, slug: next === 'debrief' ? search.slug : undefined }
-		});
-	}
 
 	async function generateFeelPrompt() {
 		setFeelBusy(true);
@@ -214,47 +275,6 @@ function Coach() {
 
 	return (
 		<>
-			<section className="hero">
-				<div>
-					<p className="muted">After a run · then {weekPhrase}</p>
-					<h1>Coach</h1>
-					<p>
-						Import the GPX, copy the debrief prompt into ChatGPT with your Strava screenshots and
-						how it felt, then paste the JSON back. Next session on the dashboard is up to date.
-					</p>
-				</div>
-			</section>
-
-			<div className="coach-tabs" role="tablist">
-				<button
-					type="button"
-					role="tab"
-					aria-selected={tab === 'debrief'}
-					className={`coach-tab${tab === 'debrief' ? ' active' : ''}`}
-					onClick={() => setTab('debrief')}
-				>
-					After a run
-				</button>
-				<button
-					type="button"
-					role="tab"
-					aria-selected={tab === 'plan'}
-					className={`coach-tab${tab === 'plan' ? ' active' : ''}`}
-					onClick={() => setTab('plan')}
-				>
-					Plan {weekPhrase}
-				</button>
-				<button
-					type="button"
-					role="tab"
-					aria-selected={tab === 'feelings'}
-					className={`coach-tab${tab === 'feelings' ? ' active' : ''}`}
-					onClick={() => setTab('feelings')}
-				>
-					Week review
-				</button>
-			</div>
-
 			{tab === 'debrief' && (
 				<>
 					<ol className="coach-flow">

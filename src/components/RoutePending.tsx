@@ -1,6 +1,6 @@
 import './route-pending.css';
 
-/** Content-area pending UI while a route loader runs. Renders inside the shell Outlet. */
+/** Spinner for deferred page data — not a second copy of the title. */
 export function RoutePending() {
 	return (
 		<div className="route-pending" role="status" aria-live="polite">

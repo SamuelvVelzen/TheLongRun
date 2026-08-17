@@ -1,14 +1,30 @@
 import { useState } from 'react';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { getContextData, saveShoes, saveContextFile } from '$lib/server/functions';
+import { DeferredData } from '../components/DeferredData';
 
 export const Route = createFileRoute('/context')({
-	loader: () => getContextData(),
+	loader: () => ({ page: getContextData() }),
 	component: Context
 });
 
 function Context() {
-	const data = Route.useLoaderData();
+	const { page } = Route.useLoaderData();
+	return (
+		<>
+			<section className="hero">
+				<div>
+					<p className="muted">Profile, plan, gear, and race notes</p>
+					<h1>Context</h1>
+					<p>Read the formatted docs and edit markdown when something changes.</p>
+				</div>
+			</section>
+			<DeferredData promise={page}>{(data) => <ContextBody data={data} />}</DeferredData>
+		</>
+	);
+}
+
+function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>> }) {
 	const router = useRouter();
 
 	const [copied, setCopied] = useState<string | null>(null);
@@ -83,14 +99,6 @@ function Context() {
 
 	return (
 		<>
-			<section className="hero">
-				<div>
-					<p className="muted">Profile, plan, gear, and race notes</p>
-					<h1>Context</h1>
-					<p>Read the formatted docs and edit markdown when something changes.</p>
-				</div>
-			</section>
-
 			{copyError && <div className="flash">{copyError}</div>}
 			{saveFlash && <div className="flash ok-flash">Saved {saveFlash}</div>}
 			{message && <div className="flash">{message}</div>}

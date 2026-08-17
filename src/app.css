@@ -26,6 +26,8 @@ html,
 body {
 	margin: 0;
 	min-height: 100%;
+	min-height: 100vh;
+	min-height: 100dvh;
 	max-width: 100%;
 	overflow-x: clip;
 	background:
@@ -36,6 +38,11 @@ body {
 	font-family: var(--font-body);
 	font-size: 16px;
 	line-height: 1.5;
+}
+
+body {
+	display: flex;
+	flex-direction: column;
 }
 
 body::before {
@@ -88,7 +95,12 @@ p {
 .shell {
 	position: relative;
 	z-index: 1;
+	flex: 1 1 auto;
+	display: flex;
+	flex-direction: column;
 	width: min(1120px, calc(100% - 2rem));
+	min-height: 100vh;
+	min-height: 100dvh;
 	margin: 0 auto;
 	padding: 1.25rem env(safe-area-inset-right, 0px) calc(4rem + env(safe-area-inset-bottom, 0px))
 		env(safe-area-inset-left, 0px);
@@ -163,7 +175,6 @@ p {
 	display: grid;
 	gap: 1.25rem;
 	margin-bottom: 2rem;
-	animation: rise 600ms ease both;
 }
 
 .hero h1 {

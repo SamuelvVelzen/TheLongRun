@@ -1,11 +1,6 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { getTimelineRuns, deleteRun } from '$lib/server/functions';
-import {
-	buildRangeStats,
-	filterRunsByRange,
-	parseDateRange,
-	type RangeKind
-} from '$lib/date-range';
+import { filterRunsByRange, parseDateRange, type RangeKind } from '$lib/date-range';
 import { buildTrainingTrends } from '$lib/trends';
 import {
 	activityLabel,
@@ -21,6 +16,7 @@ import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter
 import { FilterSheet, filterSummary } from '../components/FilterSheet';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
+import { DeferredData } from '../components/DeferredData';
 
 type TimelineSearch = RangeSearch & {
 	sport?: string;
@@ -42,7 +38,7 @@ export const Route = createFileRoute('/timeline')({
 		province: typeof s.province === 'string' ? s.province : undefined,
 		place: typeof s.place === 'string' ? s.place : undefined
 	}),
-	loader: () => getTimelineRuns(),
+	loader: () => ({ page: getTimelineRuns() }),
 	component: Timeline
 });
 
@@ -72,12 +68,31 @@ function groupRuns(runs: RunWithMap[]) {
 	}));
 }
 
-function fmtHr(n: number | null) {
-	return n == null ? '—' : Math.round(n).toString();
+function Timeline() {
+	const { page } = Route.useLoaderData();
+	return (
+		<>
+			<section className="hero">
+				<div>
+					<p className="muted">Every session in order</p>
+					<h1>Timeline</h1>
+					<p>Add a file, or open one for notes and full metrics.</p>
+				</div>
+				<div className="actions">
+					<Link className="btn btn-primary" to="/import">
+						Add activity
+					</Link>
+					<Link className="btn btn-ghost" to="/coach" search={{ tab: 'debrief' }}>
+						Coach
+					</Link>
+				</div>
+			</section>
+			<DeferredData promise={page}>{(allRuns) => <TimelineBody allRuns={allRuns} />}</DeferredData>
+		</>
+	);
 }
 
-function Timeline() {
-	const allRuns = Route.useLoaderData();
+function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 	const search = Route.useSearch();
 	const router = useRouter();
 
@@ -106,7 +121,6 @@ function Timeline() {
 		.filter((r) => province === 'all' || r.province === province)
 		.filter((r) => place === 'all' || r.place === place);
 	const runs = filterRunsByRange(scoped, range);
-	const stats = buildRangeStats(runs);
 	const groups = groupRuns(runs);
 	const trends = buildTrainingTrends(runs, { endDate: range.to, fromDate: range.from });
 
@@ -123,27 +137,6 @@ function Timeline() {
 
 	return (
 		<>
-			<section className="hero">
-				<div>
-					<p className="muted">
-						{stats.runCount} {activityPlural(sport)} · {stats.totalKm} km
-						{stats.avgPace && ` · avg ${stats.avgPace}/km`}
-						{stats.avgHr != null && ` · HR ${fmtHr(stats.avgHr)}`}
-						{range.kind !== 'all' && ` · ${range.label}`}
-					</p>
-					<h1>Timeline</h1>
-					<p>Every session in order — add a file, or open one for notes and full metrics.</p>
-				</div>
-				<div className="actions">
-					<Link className="btn btn-primary" to="/import">
-						Add activity
-					</Link>
-					<Link className="btn btn-ghost" to="/coach" search={{ tab: 'debrief' }}>
-						Coach
-					</Link>
-				</div>
-			</section>
-
 			<FilterSheet summary={filterSummary(sport, range, { country, province, place })}>
 				<SportFilter sport={sport} to="/timeline" defaultSport="all" available={availableSports} />
 				<DateRangeFilter range={range} to="/timeline" />

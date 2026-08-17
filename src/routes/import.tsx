@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { getLogDefaults } from '$lib/server/functions';
 import { GpxImport } from '../components/GpxImport';
 import { LogForm } from '../components/LogForm';
+import { DeferredData } from '../components/DeferredData';
 
 type AddSearch = { mode?: 'gpx' | 'manual' };
 
@@ -9,12 +10,12 @@ export const Route = createFileRoute('/import')({
 	validateSearch: (s: Record<string, unknown>): AddSearch => ({
 		mode: s.mode === 'manual' ? 'manual' : 'gpx'
 	}),
-	loader: () => getLogDefaults(),
+	loader: () => ({ page: getLogDefaults() }),
 	component: AddActivity
 });
 
 function AddActivity() {
-	const data = Route.useLoaderData();
+	const { page } = Route.useLoaderData();
 	const { mode = 'gpx' } = Route.useSearch();
 
 	return (
@@ -59,7 +60,9 @@ function AddActivity() {
 					<GpxImport coachAfter />
 				</div>
 			) : (
-				<LogForm week={data.week} shoes={data.shoes} />
+				<DeferredData promise={page}>
+					{(data) => <LogForm week={data.week} shoes={data.shoes} />}
+				</DeferredData>
 			)}
 		</>
 	);

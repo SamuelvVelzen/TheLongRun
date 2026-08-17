@@ -2,43 +2,19 @@ import { useMemo, useState, type MouseEvent } from 'react';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { deletePlannedRoute, getPlannedRoutesData, importPlannedRoute } from '$lib/server/functions';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
+import { DeferredData } from '../components/DeferredData';
 
 export const Route = createFileRoute('/routes')({
-	loader: () => getPlannedRoutesData(),
+	loader: () => ({ page: getPlannedRoutesData() }),
 	component: PlannedRoutes
 });
 
 function PlannedRoutes() {
-	const data = Route.useLoaderData();
+	const { page } = Route.useLoaderData();
 	const router = useRouter();
 	const [dragOver, setDragOver] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [message, setMessage] = useState('');
-
-	const meta = useMemo<RouteMeta>(() => {
-		const out: RouteMeta = {};
-		for (const route of data.routes) {
-			const location = [route.place, route.country].filter(Boolean).join(', ');
-			out[route.slug] = {
-				slug: route.slug,
-				title: route.name,
-				sub: `${route.distance_km ?? '—'} km${location ? ` · ${location}` : ''}`
-			};
-		}
-		return out;
-	}, [data.routes]);
-
-	async function onDeleteRoute(event: MouseEvent, slug: string, name: string) {
-		event.preventDefault();
-		event.stopPropagation();
-		if (!confirm(`Delete planned route “${name}”?`)) return;
-		try {
-			await deletePlannedRoute({ data: slug });
-			await router.invalidate();
-		} catch (error) {
-			setMessage(error instanceof Error ? error.message : 'Delete failed');
-		}
-	}
 
 	async function importFile(file: File | undefined) {
 		if (!file) return;
@@ -99,7 +75,48 @@ function PlannedRoutes() {
 				<span className="muted dropzone-dnd">You can also drop a GPX or GeoJSON file here</span>
 			</label>
 			{message && <div className="flash">{message}</div>}
+			<DeferredData promise={page}>
+				{(data) => <PlannedRoutesList data={data} onMessage={setMessage} />}
+			</DeferredData>
+		</>
+	);
+}
 
+function PlannedRoutesList({
+	data,
+	onMessage
+}: {
+	data: Awaited<ReturnType<typeof getPlannedRoutesData>>;
+	onMessage: (msg: string) => void;
+}) {
+	const router = useRouter();
+	const meta = useMemo<RouteMeta>(() => {
+		const out: RouteMeta = {};
+		for (const route of data.routes) {
+			const location = [route.place, route.country].filter(Boolean).join(', ');
+			out[route.slug] = {
+				slug: route.slug,
+				title: route.name,
+				sub: `${route.distance_km ?? '—'} km${location ? ` · ${location}` : ''}`
+			};
+		}
+		return out;
+	}, [data.routes]);
+
+	async function onDeleteRoute(event: MouseEvent, slug: string, name: string) {
+		event.preventDefault();
+		event.stopPropagation();
+		if (!confirm(`Delete planned route “${name}”?`)) return;
+		try {
+			await deletePlannedRoute({ data: slug });
+			await router.invalidate();
+		} catch (error) {
+			onMessage(error instanceof Error ? error.message : 'Delete failed');
+		}
+	}
+
+	return (
+		<>
 			<section className="map-section" aria-labelledby="planned-routes-map">
 				<div className="section-title map-section-head">
 					<div>

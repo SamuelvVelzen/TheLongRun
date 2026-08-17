@@ -23,6 +23,7 @@ import { FilterSheet, filterSummary } from '../components/FilterSheet';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
+import { DeferredData } from '../components/DeferredData';
 
 type DashSearch = RangeSearch & { sport?: string };
 const SPORTS = ['all', 'run', 'walk', 'ride', 'swim', 'strength'];
@@ -36,7 +37,7 @@ export const Route = createFileRoute('/')({
 		to: typeof s.to === 'string' ? s.to : undefined,
 		sport: SPORTS.includes(s.sport as string) ? (s.sport as string) : undefined
 	}),
-	loader: () => getDashboardData(),
+	loader: () => ({ page: getDashboardData() }),
 	component: Dashboard
 });
 
@@ -73,7 +74,33 @@ function shinLabel(s: DashboardStats) {
 }
 
 function Dashboard() {
-	const data = Route.useLoaderData();
+	const { page } = Route.useLoaderData();
+	return (
+		<>
+			<section className="hero hero-home">
+				<div>
+					<p className="muted">Personal training desk · no accounts</p>
+					<h1>The Long Run</h1>
+					<p>
+						After a run: import the GPX in Coach, paste ChatGPT’s debrief, and the next session
+						stays current. Stats and maps live here.
+					</p>
+				</div>
+				<div className="actions">
+					<Link className="btn btn-primary" to="/coach" search={{ tab: 'debrief' }}>
+						Coach
+					</Link>
+					<Link className="btn btn-ghost" to="/import">
+						Add activity
+					</Link>
+				</div>
+			</section>
+			<DeferredData promise={page}>{(data) => <DashboardBody data={data} />}</DeferredData>
+		</>
+	);
+}
+
+function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardData>> }) {
 	const search = Route.useSearch();
 
 	const sp = new URLSearchParams();
@@ -149,25 +176,6 @@ function Dashboard() {
 
 	return (
 		<>
-			<section className="hero hero-home">
-				<div>
-					<p className="muted">Personal training desk · no accounts</p>
-					<h1>The Long Run</h1>
-					<p>
-						After a run: import the GPX in Coach, paste ChatGPT’s debrief, and the next session
-						stays current. Stats and maps live here.
-					</p>
-				</div>
-				<div className="actions">
-					<Link className="btn btn-primary" to="/coach" search={{ tab: 'debrief' }}>
-						Coach
-					</Link>
-					<Link className="btn btn-ghost" to="/import">
-						Add activity
-					</Link>
-				</div>
-			</section>
-
 			{data.weekView?.next && (
 				<section className="next-up" aria-labelledby="next-up-heading">
 					<p className="muted next-up-kicker">

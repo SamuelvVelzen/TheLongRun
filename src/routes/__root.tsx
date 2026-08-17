@@ -2,7 +2,6 @@ import '../app.css';
 import '../components.css';
 import type { MouseEvent, ReactNode } from 'react';
 import { Outlet, createRootRoute, HeadContent, Scripts, Link } from '@tanstack/react-router';
-import { RoutePending } from '../components/RoutePending';
 
 export const Route = createRootRoute({
 	head: () => ({
@@ -13,7 +12,6 @@ export const Route = createRootRoute({
 			{ name: 'description', content: 'Personal run log' }
 		]
 	}),
-	pendingComponent: RoutePending,
 	component: RootComponent
 });
 

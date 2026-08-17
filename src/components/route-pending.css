@@ -1,11 +1,12 @@
 .route-pending {
+	flex: 1 1 auto;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
 	gap: 0.85rem;
-	min-height: min(22rem, calc(100dvh - 12rem));
-	padding: 2.5rem 1rem 1.5rem;
+	min-height: min(14rem, 40dvh);
+	padding: 1.5rem 1rem 2.5rem;
 	text-align: center;
 }
 

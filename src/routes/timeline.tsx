@@ -17,6 +17,7 @@ import {
 import { FeelBadge } from '../components/FeelBadge';
 import type { RunWithMap } from '$lib/types';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
+import { FilterSheet, filterSummary } from '../components/FilterSheet';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 
@@ -139,7 +140,7 @@ function Timeline() {
 				</div>
 			</section>
 
-			<div className="filter-bar">
+			<FilterSheet summary={filterSummary(sport, range, { country, province, place })}>
 				<SportFilter sport={sport} to="/timeline" defaultSport="all" available={availableSports} />
 				<DateRangeFilter range={range} to="/timeline" />
 				{availableCountries.length > 1 && (
@@ -217,7 +218,7 @@ function Timeline() {
 						</select>
 					</label>
 				)}
-			</div>
+			</FilterSheet>
 
 			{neverLogged ? (
 				<div className="panel muted">No activities yet.</div>

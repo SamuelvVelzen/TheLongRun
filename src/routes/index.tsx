@@ -18,6 +18,7 @@ import {
 } from '$lib/activity';
 import { FeelBadge } from '../components/FeelBadge';
 import { DateRangeFilter, rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
+import { FilterSheet, filterSummary } from '../components/FilterSheet';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
@@ -143,10 +144,10 @@ function Dashboard() {
 				</div>
 			</section>
 
-			<div className="filter-bar">
+			<FilterSheet summary={filterSummary(sport, range)}>
 				<SportFilter sport={sport} to="/" available={availableSports} />
 				<DateRangeFilter range={range} to="/" />
-			</div>
+			</FilterSheet>
 
 			{filteredEmpty ? (
 				<div className="panel muted range-empty">

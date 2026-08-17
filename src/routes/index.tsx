@@ -135,7 +135,11 @@ function Dashboard() {
 		? null
 		: Math.ceil((raceDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
 	const mappedRuns = runs.filter((r) => r.has_map).length;
-	const stats = buildDashboardStats(runs, { daysToRace, mappedRuns });
+	const stats = buildDashboardStats(runs, {
+		daysToRace,
+		mappedRuns,
+		streak: data.streak
+	});
 	const trends = buildTrainingTrends(runs, { endDate: range.to, fromDate: range.from });
 
 	const totalAllTime = allRuns.length;
@@ -150,19 +154,49 @@ function Dashboard() {
 					<p className="muted">Personal training desk · no accounts</p>
 					<h1>The Long Run</h1>
 					<p>
-						Import a GPS file to add a session — the usual path. Log manually when you need to, and
-						keep profile, plan, and gear notes in Context.
+						After a run: import the GPX in Coach, paste ChatGPT’s debrief, and the next session
+						stays current. Stats and maps live here.
 					</p>
 				</div>
 				<div className="actions">
-					<Link className="btn btn-primary" to="/import">
-						Import
+					<Link className="btn btn-primary" to="/coach" search={{ tab: 'debrief' }}>
+						Coach
 					</Link>
-					<Link className="btn btn-ghost" to="/log">
-						Log manually
+					<Link className="btn btn-ghost" to="/import">
+						Add activity
 					</Link>
 				</div>
 			</section>
+
+			{data.weekView?.next && (
+				<section className="next-up" aria-labelledby="next-up-heading">
+					<p className="muted next-up-kicker">
+						{data.weekView.next.isToday ? 'Today' : 'Next up'}
+					</p>
+					<h2 id="next-up-heading">
+						{data.weekView.next.day}
+						{data.weekView.next.date ? ` · ${data.weekView.next.date.slice(5)}` : ''} ·{' '}
+						{data.weekView.next.label}
+					</h2>
+					<p>
+						{data.weekView.next.distance_km != null && `${data.weekView.next.distance_km} km · `}
+						{data.weekView.next.detail}
+					</p>
+					<p className="muted">
+						Week {data.weekView.week.week} · {data.weekView.week.phase}
+						{data.weekView.week.focus ? ` · ${data.weekView.week.focus}` : ''}
+					</p>
+				</section>
+			)}
+			{data.weekView && !data.weekView.next && (
+				<section className="next-up next-up-done" aria-labelledby="next-up-heading">
+					<p className="muted next-up-kicker">This week</p>
+					<h2 id="next-up-heading">All planned sessions logged</h2>
+					<p className="muted">
+						Week {data.weekView.week.week} · {data.weekView.week.phase}. Use Coach to plan next week.
+					</p>
+				</section>
+			)}
 
 			<FilterSheet summary={filterSummary(sport, range)}>
 				<SportFilter sport={sport} to="/" available={availableSports} />
@@ -225,18 +259,19 @@ function Dashboard() {
 					<p className="stats-meta muted">
 						Shins {shinLabel(stats)}
 						<span aria-hidden="true"> · </span>
-						Tue/Fri/Sun streak {stats.streak || '—'}
+						Session streak {stats.streak || '—'}
 						<span aria-hidden="true"> · </span>
 						{stats.mappedRuns}/{stats.runCount} mapped
 					</p>
 
-					{data.week && (
+					{data.weekView && (
 						<section className="week-strip" aria-labelledby="week-heading">
 							<div className="week-strip-head">
 								<div>
-									<h2 id="week-heading">This week · {data.week.phase}</h2>
+									<h2 id="week-heading">This week · {data.weekView.week.phase}</h2>
 									<p className="muted">
-										Week {data.week.week} · {data.week.dates} · {data.week.focus}
+										Week {data.weekView.week.week} · {data.weekView.week.dates} ·{' '}
+										{data.weekView.week.focus}
 										<span className="week-shoes">
 											{' '}
 											· Shoes: {data.shoes.active || 'set in Context'}
@@ -245,9 +280,15 @@ function Dashboard() {
 								</div>
 							</div>
 							<div className="week-sessions">
-								{data.week.sessions.map((session, i) => (
-									<div key={i} className="week-session">
-										<span className="week-day">{session.day}</span>
+								{data.weekView.sessions.map((session, i) => (
+									<div
+										key={`${session.day}-${i}`}
+										className={`week-session${session.done ? ' is-done' : ''}${session.isNext ? ' is-next' : ''}`}
+									>
+										<span className="week-day">
+											{session.day}
+											{session.done ? ' · done' : session.isNext ? ' · next' : ''}
+										</span>
 										<strong className="week-label">{session.label}</strong>
 										{session.distance_km != null && (
 											<span className="week-km">{session.distance_km} km</span>
@@ -298,7 +339,7 @@ function Dashboard() {
 								Full timeline
 							</Link>
 							<Link className="btn btn-ghost" to="/import">
-								Import
+								Add
 							</Link>
 						</div>
 					</div>

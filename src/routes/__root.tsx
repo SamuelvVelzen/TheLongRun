@@ -19,19 +19,18 @@ const primaryLinks = [
 	{ href: '/', label: 'Dashboard' },
 	{ href: '/timeline', label: 'Timeline' },
 	{ href: '/routes', label: 'Routes' },
-	{ href: '/import', label: 'Import' }
+	{ href: '/coach', label: 'Coach' }
 ] as const;
 
 const moreLinks = [
-	{ href: '/log', label: 'Log manually' },
-	{ href: '/context', label: 'Context' },
-	{ href: '/coach', label: 'Coach' }
+	{ href: '/import', label: 'Add activity' },
+	{ href: '/context', label: 'Context' }
 ] as const;
 
 const tabs = [
 	{ href: '/', label: 'Home', icon: 'home', primary: false },
 	{ href: '/timeline', label: 'Timeline', icon: 'timeline', primary: false },
-	{ href: '/import', label: 'Import', icon: 'import', primary: true },
+	{ href: '/coach', label: 'Coach', icon: 'coach', primary: true },
 	{ href: '/routes', label: 'Routes', icon: 'routes', primary: false }
 ] as const;
 
@@ -53,8 +52,8 @@ function RootComponent() {
 							<Link
 								key={l.href}
 								to={l.href}
-								className={l.href === '/import' ? 'nav-import' : undefined}
-								activeProps={{ className: l.href === '/import' ? 'nav-import active' : 'active' }}
+								className={l.href === '/coach' ? 'nav-coach' : undefined}
+								activeProps={{ className: l.href === '/coach' ? 'nav-coach active' : 'active' }}
 								activeOptions={{ exact: l.href === '/' }}
 							>
 								{l.label}
@@ -137,7 +136,7 @@ function RootComponent() {
 	);
 }
 
-function TabIcon({ name }: { name: 'home' | 'timeline' | 'import' | 'routes' | 'more' }) {
+function TabIcon({ name }: { name: 'home' | 'timeline' | 'import' | 'routes' | 'more' | 'coach' }) {
 	const common = {
 		width: 22,
 		height: 22,
@@ -165,6 +164,14 @@ function TabIcon({ name }: { name: 'home' | 'timeline' | 'import' | 'routes' | '
 					<circle cx="4.2" cy="6" r="1.1" fill="currentColor" stroke="none" />
 					<circle cx="4.2" cy="12" r="1.1" fill="currentColor" stroke="none" />
 					<circle cx="4.2" cy="18" r="1.1" fill="currentColor" stroke="none" />
+				</svg>
+			);
+		case 'coach':
+			return (
+				<svg {...common}>
+					<path d="M5 19V8.5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2V19" />
+					<path d="M9 6.5V5a3 3 0 0 1 6 0v1.5" />
+					<path d="M9 12h6M9 15.5h4" />
 				</svg>
 			);
 		case 'import':

@@ -1,196 +1,65 @@
-import { useState } from 'react';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { importGpx } from '$lib/server/functions';
-import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
+import { getLogDefaults } from '$lib/server/functions';
+import { GpxImport } from '../components/GpxImport';
+import { LogForm } from '../components/LogForm';
+
+type AddSearch = { mode?: 'gpx' | 'manual' };
 
 export const Route = createFileRoute('/import')({
-	component: Import
+	validateSearch: (s: Record<string, unknown>): AddSearch => ({
+		mode: s.mode === 'manual' ? 'manual' : 'gpx'
+	}),
+	loader: () => getLogDefaults(),
+	component: AddActivity
 });
 
-type Result = {
-	name: string;
-	status: 'ok' | 'error';
-	slug?: string;
-	distanceKm?: number | null;
-	message?: string;
-	duplicate?: boolean;
-};
-
-function Import() {
-	const [files, setFiles] = useState<File[]>([]);
-	const [dragOver, setDragOver] = useState(false);
-	const [busy, setBusy] = useState(false);
-	const [progress, setProgress] = useState('');
-	const [results, setResults] = useState<Result[]>([]);
-	const [activityType, setActivityType] = useState('');
-
-	function addFiles(list: FileList | null) {
-		if (!list) return;
-		const gpx = Array.from(list).filter((f) => /\.gpx$/i.test(f.name));
-		setFiles((prev) => {
-			const names = new Set(prev.map((f) => f.name));
-			return [...prev, ...gpx.filter((f) => !names.has(f.name))];
-		});
-	}
-
-	function removeFile(name: string) {
-		setFiles((prev) => prev.filter((f) => f.name !== name));
-	}
-
-	async function onImport() {
-		if (!files.length) return;
-		setBusy(true);
-		setResults([]);
-		const out: Result[] = [];
-		for (let i = 0; i < files.length; i++) {
-			const f = files[i]!;
-			setProgress(`Importing ${i + 1} / ${files.length}: ${f.name}`);
-			try {
-				const xml = await f.text();
-				const res = await importGpx({ data: { xml, activityType } });
-				out.push({
-					name: f.name,
-					status: 'ok',
-					slug: res.slug,
-					distanceKm: res.distance_km,
-					duplicate: res.duplicate
-				});
-			} catch (err) {
-				out.push({
-					name: f.name,
-					status: 'error',
-					message: err instanceof Error ? err.message : 'Import failed'
-				});
-			}
-			setResults([...out]);
-		}
-		setProgress('');
-		setBusy(false);
-		setFiles([]);
-	}
-
-	const okCount = results.filter((r) => r.status === 'ok').length;
+function AddActivity() {
+	const data = Route.useLoaderData();
+	const { mode = 'gpx' } = Route.useSearch();
 
 	return (
 		<>
 			<section className="hero">
 				<div>
-					<p className="muted">The usual way to add a session</p>
-					<h1>Import GPX</h1>
+					<p className="muted">GPX file or type it in</p>
+					<h1>Add activity</h1>
 					<p>
-						Choose one or more <code>.gpx</code> tracks. Distance, pace, HR, elevation and per-km
-						splits are computed and each is saved as an activity with its route map.
+						Import a <code>.gpx</code> from Strava, or log numbers by hand. Then open{' '}
+						<Link to="/coach" search={{ tab: 'debrief' }}>
+							Coach
+						</Link>{' '}
+						to debrief and update the rest of the week.
 					</p>
 				</div>
 			</section>
 
-			<div className="panel form">
-				<label
-					className={`dropzone${dragOver ? ' dragover' : ''}`}
-					onDragOver={(e) => {
-						e.preventDefault();
-						setDragOver(true);
-					}}
-					onDragLeave={() => setDragOver(false)}
-					onDrop={(e) => {
-						e.preventDefault();
-						setDragOver(false);
-						addFiles(e.dataTransfer.files);
-					}}
+			<div className="coach-tabs" role="tablist">
+				<Link
+					to="/import"
+					search={{ mode: 'gpx' }}
+					role="tab"
+					aria-selected={mode === 'gpx'}
+					className={`coach-tab${mode === 'gpx' ? ' active' : ''}`}
 				>
-					<input
-						type="file"
-						accept=".gpx,application/gpx+xml"
-						multiple
-						hidden
-						onChange={(e) => addFiles(e.target.files)}
-					/>
-					<svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true">
-						<path
-							fill="currentColor"
-							d="M19 13v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4h2v4h10v-4h2zM12 3l4 4h-3v6h-2V7H8l4-4z"
-						/>
-					</svg>
-					<strong>Choose a GPX</strong>
-					<span className="muted">or tap to browse — multiple files supported</span>
-					<span className="muted dropzone-dnd">You can also drop files here</span>
-				</label>
-
-				{files.length > 0 && (
-					<ul className="upload-list">
-						{files.map((f) => (
-							<li key={f.name}>
-								<code>{f.name}</code>
-								<span className="muted">{(f.size / 1024).toFixed(0)} KB</span>
-								<button
-									type="button"
-									className="upload-remove"
-									aria-label={`Remove ${f.name}`}
-									onClick={() => removeFile(f.name)}
-									disabled={busy}
-								>
-									×
-								</button>
-							</li>
-						))}
-					</ul>
-				)}
-
-				<label className="field">
-					<span>Activity type</span>
-					<select
-						value={activityType}
-						onChange={(e) => setActivityType(e.target.value)}
-						disabled={busy}
-					>
-						<option value="">Auto-detect from file</option>
-						{ACTIVITY_TYPES.map((t) => (
-							<option key={t} value={t}>
-								{activityLabel(t)}
-							</option>
-						))}
-					</select>
-				</label>
-
-				<div className="actions">
-					<button
-						className="btn btn-primary"
-						type="button"
-						onClick={onImport}
-						disabled={busy || files.length === 0}
-					>
-						{busy
-							? progress || 'Importing…'
-							: `Import ${files.length || ''} ${files.length === 1 ? 'file' : 'files'}`.trim()}
-					</button>
-				</div>
+					GPX file
+				</Link>
+				<Link
+					to="/import"
+					search={{ mode: 'manual' }}
+					role="tab"
+					aria-selected={mode === 'manual'}
+					className={`coach-tab${mode === 'manual' ? ' active' : ''}`}
+				>
+					Log manually
+				</Link>
 			</div>
 
-			{results.length > 0 && (
-				<div className="panel" style={{ marginTop: '1rem' }}>
-					<h3>
-						Imported {okCount} / {results.length}
-					</h3>
-					<ul className="import-list">
-						{results.map((r) => (
-							<li key={r.name}>
-								<span className={`tag${r.status === 'ok' ? ' accent' : ''}`}>{r.status}</span>
-								<code>{r.name}</code>
-								{r.slug && (
-									<>
-										{' → '}
-										<Link to="/runs/$slug" params={{ slug: r.slug }}>
-											{r.slug}
-										</Link>
-									</>
-								)}
-								{r.distanceKm != null && <span className="muted">({r.distanceKm} km)</span>}
-								{r.duplicate && <span className="muted">— already logged, refreshed its map</span>}
-								{r.message && <span className="muted">— {r.message}</span>}
-							</li>
-						))}
-					</ul>
+			{mode === 'gpx' ? (
+				<div className="panel form">
+					<GpxImport coachAfter />
 				</div>
+			) : (
+				<LogForm week={data.week} shoes={data.shoes} />
 			)}
 		</>
 	);

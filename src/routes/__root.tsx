@@ -15,17 +15,21 @@ export const Route = createRootRoute({
 	component: RootComponent
 });
 
-const primaryLinks = [
+const headerLinks = [
 	{ href: '/', label: 'Dashboard' },
 	{ href: '/timeline', label: 'Timeline' },
 	{ href: '/routes', label: 'Routes' },
-	{ href: '/coach', label: 'Coach' }
+	{ href: '/coach', label: 'Coach' },
+	{ href: '/import', label: 'Add activity' },
+	{ href: '/context', label: 'Context' }
 ] as const;
 
 const moreLinks = [
 	{ href: '/import', label: 'Add activity' },
 	{ href: '/context', label: 'Context' }
 ] as const;
+
+const PLAN_ROUTE_HREF = 'https://brouter.de/brouter-web/';
 
 const tabs = [
 	{ href: '/', label: 'Home', icon: 'home', primary: false },
@@ -36,7 +40,11 @@ const tabs = [
 
 function closeDetails(e: MouseEvent<HTMLElement>) {
 	const details = e.currentTarget.closest('details');
-	if (details) details.open = false;
+	if (!details) return;
+	// Close after the click so TanStack Link can navigate first.
+	requestAnimationFrame(() => {
+		details.open = false;
+	});
 }
 
 function RootComponent() {
@@ -48,7 +56,7 @@ function RootComponent() {
 						The Long <span>Run</span>
 					</Link>
 					<nav className="nav-links" aria-label="Primary">
-						{primaryLinks.map((l) => (
+						{headerLinks.map((l) => (
 							<Link
 								key={l.href}
 								to={l.href}
@@ -59,29 +67,14 @@ function RootComponent() {
 								{l.label}
 							</Link>
 						))}
-						<details className="nav-more">
-							<summary>More</summary>
-							<div className="nav-more-menu">
-								{moreLinks.map((l) => (
-									<Link
-										key={l.href}
-										to={l.href}
-										activeProps={{ className: 'active' }}
-										onClick={closeDetails}
-									>
-										{l.label}
-									</Link>
-								))}
-								<a
-									href="https://brouter.de/brouter-web/"
-									target="_blank"
-									rel="noreferrer noopener"
-									className="nav-external"
-								>
-									Plan route ↗
-								</a>
-							</div>
-						</details>
+						<a
+							href={PLAN_ROUTE_HREF}
+							target="_blank"
+							rel="noreferrer noopener"
+							className="nav-external"
+						>
+							Plan route ↗
+						</a>
 					</nav>
 				</header>
 				<Outlet />
@@ -109,6 +102,7 @@ function RootComponent() {
 							</span>
 							<span className="tab-label">More</span>
 						</summary>
+						<div className="tab-more-scrim" onClick={closeDetails} aria-hidden="true" />
 						<div className="tab-more-menu">
 							{moreLinks.map((l) => (
 								<Link
@@ -121,7 +115,7 @@ function RootComponent() {
 								</Link>
 							))}
 							<a
-								href="https://brouter.de/brouter-web/"
+								href={PLAN_ROUTE_HREF}
 								target="_blank"
 								rel="noreferrer noopener"
 								className="nav-external"

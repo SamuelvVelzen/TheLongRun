@@ -3,7 +3,7 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { getLogDefaults, createRun, type CreateRunInput } from '$lib/server/functions';
 import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
-import { ACTIVITY_TYPES, activityLabel, showsField } from '$lib/activity';
+import { ACTIVITY_TYPES, activityLabel, paceFieldLabel, showsFeel, showsField } from '$lib/activity';
 import { StrengthEditor } from '../components/StrengthEditor';
 import { ShoesField } from '../components/ShoesField';
 import { WeatherField } from '../components/WeatherField';
@@ -175,18 +175,22 @@ function LogRun() {
 						</label>
 						{showsField(activityType, 'pace') && (
 							<label className="field">
-								<span>Avg pace /km</span>
+								<span>{paceFieldLabel(activityType)}</span>
 								<input name="avg_pace" inputMode="decimal" placeholder="6:29" />
 							</label>
 						)}
-						<label className="field">
-							<span>Avg HR</span>
-							<input name="avg_hr" type="text" inputMode="numeric" placeholder="147" />
-						</label>
-						<label className="field">
-							<span>Max HR</span>
-							<input name="max_hr" type="text" inputMode="numeric" placeholder="172" />
-						</label>
+						{showsField(activityType, 'hr') && (
+							<label className="field">
+								<span>Avg HR</span>
+								<input name="avg_hr" type="text" inputMode="numeric" placeholder="147" />
+							</label>
+						)}
+						{showsField(activityType, 'hr') && (
+							<label className="field">
+								<span>Max HR</span>
+								<input name="max_hr" type="text" inputMode="numeric" placeholder="172" />
+							</label>
+						)}
 						{showsField(activityType, 'elevation') && (
 							<label className="field">
 								<span>Elev gain (m)</span>
@@ -210,33 +214,55 @@ function LogRun() {
 				<div className="form-section">
 					<h3 className="form-section-title">How it felt</h3>
 					<div className="form-grid">
-						<FeelChips name="effort" label="Effort (1–10)" min={1} max={10} />
-						<FeelChips name="shins" label="Shins (0–10)" min={0} max={10} />
-						<FeelChips name="legs" label="Legs (0–10)" min={0} max={10} />
-						<FeelChips name="energy" label="Energy (1–10)" min={1} max={10} />
-						<WantedFasterChips />
+						{showsFeel(activityType, 'effort') && (
+							<FeelChips name="effort" label="Effort (1–10)" min={1} max={10} />
+						)}
+						{showsFeel(activityType, 'shins') && (
+							<FeelChips name="shins" label="Shins (0–10)" min={0} max={10} />
+						)}
+						{showsFeel(activityType, 'legs') && (
+							<FeelChips name="legs" label="Legs (0–10)" min={0} max={10} />
+						)}
+						{showsFeel(activityType, 'energy') && (
+							<FeelChips name="energy" label="Energy (1–10)" min={1} max={10} />
+						)}
+						{showsFeel(activityType, 'wanted_faster') && <WantedFasterChips />}
 					</div>
 				</div>
 
 				<div className="form-section">
 					<h3 className="form-section-title">Details</h3>
-					<div className="form-grid">
-						<WeatherField
-							value={weather}
-							onChange={setWeather}
-							date={dateValue}
-							time={startTimeValue}
-							duration={durationValue}
-						/>
-						<label className="field">
-							<span>Surface</span>
-							<input name="surface" placeholder="asphalt / mixed / trail" defaultValue="asphalt" />
-						</label>
-						<ShoesField
-							options={[data.shoes.active, ...data.shoes.rotation]}
-							defaultValue={data.shoes.active}
-						/>
-					</div>
+					{(showsField(activityType, 'weather') ||
+						showsField(activityType, 'surface') ||
+						showsField(activityType, 'shoes')) && (
+						<div className="form-grid">
+							{showsField(activityType, 'weather') && (
+								<WeatherField
+									value={weather}
+									onChange={setWeather}
+									date={dateValue}
+									time={startTimeValue}
+									duration={durationValue}
+								/>
+							)}
+							{showsField(activityType, 'surface') && (
+								<label className="field">
+									<span>Surface</span>
+									<input
+										name="surface"
+										placeholder="asphalt / mixed / trail"
+										defaultValue="asphalt"
+									/>
+								</label>
+							)}
+							{showsField(activityType, 'shoes') && (
+								<ShoesField
+									options={[data.shoes.active, ...data.shoes.rotation]}
+									defaultValue={data.shoes.active}
+								/>
+							)}
+						</div>
+					)}
 					{activityType === 'strength' ? (
 						<div className="field" style={{ marginTop: '0.85rem' }}>
 							<span>Sets</span>

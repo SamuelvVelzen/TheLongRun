@@ -53,23 +53,57 @@ export function activityPlural(sport: string | null | undefined): string {
 	}
 }
 
-/** Which numeric fields make sense to show/edit for a given activity type. */
-export function showsField(
-	activity: string | null | undefined,
-	field: 'distance' | 'pace' | 'hr' | 'elevation' | 'cadence'
-): boolean {
+export type ActivityField =
+	| 'distance'
+	| 'pace'
+	| 'hr'
+	| 'elevation'
+	| 'cadence'
+	| 'shoes'
+	| 'surface'
+	| 'weather';
+
+export type FeelField = 'effort' | 'shins' | 'legs' | 'energy' | 'wanted_faster';
+
+/** Which numeric / gear / weather fields make sense to show/edit for a type. */
+export function showsField(activity: string | null | undefined, field: ActivityField): boolean {
 	const t = normalizeActivityType(activity);
-	if (t === 'strength') return field === 'hr'; // + duration/start always shown separately
 	switch (field) {
+		case 'distance':
+			return t !== 'strength';
 		case 'pace':
-			return t === 'run' || t === 'walk';
+			return t === 'run' || t === 'walk' || t === 'swim';
+		case 'hr':
+			return t !== 'strength';
+		case 'elevation':
+			return t === 'run' || t === 'walk' || t === 'ride';
 		case 'cadence':
 			return t === 'run';
-		case 'elevation':
-			return t !== 'swim';
-		default:
-			return true; // distance, hr
+		case 'shoes':
+		case 'surface':
+			return t === 'run' || t === 'walk';
+		case 'weather':
+			return t !== 'strength';
 	}
+}
+
+/** Subjective feel chips — shins is run/walk, wanted-faster is run-only. */
+export function showsFeel(activity: string | null | undefined, field: FeelField): boolean {
+	const t = normalizeActivityType(activity);
+	switch (field) {
+		case 'effort':
+		case 'energy':
+		case 'legs':
+			return true;
+		case 'shins':
+			return t === 'run' || t === 'walk';
+		case 'wanted_faster':
+			return t === 'run';
+	}
+}
+
+export function paceFieldLabel(activity: string | null | undefined): string {
+	return normalizeActivityType(activity) === 'swim' ? 'Avg pace /100m' : 'Avg pace /km';
 }
 
 export type HeadlineMetric = { value: string; unit: string };

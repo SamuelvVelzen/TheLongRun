@@ -14,6 +14,8 @@ import {
 	activityLabel,
 	headlineMetric,
 	normalizeActivityType,
+	paceFieldLabel,
+	showsFeel,
 	showsField
 } from '$lib/activity';
 import { parseStrengthNotes, topSet, exerciseVolume } from '$lib/strength';
@@ -506,7 +508,7 @@ function RunDetail() {
 						</label>
 						{showsField(editActivity, 'pace') && (
 							<label className="field">
-								<span>Avg pace /km</span>
+								<span>{paceFieldLabel(editActivity)}</span>
 								<input
 									name="avg_pace"
 									inputMode="decimal"
@@ -515,24 +517,28 @@ function RunDetail() {
 								/>
 							</label>
 						)}
-						<label className="field">
-							<span>Avg HR</span>
-							<input
-								name="avg_hr"
-								type="text"
-								inputMode="numeric"
-								defaultValue={r.avg_hr ?? ''}
-							/>
-						</label>
-						<label className="field">
-							<span>Max HR</span>
-							<input
-								name="max_hr"
-								type="text"
-								inputMode="numeric"
-								defaultValue={r.max_hr ?? ''}
-							/>
-						</label>
+						{showsField(editActivity, 'hr') && (
+							<label className="field">
+								<span>Avg HR</span>
+								<input
+									name="avg_hr"
+									type="text"
+									inputMode="numeric"
+									defaultValue={r.avg_hr ?? ''}
+								/>
+							</label>
+						)}
+						{showsField(editActivity, 'hr') && (
+							<label className="field">
+								<span>Max HR</span>
+								<input
+									name="max_hr"
+									type="text"
+									inputMode="numeric"
+									defaultValue={r.max_hr ?? ''}
+								/>
+							</label>
+						)}
 						{showsField(editActivity, 'elevation') && (
 							<label className="field">
 								<span>Elev gain (m)</span>
@@ -561,30 +567,46 @@ function RunDetail() {
 					<div className="form-section">
 					<h3 className="form-section-title">How it felt & details</h3>
 					<div className="form-grid">
-						<FeelChips name="effort" label="Effort (1–10)" min={1} max={10} defaultValue={r.effort} />
-						<FeelChips name="shins" label="Shins (0–10)" min={0} max={10} defaultValue={r.shins} />
-						<FeelChips name="legs" label="Legs (0–10)" min={0} max={10} defaultValue={r.legs} />
-						<FeelChips name="energy" label="Energy (1–10)" min={1} max={10} defaultValue={r.energy} />
-						<WantedFasterChips defaultValue={wantedValue} />
-						<WeatherField
-							value={editWeather}
-							onChange={setEditWeather}
-							date={editDate}
-							time={editStart}
-							duration={r.time}
-						/>
-						<label className="field">
-							<span>Surface</span>
-							<input
-								name="surface"
-								placeholder="asphalt / mixed / trail"
-								defaultValue={r.surface || ''}
+						{showsFeel(editActivity, 'effort') && (
+							<FeelChips name="effort" label="Effort (1–10)" min={1} max={10} defaultValue={r.effort} />
+						)}
+						{showsFeel(editActivity, 'shins') && (
+							<FeelChips name="shins" label="Shins (0–10)" min={0} max={10} defaultValue={r.shins} />
+						)}
+						{showsFeel(editActivity, 'legs') && (
+							<FeelChips name="legs" label="Legs (0–10)" min={0} max={10} defaultValue={r.legs} />
+						)}
+						{showsFeel(editActivity, 'energy') && (
+							<FeelChips name="energy" label="Energy (1–10)" min={1} max={10} defaultValue={r.energy} />
+						)}
+						{showsFeel(editActivity, 'wanted_faster') && (
+							<WantedFasterChips defaultValue={wantedValue} />
+						)}
+						{showsField(editActivity, 'weather') && (
+							<WeatherField
+								value={editWeather}
+								onChange={setEditWeather}
+								date={editDate}
+								time={editStart}
+								duration={r.time}
 							/>
-						</label>
-						<ShoesField
-							options={[shoes.active, ...shoes.rotation, r.shoes]}
-							defaultValue={r.shoes || ''}
-						/>
+						)}
+						{showsField(editActivity, 'surface') && (
+							<label className="field">
+								<span>Surface</span>
+								<input
+									name="surface"
+									placeholder="asphalt / mixed / trail"
+									defaultValue={r.surface || ''}
+								/>
+							</label>
+						)}
+						{showsField(editActivity, 'shoes') && (
+							<ShoesField
+								options={[shoes.active, ...shoes.rotation, r.shoes]}
+								defaultValue={r.shoes || ''}
+							/>
+						)}
 					</div>
 					</div>
 
@@ -686,10 +708,18 @@ function RunDetail() {
 					</div>
 
 					<div className="metrics feel-metrics" style={{ marginBottom: '1.25rem' }}>
-						<FeelTile label="effort" value={r.effort} min={1} max={10} onSave={(v) => patchRun({ effort: v })} />
-						<FeelTile label="energy" value={r.energy} min={1} max={10} onSave={(v) => patchRun({ energy: v })} />
-						<FeelTile label="shins" value={r.shins} min={0} max={10} onSave={(v) => patchRun({ shins: v })} />
-						<FeelTile label="legs" value={r.legs} min={0} max={10} onSave={(v) => patchRun({ legs: v })} />
+						{showsFeel(r.activity_type, 'effort') && (
+							<FeelTile label="effort" value={r.effort} min={1} max={10} onSave={(v) => patchRun({ effort: v })} />
+						)}
+						{showsFeel(r.activity_type, 'energy') && (
+							<FeelTile label="energy" value={r.energy} min={1} max={10} onSave={(v) => patchRun({ energy: v })} />
+						)}
+						{showsFeel(r.activity_type, 'shins') && (
+							<FeelTile label="shins" value={r.shins} min={0} max={10} onSave={(v) => patchRun({ shins: v })} />
+						)}
+						{showsFeel(r.activity_type, 'legs') && (
+							<FeelTile label="legs" value={r.legs} min={0} max={10} onSave={(v) => patchRun({ legs: v })} />
+						)}
 					</div>
 
 					{strength && strength.exercises.length > 0 && (
@@ -752,51 +782,59 @@ function RunDetail() {
 							<p className="muted splits-sub">Click any value to update it</p>
 						</div>
 						<div className="quick-grid">
-							<InlineText
-								label="Weather"
-								value={r.weather || ''}
-								placeholder="14°C drizzle"
-								onSave={(v) => patchRun({ weather: v })}
-							/>
-							<InlineText
-								label="Surface"
-								value={r.surface || ''}
-								placeholder="asphalt / trail"
-								onSave={(v) => patchRun({ surface: v })}
-							/>
-							<InlineText
-								label="Shoes"
-								value={r.shoes || ''}
-								placeholder="Shoe"
-								datalistId="quick-shoes"
-								options={[shoes.active, ...shoes.rotation, r.shoes]}
-								onSave={(v) => patchRun({ shoes: v })}
-							/>
-							<div className="quick-field">
-								<span className="muted quick-label">Wanted faster</span>
-								<div className="quick-wanted">
-									{(['Y', 'N', ''] as const).map((opt) => {
-										const active =
-											(opt === 'Y' && r.wanted_faster === true) ||
-											(opt === 'N' && r.wanted_faster === false) ||
-											(opt === '' && r.wanted_faster == null);
-										return (
-											<button
-												key={opt || 'none'}
-												type="button"
-												className={`chip${active ? ' active' : ''}`}
-												onClick={() =>
-													patchRun({
-														wanted_faster: opt === 'Y' ? true : opt === 'N' ? false : null
-													})
-												}
-											>
-												{opt === 'Y' ? 'Yes' : opt === 'N' ? 'No' : '—'}
-											</button>
-										);
-									})}
+							{showsField(r.activity_type, 'weather') && (
+								<InlineText
+									label="Weather"
+									value={r.weather || ''}
+									placeholder="14°C drizzle"
+									onSave={(v) => patchRun({ weather: v })}
+								/>
+							)}
+							{showsField(r.activity_type, 'surface') && (
+								<InlineText
+									label="Surface"
+									value={r.surface || ''}
+									placeholder="asphalt / trail"
+									onSave={(v) => patchRun({ surface: v })}
+								/>
+							)}
+							{showsField(r.activity_type, 'shoes') && (
+								<InlineText
+									label="Shoes"
+									value={r.shoes || ''}
+									placeholder="Shoe"
+									datalistId="quick-shoes"
+									options={[shoes.active, ...shoes.rotation, r.shoes]}
+									onSave={(v) => patchRun({ shoes: v })}
+								/>
+							)}
+							{showsFeel(r.activity_type, 'wanted_faster') && (
+								<div className="quick-field">
+									<span className="muted quick-label">Wanted faster</span>
+									<div className="quick-wanted">
+										{(['Y', 'N', ''] as const).map((opt) => {
+											const active =
+												(opt === 'Y' && r.wanted_faster === true) ||
+												(opt === 'N' && r.wanted_faster === false) ||
+												(opt === '' && r.wanted_faster == null);
+											return (
+												<button
+													key={opt || 'none'}
+													type="button"
+													className={`chip${active ? ' active' : ''}`}
+													onClick={() =>
+														patchRun({
+															wanted_faster: opt === 'Y' ? true : opt === 'N' ? false : null
+														})
+													}
+												>
+													{opt === 'Y' ? 'Yes' : opt === 'N' ? 'No' : '—'}
+												</button>
+											);
+										})}
+									</div>
 								</div>
-							</div>
+							)}
 						</div>
 						{!strength && (
 							<InlineText

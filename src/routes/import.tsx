@@ -78,7 +78,7 @@ function Import() {
 					<p className="muted">Manual import</p>
 					<h1>Import GPX</h1>
 					<p>
-						Drop one or more <code>.gpx</code> tracks. Distance, pace, HR, elevation and per-km
+						Choose one or more <code>.gpx</code> tracks. Distance, pace, HR, elevation and per-km
 						splits are computed and each is saved as an activity with its route map.
 					</p>
 				</div>
@@ -111,8 +111,9 @@ function Import() {
 							d="M19 13v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4h2v4h10v-4h2zM12 3l4 4h-3v6h-2V7H8l4-4z"
 						/>
 					</svg>
-					<strong>Drop .gpx files here</strong>
-					<span className="muted">or click to browse — multiple files supported</span>
+					<strong>Choose a GPX</strong>
+					<span className="muted">or tap to browse — multiple files supported</span>
+					<span className="muted dropzone-dnd">You can also drop files here</span>
 				</label>
 
 				{files.length > 0 && (

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadLeaflet } from '$lib/leaflet';
-import { attachMapChrome, kmMarkerIcon, type MapChromeHandle } from '$lib/map-chrome';
+import { attachMapChrome, kmMarkerIcon, leafletMapOptions, type MapChromeHandle } from '$lib/map-chrome';
 import { analyticsFromProperties, haversineMeters, type KmMarker } from '$lib/splits';
 import { getRouteGeoJsonFn } from '$lib/server/functions';
 
@@ -64,11 +64,7 @@ export function RouteMap({
 				const analytics = analyticsFromProperties(geo.properties ?? null);
 				const markers = kmMarkers?.length ? kmMarkers : (analytics?.kmMarkers ?? []);
 
-				map = L.map(containerRef.current, {
-					scrollWheelZoom: false,
-					zoomControl: false,
-					attributionControl: true
-				});
+				map = L.map(containerRef.current, leafletMapOptions());
 				L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
 					attribution:
 						'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',

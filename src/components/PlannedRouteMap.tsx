@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { PlannedWaypoint } from '$lib/types';
 import type { KmMarker } from '$lib/splits';
 import { loadLeaflet } from '$lib/leaflet';
-import { attachMapChrome, kmMarkerIcon, type MapChromeHandle } from '$lib/map-chrome';
+import { attachMapChrome, kmMarkerIcon, leafletMapOptions, type MapChromeHandle } from '$lib/map-chrome';
 
 export function PlannedRouteMap({
 	geojson,
@@ -33,11 +33,7 @@ export function PlannedRouteMap({
 				if (!Array.isArray(raw) || raw.length < 2) throw new Error('Route has no GPS points');
 				const coords = raw.map((c) => [Number(c[1]), Number(c[0])] as [number, number]);
 
-				map = L.map(containerRef.current, {
-					scrollWheelZoom: false,
-					zoomControl: false,
-					attributionControl: true
-				});
+				map = L.map(containerRef.current, leafletMapOptions());
 				L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
 					attribution:
 						'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',

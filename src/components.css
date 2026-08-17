@@ -443,14 +443,14 @@
 	background: rgba(0, 0, 0, 0.35);
 }
 .route-map {
-	height: min(420px, 55vh);
+	height: min(440px, 48vh);
 	width: 100%;
 	z-index: 0;
 }
 @media (max-width: 640px) {
 	.route-map {
-		height: min(280px, 42vh);
-		min-height: 240px;
+		height: 50vh;
+		min-height: 280px;
 	}
 }
 .route-map-wrap.is-fullscreen .route-map,
@@ -1018,14 +1018,14 @@
 	background: rgba(0, 0, 0, 0.35);
 }
 .heatmap-map {
-	height: 300px;
+	height: min(360px, 42vh);
 	width: 100%;
 	z-index: 0;
 }
 @media (max-width: 640px) {
 	.heatmap-map {
-		height: 260px;
-		min-height: 240px;
+		height: 50vh;
+		min-height: 280px;
 	}
 }
 .heatmap-wrap.is-fullscreen .heatmap-map,

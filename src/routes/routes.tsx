@@ -82,8 +82,9 @@ function PlannedRoutes() {
 					disabled={busy}
 					onChange={(event) => void importFile(event.target.files?.[0])}
 				/>
-				<strong>{busy ? 'Saving route…' : 'Drop a GPX route here'}</strong>
-				<span className="muted">or click to browse · waypoints are imported when available</span>
+				<strong>{busy ? 'Saving route…' : 'Choose a GPX'}</strong>
+				<span className="muted">or tap to browse · waypoints are imported when available</span>
+				<span className="muted dropzone-dnd">You can also drop a GPX or GeoJSON file here</span>
 			</label>
 			{message && <div className="flash">{message}</div>}
 

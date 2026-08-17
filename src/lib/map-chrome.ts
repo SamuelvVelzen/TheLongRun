@@ -15,6 +15,20 @@ type AttachOpts = {
 	onFit: () => void;
 };
 
+function isCoarsePointer(): boolean {
+	return typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+}
+
+/** Shared Leaflet constructor options so phones can keep scrolling the page. */
+export function leafletMapOptions() {
+	return {
+		scrollWheelZoom: false as const,
+		zoomControl: false as const,
+		attributionControl: true as const,
+		dragging: !isCoarsePointer()
+	};
+}
+
 function iconBtn(label: string, title: string, svg: string): HTMLButtonElement {
 	const btn = document.createElement('button');
 	btn.type = 'button';
@@ -198,10 +212,12 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	bar.setAttribute('role', 'toolbar');
 	bar.setAttribute('aria-label', 'Map controls');
 
+	const coarse = isCoarsePointer();
 	const btnPlus = iconBtn('Zoom in', 'Zoom in', SVG_PLUS);
 	const btnMinus = iconBtn('Zoom out', 'Zoom out', SVG_MINUS);
 	const btnFit = iconBtn('Fit', 'Fit route', SVG_FIT);
 	const btnFull = iconBtn('Fullscreen', 'Fullscreen', SVG_FULL);
+	btnFull.classList.add('map-chrome-btn-fs');
 
 	btnPlus.addEventListener('click', (e) => {
 		e.stopPropagation();
@@ -233,6 +249,48 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	};
 
 	const isOn = () => isNativeFullscreen(wrap) || cssFullscreen;
+
+	const applyCoarseGestures = (fullscreen: boolean) => {
+		if (!coarse || !mapEl) return;
+		if (fullscreen) {
+			mapEl.style.touchAction = 'none';
+			map.dragging?.enable?.();
+		} else {
+			mapEl.style.touchAction = 'pan-y';
+			map.dragging?.disable?.();
+		}
+	};
+
+	const onTouchStart = (e: TouchEvent) => {
+		if (!coarse || !mapEl || isOn()) return;
+		if (e.touches.length >= 2) {
+			mapEl.style.touchAction = 'none';
+			map.dragging?.enable?.();
+		} else {
+			mapEl.style.touchAction = 'pan-y';
+			map.dragging?.disable?.();
+		}
+	};
+	const onTouchEnd = (e: TouchEvent) => {
+		if (!coarse || !mapEl || isOn()) return;
+		if (e.touches.length < 2) {
+			mapEl.style.touchAction = 'pan-y';
+			map.dragging?.disable?.();
+		}
+	};
+	if (coarse && mapEl) {
+		mapEl.addEventListener('touchstart', onTouchStart, { passive: true });
+		mapEl.addEventListener('touchend', onTouchEnd, { passive: true });
+		mapEl.addEventListener('touchcancel', onTouchEnd, { passive: true });
+		applyCoarseGestures(false);
+	}
+
+	const hint = coarse ? document.createElement('p') : null;
+	if (hint) {
+		hint.className = 'map-gesture-hint';
+		hint.textContent = 'Two fingers to pan · tap fullscreen';
+		wrap.appendChild(hint);
+	}
 
 	const refreshMapSize = (refit: boolean) => {
 		const on = isOn();
@@ -274,6 +332,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		const on = isOn();
 		if (mapEl) applyFsBox(wrap, mapEl, on, isNativeFullscreen(wrap));
 		syncFullButton(on);
+		applyCoarseGestures(on);
 		scheduleSizeRefresh(on);
 	};
 
@@ -283,12 +342,14 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			cssFullscreen = !ok;
 			if (mapEl) applyFsBox(wrap, mapEl, true, ok);
 			syncFullButton(true);
+			applyCoarseGestures(true);
 			scheduleSizeRefresh(true);
 		} else {
 			cssFullscreen = false;
 			if (mapEl) applyFsBox(wrap, mapEl, false, false);
 			await exitNativeFullscreen();
 			syncFullButton(false);
+			applyCoarseGestures(false);
 			scheduleSizeRefresh(false);
 		}
 	};
@@ -303,6 +364,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			// Esc exited native FS
 			if (mapEl) applyFsBox(wrap, mapEl, false, false);
 			syncFullButton(false);
+			applyCoarseGestures(false);
 			scheduleSizeRefresh(false);
 			return;
 		}
@@ -334,6 +396,13 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			wrap.removeEventListener('pointerdown', enableWheel);
 			wrap.removeEventListener('mouseleave', disableWheel);
 			wrap.removeEventListener('focusin', enableWheel);
+			if (mapEl) {
+				mapEl.removeEventListener('touchstart', onTouchStart);
+				mapEl.removeEventListener('touchend', onTouchEnd);
+				mapEl.removeEventListener('touchcancel', onTouchEnd);
+				mapEl.style.removeProperty('touch-action');
+			}
+			hint?.remove();
 			bar.remove();
 			if (mapEl) applyFsBox(wrap, mapEl, false, false);
 			if (isNativeFullscreen(wrap)) void exitNativeFullscreen();

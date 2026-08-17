@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start';
 import matter from 'gray-matter';
-import type { Goals, PlanWeek, RouteTrack, RunRecord, RunWithMap } from '$lib/types';
+import type { Goals, PlanWeek, PlannedRoute, RouteTrack, RunRecord, RunWithMap } from '$lib/types';
 import { analyticsToProperties, type RouteAnalytics } from '$lib/splits';
 import { buildHrZoneSummary } from '$lib/hr-zones';
 import {
@@ -30,6 +30,14 @@ import {
 	type UpdateRunFields
 } from './runs';
 import { listRouteTracks } from './routes';
+import {
+	deletePlannedRoute as dbDeletePlannedRoute,
+	getPlannedRoute,
+	listPlannedRoutes,
+	listPlannedRouteTracks,
+	savePlannedFromFile,
+	updatePlannedRoute as dbUpdatePlannedRoute
+} from './planned-routes';
 import {
 	getRouteGeoJson,
 	loadRouteAnalytics,
@@ -169,7 +177,9 @@ function shoesAsMarkdown(shoes: { active: string; rotation: string[]; notes: str
 export const getContextData = createServerFn({ method: 'GET' }).handler(async () => {
 	const shoes = await loadShoes();
 	const raw = await Promise.all(
-		CONTEXT_FILES.map((f) => (f.name === 'shoes.md' ? Promise.resolve('') : readContextFile(f.name)))
+		CONTEXT_FILES.map((f) =>
+			f.name === 'shoes.md' ? Promise.resolve('') : readContextFile(f.name)
+		)
 	);
 	const files: ContextFile[] = CONTEXT_FILES.map((f, i) => {
 		const body = f.name === 'shoes.md' ? shoesAsMarkdown(shoes) : raw[i]!;
@@ -208,7 +218,20 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 			: Math.max(0, Math.ceil((raceDate.getTime() - today.getTime()) / (7 * 86_400_000)));
 
 		// Plan block is Mon-anchored from 2026-08-03 (matches weekNumberForDate / currentPlanWeek).
-		const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+		const MON = [
+			'Jan',
+			'Feb',
+			'Mar',
+			'Apr',
+			'May',
+			'Jun',
+			'Jul',
+			'Aug',
+			'Sep',
+			'Oct',
+			'Nov',
+			'Dec'
+		];
 		const planAnchor = new Date('2026-08-03T00:00:00');
 		const weekRange = (n: number) => {
 			const s = new Date(planAnchor);
@@ -447,7 +470,14 @@ export const importGpx = createServerFn({ method: 'POST' })
 	.validator((d: { xml: string; activityType?: string }) => d)
 	.handler(async ({ data }) => {
 		const parsed = parseGpx(data.xml);
-		if (!parsed.date) throw new Error('Could not read a date/time from that GPX file.');
+		if (!parsed.date) {
+			if (parsed.points.length >= 2) {
+				throw new Error(
+					'This GPX has a track but no timestamps — it looks like a planned BRouter route. Save it from Routes instead of Import.'
+				);
+			}
+			throw new Error('Could not read a date/time from that GPX file.');
+		}
 
 		const activity_type = normalizeActivityType(data.activityType || parsed.detectedType);
 		const day = dayFromIsoDate(parsed.date);
@@ -479,8 +509,7 @@ export const importGpx = createServerFn({ method: 'POST' })
 		let route = existingDup?.route || '';
 		if (parsed.points.length >= 2) {
 			// Reuse the existing track id when refreshing a duplicate; else mint a new one.
-			const id =
-				(existingDup && routeIdForRun(existingDup)) || crypto.randomUUID();
+			const id = (existingDup && routeIdForRun(existingDup)) || crypto.randomUUID();
 			const geojson = {
 				type: 'Feature',
 				properties: {
@@ -768,7 +797,9 @@ export const saveFeelings = createServerFn({ method: 'POST' })
 		}
 		const list = Array.isArray(parsed)
 			? parsed
-			: parsed && typeof parsed === 'object' && Array.isArray((parsed as { activities?: unknown }).activities)
+			: parsed &&
+				  typeof parsed === 'object' &&
+				  Array.isArray((parsed as { activities?: unknown }).activities)
 				? (parsed as { activities: unknown[] }).activities
 				: [parsed];
 		const rows = list.filter(
@@ -793,7 +824,8 @@ export const saveFeelings = createServerFn({ method: 'POST' })
 			if ('legs' in a) patch.legs = score(a.legs, 0, 10);
 			if ('energy' in a) patch.energy = score(a.energy, 1, 10);
 			if ('wanted_faster' in a)
-				patch.wanted_faster = a.wanted_faster === true ? true : a.wanted_faster === false ? false : null;
+				patch.wanted_faster =
+					a.wanted_faster === true ? true : a.wanted_faster === false ? false : null;
 			if (typeof a.surface === 'string') patch.surface = a.surface.trim();
 			if (typeof a.notes === 'string') patch.notes = a.notes.trim();
 			const ok = await updateRunFeelings(slug, patch);
@@ -838,4 +870,42 @@ export const saveContextFile = createServerFn({ method: 'POST' })
 		if (body.length > 0 && !body.endsWith('\n')) body = `${body}\n`;
 		await writeContextFile(name, body);
 		return { ok: true };
+	});
+
+// ---------- planned routes (BRouter exports) ----------
+
+export const getPlannedRoutesData = createServerFn({ method: 'GET' }).handler(async () => {
+	const [routes, tracks] = await Promise.all([listPlannedRoutes(), listPlannedRouteTracks()]);
+	return { routes, tracks } satisfies { routes: PlannedRoute[]; tracks: RouteTrack[] };
+});
+
+export const getPlannedRouteDetail = createServerFn({ method: 'GET' })
+	.validator((slug: string) => slug)
+	.handler(async ({ data: slug }) => {
+		return (await getPlannedRoute(slug)) ?? null;
+	});
+
+export const importPlannedRoute = createServerFn({ method: 'POST' })
+	.validator((d: { text: string; filename: string }) => d)
+	.handler(async ({ data }) => {
+		const route = await savePlannedFromFile(data);
+		return {
+			slug: route.slug,
+			name: route.name,
+			distance_km: route.distance_km
+		};
+	});
+
+export const updatePlannedRoute = createServerFn({ method: 'POST' })
+	.validator((d: { slug: string; name?: string; notes?: string }) => d)
+	.handler(async ({ data }) => {
+		const route = await dbUpdatePlannedRoute(data.slug, { name: data.name, notes: data.notes });
+		if (!route) throw new Error('Route not found.');
+		return { slug: route.slug };
+	});
+
+export const deletePlannedRoute = createServerFn({ method: 'POST' })
+	.validator((slug: string) => slug)
+	.handler(async ({ data: slug }) => {
+		return dbDeletePlannedRoute(slug);
 	});

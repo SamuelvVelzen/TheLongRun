@@ -18,6 +18,7 @@ export const Route = createRootRoute({
 const links = [
 	{ href: '/', label: 'Dashboard' },
 	{ href: '/timeline', label: 'Timeline' },
+	{ href: '/routes', label: 'Routes' },
 	{ href: '/log', label: 'Log activity' },
 	{ href: '/import', label: 'Import' },
 	{ href: '/context', label: 'Context' },

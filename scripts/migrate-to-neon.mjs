@@ -20,7 +20,9 @@ if (!url) {
 const sql = neon(url);
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const dataRoot = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(root, 'data');
+const dataRoot = process.env.DATA_DIR
+	? path.resolve(process.env.DATA_DIR)
+	: path.join(root, 'data');
 const runsDir = path.join(dataRoot, 'runs');
 const routesDir = path.join(dataRoot, 'routes');
 const contextDir = path.join(dataRoot, 'context');
@@ -100,6 +102,27 @@ async function createSchema() {
 	await sql`CREATE INDEX IF NOT EXISTS runs_strava_id_idx ON runs (strava_id)`;
 	await sql`CREATE TABLE IF NOT EXISTS routes (id text PRIMARY KEY, geojson jsonb NOT NULL)`;
 	await sql`CREATE TABLE IF NOT EXISTS context (name text PRIMARY KEY, content text NOT NULL DEFAULT '')`;
+	await sql`
+		CREATE TABLE IF NOT EXISTS planned_routes (
+			slug text PRIMARY KEY,
+			name text NOT NULL,
+			notes text NOT NULL DEFAULT '',
+			distance_km double precision,
+			elev_gain double precision,
+			elev_loss double precision,
+			elev_min double precision,
+			elev_max double precision,
+			point_count integer NOT NULL DEFAULT 0,
+			est_time text NOT NULL DEFAULT '',
+			saved_on text NOT NULL,
+			country text NOT NULL DEFAULT '',
+			province text NOT NULL DEFAULT '',
+			place text NOT NULL DEFAULT '',
+			waypoints jsonb NOT NULL DEFAULT '[]'::jsonb,
+			geojson jsonb NOT NULL
+		)
+	`;
+	await sql`ALTER TABLE planned_routes ADD COLUMN IF NOT EXISTS est_time text NOT NULL DEFAULT ''`;
 }
 
 async function upsertRun(r) {

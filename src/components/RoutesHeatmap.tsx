@@ -10,12 +10,16 @@ export type RouteMeta = Record<string, { slug: string; title: string; sub: strin
 export function RoutesHeatmap({
 	tracks,
 	meta = {},
-	focusIds = []
+	focusIds = [],
+	detailPath = '/runs/$slug',
+	emptyText = 'No GPS routes yet — import a FIT or link a Strava route.'
 }: {
 	tracks: RouteTrack[];
 	meta?: RouteMeta;
 	/** Route ids of recent runs — the map zooms to these by default (with an 'All' toggle). */
 	focusIds?: string[];
+	detailPath?: '/runs/$slug' | '/routes/$slug';
+	emptyText?: string;
 }) {
 	const wrapRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -75,7 +79,7 @@ export function RoutesHeatmap({
 						});
 						line.on('mouseover', () => line.setStyle({ weight: 5, opacity: 1 }));
 						line.on('mouseout', () => line.setStyle({ weight: 2.5, opacity: 0.38 }));
-						line.on('click', () => navigate({ to: '/runs/$slug', params: { slug: info.slug } }));
+						line.on('click', () => navigate({ to: detailPath, params: { slug: info.slug } }));
 						const el = line.getElement?.();
 						if (el) el.style.cursor = 'pointer';
 					}
@@ -109,14 +113,10 @@ export function RoutesHeatmap({
 			chrome?.destroy();
 			map?.remove?.();
 		};
-	}, [tracks, meta, navigate, focusKey]);
+	}, [tracks, meta, navigate, focusKey, detailPath]);
 
 	if (!tracks.length) {
-		return (
-			<div className="heatmap-empty muted">
-				No GPS routes yet — import a FIT or link a Strava route.
-			</div>
-		);
+		return <div className="heatmap-empty muted">{emptyText}</div>;
 	}
 
 	return (

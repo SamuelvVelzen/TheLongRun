@@ -56,8 +56,7 @@ function downsample<T>(items: T[], max: number): T[] {
 export function parseGpx(xml: string): ParsedGpx {
 	const detectedType = child(xml, 'type') ?? '';
 
-	const blocks =
-		xml.match(/<trkpt\b[^>]*>[\s\S]*?<\/trkpt>|<trkpt\b[^>]*\/>/gi) ?? [];
+	const blocks = xml.match(/<trkpt\b[^>]*>[\s\S]*?<\/trkpt>|<trkpt\b[^>]*\/>/gi) ?? [];
 
 	const track: TrackSample[] = [];
 	for (const block of blocks) {
@@ -92,7 +91,7 @@ export function parseGpx(xml: string): ParsedGpx {
 	const TZ = (firstPoint && timezoneForCoord(firstPoint.lat, firstPoint.lng)) || 'Europe/Amsterdam';
 	let date = '';
 	let startClock = '';
-	const firstTime = blocks.map((b) => child(b, 'time')).find(Boolean) ?? child(xml, 'time');
+	const firstTime = blocks.map((b) => child(b, 'time')).find(Boolean);
 	if (firstTime) {
 		const ms = Date.parse(firstTime);
 		if (!Number.isNaN(ms)) {
@@ -162,8 +161,7 @@ export function parseGpx(xml: string): ParsedGpx {
 	const avgHr = hrs.length ? Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length) : null;
 	const maxHr = hrs.length ? Math.max(...hrs) : null;
 
-	const analytics =
-		track.length >= 2 ? computeRouteAnalytics(track, { avgHr, maxHr }) : null;
+	const analytics = track.length >= 2 ? computeRouteAnalytics(track, { avgHr, maxHr }) : null;
 
 	return {
 		date,

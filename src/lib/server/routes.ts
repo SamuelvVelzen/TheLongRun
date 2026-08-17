@@ -5,7 +5,7 @@ export type { RouteTrack };
 
 const MAX_POINTS = 180;
 
-function downsample(coords: [number, number][], maxPoints: number): [number, number][] {
+export function downsample(coords: [number, number][], maxPoints: number): [number, number][] {
 	if (coords.length <= maxPoints) return coords;
 	const out: [number, number][] = [];
 	const last = coords.length - 1;
@@ -17,7 +17,7 @@ function downsample(coords: [number, number][], maxPoints: number): [number, num
 	return out;
 }
 
-function coordsFromGeoJson(raw: unknown): [number, number][] {
+export function coordsFromGeoJson(raw: unknown): [number, number][] {
 	if (!raw || typeof raw !== 'object') return [];
 	const geo = raw as {
 		type?: string;
@@ -55,6 +55,11 @@ function coordsFromGeoJson(raw: unknown): [number, number][] {
 	return out;
 }
 
+/** Downsampled lat/lng polyline from a GeoJSON Feature / geometry. */
+export function polylineFromGeoJson(raw: unknown, maxPoints = MAX_POINTS): [number, number][] {
+	return downsample(coordsFromGeoJson(raw), maxPoints);
+}
+
 /** Read every stored GeoJSON track; return downsampled lat/lng polylines. */
 export async function listRouteTracks(): Promise<RouteTrack[]> {
 	const sql = getSql();
@@ -66,7 +71,7 @@ export async function listRouteTracks(): Promise<RouteTrack[]> {
 	const tracks: RouteTrack[] = [];
 	for (const row of rows) {
 		try {
-			const coords = downsample(coordsFromGeoJson(row.geojson), MAX_POINTS);
+			const coords = polylineFromGeoJson(row.geojson, MAX_POINTS);
 			if (coords.length >= 2) {
 				tracks.push({ id: String(row.id), coords });
 			}

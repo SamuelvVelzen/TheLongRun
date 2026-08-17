@@ -1,5 +1,6 @@
 export type RunDay = 'Tuesday' | 'Friday' | 'Sunday';
-export type SessionType = 'easy' | 'quality' | 'tempo' | 'long' | 'steady' | 'shakeout' | 'race' | 'other';
+export type SessionType =
+	'easy' | 'quality' | 'tempo' | 'long' | 'steady' | 'shakeout' | 'race' | 'other';
 
 export interface RunRecord {
 	slug: string;
@@ -79,6 +80,32 @@ export interface CoachMessage {
 export type RouteTrack = {
 	id: string;
 	coords: [number, number][];
+};
+
+/** Named via / start / end point from a planned BRouter export. */
+export type PlannedWaypoint = {
+	name: string;
+	lat: number;
+	lng: number;
+};
+
+/** Saved planned route (BRouter export) — not an activity. */
+export type PlannedRoute = {
+	slug: string;
+	name: string;
+	notes: string;
+	distance_km: number | null;
+	elev_gain: number | null;
+	elev_loss: number | null;
+	elev_min: number | null;
+	elev_max: number | null;
+	point_count: number;
+	est_time: string;
+	saved_on: string;
+	country: string;
+	province: string;
+	place: string;
+	waypoints: PlannedWaypoint[];
 };
 
 /** A run plus whether it has a stored map track (computed server-side). */

@@ -58,3 +58,26 @@ CREATE TABLE IF NOT EXISTS context (
 	name     text PRIMARY KEY,
 	content  text NOT NULL DEFAULT ''
 );
+
+-- Planned routes exported from BRouter (GPX / GeoJSON). Separate from activity GPS tracks
+-- so they don't show up on the dashboard heatmap of completed runs.
+CREATE TABLE IF NOT EXISTS planned_routes (
+	slug         text PRIMARY KEY,
+	name         text NOT NULL,
+	notes        text NOT NULL DEFAULT '',
+	distance_km  double precision,
+	elev_gain    double precision,
+	elev_loss    double precision,
+	elev_min     double precision,
+	elev_max     double precision,
+	point_count  integer NOT NULL DEFAULT 0,
+	est_time     text NOT NULL DEFAULT '',
+	saved_on     text NOT NULL,
+	country      text NOT NULL DEFAULT '',
+	province     text NOT NULL DEFAULT '',
+	place        text NOT NULL DEFAULT '',
+	waypoints    jsonb NOT NULL DEFAULT '[]'::jsonb,
+	geojson      jsonb NOT NULL
+);
+
+ALTER TABLE planned_routes ADD COLUMN IF NOT EXISTS est_time text NOT NULL DEFAULT '';

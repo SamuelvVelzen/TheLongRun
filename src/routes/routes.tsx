@@ -53,22 +53,12 @@ function PlannedRoutes() {
 		<>
 			<section className="hero">
 				<div>
-					<p className="muted">Plan in BRouter · keep routes separate from completed activities</p>
+					<p className="muted">Keep planned routes separate from completed activities</p>
 					<h1>Routes</h1>
 					<p>
-						Export <strong>GPX with waypoints</strong> from BRouter. GPX preserves the route,
-						elevation, and named via points; GeoJSON is also accepted.
+						Import a <strong>GPX route</strong> from any planner or device. Tracks, elevation, and
+						available waypoints are preserved; GeoJSON is also accepted.
 					</p>
-				</div>
-				<div className="actions">
-					<a
-						className="btn btn-ghost"
-						href="https://brouter.de/brouter-web/"
-						target="_blank"
-						rel="noreferrer noopener"
-					>
-						Open BRouter ↗
-					</a>
 				</div>
 			</section>
 
@@ -92,8 +82,8 @@ function PlannedRoutes() {
 					disabled={busy}
 					onChange={(event) => void importFile(event.target.files?.[0])}
 				/>
-				<strong>{busy ? 'Saving route…' : 'Drop a BRouter GPX here'}</strong>
-				<span className="muted">or click to browse · include waypoints</span>
+				<strong>{busy ? 'Saving route…' : 'Drop a GPX route here'}</strong>
+				<span className="muted">or click to browse · waypoints are imported when available</span>
 			</label>
 			{message && <div className="flash">{message}</div>}
 
@@ -113,7 +103,7 @@ function PlannedRoutes() {
 					meta={meta}
 					focusIds={[]}
 					detailPath="/routes/$slug"
-					emptyText="No planned routes yet — export a GPX from BRouter and drop it above."
+					emptyText="No planned routes yet — drop a GPX route above."
 				/>
 			</section>
 

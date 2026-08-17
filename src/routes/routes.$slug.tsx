@@ -5,6 +5,7 @@ import {
 	getPlannedRouteDetail,
 	updatePlannedRoute
 } from '$lib/server/functions';
+import { downloadPlannedRouteGpx, plannedRouteBrouterUrl } from '$lib/planned-route-export';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 
 export const Route = createFileRoute('/routes/$slug')({
@@ -41,6 +42,13 @@ function PlannedRouteDetail() {
 		await router.navigate({ to: '/routes' });
 	}
 
+	function openInBrouter() {
+		const url = plannedRouteBrouterUrl(route.geojson, route.waypoints);
+		if (url) window.open(url, '_blank', 'noopener,noreferrer');
+		downloadPlannedRouteGpx(route.name, route.geojson, route.waypoints);
+		if (!url) setMessage('The GPX was downloaded, but this route has too few points for BRouter.');
+	}
+
 	const location = [route.place, route.province, route.country].filter(Boolean).join(', ');
 	const elevationRange =
 		route.elev_min != null && route.elev_max != null
@@ -55,9 +63,12 @@ function PlannedRouteDetail() {
 						Planned route{location ? ` · ${location}` : ''} · saved {route.saved_on}
 					</p>
 					<h1>{route.name}</h1>
-					<p>{route.notes || 'Imported from BRouter.'}</p>
+					<p>{route.notes || 'Imported from GPX.'}</p>
 				</div>
 				<div className="actions">
+					<button className="btn btn-primary" type="button" onClick={openInBrouter}>
+						Open in BRouter ↗
+					</button>
 					<button className="btn btn-ghost" type="button" onClick={() => setEditing(!editing)}>
 						{editing ? 'Cancel' : 'Edit'}
 					</button>
@@ -94,7 +105,7 @@ function PlannedRouteDetail() {
 				{route.est_time && (
 					<div className="metric metric-emph">
 						<b>{route.est_time}</b>
-						<span>BRouter estimate</span>
+						<span>estimated time</span>
 					</div>
 				)}
 				<div className="metric">
@@ -118,7 +129,7 @@ function PlannedRouteDetail() {
 			<div className="panel planned-route-map-panel">
 				<div className="planned-route-map-head">
 					<h3>Route</h3>
-					<p className="muted">Kilometres and BRouter waypoints are marked</p>
+					<p className="muted">Kilometres and available GPX waypoints are marked</p>
 				</div>
 				<PlannedRouteMap
 					geojson={route.geojson}

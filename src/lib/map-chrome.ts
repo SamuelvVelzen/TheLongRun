@@ -45,10 +45,11 @@ const SVG_MINUS =
 	'<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M5 11h14v2H5z"/></svg>';
 const SVG_FIT =
 	'<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 3h7v2H5v5H3V3zm11 0h7v7h-2V5h-5V3zM3 14h2v5h5v2H3v-7zm16 0h2v7h-7v-2h5v-5z"/></svg>';
+/** Diagonal expand arrows — distinct from fit’s corner-brackets, and a bit smaller. */
 const SVG_FULL =
-	'<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm12 0h-2v3h-3v2h5v-5zM7 5h3V3H5v5h2V5zm9-2v2h3v3h2V3h-5z"/></svg>';
+	'<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M3 3h7l-2.2 2.2 4.1 4.1-1.4 1.4-4.1-4.1L3 10V3zm18 0v7l-2.2-2.2-4.1 4.1-1.4-1.4 4.1-4.1L14 3h7zM3 21v-7l2.2 2.2 4.1-4.1 1.4 1.4-4.1 4.1L10 21H3zm18 0h-7l2.2-2.2-4.1-4.1 1.4-1.4 4.1 4.1L21 14v7z"/></svg>';
 const SVG_EXIT =
-	'<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>';
+	'<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M10 3H3v7l2.2-2.2 4.1 4.1 1.4-1.4-4.1-4.1L10 3zm11 0h-7l2.2 2.2-4.1 4.1 1.4 1.4 4.1-4.1L21 10V3zM3 21h7l-2.2-2.2 4.1-4.1-1.4-1.4-4.1 4.1L3 14v7zm18 0v-7l-2.2 2.2-4.1-4.1-1.4 1.4 4.1 4.1L14 21h7z"/></svg>';
 
 /** Staggered invalidateSize — FS transition / address-bar resize settle slowly. */
 const SIZE_REFRESH_MS = [0, 50, 100, 250, 400] as const;
@@ -383,7 +384,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	};
 	window.addEventListener('keydown', onKey);
 
-	bar.append(btnPlus, btnMinus, btnFit, btnFull);
+	bar.append(btnPlus, btnMinus, btnFull, btnFit);
 	wrap.appendChild(bar);
 
 	return {

@@ -14,6 +14,7 @@ import { FeelBadge } from '../components/FeelBadge';
 import type { RunWithMap } from '$lib/types';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
 import { FilterSheet, filterSummary } from '../components/FilterSheet';
+import { PlaceFilter } from '../components/PlaceFilter';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 import { DeferredData } from '../components/DeferredData';
@@ -107,14 +108,6 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 	const place = search.place ?? 'all';
 	const availableSports = new Set(allRuns.map((r) => normalizeActivityType(r.activity_type)));
 
-	// Location options cascade: province options reflect the chosen country, place the chosen province.
-	const distinct = (arr: (string | undefined)[]) => [...new Set(arr.filter(Boolean) as string[])].sort();
-	const byCountry = allRuns.filter((r) => country === 'all' || r.country === country);
-	const byProvince = byCountry.filter((r) => province === 'all' || r.province === province);
-	const availableCountries = distinct(allRuns.map((r) => r.country));
-	const availableProvinces = distinct(byCountry.map((r) => r.province));
-	const availablePlaces = distinct(byProvince.map((r) => r.place));
-
 	const scoped = allRuns
 		.filter((r) => sport === 'all' || normalizeActivityType(r.activity_type) === sport)
 		.filter((r) => country === 'all' || r.country === country)
@@ -140,81 +133,13 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 			<FilterSheet summary={filterSummary(sport, range, { country, province, place })}>
 				<SportFilter sport={sport} to="/timeline" defaultSport="all" available={availableSports} />
 				<DateRangeFilter range={range} to="/timeline" />
-				{availableCountries.length > 1 && (
-					<label className="filter-country">
-						<span className="muted">Country</span>
-						<select
-							value={country}
-							onChange={(e) =>
-								router.navigate({
-									to: '/timeline',
-									search: (prev) => ({
-										...prev,
-										country: e.target.value === 'all' ? undefined : e.target.value,
-										province: undefined,
-										place: undefined
-									})
-								})
-							}
-						>
-							<option value="all">All countries</option>
-							{availableCountries.map((c) => (
-								<option key={c} value={c}>
-									{c}
-								</option>
-							))}
-						</select>
-					</label>
-				)}
-				{availableProvinces.length > 1 && (
-					<label className="filter-country">
-						<span className="muted">Province</span>
-						<select
-							value={province}
-							onChange={(e) =>
-								router.navigate({
-									to: '/timeline',
-									search: (prev) => ({
-										...prev,
-										province: e.target.value === 'all' ? undefined : e.target.value,
-										place: undefined
-									})
-								})
-							}
-						>
-							<option value="all">All provinces</option>
-							{availableProvinces.map((p) => (
-								<option key={p} value={p}>
-									{p}
-								</option>
-							))}
-						</select>
-					</label>
-				)}
-				{availablePlaces.length > 1 && (
-					<label className="filter-country">
-						<span className="muted">Place</span>
-						<select
-							value={place}
-							onChange={(e) =>
-								router.navigate({
-									to: '/timeline',
-									search: (prev) => ({
-										...prev,
-										place: e.target.value === 'all' ? undefined : e.target.value
-									})
-								})
-							}
-						>
-							<option value="all">All places</option>
-							{availablePlaces.map((p) => (
-								<option key={p} value={p}>
-									{p}
-								</option>
-							))}
-						</select>
-					</label>
-				)}
+				<PlaceFilter
+					to="/timeline"
+					runs={allRuns}
+					country={country}
+					province={province}
+					place={place}
+				/>
 			</FilterSheet>
 
 			{neverLogged ? (

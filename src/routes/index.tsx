@@ -20,12 +20,13 @@ import {
 import { FeelBadge } from '../components/FeelBadge';
 import { DateRangeFilter, rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
 import { FilterSheet, filterSummary } from '../components/FilterSheet';
+import { PlaceFilter } from '../components/PlaceFilter';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 import { DeferredData } from '../components/DeferredData';
 
-type DashSearch = RangeSearch & { sport?: string };
+type DashSearch = RangeSearch & { sport?: string; country?: string; province?: string; place?: string };
 const SPORTS = ['all', 'run', 'walk', 'ride', 'swim', 'strength'];
 
 export const Route = createFileRoute('/')({
@@ -35,7 +36,10 @@ export const Route = createFileRoute('/')({
 			: undefined,
 		from: typeof s.from === 'string' ? s.from : undefined,
 		to: typeof s.to === 'string' ? s.to : undefined,
-		sport: SPORTS.includes(s.sport as string) ? (s.sport as string) : undefined
+		sport: SPORTS.includes(s.sport as string) ? (s.sport as string) : undefined,
+		country: typeof s.country === 'string' ? s.country : undefined,
+		province: typeof s.province === 'string' ? s.province : undefined,
+		place: typeof s.place === 'string' ? s.place : undefined
 	}),
 	loader: () => ({ page: getDashboardData() }),
 	component: Dashboard
@@ -109,17 +113,22 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 	if (search.to) sp.set('to', search.to);
 	const range = parseDateRange(sp);
 	const sport = search.sport ?? 'run';
+	const country = search.country ?? 'all';
+	const province = search.province ?? 'all';
+	const place = search.place ?? 'all';
 
 	const allRuns = data.runs;
 	const availableSports = new Set(allRuns.map((r) => normalizeActivityType(r.activity_type)));
-	const scoped =
-		sport === 'all'
-			? allRuns
-			: allRuns.filter((r) => normalizeActivityType(r.activity_type) === sport);
+	const scoped = allRuns
+		.filter((r) => sport === 'all' || normalizeActivityType(r.activity_type) === sport)
+		.filter((r) => country === 'all' || r.country === country)
+		.filter((r) => province === 'all' || r.province === province)
+		.filter((r) => place === 'all' || r.place === place);
 	const runs = filterRunsByRange(scoped, range);
 	const trackIds = routeIdsForRuns(runs);
+	const locationActive = country !== 'all' || province !== 'all' || place !== 'all';
 	const tracks =
-		range.kind === 'all' && sport === 'all'
+		range.kind === 'all' && sport === 'all' && !locationActive
 			? data.tracks
 			: data.tracks.filter((t) => trackIds.has(t.id));
 	const recent = runs.slice(0, 8);
@@ -206,9 +215,10 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 				</section>
 			)}
 
-			<FilterSheet summary={filterSummary(sport, range)}>
+			<FilterSheet summary={filterSummary(sport, range, { country, province, place })}>
 				<SportFilter sport={sport} to="/" available={availableSports} />
 				<DateRangeFilter range={range} to="/" />
+				<PlaceFilter to="/" runs={allRuns} country={country} province={province} place={place} />
 			</FilterSheet>
 
 			{filteredEmpty ? (
@@ -273,20 +283,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 					</p>
 
 					{data.weekView && (
-						<section className="week-strip" aria-labelledby="week-heading">
-							<div className="week-strip-head">
-								<div>
-									<h2 id="week-heading">This week · {data.weekView.week.phase}</h2>
-									<p className="muted">
-										Week {data.weekView.week.week} · {data.weekView.week.dates} ·{' '}
-										{data.weekView.week.focus}
-										<span className="week-shoes">
-											{' '}
-											· Shoes: {data.shoes.active || 'set in Context'}
-										</span>
-									</p>
-								</div>
-							</div>
+						<section className="week-strip" aria-label="This week's sessions">
 							<div className="week-sessions">
 								{data.weekView.sessions.map((session, i) => (
 									<div

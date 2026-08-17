@@ -402,10 +402,11 @@ p {
 
 .planned-route-delete {
 	position: absolute;
-	top: 0.55rem;
+	top: 0;
+	bottom: 0;
 	right: 0.55rem;
 	z-index: 2;
-	margin: 0;
+	margin: auto 0;
 }
 
 .planned-route-metrics {

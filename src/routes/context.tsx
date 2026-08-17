@@ -153,6 +153,12 @@ function Context() {
 							)}
 						</div>
 
+						{file.name === 'plan.json' && editing !== file.name && (
+							<p className="muted" style={{ marginTop: '0.6rem' }}>
+								Week headers only — Edit to see or change the full JSON.
+							</p>
+						)}
+
 						{editing === file.name ? (
 							<form
 								className="form"

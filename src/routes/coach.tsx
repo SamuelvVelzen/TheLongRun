@@ -14,12 +14,13 @@ import { GpxImport } from '../components/GpxImport';
 type CoachTab = 'debrief' | 'plan' | 'feelings';
 type CoachSearch = { weeks?: number; tab?: CoachTab; slug?: string };
 
+const ALL_TIME_WEEKS = 520;
 const WEEK_OPTIONS = [
 	{ value: 4, label: '4 weeks' },
 	{ value: 8, label: '8 weeks' },
 	{ value: 12, label: '12 weeks' },
 	{ value: 26, label: '6 months' },
-	{ value: 520, label: 'All time' }
+	{ value: ALL_TIME_WEEKS, label: 'All time' }
 ];
 
 function planWeekPhrase(today = new Date()): 'this week' | 'next week' {
@@ -45,7 +46,10 @@ export const Route = createFileRoute('/coach')({
 			slug: typeof s.slug === 'string' && s.slug ? s.slug : undefined
 		};
 	},
-	loaderDeps: ({ search }) => ({ weeks: search.weeks ?? 12, slug: search.slug ?? '' }),
+	loaderDeps: ({ search }) => ({
+		weeks: search.weeks ?? ALL_TIME_WEEKS,
+		slug: search.slug ?? ''
+	}),
 	loader: async ({ deps }) => {
 		const [brief, debrief] = await Promise.all([
 			getCoachBrief({ data: deps.weeks }),
@@ -60,7 +64,7 @@ function Coach() {
 	const { brief, debrief } = Route.useLoaderData();
 	const search = Route.useSearch();
 	const router = useRouter();
-	const weeks = search.weeks ?? 12;
+	const weeks = search.weeks ?? ALL_TIME_WEEKS;
 	const tab = search.tab ?? 'debrief';
 
 	const [question, setQuestion] = useState('');
@@ -376,6 +380,10 @@ function Coach() {
 								</select>
 							</label>
 						</div>
+						<p className="muted" style={{ marginTop: '0.4rem' }}>
+							All time is the default. The detailed activity table still covers only the last ~12
+							weeks so the prompt stays short.
+						</p>
 						<label className="field">
 							<span>Your question for the AI (optional)</span>
 							<textarea

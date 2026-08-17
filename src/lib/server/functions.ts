@@ -192,6 +192,133 @@ function shoesAsMarkdown(shoes: { active: string; rotation: string[]; notes: str
 	});
 }
 
+const BRIEF_DETAIL_WEEKS = 12;
+const BRIEF_DETAIL_CAP = 40;
+
+function isImportNote(n: string): boolean {
+	return /^imported from/i.test(n.trim());
+}
+
+function byDateNewestFirst(a: RunRecord, b: RunRecord) {
+	if (a.date !== b.date) return a.date > b.date ? -1 : 1;
+	return (a.slug ?? '') > (b.slug ?? '') ? -1 : (a.slug ?? '') < (b.slug ?? '') ? 1 : 0;
+}
+
+function formatWeekNumberRange(weeks: number[]): string {
+	if (!weeks.length) return '';
+	const ranges: [number, number][] = [];
+	let lo = weeks[0]!;
+	let hi = weeks[0]!;
+	for (let i = 1; i < weeks.length; i++) {
+		const n = weeks[i]!;
+		if (n === hi + 1) hi = n;
+		else {
+			ranges.push([lo, hi]);
+			lo = hi = n;
+		}
+	}
+	ranges.push([lo, hi]);
+	return ranges.map(([a, b]) => (a === b ? `Week ${a}` : `Weeks ${a}–${b}`)).join(', ');
+}
+
+function weekHasSessions(w: PlanWeek | undefined): boolean {
+	return (w?.sessions?.length ?? 0) > 0;
+}
+
+/** Compact plan for the coach brief — never the full plan.json. */
+function formatTrainingPlanBrief(plan: PlanWeek[], targetWeek: number): string {
+	const byWeek = new Map(plan.map((w) => [w.week, w]));
+	const include = new Set<number>([targetWeek]);
+	for (const w of plan
+		.filter((x) => x.week < targetWeek && weekHasSessions(x))
+		.sort((a, b) => b.week - a.week)
+		.slice(0, 2)) {
+		include.add(w.week);
+	}
+
+	const jsonWeeks = [...include]
+		.sort((a, b) => a - b)
+		.map(
+			(n) =>
+				byWeek.get(n) ?? {
+					week: n,
+					dates: planWeekDateRange(n),
+					phase: '',
+					focus: '',
+					sessions: [] as PlanWeek['sessions']
+				}
+		);
+
+	const emptyFuture: number[] = [];
+	const filledFuture: number[] = [];
+	for (let n = targetWeek + 1; n <= PLAN_WEEK_COUNT; n++) {
+		if (weekHasSessions(byWeek.get(n))) filledFuture.push(n);
+		else emptyFuture.push(n);
+	}
+
+	const parts: string[] = [
+		'Only the week to plan and up to two previous weeks with sessions are included — not the full plan.json.'
+	];
+	if (jsonWeeks.length) {
+		parts.push('```json\n' + JSON.stringify(jsonWeeks, null, 2) + '\n```');
+	}
+	if (emptyFuture.length) {
+		parts.push(`${formatWeekNumberRange(emptyFuture)}: not planned yet.`);
+	}
+	if (filledFuture.length) {
+		parts.push(
+			`${formatWeekNumberRange(filledFuture)} already have sessions in the plan file — omitted here; do not copy them into this week's JSON.`
+		);
+	}
+	return parts.join('\n\n');
+}
+
+function notesForBriefRow(r: RunRecord): string {
+	const isStrength = normalizeActivityType(r.activity_type) === 'strength';
+	let notesText = r.notes || '';
+	if (isImportNote(notesText)) notesText = '';
+	else if (isStrength) {
+		const p = parseStrengthNotes(r.notes);
+		notesText = [strengthSummary(p.exercises), p.extra].filter(Boolean).join(' — ');
+		if (isImportNote(notesText)) notesText = '';
+	}
+	return notesText
+		.replace(/\s+/g, ' ')
+		.replace(/\|/g, '/')
+		.trim()
+		.slice(0, isStrength ? 400 : 140);
+}
+
+function shoesNotesForBrief(notes: string): string {
+	const t = notes.trim();
+	if (!t) return '';
+	if (/track shoe rotation here/i.test(t)) return '';
+	return t;
+}
+
+function renderPlanFileSummary(body: string): string {
+	try {
+		const parsed = JSON.parse(body) as unknown;
+		if (!Array.isArray(parsed)) return renderJsonPretty(body);
+		const lines = (parsed as PlanWeek[]).map((w) => {
+			const n = Array.isArray(w.sessions) ? w.sessions.length : 0;
+			const days = n
+				? ` (${w.sessions.map((s) => s.day).filter(Boolean).join(', ')})`
+				: '';
+			const sess = n === 0 ? 'not planned yet' : `${n} session${n === 1 ? '' : 's'}${days}`;
+			const phase = w.phase ? ` — ${w.phase}` : '';
+			return `- **Week ${w.week}** (${w.dates || '—'}): ${sess}${phase}`;
+		});
+		return renderMarkdown(
+			`Compact view — open **Edit** for the full JSON. Empty weeks are stubs, not a plan.\n\n${
+				lines.join('\n') || '_Empty plan._'
+			}`
+		);
+	} catch {
+		return renderJsonPretty(body);
+	}
+}
+
 export const getContextData = createServerFn({ method: 'GET' }).handler(async () => {
 	const shoes = await loadShoes();
 	const raw = await Promise.all(
@@ -201,7 +328,12 @@ export const getContextData = createServerFn({ method: 'GET' }).handler(async ()
 	);
 	const files: ContextFile[] = CONTEXT_FILES.map((f, i) => {
 		const body = f.name === 'shoes.md' ? shoesAsMarkdown(shoes) : raw[i]!;
-		const html = f.name.endsWith('.json') ? renderJsonPretty(body) : renderMarkdown(body);
+		const html =
+			f.name === 'plan.json'
+				? renderPlanFileSummary(body)
+				: f.name.endsWith('.json')
+					? renderJsonPretty(body)
+					: renderMarkdown(body);
 		return { name: f.name, title: f.title, body, html };
 	});
 	const allContext = files.map((f) => `# ===== ${f.name} =====\n\n${f.body.trim()}`).join('\n\n');
@@ -209,7 +341,9 @@ export const getContextData = createServerFn({ method: 'GET' }).handler(async ()
 });
 
 export const getCoachBrief = createServerFn({ method: 'GET' })
-	.validator((weeks: number) => (Number.isFinite(weeks) && weeks > 0 ? Math.floor(weeks) : 10))
+	.validator((weeks: number) =>
+		Number.isFinite(weeks) && weeks > 0 ? Math.floor(weeks) : 520
+	)
 	.handler(async ({ data: weeks }) => {
 		const [allRuns, goals, plan, shoes, profile, injury, gear, raceStrategy] = await Promise.all([
 			listRuns(),
@@ -226,9 +360,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		const cutoff = new Date(today);
 		cutoff.setDate(cutoff.getDate() - weeks * 7);
 		const cutoffIso = cutoff.toISOString().slice(0, 10);
-		const windowRuns = allRuns
-			.filter((r) => r.date >= cutoffIso)
-			.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+		const windowRuns = allRuns.filter((r) => r.date >= cutoffIso).sort(byDateNewestFirst);
 
 		const raceDate = new Date(`${goals.race_date}T00:00:00`);
 		const weeksToRace = Number.isNaN(raceDate.getTime())
@@ -259,9 +391,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		const firstDate = allRuns.length
 			? allRuns.reduce((min, r) => (r.date < min ? r.date : min), allRuns[0]!.date)
 			: '—';
-		const shinRuns = runsAll
-			.filter((r) => r.shins != null)
-			.sort((a, b) => (a.date < b.date ? 1 : -1));
+		const shinRuns = runsAll.filter((r) => r.shins != null).sort(byDateNewestFirst);
 		const avg = (arr: number[]) =>
 			arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : null;
 		const shinsRecent = avg(shinRuns.slice(0, 4).map((r) => r.shins!));
@@ -287,7 +417,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		}
 		const weekLines =
 			[...weekMap.entries()]
-				.sort((a, b) => (a[0] < b[0] ? -1 : 1))
+				.sort((a, b) => (a[0] > b[0] ? -1 : a[0] < b[0] ? 1 : 0))
 				.map(
 					([wk, e]) =>
 						`- Week of ${wk}: ${e.runs} runs (${Math.round(e.runKm * 10) / 10} km run)${
@@ -296,26 +426,31 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 				)
 				.join('\n') || '- (no activities in window)';
 
+		const detailCutoff = new Date(today);
+		detailCutoff.setDate(detailCutoff.getDate() - BRIEF_DETAIL_WEEKS * 7);
+		const detailCutoffIso = detailCutoff.toISOString().slice(0, 10);
+		let detailRuns = windowRuns;
+		let activityHeading = `last ${weeks} weeks, newest first`;
+		if (weeks > BRIEF_DETAIL_WEEKS) {
+			detailRuns = windowRuns.filter((r) => r.date >= detailCutoffIso);
+			activityHeading = `newest first — detailed log is last ${BRIEF_DETAIL_WEEKS} weeks; earlier weeks are in the volume list only`;
+		}
+		if (detailRuns.length > BRIEF_DETAIL_CAP) {
+			detailRuns = detailRuns.slice(0, BRIEF_DETAIL_CAP);
+			activityHeading = `${activityHeading}; table capped at ${BRIEF_DETAIL_CAP} most recent activities`;
+		}
+
 		const rows =
-			windowRuns
+			detailRuns
 				.map((r) => {
 					const feel = [r.effort, r.shins, r.legs, r.energy]
 						.map((v) => (v == null ? '–' : v))
 						.join('/');
-					const isStrength = normalizeActivityType(r.activity_type) === 'strength';
-					let notesText = r.notes || '';
-					if (isStrength) {
-						const p = parseStrengthNotes(r.notes);
-						notesText = [strengthSummary(p.exercises), p.extra].filter(Boolean).join(' — ');
-					}
-					const notes = notesText
-						.replace(/\s+/g, ' ')
-						.replace(/\|/g, '/')
-						.trim()
-						.slice(0, isStrength ? 400 : 140);
-					return `| ${r.date} | ${activityLabel(r.activity_type)} | ${r.distance_km ?? '–'} | ${metricText(r)} | ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} | ${feel} | ${notes} |`;
+					return `| ${r.date} | ${activityLabel(r.activity_type)} | ${r.distance_km ?? '–'} | ${metricText(r)} | ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} | ${feel} | ${notesForBriefRow(r)} |`;
 				})
 				.join('\n') || '| – | – | – | – | – | – | – |';
+
+		const shoeNotes = shoesNotesForBrief(shoes.notes ?? '');
 
 		return `# The Long Run — training context
 
@@ -325,6 +460,9 @@ You are my running coach. I'm training toward **${goals.race_name}** (${goals.ra
 		}. I run a few times a week and cross-train by bike and walk. Session days can move — do not assume a fixed Tuesday / Friday / Sunday pattern. Below is my plan, my recent training with how each session felt (effort / shins / legs / energy, each 0–10), my weekly running volume, and my constraints.
 
 Please assess how my training is going and give me a concrete plan for **${weekPhrase}** — specific sessions with day, distance and intent — adjusted for how I've been recovering and laddering toward the race. Flag any red flags (injury risk, overtraining, under-recovery). Days can shift if the week needs it.
+
+## How to read this brief
+Goal, Timing, All-time summary, weekly volume, and the Activity log are auto-computed from logged activities and are **current**. Runner profile, injury, gear, and race strategy are hand-written and may lag. If they disagree on numbers (longest run, weekly rhythm, dates), **prefer the computed sections**.
 
 ## Goal
 - Race: ${goals.race_name} — ${goals.race_distance_km} km on ${goals.race_date}${weeksToRace != null ? ` (~${weeksToRace} weeks to go)` : ''}
@@ -346,7 +484,7 @@ ${goals.notes ? `\n${goals.notes}\n` : ''}
 ## Weekly running volume (last ${weeks} weeks)
 ${weekLines}
 
-## Activity log (last ${weeks} weeks, oldest first)
+## Activity log (${activityHeading})
 Feel = effort/shins/legs/energy (0–10, – = not recorded).
 
 | Date | Type | km | pace/speed | HR avg/max | Feel | Notes |
@@ -354,10 +492,10 @@ Feel = effort/shins/legs/energy (0–10, – = not recorded).
 ${rows}
 
 ## Training plan
-${plan.length ? '```json\n' + JSON.stringify(plan, null, 2) + '\n```' : '(no plan set)'}
+${plan.length ? formatTrainingPlanBrief(plan, targetWeek) : '(no plan set)'}
 
 ## Shoes
-- Active: ${shoes.active || '—'}${shoes.rotation?.length ? `\n- Rotation: ${shoes.rotation.join(', ')}` : ''}${shoes.notes ? `\n\n${shoes.notes}` : ''}
+- Active: ${shoes.active || '—'}${shoes.rotation?.length ? `\n- Rotation: ${shoes.rotation.join(', ')}` : ''}${shoeNotes ? `\n\n${shoeNotes}` : ''}
 
 ## Runner profile
 ${profile.trim() || '(none)'}
@@ -388,10 +526,6 @@ Give your assessment and ${weekPhrase}'s sessions in prose. Then, so I can save 
 \`\`\`
 `;
 	});
-
-function isImportNote(n: string): boolean {
-	return /^imported from/i.test(n.trim());
-}
 
 function hasFeel(r: RunRecord): boolean {
 	return (
@@ -447,7 +581,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const weekRuns = weekStart
 			? allRuns
 					.filter((r) => r.date >= weekStart && r.date <= weekEnd)
-					.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+					.sort(byDateNewestFirst)
 			: [];
 		const otherThisWeek = weekRuns.filter((r) => r.slug !== run.slug);
 		const sessionLines =

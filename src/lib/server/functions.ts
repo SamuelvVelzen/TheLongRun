@@ -10,7 +10,19 @@ import {
 	normalizeStartTime,
 	parseDurationSeconds
 } from '$lib/format';
-import { weekNumberForDate } from '$lib/plan';
+import {
+	buildWeekView,
+	isoDateLocal,
+	PLAN_START_ISO,
+	PLAN_WEEK_COUNT,
+	planWeekDateRange,
+	planWeekIndex,
+	planWeekStartIso,
+	plannedSessionFor,
+	sessionStreak,
+	weekNumberForDate,
+	type WeekView
+} from '$lib/plan';
 import { activityLabel, metricText, normalizeActivityType } from '$lib/activity';
 import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import { parseStrengthNotes, strengthSummary } from '$lib/strength';
@@ -64,11 +76,12 @@ const withMap = (runs: RunRecord[], routeIds: Set<string>): RunWithMap[] =>
 // ---------- reads ----------
 
 export const getDashboardData = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, tracks, routeIds, week, goals, shoes] = await Promise.all([
+	const [runs, tracks, routeIds, week, plan, goals, shoes] = await Promise.all([
 		listRuns(),
 		listRouteTracks(),
 		listRouteIds(),
 		currentPlanWeek(),
+		loadPlan(),
 		loadGoals(),
 		loadShoes()
 	]);
@@ -76,12 +89,16 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 		runs: withMap(runs, routeIds),
 		tracks,
 		week,
+		weekView: week ? buildWeekView(week, runs) : null,
+		streak: sessionStreak(runs, plan),
 		goals,
 		shoes
 	} satisfies {
 		runs: RunWithMap[];
 		tracks: RouteTrack[];
 		week: PlanWeek | null;
+		weekView: WeekView | null;
+		streak: number;
 		goals: Goals;
 		shoes: { active: string; notes: string; rotation: string[] };
 	};
@@ -217,36 +234,10 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 			? null
 			: Math.max(0, Math.ceil((raceDate.getTime() - today.getTime()) / (7 * 86_400_000)));
 
-		// Plan block is Mon-anchored from 2026-08-03 (matches weekNumberForDate / currentPlanWeek).
-		const MON = [
-			'Jan',
-			'Feb',
-			'Mar',
-			'Apr',
-			'May',
-			'Jun',
-			'Jul',
-			'Aug',
-			'Sep',
-			'Oct',
-			'Nov',
-			'Dec'
-		];
-		const planAnchor = new Date('2026-08-03T00:00:00');
-		const weekRange = (n: number) => {
-			const s = new Date(planAnchor);
-			s.setDate(s.getDate() + (n - 1) * 7);
-			const e = new Date(s);
-			e.setDate(e.getDate() + 6);
-			const f = (d: Date) => `${String(d.getDate()).padStart(2, '0')} ${MON[d.getMonth()]}`;
-			return `${f(s)}–${f(e)} ${e.getFullYear()}`;
-		};
-		const curWeek = Math.min(
-			8,
-			Math.max(1, Math.floor((today.getTime() - planAnchor.getTime()) / (7 * 86_400_000)) + 1)
-		);
-		const nextWeek = Math.min(8, curWeek + 1);
+		const curWeek = Math.min(PLAN_WEEK_COUNT, Math.max(1, planWeekIndex(today)));
+		const nextWeek = Math.min(PLAN_WEEK_COUNT, curWeek + 1);
 		const todayIso = today.toISOString().slice(0, 10);
+		const weekRange = planWeekDateRange;
 
 		// All-time summary (computed from every activity, so derived facts stay current).
 		const byType = { run: 0, ride: 0, walk: 0, swim: 0, strength: 0 } as Record<string, number>;
@@ -329,9 +320,9 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 ## Coaching brief
 You are my running coach. I'm training toward **${goals.race_name}** (${goals.race_distance_km} km) on **${goals.race_date}**${
 			weeksToRace != null ? ` — about **${weeksToRace} weeks** away` : ''
-		}. My run days are Tuesday / Friday / Sunday, and I cross-train by bike and walk. Below is my plan, my recent training with how each session felt (effort / shins / legs / energy, each 0–10), my weekly running volume, and my constraints.
+		}. I run a few times a week and cross-train by bike and walk. Session days can move — do not assume a fixed Tuesday / Friday / Sunday pattern. Below is my plan, my recent training with how each session felt (effort / shins / legs / energy, each 0–10), my weekly running volume, and my constraints.
 
-Please assess how my training is going and give me a concrete plan for **next week** — specific Tuesday / Friday / Sunday sessions with distance and intent — adjusted for how I've been recovering and laddering toward the race. Flag any red flags (injury risk, overtraining, under-recovery).
+Please assess how my training is going and give me a concrete plan for **next week** — specific sessions with day, distance and intent — adjusted for how I've been recovering and laddering toward the race. Flag any red flags (injury risk, overtraining, under-recovery). Days can shift if the week needs it.
 
 ## Goal
 - Race: ${goals.race_name} — ${goals.race_distance_km} km on ${goals.race_date}${weeksToRace != null ? ` (~${weeksToRace} weeks to go)` : ''}
@@ -340,7 +331,7 @@ ${(goals.primary ?? []).map((p) => `- Priority: ${p}`).join('\n')}
 ${goals.notes ? `\n${goals.notes}\n` : ''}
 ## Timing (use these exact values — do not guess dates)
 - Today: ${todayIso}.
-- Plan block: Monday–Sunday, 8 weeks, from 2026-08-03 to race day ${goals.race_date}.
+- Plan block: Monday–Sunday, ${PLAN_WEEK_COUNT} weeks, from ${PLAN_START_ISO} to race day ${goals.race_date}.
 - Current week: **week ${curWeek}** (${weekRange(curWeek)}).
 - The week to plan is **week ${nextWeek}** (${weekRange(nextWeek)}). In the JSON you return, set exactly \`"week": ${nextWeek}\` and \`"dates": "${weekRange(nextWeek)}"\`.
 
@@ -379,7 +370,7 @@ ${gear.trim() || '(none)'}
 ${raceStrategy.trim() || '(none)'}
 
 ## When you reply
-Give your assessment and next week's sessions in prose. Then, so I can save it straight back into my app, also output **next week as one JSON object** in exactly this shape (real values, same keys):
+Give your assessment and next week's sessions in prose. Then, so I can save it straight back into my app, also output **next week as one JSON object** in exactly this shape (real values, same keys). Use however many sessions the week needs, on whatever days fit — not a fixed three-day template:
 
 \`\`\`json
 {
@@ -388,13 +379,150 @@ Give your assessment and next week's sessions in prose. Then, so I can save it s
   "phase": "base | build | peak | taper",
   "focus": "one-line focus for the week",
   "sessions": [
-    { "day": "Tuesday", "label": "Easy", "distance_km": 6, "detail": "how + why" },
-    { "day": "Friday", "label": "Tempo", "distance_km": 8, "detail": "how + why" },
-    { "day": "Sunday", "label": "Long", "distance_km": 14, "detail": "how + why" }
+    { "day": "Wednesday", "label": "Easy", "distance_km": 6, "detail": "how + why" },
+    { "day": "Saturday", "label": "Long", "distance_km": 14, "detail": "how + why" }
   ]
 }
 \`\`\`
 `;
+	});
+
+function isImportNote(n: string): boolean {
+	return /^imported from/i.test(n.trim());
+}
+
+function hasFeel(r: RunRecord): boolean {
+	return (
+		r.effort != null ||
+		r.shins != null ||
+		r.legs != null ||
+		r.energy != null ||
+		r.wanted_faster != null ||
+		(r.surface ?? '').trim() !== '' ||
+		((r.notes ?? '').trim() !== '' && !isImportNote(r.notes))
+	);
+}
+
+function formatRunBriefLine(r: RunRecord): string {
+	const feel = [r.effort, r.shins, r.legs, r.energy]
+		.map((v) => (v == null ? '–' : v))
+		.join('/');
+	const notes = (r.notes || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+	return `- ${r.date} (${r.day || '—'}) ${activityLabel(r.activity_type)} ${r.distance_km ?? '–'} km · ${metricText(r)} · HR ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} · feel ${feel}${notes ? ` · ${notes}` : ''} · slug \`${r.slug}\``;
+}
+
+export const getDebriefPrompt = createServerFn({ method: 'GET' })
+	.validator((slug: string) => (typeof slug === 'string' ? slug : ''))
+	.handler(async ({ data: slug }) => {
+		const [allRuns, week, injury, trainingNotes] = await Promise.all([
+			listRuns(),
+			currentPlanWeek(),
+			readContextFile('injury.md'),
+			readContextFile('training-plan.md')
+		]);
+		const weekView = week ? buildWeekView(week, allRuns) : null;
+		const weekStart = week ? planWeekStartIso(week.week) : '';
+		let weekEnd = weekStart;
+		if (weekStart) {
+			const end = new Date(`${weekStart}T12:00:00`);
+			end.setDate(end.getDate() + 6);
+			weekEnd = isoDateLocal(end);
+		}
+		const run = slug
+			? ((await getRun(slug)) ?? null)
+			: weekStart
+				? (allRuns.find((r) => r.date >= weekStart && r.date <= weekEnd) ?? null)
+				: null;
+		if (!run) {
+			return {
+				prompt: '',
+				run: null,
+				weekView,
+				error: 'Import this session’s GPX first — the prompt needs those numbers.'
+			};
+		}
+
+		const weekRuns = weekStart
+			? allRuns
+					.filter((r) => r.date >= weekStart && r.date <= weekEnd)
+					.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+			: [];
+		const otherThisWeek = weekRuns.filter((r) => r.slug !== run.slug);
+		const sessionLines =
+			weekView?.sessions
+				.map((s) => {
+					const state = s.done ? 'done' : s.isNext ? 'next' : 'upcoming';
+					return `- ${s.day}${s.date ? ` (${s.date})` : ''}: ${s.label}${s.distance_km != null ? ` · ${s.distance_km} km` : ''} — ${s.detail} [${state}]`;
+				})
+				.join('\n') ?? '- (no plan week)';
+
+		const prompt = `# The Long Run — debrief this session
+
+You are my running coach. I just trained. GPS numbers are below. I'll also attach Strava screenshots and tell you how it felt.
+
+Update the rest of **this week** based on this session. Days can move — do not assume a fixed Tuesday / Friday / Sunday pattern. Keep, shift, shorten, or drop sessions as needed (heat, shins, heavy legs, life).
+
+## This session
+${formatRunBriefLine(run)}
+- Feel already in the app: ${hasFeel(run) ? 'yes (refine from what I say now)' : 'none yet — fill from this chat'}.
+
+## Other activities already logged this week
+${otherThisWeek.length ? otherThisWeek.map(formatRunBriefLine).join('\n') : '- (none besides this one)'}
+
+## Current week plan${week ? ` — week ${week.week} (${week.dates}) · ${week.phase} · ${week.focus}` : ''}
+${sessionLines}
+
+## Injury rules
+${injury.trim() || '(none)'}
+
+## Plan adjustment notes
+${trainingNotes.trim() || '(none)'}
+
+## When you reply
+Short assessment. Then output **one JSON object** I can paste back (no prose before or after the JSON):
+
+\`\`\`json
+{
+  "feelings": {
+    "slug": "${run.slug}",
+    "effort": 6,
+    "shins": 3,
+    "legs": 7,
+    "energy": 7,
+    "wanted_faster": false,
+    "surface": "asphalt",
+    "notes": "Short first-person note."
+  },
+  "week": {
+    "week": ${week?.week ?? 0},
+    "dates": ${JSON.stringify(week?.dates ?? '')},
+    "phase": ${JSON.stringify(week?.phase ?? '')},
+    "focus": "one-line focus after this session",
+    "sessions": [
+      { "day": "Wednesday", "label": "Easy", "distance_km": 7, "detail": "how + why" }
+    ]
+  }
+}
+\`\`\`
+
+Rules:
+- \`feelings.slug\` must be exactly \`${run.slug}\`. Scores 0–10 (effort/energy 1–10). Omit fields you don't know.
+- \`week.sessions\` is the **full remaining-aware week**: keep completed sessions as they were, rewrite what's still ahead. \`day\` can be any weekday.
+- If the week is finished, still return the week object with the sessions as completed.
+`;
+		return {
+			prompt,
+			run: {
+				slug: run.slug,
+				date: run.date,
+				day: run.day,
+				distance_km: run.distance_km,
+				avg_pace: run.avg_pace,
+				hasFeel: hasFeel(run)
+			},
+			weekView,
+			error: null as string | null
+		};
 	});
 
 // ---------- mutations ----------
@@ -482,7 +610,10 @@ export const importGpx = createServerFn({ method: 'POST' })
 		const activity_type = normalizeActivityType(data.activityType || parsed.detectedType);
 		const day = dayFromIsoDate(parsed.date);
 		const week = weekNumberForDate(parsed.date);
-		const session = guessSession(day, parsed.distanceKm);
+		const planWeek = await currentPlanWeek(
+			parsed.date ? new Date(`${parsed.date}T12:00:00`) : new Date()
+		);
+		const session = guessSession(day, parsed.distanceKm, plannedSessionFor(planWeek, day)?.label);
 
 		// Dedup: an activity of the same type on the same day that matches on start time (or,
 		// lacking one, on distance) is treated as the same activity — refresh its track in place
@@ -663,51 +794,134 @@ export const deleteRun = createServerFn({ method: 'POST' })
 		return dbDeleteRun(slug);
 	});
 
+function parseJsonPayload(text: string): unknown {
+	const trimmed = text.trim();
+	if (!trimmed) throw new Error('Nothing to save — paste the JSON your AI returned.');
+	const tryParse = (s: string) => {
+		try {
+			return { ok: true as const, value: JSON.parse(s) as unknown };
+		} catch {
+			return { ok: false as const };
+		}
+	};
+	const direct = tryParse(trimmed);
+	if (direct.ok) return direct.value;
+	const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+	if (fence) {
+		const parsed = tryParse(fence[1]!.trim());
+		if (parsed.ok) return parsed.value;
+	}
+	const start = trimmed.search(/[\[{]/);
+	if (start >= 0) {
+		const parsed = tryParse(trimmed.slice(start));
+		if (parsed.ok) return parsed.value;
+	}
+	throw new Error('That is not valid JSON — paste the JSON block your AI returned.');
+}
+
+function asPlanWeeks(parsed: unknown): PlanWeek[] {
+	const incoming = (Array.isArray(parsed) ? parsed : [parsed]).filter(
+		(w): w is PlanWeek =>
+			Boolean(w) &&
+			typeof w === 'object' &&
+			typeof (w as PlanWeek).week === 'number' &&
+			Array.isArray((w as PlanWeek).sessions)
+	);
+	return incoming;
+}
+
+async function mergePlanWeeks(incoming: PlanWeek[]): Promise<{ weeks: number; updated: number[] }> {
+	if (!incoming.length) throw new Error('No plan week found in that JSON.');
+	for (const w of incoming) {
+		if (typeof w.week !== 'number') throw new Error('Each week needs a numeric "week".');
+		if (!Array.isArray(w.sessions)) throw new Error(`Week ${w.week} has no "sessions" array.`);
+	}
+	const current = await loadPlan();
+	const byWeek = new Map<number, PlanWeek>(current.map((w) => [w.week, w]));
+	for (const w of incoming) byWeek.set(w.week, w);
+	const merged = [...byWeek.values()].sort((a, b) => a.week - b.week);
+	await writeContextFile('plan.json', `${JSON.stringify(merged, null, 2)}\n`);
+	return { weeks: merged.length, updated: incoming.map((w) => w.week) };
+}
+
+async function applyFeelingsRows(
+	rows: Record<string, unknown>[]
+): Promise<{ updated: number; missing: string[] }> {
+	const score = (v: unknown, lo: number, hi: number): number | null => {
+		const n = Number(v);
+		if (!Number.isFinite(n)) return null;
+		return Math.max(lo, Math.min(hi, Math.round(n)));
+	};
+	const updated: string[] = [];
+	const missing: string[] = [];
+	for (const a of rows) {
+		const slug = String(a.slug);
+		const patch: FeelingsPatch = {};
+		if ('effort' in a) patch.effort = score(a.effort, 1, 10);
+		if ('shins' in a) patch.shins = score(a.shins, 0, 10);
+		if ('legs' in a) patch.legs = score(a.legs, 0, 10);
+		if ('energy' in a) patch.energy = score(a.energy, 1, 10);
+		if ('wanted_faster' in a)
+			patch.wanted_faster =
+				a.wanted_faster === true ? true : a.wanted_faster === false ? false : null;
+		if (typeof a.surface === 'string') patch.surface = a.surface.trim();
+		if (typeof a.notes === 'string') patch.notes = a.notes.trim();
+		const ok = await updateRunFeelings(slug, patch);
+		(ok ? updated : missing).push(slug);
+	}
+	return { updated: updated.length, missing };
+}
+
+function feelingsRowsFrom(parsed: unknown): Record<string, unknown>[] {
+	if (!parsed || typeof parsed !== 'object') return [];
+	const o = parsed as Record<string, unknown>;
+	const list = Array.isArray(o)
+		? o
+		: Array.isArray(o.activities)
+			? o.activities
+			: o.feelings && typeof o.feelings === 'object'
+				? Array.isArray((o.feelings as { activities?: unknown }).activities)
+					? (o.feelings as { activities: unknown[] }).activities
+					: [o.feelings]
+				: [];
+	return list.filter(
+		(a): a is Record<string, unknown> =>
+			Boolean(a) && typeof a === 'object' && typeof (a as { slug?: unknown }).slug === 'string'
+	);
+}
+
 /** Merge AI-returned plan week(s) into plan.json (replace by week number, keep the rest). */
 export const savePlanWeeks = createServerFn({ method: 'POST' })
 	.validator((jsonText: string) => jsonText)
 	.handler(async ({ data: jsonText }) => {
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(jsonText);
-		} catch {
-			throw new Error('That is not valid JSON — paste just the JSON block your AI returned.');
+		return mergePlanWeeks(asPlanWeeks(parseJsonPayload(jsonText)));
+	});
+
+/** Save a debrief reply: feelings for this run + an updated week plan. */
+export const saveDebrief = createServerFn({ method: 'POST' })
+	.validator((jsonText: string) => jsonText)
+	.handler(async ({ data: jsonText }) => {
+		const parsed = parseJsonPayload(jsonText);
+		const rows = feelingsRowsFrom(parsed);
+		const obj = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+		const weekBlob = obj.week ?? (asPlanWeeks(parsed).length ? parsed : null);
+		const weeks = asPlanWeeks(weekBlob);
+		if (!rows.length && !weeks.length) {
+			throw new Error('Need a "feelings" object and/or a "week" with sessions in that JSON.');
 		}
-		const incoming = (Array.isArray(parsed) ? parsed : [parsed]).filter(
-			(w): w is PlanWeek => Boolean(w) && typeof w === 'object'
-		);
-		if (!incoming.length) throw new Error('No plan week found in that JSON.');
-		for (const w of incoming) {
-			if (typeof w.week !== 'number') throw new Error('Each week needs a numeric "week".');
-			if (!Array.isArray(w.sessions)) throw new Error(`Week ${w.week} has no "sessions" array.`);
-		}
-		const current = await loadPlan();
-		const byWeek = new Map<number, PlanWeek>(current.map((w) => [w.week, w]));
-		for (const w of incoming) byWeek.set(w.week, w);
-		const merged = [...byWeek.values()].sort((a, b) => a.week - b.week);
-		await writeContextFile('plan.json', `${JSON.stringify(merged, null, 2)}\n`);
-		return { weeks: merged.length, updated: incoming.map((w) => w.week) };
+		const feelings = rows.length
+			? await applyFeelingsRows(rows)
+			: { updated: 0, missing: [] as string[] };
+		const plan = weeks.length ? await mergePlanWeeks(weeks) : { weeks: 0, updated: [] as number[] };
+		return {
+			feelingsUpdated: feelings.updated,
+			feelingsMissing: feelings.missing,
+			planWeeks: plan.weeks,
+			planUpdated: plan.updated
+		};
 	});
 
 // ---------- weekly feelings round-trip ----------
-
-/** An imported run whose notes are just the import placeholder counts as "no feel yet". */
-function isImportNote(n: string): boolean {
-	return /^imported from/i.test(n.trim());
-}
-
-/** True when a run already carries any subjective "how it felt" data. */
-function hasFeel(r: RunRecord): boolean {
-	return (
-		r.effort != null ||
-		r.shins != null ||
-		r.legs != null ||
-		r.energy != null ||
-		r.wanted_faster != null ||
-		(r.surface ?? '').trim() !== '' ||
-		((r.notes ?? '').trim() !== '' && !isImportNote(r.notes))
-	);
-}
 
 /**
  * Build a ready-to-paste prompt asking the AI to summarise, per activity, how each one felt —
@@ -789,49 +1003,9 @@ ${table}
 export const saveFeelings = createServerFn({ method: 'POST' })
 	.validator((jsonText: string) => jsonText)
 	.handler(async ({ data: jsonText }) => {
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(jsonText);
-		} catch {
-			throw new Error('That is not valid JSON — paste just the JSON block your AI returned.');
-		}
-		const list = Array.isArray(parsed)
-			? parsed
-			: parsed &&
-				  typeof parsed === 'object' &&
-				  Array.isArray((parsed as { activities?: unknown }).activities)
-				? (parsed as { activities: unknown[] }).activities
-				: [parsed];
-		const rows = list.filter(
-			(a): a is Record<string, unknown> =>
-				Boolean(a) && typeof a === 'object' && typeof (a as { slug?: unknown }).slug === 'string'
-		);
+		const rows = feelingsRowsFrom(parseJsonPayload(jsonText));
 		if (!rows.length) throw new Error('No activities with a "slug" were found in that JSON.');
-
-		const score = (v: unknown, lo: number, hi: number): number | null => {
-			const n = Number(v);
-			if (!Number.isFinite(n)) return null;
-			return Math.max(lo, Math.min(hi, Math.round(n)));
-		};
-
-		const updated: string[] = [];
-		const missing: string[] = [];
-		for (const a of rows) {
-			const slug = String(a.slug);
-			const patch: FeelingsPatch = {};
-			if ('effort' in a) patch.effort = score(a.effort, 1, 10);
-			if ('shins' in a) patch.shins = score(a.shins, 0, 10);
-			if ('legs' in a) patch.legs = score(a.legs, 0, 10);
-			if ('energy' in a) patch.energy = score(a.energy, 1, 10);
-			if ('wanted_faster' in a)
-				patch.wanted_faster =
-					a.wanted_faster === true ? true : a.wanted_faster === false ? false : null;
-			if (typeof a.surface === 'string') patch.surface = a.surface.trim();
-			if (typeof a.notes === 'string') patch.notes = a.notes.trim();
-			const ok = await updateRunFeelings(slug, patch);
-			(ok ? updated : missing).push(slug);
-		}
-		return { updated: updated.length, missing };
+		return applyFeelingsRows(rows);
 	});
 
 export const saveShoes = createServerFn({ method: 'POST' })

@@ -2,7 +2,7 @@
 
 Race: **27 September 2026**
 
-Weekly rhythm: Tuesday easy/quality · Thursday bike + optional gym · Friday complementary run · Sunday long run. Warm-up and cooldown walks are additional to listed running distance.
+Weekly rhythm: a few runs plus Thursday bike and optional gym. Days can move week to week — not locked to Tuesday / Friday / Sunday. Warm-up and cooldown walks are additional to listed running distance.
 
 ## Pace / effort guide
 | Type | RPE | Guide |

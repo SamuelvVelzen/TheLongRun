@@ -1,5 +1,6 @@
 import matter from 'gray-matter';
 import type { Goals, PlanWeek } from '$lib/types';
+import { planWeekIndex } from '$lib/plan';
 import { getSql } from './db';
 
 export async function readContextFile(name: string): Promise<string> {
@@ -31,10 +32,7 @@ export async function loadPlan(): Promise<PlanWeek[]> {
 export async function currentPlanWeek(today = new Date()): Promise<PlanWeek | null> {
 	const plan = await loadPlan();
 	if (!plan.length) return null;
-	// Weeks are labeled by start date; race block starts 2026-08-03.
-	const start = new Date('2026-08-03T00:00:00');
-	const ms = today.getTime() - start.getTime();
-	const weekIndex = Math.floor(ms / (7 * 24 * 60 * 60 * 1000)) + 1;
+	const weekIndex = planWeekIndex(today);
 	if (weekIndex < 1) return plan[0] ?? null;
 	return plan.find((w) => w.week === weekIndex) ?? plan[plan.length - 1] ?? null;
 }

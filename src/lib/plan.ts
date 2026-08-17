@@ -2,15 +2,59 @@
  * Training plan helpers + dashboard stats.
  */
 import { formatDuration, parseDurationSeconds } from '$lib/format';
-import type { PlanWeek, RunRecord } from '$lib/types';
+import { normalizeActivityType } from '$lib/activity';
+import type { PlanSession, PlanWeek, RunRecord } from '$lib/types';
+
+export const PLAN_START_ISO = '2026-08-03';
+export const PLAN_WEEK_COUNT = 8;
+
+const WEEKDAYS = [
+	'Monday',
+	'Tuesday',
+	'Wednesday',
+	'Thursday',
+	'Friday',
+	'Saturday',
+	'Sunday'
+] as const;
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export function weekNumberForDate(dateStr: string): number | null {
-	const start = new Date('2026-08-03T00:00:00');
+	const start = new Date(`${PLAN_START_ISO}T00:00:00`);
 	const d = new Date(`${dateStr}T00:00:00`);
 	if (Number.isNaN(d.getTime())) return null;
 	const idx = Math.floor((d.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
-	if (idx < 1 || idx > 8) return null;
+	if (idx < 1 || idx > PLAN_WEEK_COUNT) return null;
 	return idx;
+}
+
+export function planWeekIndex(today = new Date()): number {
+	const start = new Date(`${PLAN_START_ISO}T00:00:00`);
+	return Math.floor((today.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+}
+
+export function planWeekStartIso(week: number): string {
+	const start = new Date(`${PLAN_START_ISO}T12:00:00`);
+	start.setDate(start.getDate() + (week - 1) * 7);
+	return isoDateLocal(start);
+}
+
+export function planWeekDateRange(week: number): string {
+	const start = new Date(`${planWeekStartIso(week)}T12:00:00`);
+	const end = new Date(start);
+	end.setDate(end.getDate() + 6);
+	const f = (d: Date) => `${String(d.getDate()).padStart(2, '0')} ${MONTHS[d.getMonth()]}`;
+	return `${f(start)}–${f(end)} ${end.getFullYear()}`;
+}
+
+export function dateForSessionDay(weekStartIso: string, day: string): string | null {
+	const idx = WEEKDAYS.findIndex((d) => d.toLowerCase() === day.trim().toLowerCase());
+	if (idx < 0) return null;
+	const d = new Date(`${weekStartIso}T12:00:00`);
+	if (Number.isNaN(d.getTime())) return null;
+	d.setDate(d.getDate() + idx);
+	return isoDateLocal(d);
 }
 
 export function avg(nums: (number | null | undefined)[]) {
@@ -28,7 +72,7 @@ export function plannedSessionFor(week: PlanWeek | null, day: string) {
 	return week.sessions.find((s) => s.day.toLowerCase() === day.toLowerCase()) ?? null;
 }
 
-function isoDateLocal(d: Date): string {
+export function isoDateLocal(d: Date): string {
 	const y = d.getFullYear();
 	const m = String(d.getMonth() + 1).padStart(2, '0');
 	const day = String(d.getDate()).padStart(2, '0');
@@ -39,19 +83,67 @@ function round1(n: number): number {
 	return Math.round(n * 10) / 10;
 }
 
-/** Consecutive Tue/Fri/Sun hits walking backward from today. */
-export function trainingDayStreak(runs: RunRecord[]): number {
-	const dates = new Set(runs.map((r) => r.date));
-	const training = new Set([0, 2, 5]); // Sun, Tue, Fri
-	const d = new Date();
-	d.setHours(12, 0, 0, 0);
-	let streak = 0;
-	for (let i = 0; i < 120; i++) {
-		if (training.has(d.getDay())) {
-			if (dates.has(isoDateLocal(d))) streak++;
-			else break;
+export type WeekSessionView = PlanSession & {
+	date: string | null;
+	done: boolean;
+	isToday: boolean;
+	isNext: boolean;
+};
+
+export type WeekView = {
+	week: PlanWeek;
+	sessions: WeekSessionView[];
+	next: WeekSessionView | null;
+};
+
+export function buildWeekView(
+	week: PlanWeek,
+	runs: Pick<RunRecord, 'date' | 'activity_type'>[],
+	today = new Date()
+): WeekView {
+	const todayIso = isoDateLocal(today);
+	const start = planWeekStartIso(week.week);
+	const logged = new Set(runs.map((r) => r.date));
+	const sessions: WeekSessionView[] = week.sessions.map((s) => {
+		const date = dateForSessionDay(start, s.day);
+		return {
+			...s,
+			date,
+			done: date != null && logged.has(date),
+			isToday: date === todayIso,
+			isNext: false
+		};
+	});
+	const next =
+		sessions.find((s) => !s.done && (s.date == null || s.date >= todayIso)) ??
+		sessions.find((s) => !s.done) ??
+		null;
+	if (next) next.isNext = true;
+	return { week, sessions, next };
+}
+
+/** Consecutive planned-session dates (from the plan, any weekdays) that have a logged run. */
+export function sessionStreak(runs: RunRecord[], plan: PlanWeek[], today = new Date()): number {
+	const todayIso = isoDateLocal(today);
+	const runDates = new Set(
+		runs.filter((r) => normalizeActivityType(r.activity_type) === 'run').map((r) => r.date)
+	);
+	const planned: string[] = [];
+	for (const w of plan) {
+		const start = planWeekStartIso(w.week);
+		for (const s of w.sessions) {
+			const d = dateForSessionDay(start, s.day);
+			if (d && d <= todayIso) planned.push(d);
 		}
-		d.setDate(d.getDate() - 1);
+	}
+	planned.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+	const seen = new Set<string>();
+	let streak = 0;
+	for (const d of planned) {
+		if (seen.has(d)) continue;
+		seen.add(d);
+		if (runDates.has(d)) streak++;
+		else break;
 	}
 	return streak;
 }
@@ -78,7 +170,7 @@ export type DashboardStats = {
 
 export function buildDashboardStats(
 	runs: RunRecord[],
-	opts: { daysToRace: number | null; mappedRuns: number }
+	opts: { daysToRace: number | null; mappedRuns: number; streak?: number }
 ): DashboardStats {
 	const now = new Date();
 	now.setHours(12, 0, 0, 0);
@@ -125,6 +217,6 @@ export function buildDashboardStats(
 		shinPrior: shinPrior != null ? round1(shinPrior) : null,
 		shinDelta,
 		mappedRuns: opts.mappedRuns,
-		streak: trainingDayStreak(runs)
+		streak: opts.streak ?? 0
 	};
 }

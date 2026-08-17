@@ -39,17 +39,33 @@ export function formatClockTime(d: Date | null | undefined): string {
 
 export function dayFromIsoDate(iso: string): string {
 	const d = new Date(`${iso}T12:00:00`);
-	if (Number.isNaN(d.getTime())) return 'Tuesday';
+	if (Number.isNaN(d.getTime())) return '';
 	return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][
 		d.getDay()
 	];
 }
 
-export function guessSession(day: string, distanceKm: number | null): string {
-	if (day === 'Sunday') return 'long';
+/** Map a plan label like "Easy + strides" or "10K effort" to a session type. */
+export function sessionTypeFromLabel(label: string | null | undefined): string | null {
+	const t = String(label ?? '').toLowerCase();
+	if (!t) return null;
+	if (/\brace\b/.test(t)) return 'race';
+	if (/\blong\b/.test(t)) return 'long';
+	if (/\btempo\b/.test(t)) return 'tempo';
+	if (/\bshake/.test(t)) return 'shakeout';
+	if (/\bsteady\b/.test(t)) return 'steady';
+	if (/\beasy\b/.test(t)) return 'easy';
+	if (/\b(quality|interval|10k effort|brisk)\b/.test(t)) return 'quality';
+	return null;
+}
+
+export function guessSession(
+	_day: string,
+	distanceKm: number | null,
+	planLabel?: string | null
+): string {
 	if (distanceKm != null && distanceKm >= 11) return 'long';
-	if (day === 'Friday') return 'quality';
-	return 'easy';
+	return sessionTypeFromLabel(planLabel) ?? 'easy';
 }
 
 export function formatDuration(totalSeconds: number): string {

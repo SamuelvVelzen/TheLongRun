@@ -1,4 +1,4 @@
-export type RunDay = 'Tuesday' | 'Friday' | 'Sunday';
+export type RunDay = string;
 export type SessionType =
 	'easy' | 'quality' | 'tempo' | 'long' | 'steady' | 'shakeout' | 'race' | 'other';
 

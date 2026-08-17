@@ -85,9 +85,12 @@ function LogRun() {
 		<>
 			<section className="hero">
 				<div>
-					<p className="muted">Quick manual entry</p>
+					<p className="muted">Manual fallback</p>
 					<h1>Log an activity</h1>
-					<p>Pick the type, fill what you have — fields adapt to the activity, and weather fetches on demand.</p>
+					<p>
+						<Link to="/import">Import</Link> is the usual way to add a session. Use this form when you
+						need to enter one by hand — fields adapt to the activity.
+					</p>
 				</div>
 			</section>
 

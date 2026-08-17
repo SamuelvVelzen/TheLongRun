@@ -1,6 +1,6 @@
 import '../app.css';
 import '../components.css';
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import { Outlet, createRootRoute, HeadContent, Scripts, Link } from '@tanstack/react-router';
 
 export const Route = createRootRoute({
@@ -15,28 +15,30 @@ export const Route = createRootRoute({
 	component: RootComponent
 });
 
-const links = [
+const primaryLinks = [
 	{ href: '/', label: 'Dashboard' },
 	{ href: '/timeline', label: 'Timeline' },
 	{ href: '/routes', label: 'Routes' },
-	{ href: '/log', label: 'Log activity' },
-	{ href: '/import', label: 'Import' },
+	{ href: '/import', label: 'Import' }
+] as const;
+
+const moreLinks = [
+	{ href: '/log', label: 'Log manually' },
 	{ href: '/context', label: 'Context' },
 	{ href: '/coach', label: 'Coach' }
 ] as const;
 
 const tabs = [
-	{ href: '/', label: 'Home', icon: 'home' },
-	{ href: '/timeline', label: 'Timeline', icon: 'timeline' },
-	{ href: '/log', label: 'Log', icon: 'log', primary: true },
-	{ href: '/routes', label: 'Routes', icon: 'routes' }
+	{ href: '/', label: 'Home', icon: 'home', primary: false },
+	{ href: '/timeline', label: 'Timeline', icon: 'timeline', primary: false },
+	{ href: '/import', label: 'Import', icon: 'import', primary: true },
+	{ href: '/routes', label: 'Routes', icon: 'routes', primary: false }
 ] as const;
 
-const moreLinks = [
-	{ href: '/import', label: 'Import' },
-	{ href: '/context', label: 'Context' },
-	{ href: '/coach', label: 'Coach' }
-] as const;
+function closeDetails(e: MouseEvent<HTMLElement>) {
+	const details = e.currentTarget.closest('details');
+	if (details) details.open = false;
+}
 
 function RootComponent() {
 	return (
@@ -47,24 +49,40 @@ function RootComponent() {
 						The Long <span>Run</span>
 					</Link>
 					<nav className="nav-links" aria-label="Primary">
-						{links.map((l) => (
+						{primaryLinks.map((l) => (
 							<Link
 								key={l.href}
 								to={l.href}
-								activeProps={{ className: 'active' }}
+								className={l.href === '/import' ? 'nav-import' : undefined}
+								activeProps={{ className: l.href === '/import' ? 'nav-import active' : 'active' }}
 								activeOptions={{ exact: l.href === '/' }}
 							>
 								{l.label}
 							</Link>
 						))}
-						<a
-							href="https://brouter.de/brouter-web/"
-							target="_blank"
-							rel="noreferrer noopener"
-							className="nav-external"
-						>
-							Plan route ↗
-						</a>
+						<details className="nav-more">
+							<summary>More</summary>
+							<div className="nav-more-menu">
+								{moreLinks.map((l) => (
+									<Link
+										key={l.href}
+										to={l.href}
+										activeProps={{ className: 'active' }}
+										onClick={closeDetails}
+									>
+										{l.label}
+									</Link>
+								))}
+								<a
+									href="https://brouter.de/brouter-web/"
+									target="_blank"
+									rel="noreferrer noopener"
+									className="nav-external"
+								>
+									Plan route ↗
+								</a>
+							</div>
+						</details>
 					</nav>
 				</header>
 				<Outlet />
@@ -73,8 +91,10 @@ function RootComponent() {
 						<Link
 							key={tab.href}
 							to={tab.href}
-							className={tab.primary ? 'tab-item tab-item-log' : 'tab-item'}
-							activeProps={{ className: tab.primary ? 'tab-item tab-item-log active' : 'tab-item active' }}
+							className={tab.primary ? 'tab-item tab-item-primary' : 'tab-item'}
+							activeProps={{
+								className: tab.primary ? 'tab-item tab-item-primary active' : 'tab-item active'
+							}}
 							activeOptions={{ exact: tab.href === '/' }}
 						>
 							<span className="tab-icon">
@@ -96,6 +116,7 @@ function RootComponent() {
 									key={l.href}
 									to={l.href}
 									activeProps={{ className: 'active' }}
+									onClick={closeDetails}
 								>
 									{l.label}
 								</Link>
@@ -116,7 +137,7 @@ function RootComponent() {
 	);
 }
 
-function TabIcon({ name }: { name: 'home' | 'timeline' | 'log' | 'routes' | 'more' }) {
+function TabIcon({ name }: { name: 'home' | 'timeline' | 'import' | 'routes' | 'more' }) {
 	const common = {
 		width: 22,
 		height: 22,
@@ -146,10 +167,13 @@ function TabIcon({ name }: { name: 'home' | 'timeline' | 'log' | 'routes' | 'mor
 					<circle cx="4.2" cy="18" r="1.1" fill="currentColor" stroke="none" />
 				</svg>
 			);
-		case 'log':
+		case 'import':
 			return (
 				<svg {...common}>
-					<path d="M12 6v12M6 12h12" />
+					<path d="M12 3v10" />
+					<path d="m8 9 4 4 4-4" />
+					<path d="M5 18h14" />
+					<path d="M5 21h14" />
 				</svg>
 			);
 		case 'routes':

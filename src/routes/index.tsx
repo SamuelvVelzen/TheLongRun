@@ -130,16 +130,16 @@ function Dashboard() {
 					<p className="muted">Personal training desk · no accounts</p>
 					<h1>The Long Run</h1>
 					<p>
-						Log Tue / Fri / Sun runs and keep profile, plan, and gear notes in Context for your own
-						reference.
+						Import a GPS file to add a session — the usual path. Log manually when you need to, and
+						keep profile, plan, and gear notes in Context.
 					</p>
 				</div>
 				<div className="actions">
-					<Link className="btn btn-primary" to="/log">
-						Log an activity
+					<Link className="btn btn-primary" to="/import">
+						Import
 					</Link>
-					<Link className="btn btn-ghost" to="/context">
-						Context
+					<Link className="btn btn-ghost" to="/log">
+						Log manually
 					</Link>
 				</div>
 			</section>
@@ -277,8 +277,8 @@ function Dashboard() {
 							<Link className="btn btn-ghost" to="/timeline" search={timelineSearch}>
 								Full timeline
 							</Link>
-							<Link className="btn btn-ghost" to="/log">
-								Add activity
+							<Link className="btn btn-ghost" to="/import">
+								Import
 							</Link>
 						</div>
 					</div>
@@ -341,7 +341,7 @@ function Dashboard() {
 								</Link>
 							))
 						) : (
-							<div className="panel muted">No runs yet. Log your first one.</div>
+							<div className="panel muted">No runs yet. Import a file or log one manually.</div>
 						)}
 					</div>
 				</>

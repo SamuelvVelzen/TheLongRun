@@ -131,11 +131,14 @@ function Timeline() {
 						{range.kind !== 'all' && ` · ${range.label}`}
 					</p>
 					<h1>Timeline</h1>
-					<p>Every run in order — open one for notes and full metrics.</p>
+					<p>Every session in order — import a file, or open one for notes and full metrics.</p>
 				</div>
 				<div className="actions">
-					<Link className="btn btn-primary" to="/log">
-						Log an activity
+					<Link className="btn btn-primary" to="/import">
+						Import
+					</Link>
+					<Link className="btn btn-ghost" to="/log">
+						Log manually
 					</Link>
 				</div>
 			</section>

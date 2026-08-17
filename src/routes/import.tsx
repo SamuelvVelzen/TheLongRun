@@ -75,7 +75,7 @@ function Import() {
 		<>
 			<section className="hero">
 				<div>
-					<p className="muted">Manual import</p>
+					<p className="muted">The usual way to add a session</p>
 					<h1>Import GPX</h1>
 					<p>
 						Choose one or more <code>.gpx</code> tracks. Distance, pace, HR, elevation and per-km

@@ -20,7 +20,12 @@ import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 
-type TimelineSearch = RangeSearch & { sport?: string; country?: string };
+type TimelineSearch = RangeSearch & {
+	sport?: string;
+	country?: string;
+	province?: string;
+	place?: string;
+};
 const SPORTS = ['all', 'run', 'walk', 'ride', 'swim', 'strength'];
 
 export const Route = createFileRoute('/timeline')({
@@ -31,7 +36,9 @@ export const Route = createFileRoute('/timeline')({
 		from: typeof s.from === 'string' ? s.from : undefined,
 		to: typeof s.to === 'string' ? s.to : undefined,
 		sport: SPORTS.includes(s.sport as string) ? (s.sport as string) : undefined,
-		country: typeof s.country === 'string' ? s.country : undefined
+		country: typeof s.country === 'string' ? s.country : undefined,
+		province: typeof s.province === 'string' ? s.province : undefined,
+		place: typeof s.place === 'string' ? s.place : undefined
 	}),
 	loader: () => getTimelineRuns(),
 	component: Timeline
@@ -79,12 +86,23 @@ function Timeline() {
 	const range = parseDateRange(sp);
 	const sport = search.sport ?? 'all';
 	const country = search.country ?? 'all';
+	const province = search.province ?? 'all';
+	const place = search.place ?? 'all';
 	const availableSports = new Set(allRuns.map((r) => normalizeActivityType(r.activity_type)));
-	const availableCountries = [...new Set(allRuns.map((r) => r.country).filter(Boolean))].sort();
+
+	// Location options cascade: province options reflect the chosen country, place the chosen province.
+	const distinct = (arr: (string | undefined)[]) => [...new Set(arr.filter(Boolean) as string[])].sort();
+	const byCountry = allRuns.filter((r) => country === 'all' || r.country === country);
+	const byProvince = byCountry.filter((r) => province === 'all' || r.province === province);
+	const availableCountries = distinct(allRuns.map((r) => r.country));
+	const availableProvinces = distinct(byCountry.map((r) => r.province));
+	const availablePlaces = distinct(byProvince.map((r) => r.place));
 
 	const scoped = allRuns
 		.filter((r) => sport === 'all' || normalizeActivityType(r.activity_type) === sport)
-		.filter((r) => country === 'all' || r.country === country);
+		.filter((r) => country === 'all' || r.country === country)
+		.filter((r) => province === 'all' || r.province === province)
+		.filter((r) => place === 'all' || r.place === place);
 	const runs = filterRunsByRange(scoped, range);
 	const stats = buildRangeStats(runs);
 	const groups = groupRuns(runs);
@@ -134,7 +152,9 @@ function Timeline() {
 									to: '/timeline',
 									search: (prev) => ({
 										...prev,
-										country: e.target.value === 'all' ? undefined : e.target.value
+										country: e.target.value === 'all' ? undefined : e.target.value,
+										province: undefined,
+										place: undefined
 									})
 								})
 							}
@@ -143,6 +163,55 @@ function Timeline() {
 							{availableCountries.map((c) => (
 								<option key={c} value={c}>
 									{c}
+								</option>
+							))}
+						</select>
+					</label>
+				)}
+				{availableProvinces.length > 1 && (
+					<label className="filter-country">
+						<span className="muted">Province</span>
+						<select
+							value={province}
+							onChange={(e) =>
+								router.navigate({
+									to: '/timeline',
+									search: (prev) => ({
+										...prev,
+										province: e.target.value === 'all' ? undefined : e.target.value,
+										place: undefined
+									})
+								})
+							}
+						>
+							<option value="all">All provinces</option>
+							{availableProvinces.map((p) => (
+								<option key={p} value={p}>
+									{p}
+								</option>
+							))}
+						</select>
+					</label>
+				)}
+				{availablePlaces.length > 1 && (
+					<label className="filter-country">
+						<span className="muted">Place</span>
+						<select
+							value={place}
+							onChange={(e) =>
+								router.navigate({
+									to: '/timeline',
+									search: (prev) => ({
+										...prev,
+										place: e.target.value === 'all' ? undefined : e.target.value
+									})
+								})
+							}
+						>
+							<option value="all">All places</option>
+							{availablePlaces.map((p) => (
+								<option key={p} value={p}>
+									{p}
 								</option>
 							))}
 						</select>

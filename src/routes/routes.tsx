@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type MouseEvent } from 'react';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
-import { getPlannedRoutesData, importPlannedRoute } from '$lib/server/functions';
+import { deletePlannedRoute, getPlannedRoutesData, importPlannedRoute } from '$lib/server/functions';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 
 export const Route = createFileRoute('/routes')({
@@ -27,6 +27,18 @@ function PlannedRoutes() {
 		}
 		return out;
 	}, [data.routes]);
+
+	async function onDeleteRoute(event: MouseEvent, slug: string, name: string) {
+		event.preventDefault();
+		event.stopPropagation();
+		if (!confirm(`Delete planned route “${name}”?`)) return;
+		try {
+			await deletePlannedRoute({ data: slug });
+			await router.invalidate();
+		} catch (error) {
+			setMessage(error instanceof Error ? error.message : 'Delete failed');
+		}
+	}
 
 	async function importFile(file: File | undefined) {
 		if (!file) return;
@@ -116,25 +128,40 @@ function PlannedRoutes() {
 			</div>
 			<div className="grid">
 				{data.routes.map((route) => (
-					<Link
-						key={route.slug}
-						className="run-row planned-route-row"
-						to="/routes/$slug"
-						params={{ slug: route.slug }}
-					>
-						<div>
-							<strong className="run-title">{route.name}</strong>
-							<div className="muted">
-								{[route.place, route.country].filter(Boolean).join(', ') ||
-									`Saved ${route.saved_on}`}
+					<div key={route.slug} className="planned-route-card">
+						<Link
+							className="run-row planned-route-row"
+							to="/routes/$slug"
+							params={{ slug: route.slug }}
+						>
+							<div>
+								<strong className="run-title">{route.name}</strong>
+								<div className="muted">
+									{[route.place, route.country].filter(Boolean).join(', ') ||
+										`Saved ${route.saved_on}`}
+								</div>
 							</div>
-						</div>
-						<div>{route.distance_km ?? '—'} km</div>
-						<div>{route.elev_gain != null ? `↑ ${route.elev_gain} m` : 'Elevation —'}</div>
-						<div>
-							{route.waypoints.length} waypoint{route.waypoints.length === 1 ? '' : 's'}
-						</div>
-					</Link>
+							<div>{route.distance_km ?? '—'} km</div>
+							<div>{route.elev_gain != null ? `↑ ${route.elev_gain} m` : 'Elevation —'}</div>
+							<div>
+								{route.waypoints.length} waypoint{route.waypoints.length === 1 ? '' : 's'}
+							</div>
+						</Link>
+						<button
+							className="btn btn-ghost btn-danger btn-icon planned-route-delete"
+							type="button"
+							aria-label={`Delete route ${route.name}`}
+							title="Delete route"
+							onClick={(event) => void onDeleteRoute(event, route.slug, route.name)}
+						>
+							<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+								<path
+									fill="currentColor"
+									d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9zm-1 12h12l1-12H5l1 12z"
+								/>
+							</svg>
+						</button>
+					</div>
 				))}
 			</div>
 		</>

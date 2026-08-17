@@ -55,14 +55,44 @@ function PlannedRouteDetail() {
 			? `${route.elev_min}–${route.elev_max} m`
 			: '—';
 
+	async function persistName() {
+		const trimmed = name.trim();
+		if (!trimmed) {
+			setName(route.name);
+			return;
+		}
+		if (trimmed === route.name) return;
+		try {
+			await updatePlannedRoute({ data: { slug: route.slug, name: trimmed, notes: route.notes } });
+			await router.invalidate();
+		} catch (error) {
+			setMessage(error instanceof Error ? error.message : 'Save failed');
+		}
+	}
+
 	return (
 		<>
-			<section className="hero">
+			<section className="hero hero-route">
 				<div>
 					<p className="muted">
 						Planned route{location ? ` · ${location}` : ''} · saved {route.saved_on}
 					</p>
-					<h1>{route.name}</h1>
+					<h1>
+						<input
+							className="route-name-input"
+							value={name}
+							required
+							aria-label="Route name"
+							onChange={(event) => setName(event.target.value)}
+							onBlur={() => void persistName()}
+							onKeyDown={(event) => {
+								if (event.key === 'Enter') {
+									event.preventDefault();
+									(event.target as HTMLInputElement).blur();
+								}
+							}}
+						/>
+					</h1>
 					<p>{route.notes || 'Imported from GPX.'}</p>
 				</div>
 				<div className="actions">
@@ -70,7 +100,7 @@ function PlannedRouteDetail() {
 						Open in BRouter ↗
 					</button>
 					<button className="btn btn-ghost" type="button" onClick={() => setEditing(!editing)}>
-						{editing ? 'Cancel' : 'Edit'}
+						{editing ? 'Cancel' : 'Edit notes'}
 					</button>
 					<button className="btn btn-ghost btn-danger" type="button" onClick={() => void remove()}>
 						Delete
@@ -81,10 +111,6 @@ function PlannedRouteDetail() {
 			{message && <div className="flash">{message}</div>}
 			{editing && (
 				<form className="panel form" onSubmit={save} style={{ marginBottom: '1rem' }}>
-					<label className="field">
-						<span>Name</span>
-						<input value={name} required onChange={(event) => setName(event.target.value)} />
-					</label>
 					<label className="field">
 						<span>Notes</span>
 						<textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />

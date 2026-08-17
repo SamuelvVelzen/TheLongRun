@@ -238,6 +238,32 @@ p {
 	max-width: 12ch;
 }
 
+.hero-route h1 {
+	max-width: none;
+}
+
+.route-name-input {
+	display: block;
+	width: 100%;
+	max-width: min(28ch, 100%);
+	margin: 0;
+	padding: 0.1rem 0.4rem;
+	border: 1px dashed var(--line);
+	border-radius: 10px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: inherit;
+	letter-spacing: inherit;
+	line-height: inherit;
+}
+
+.route-name-input:focus {
+	border-style: solid;
+	border-color: var(--accent);
+	outline: none;
+}
+
 .hero p {
 	max-width: 68ch;
 	color: var(--muted);
@@ -432,8 +458,21 @@ p {
 	margin-bottom: 1.25rem;
 }
 
+.planned-route-card {
+	position: relative;
+}
+
 .planned-route-row {
 	grid-template-columns: 1.35fr 0.55fr 0.65fr 0.65fr;
+	padding-right: 3.25rem;
+}
+
+.planned-route-delete {
+	position: absolute;
+	top: 0.55rem;
+	right: 0.55rem;
+	z-index: 2;
+	margin: 0;
 }
 
 .planned-route-metrics {
@@ -2116,11 +2155,13 @@ body.map-fs-active .map-wrap.is-fullscreen:not(:fullscreen):not(:-webkit-full-sc
 		background: rgba(200, 242, 90, 0.1);
 	}
 
-	.timeline-delete {
+	.timeline-delete,
+	.planned-route-delete {
 		opacity: 0.55;
 	}
 
-	.timeline-card:hover .timeline-delete {
+	.timeline-card:hover .timeline-delete,
+	.planned-route-card:hover .planned-route-delete {
 		opacity: 1;
 	}
 

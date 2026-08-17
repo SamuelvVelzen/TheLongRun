@@ -359,7 +359,7 @@
 		opacity 0.12s ease;
 }
 .bar-col.active .bar:not(.empty),
-.bar-col:hover .bar:not(.empty) {
+.bar-col:active .bar:not(.empty) {
 	filter: brightness(1.08);
 }
 .bar.empty {
@@ -541,28 +541,36 @@
 	padding: 0.15rem 0.3rem;
 }
 .strength-set input {
-	width: 3.4rem;
-	min-height: 2.1rem;
+	width: 3.75rem;
+	min-height: 44px;
 	text-align: center;
 }
 .strength-x-sep {
 	color: var(--muted);
 }
 .strength-x {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
 	border: 0;
 	background: transparent;
 	color: var(--muted);
 	cursor: pointer;
 	font-size: 1.05rem;
 	line-height: 1;
-	padding: 0 0.15rem;
+	width: 44px;
+	height: 44px;
+	min-width: 44px;
+	min-height: 44px;
+	padding: 0;
 }
-.strength-x:hover {
+.strength-x:active {
 	color: #ff8a5b;
 }
 .strength-add-set {
-	min-height: 2.1rem;
-	padding: 0.2rem 0.7rem;
+	min-height: 44px;
+	padding: 0.45rem 0.85rem;
 }
 .strength-view-row {
 	display: grid;
@@ -614,7 +622,7 @@
 }
 .weather-fetch {
 	flex: 0 0 auto;
-	min-height: auto;
+	min-height: 44px;
 	padding: 0 0.9rem;
 }
 
@@ -679,7 +687,7 @@
 		color 0.15s ease;
 }
 
-.dropzone:hover {
+.dropzone:active {
 	border-color: var(--accent);
 	color: var(--text);
 }
@@ -724,16 +732,24 @@
 }
 
 .upload-remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
 	border: 0;
 	background: transparent;
 	color: var(--muted);
 	font-size: 1.2rem;
 	line-height: 1;
 	cursor: pointer;
-	padding: 0 0.2rem;
+	width: 44px;
+	height: 44px;
+	min-width: 44px;
+	min-height: 44px;
+	padding: 0;
 }
 
-.upload-remove:hover {
+.upload-remove:active {
 	color: #ff8a5b;
 }
 
@@ -861,6 +877,7 @@
 	justify-content: space-between;
 	gap: 0.5rem;
 	width: 100%;
+	min-height: 44px;
 	text-align: left;
 	background: var(--panel-2, rgba(255, 255, 255, 0.03));
 	border: 1px solid var(--line);
@@ -871,7 +888,7 @@
 	cursor: pointer;
 	transition: border-color 0.15s ease, background 0.15s ease;
 }
-.quick-value:hover {
+.quick-value:active {
 	border-color: var(--accent);
 	background: rgba(200, 242, 90, 0.06);
 }
@@ -881,13 +898,10 @@
 }
 .quick-edit-pencil {
 	flex: 0 0 auto;
-	opacity: 0;
+	opacity: 1;
 	color: var(--accent);
 	font-size: 0.85rem;
 	transition: opacity 0.15s ease;
-}
-.quick-value:hover .quick-edit-pencil {
-	opacity: 1;
 }
 .quick-edit-row {
 	display: flex;
@@ -912,8 +926,8 @@
 	justify-content: flex-end;
 }
 .btn-sm {
-	min-height: auto;
-	padding: 0.35rem 0.7rem;
+	min-height: 44px;
+	padding: 0.5rem 0.85rem;
 	font-size: 0.82rem;
 }
 .quick-wanted {
@@ -922,6 +936,7 @@
 }
 .chip {
 	flex: 1;
+	min-height: 44px;
 	background: var(--panel-2, rgba(255, 255, 255, 0.03));
 	border: 1px solid var(--line);
 	border-radius: 8px;
@@ -932,7 +947,7 @@
 	cursor: pointer;
 	transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
-.chip:hover {
+.chip:active {
 	border-color: var(--accent);
 }
 .chip.active {
@@ -980,13 +995,14 @@
 	border: 0;
 	border-bottom: 2px solid transparent;
 	margin-bottom: -1px;
+	min-height: 44px;
 	padding: 0.55rem 0.9rem;
 	font: inherit;
 	font-weight: 600;
 	color: var(--muted);
 	cursor: pointer;
 }
-.coach-tab:hover {
+.coach-tab:active {
 	color: var(--fg, #fff);
 }
 .coach-tab.active {
@@ -1003,7 +1019,8 @@
 }
 .filter-country select {
 	width: auto;
-	padding: 0.35rem 0.6rem;
+	min-height: 44px;
+	padding: 0.5rem 0.75rem;
 	border-radius: 8px;
 }
 
@@ -1024,11 +1041,12 @@
 	background: transparent;
 	border: 0;
 	width: auto;
+	min-height: 44px;
 	color: var(--muted);
 	font: inherit;
 	font-size: 0.72rem;
 	font-weight: 600;
-	padding: 0.3rem 0.7rem;
+	padding: 0.5rem 0.85rem;
 	cursor: pointer;
 }
 .heatmap-view-toggle button.active {
@@ -1055,4 +1073,44 @@
 .map-wrap:-webkit-full-screen .route-legend {
 	bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
 	right: max(0.85rem, env(safe-area-inset-right, 0px));
+}
+
+@media (hover: hover) {
+	.bar-col:hover .bar:not(.empty) {
+		filter: brightness(1.08);
+	}
+
+	.strength-x:hover {
+		color: #ff8a5b;
+	}
+
+	.dropzone:hover {
+		border-color: var(--accent);
+		color: var(--text);
+	}
+
+	.upload-remove:hover {
+		color: #ff8a5b;
+	}
+
+	.quick-value:hover {
+		border-color: var(--accent);
+		background: rgba(200, 242, 90, 0.06);
+	}
+
+	.quick-edit-pencil {
+		opacity: 0;
+	}
+
+	.quick-value:hover .quick-edit-pencil {
+		opacity: 1;
+	}
+
+	.chip:hover {
+		border-color: var(--accent);
+	}
+
+	.coach-tab:hover {
+		color: var(--fg, #fff);
+	}
 }

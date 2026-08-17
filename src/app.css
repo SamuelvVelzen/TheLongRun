@@ -536,7 +536,7 @@ p {
 	animation: rise 500ms ease both;
 }
 
-.run-row:hover {
+.run-row:active {
 	border-color: rgba(200, 242, 90, 0.35);
 	background: rgba(200, 242, 90, 0.04);
 	transform: translateY(-1px);
@@ -648,12 +648,12 @@ p {
 			background 160ms ease;
 	}
 
-	.tab-item:hover,
-	.tab-item.active {
+	.tab-item:active {
 		color: var(--text);
 	}
 
-	.tab-item.active {
+	.tab-item.active,
+	.tab-item.active:active {
 		color: var(--accent);
 	}
 
@@ -748,8 +748,8 @@ p {
 			background 160ms ease;
 	}
 
-	.tab-more-menu a:hover,
-	.tab-more-menu a.active {
+	.tab-more-menu a.active,
+	.tab-more-menu a:active {
 		color: var(--text);
 		background: var(--panel);
 	}
@@ -1113,12 +1113,13 @@ textarea {
 	border: 1px solid var(--line);
 	background: transparent;
 	border-radius: 999px;
-	padding: 0.4rem 0.7rem;
+	min-height: 44px;
+	padding: 0.5rem 0.85rem;
 	color: var(--muted);
 	cursor: pointer;
 }
 
-.prompts button:hover {
+.prompts button:active {
 	color: var(--text);
 	border-color: rgba(200, 242, 90, 0.35);
 }
@@ -1185,7 +1186,7 @@ textarea {
 		border-color 0.15s ease,
 		background 0.15s ease;
 }
-.metric-editable:hover {
+.metric-editable:active {
 	border-color: var(--accent);
 	background: rgba(200, 242, 90, 0.1);
 }
@@ -1195,7 +1196,8 @@ textarea {
 .metric-edit input {
 	font-family: var(--font-display);
 	font-size: 1.35rem;
-	padding: 0.15rem 0.4rem;
+	min-height: 44px;
+	padding: 0.35rem 0.5rem;
 	border-radius: 8px;
 	width: 100%;
 }
@@ -1259,6 +1261,7 @@ textarea {
 	flex-wrap: wrap;
 	align-items: baseline;
 	gap: 0.45rem 0.75rem;
+	min-height: 44px;
 }
 
 .context-card summary::-webkit-details-marker {
@@ -1485,16 +1488,15 @@ textarea.editor {
 	display: inline-flex;
 	align-items: center;
 	margin: 0;
-	opacity: 0.55;
+	opacity: 1;
 	transition: opacity 160ms ease;
 }
 
-.timeline-card:hover .timeline-delete,
 .timeline-delete:focus-within {
 	opacity: 1;
 }
 
-.timeline-item:hover .timeline-card {
+.timeline-item:active .timeline-card {
 	border-color: rgba(200, 242, 90, 0.35);
 	background: rgba(200, 242, 90, 0.04);
 	transform: translateY(-1px);
@@ -1566,8 +1568,8 @@ textarea.editor {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-height: 2.25rem;
-	padding: 0.4rem 0.85rem;
+	min-height: 44px;
+	padding: 0.5rem 0.85rem;
 	border: 0;
 	border-radius: 0;
 	background: transparent;
@@ -1583,7 +1585,7 @@ a.range-chip {
 	text-decoration: none;
 }
 
-.range-chip:hover {
+.range-chip:active {
 	color: var(--text);
 }
 
@@ -1674,8 +1676,10 @@ a.range-chip {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 2.15rem;
-	height: 2.15rem;
+	width: 44px;
+	height: 44px;
+	min-width: 44px;
+	min-height: 44px;
 	padding: 0;
 	border-radius: 10px;
 	border: 1px solid var(--line);
@@ -1689,7 +1693,7 @@ a.range-chip {
 		color 140ms ease;
 }
 
-.map-chrome-btn:hover {
+.map-chrome-btn:active {
 	border-color: rgba(200, 242, 90, 0.45);
 	color: var(--accent);
 }
@@ -1826,7 +1830,75 @@ body.map-fs-active .map-wrap.is-fullscreen:not(:fullscreen):not(:-webkit-full-sc
 	}
 
 	.map-chrome-btn {
-		width: 2.4rem;
-		height: 2.4rem;
+		width: 44px;
+		height: 44px;
+	}
+}
+
+@media (hover: hover) {
+	.nav-links a:hover {
+		color: var(--text);
+		background: var(--panel);
+	}
+
+	.btn:hover:not(:disabled) {
+		transform: translateY(-1px);
+	}
+
+	.btn-danger:hover {
+		background: rgba(255, 138, 91, 0.1);
+		border-color: var(--warn);
+	}
+
+	.run-row:hover {
+		border-color: rgba(200, 242, 90, 0.35);
+		background: rgba(200, 242, 90, 0.04);
+		transform: translateY(-1px);
+	}
+
+	.tab-item:hover {
+		color: var(--text);
+	}
+
+	.tab-item.active:hover {
+		color: var(--accent);
+	}
+
+	.tab-more-menu a:hover {
+		color: var(--text);
+		background: var(--panel);
+	}
+
+	.prompts button:hover {
+		color: var(--text);
+		border-color: rgba(200, 242, 90, 0.35);
+	}
+
+	.metric-editable:hover {
+		border-color: var(--accent);
+		background: rgba(200, 242, 90, 0.1);
+	}
+
+	.timeline-delete {
+		opacity: 0.55;
+	}
+
+	.timeline-card:hover .timeline-delete {
+		opacity: 1;
+	}
+
+	.timeline-item:hover .timeline-card {
+		border-color: rgba(200, 242, 90, 0.35);
+		background: rgba(200, 242, 90, 0.04);
+		transform: translateY(-1px);
+	}
+
+	.range-chip:hover {
+		color: var(--text);
+	}
+
+	.map-chrome-btn:hover {
+		border-color: rgba(200, 242, 90, 0.45);
+		color: var(--accent);
 	}
 }

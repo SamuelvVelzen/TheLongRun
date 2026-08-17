@@ -1006,3 +1006,32 @@
 	padding: 0.35rem 0.6rem;
 	border-radius: 8px;
 }
+
+/* ---------- Heatmap Recent/All zoom toggle ---------- */
+.heatmap-view-toggle {
+	position: absolute;
+	z-index: 2;
+	left: 0.85rem;
+	top: 0.85rem;
+	display: inline-flex;
+	border-radius: 999px;
+	overflow: hidden;
+	border: 1px solid var(--line);
+	background: rgba(16, 20, 15, 0.85);
+}
+.heatmap-view-toggle button {
+	appearance: none;
+	background: transparent;
+	border: 0;
+	width: auto;
+	color: var(--muted);
+	font: inherit;
+	font-size: 0.72rem;
+	font-weight: 600;
+	padding: 0.3rem 0.7rem;
+	cursor: pointer;
+}
+.heatmap-view-toggle button.active {
+	background: var(--accent);
+	color: #10140f;
+}

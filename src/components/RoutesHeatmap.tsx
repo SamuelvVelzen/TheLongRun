@@ -7,12 +7,26 @@ import type { RouteTrack } from '$lib/types';
 /** Per-track hover/click metadata, keyed by route id. */
 export type RouteMeta = Record<string, { slug: string; title: string; sub: string }>;
 
-export function RoutesHeatmap({ tracks, meta = {} }: { tracks: RouteTrack[]; meta?: RouteMeta }) {
+export function RoutesHeatmap({
+	tracks,
+	meta = {},
+	focusIds = []
+}: {
+	tracks: RouteTrack[];
+	meta?: RouteMeta;
+	/** Route ids of recent runs — the map zooms to these by default (with an 'All' toggle). */
+	focusIds?: string[];
+}) {
 	const wrapRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [status, setStatus] = useState('Loading map…');
 	const [failed, setFailed] = useState(false);
+	const [view, setView] = useState<'recent' | 'all'>('recent');
+	const fitRecentRef = useRef<() => void>(() => {});
+	const fitAllRef = useRef<() => void>(() => {});
 	const navigate = useNavigate();
+	const focusKey = focusIds.join(',');
+	const hasFocus = focusIds.length > 0;
 
 	useEffect(() => {
 		if (!tracks.length) {
@@ -41,7 +55,9 @@ export function RoutesHeatmap({ tracks, meta = {} }: { tracks: RouteTrack[]; met
 					maxZoom: 19
 				}).addTo(map);
 
-				const bounds = L.latLngBounds([]);
+				const allBounds = L.latLngBounds([]);
+				const focusSet = new Set(focusIds);
+				const focusBounds = L.latLngBounds([]);
 				for (const track of tracks) {
 					if (track.coords.length < 2) continue;
 					const info = meta[track.id];
@@ -63,19 +79,24 @@ export function RoutesHeatmap({ tracks, meta = {} }: { tracks: RouteTrack[]; met
 						const el = line.getElement?.();
 						if (el) el.style.cursor = 'pointer';
 					}
-					bounds.extend(line.getBounds());
+					allBounds.extend(line.getBounds());
+					if (focusSet.has(track.id)) focusBounds.extend(line.getBounds());
 				}
 
-				const fit = () => {
-					if (bounds.isValid()) {
-						map.fitBounds(bounds, { padding: [24, 24], maxZoom: 14 });
-					} else {
-						map.setView([52.37, 4.9], 11);
-					}
+				const fitAll = () => {
+					if (allBounds.isValid()) map.fitBounds(allBounds, { padding: [24, 24], maxZoom: 14 });
+					else map.setView([52.37, 4.9], 11);
 				};
-				fit();
+				const fitRecent = () => {
+					if (focusBounds.isValid()) map.fitBounds(focusBounds, { padding: [30, 30], maxZoom: 14 });
+					else fitAll();
+				};
+				fitAllRef.current = fitAll;
+				fitRecentRef.current = fitRecent;
+				// Land zoomed to recent runs, not the whole (possibly intercontinental) spread.
+				fitRecent();
 
-				chrome = attachMapChrome({ map, wrap: wrapRef.current, onFit: fit });
+				chrome = attachMapChrome({ map, wrap: wrapRef.current, onFit: fitRecent });
 				setStatus('');
 			} catch (e) {
 				setFailed(true);
@@ -88,7 +109,7 @@ export function RoutesHeatmap({ tracks, meta = {} }: { tracks: RouteTrack[]; met
 			chrome?.destroy();
 			map?.remove?.();
 		};
-	}, [tracks, meta, navigate]);
+	}, [tracks, meta, navigate, focusKey]);
 
 	if (!tracks.length) {
 		return (
@@ -101,6 +122,30 @@ export function RoutesHeatmap({ tracks, meta = {} }: { tracks: RouteTrack[]; met
 	return (
 		<div className="heatmap-wrap map-wrap" ref={wrapRef}>
 			{status && <p className={`heatmap-status${failed ? ' error' : ''}`}>{status}</p>}
+			{hasFocus && !status && (
+				<div className="heatmap-view-toggle" role="group" aria-label="Map zoom">
+					<button
+						type="button"
+						className={view === 'recent' ? 'active' : ''}
+						onClick={() => {
+							setView('recent');
+							fitRecentRef.current();
+						}}
+					>
+						Recent
+					</button>
+					<button
+						type="button"
+						className={view === 'all' ? 'active' : ''}
+						onClick={() => {
+							setView('all');
+							fitAllRef.current();
+						}}
+					>
+						All
+					</button>
+				</div>
+			)}
 			<div className="heatmap-map" ref={containerRef}></div>
 		</div>
 	);

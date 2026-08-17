@@ -95,6 +95,20 @@ function Dashboard() {
 		return m;
 	}, [allRuns]);
 
+	// Route ids of the most recent runs — the heatmap zooms to these by default.
+	const focusIds = useMemo(() => {
+		const ids: string[] = [];
+		for (const run of runs.slice(0, 12)) {
+			const id =
+				String(run.route || '')
+					.trim()
+					.replace(/^.*\//, '')
+					.replace(/\.json$/i, '') || String(run.strava_id || '').trim();
+			if (id) ids.push(id);
+		}
+		return ids;
+	}, [runs]);
+
 	const raceDate = new Date(`${data.goals.race_date}T00:00:00`);
 	const daysToRace = Number.isNaN(raceDate.getTime())
 		? null
@@ -248,7 +262,7 @@ function Dashboard() {
 								</p>
 							</div>
 						</div>
-						<RoutesHeatmap tracks={tracks} meta={routeMeta} />
+						<RoutesHeatmap tracks={tracks} meta={routeMeta} focusIds={focusIds} />
 					</section>
 
 					<div className="section-title">

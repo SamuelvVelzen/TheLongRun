@@ -677,7 +677,7 @@
 
 @media (max-width: 640px) {
 	.form-sticky-actions {
-		bottom: calc(4.35rem + env(safe-area-inset-bottom, 0px));
+		bottom: calc(5.1rem + env(safe-area-inset-bottom, 0px));
 		gap: 0.55rem;
 	}
 
@@ -1271,6 +1271,33 @@
 	color: var(--accent);
 }
 
+@media (max-width: 640px) {
+	.coach-tabs {
+		gap: 0;
+	}
+
+	.coach-tab {
+		flex: 1 1 0;
+		min-width: 0;
+		padding: 0.5rem 0.4rem;
+		font-size: 0.82rem;
+		text-align: center;
+		line-height: 1.25;
+	}
+
+	.coach-flow {
+		gap: 1.15rem;
+	}
+
+	.coach-flow-run {
+		overflow-wrap: anywhere;
+	}
+
+	.dropzone {
+		padding: 1.5rem 0.85rem;
+	}
+}
+
 /* ---------- Timeline country filter ---------- */
 .filter-country {
 	display: inline-flex;
@@ -1299,6 +1326,7 @@
 }
 .heatmap-view-toggle button {
 	appearance: none;
+	position: relative;
 	background: transparent;
 	border: 0;
 	width: auto;
@@ -1309,8 +1337,20 @@
 	font-weight: 600;
 	padding: 0.5rem 0.85rem;
 	cursor: pointer;
+	transition:
+		color 160ms ease,
+		background 160ms ease,
+		border-color 160ms ease;
+}
+.heatmap-view-toggle button:not(:last-child) {
+	border-right: 1px solid var(--line);
+}
+.heatmap-view-toggle button.active,
+.heatmap-view-toggle button:has(+ .active) {
+	border-right-color: transparent;
 }
 .heatmap-view-toggle button.active {
+	z-index: 1;
 	background: var(--accent);
 	color: #10140f;
 }
@@ -1373,6 +1413,11 @@
 
 	.feel-chip:hover {
 		border-color: var(--accent);
+	}
+
+	.heatmap-view-toggle button:hover:not(.active) {
+		color: var(--text);
+		background: rgba(232, 240, 226, 0.12);
 	}
 
 	.coach-tab:hover {

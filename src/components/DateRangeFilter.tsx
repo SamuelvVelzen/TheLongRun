@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import type { DateRange, RangeKind } from '$lib/date-range';
+import { SegmentedToggle } from './SegmentedToggle';
 
 export type RangeSearch = { range?: RangeKind; from?: string; to?: string };
 
@@ -56,35 +57,24 @@ export function DateRangeFilter({ range, to }: { range: DateRange; to: string })
 
 	return (
 		<div className="range-filter" role="group" aria-label="Date range">
-			<div className="range-presets">
-				{presets.map((preset) => (
-					<button
-						key={preset.kind}
-						type="button"
-						className={`range-chip${range.kind === preset.kind ? ' active' : ''}`}
-						aria-pressed={range.kind === preset.kind}
-						onClick={() =>
-							navigate({
-								to,
-								search: (prev: Record<string, unknown>) => ({
-									...prev,
-									...rangeToSearch(preset.kind)
-								})
-							})
-						}
-					>
-						{preset.label}
-					</button>
-				))}
-				<button
-					type="button"
-					className={`range-chip${range.kind === 'custom' || customOpen ? ' active' : ''}`}
-					aria-pressed={range.kind === 'custom' || customOpen}
-					onClick={openCustom}
-				>
-					Custom
-				</button>
-			</div>
+			<SegmentedToggle
+				value={range.kind === 'custom' || customOpen ? 'custom' : range.kind}
+				onChange={(kind) => {
+					if (kind === 'custom') openCustom();
+				}}
+				options={[
+					...presets.map((preset) => ({
+						value: preset.kind,
+						label: preset.label,
+						to,
+						search: (prev: Record<string, unknown>) => ({
+							...prev,
+							...rangeToSearch(preset.kind)
+						})
+					})),
+					{ value: 'custom' as const, label: 'Custom' }
+				]}
+			/>
 
 			{(customOpen || range.kind === 'custom') && (
 				<form className="range-custom" onSubmit={applyCustom}>

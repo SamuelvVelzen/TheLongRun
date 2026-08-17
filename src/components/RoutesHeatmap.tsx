@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { loadLeaflet } from '$lib/leaflet';
 import { attachMapChrome, leafletMapOptions, type MapChromeHandle } from '$lib/map-chrome';
 import type { RouteTrack } from '$lib/types';
+import { SegmentedToggle } from './SegmentedToggle';
 
 /** Per-track hover/click metadata, keyed by route id. */
 export type RouteMeta = Record<string, { slug: string; title: string; sub: string }>;
@@ -119,28 +120,20 @@ export function RoutesHeatmap({
 		<div className="heatmap-wrap map-wrap" ref={wrapRef}>
 			{status && <p className={`heatmap-status${failed ? ' error' : ''}`}>{status}</p>}
 			{hasFocus && !status && (
-				<div className="heatmap-view-toggle" role="group" aria-label="Map zoom">
-					<button
-						type="button"
-						className={view === 'recent' ? 'active' : ''}
-						onClick={() => {
-							setView('recent');
-							fitRecentRef.current();
-						}}
-					>
-						Recent
-					</button>
-					<button
-						type="button"
-						className={view === 'all' ? 'active' : ''}
-						onClick={() => {
-							setView('all');
-							fitAllRef.current();
-						}}
-					>
-						All
-					</button>
-				</div>
+				<SegmentedToggle
+					className="heatmap-view-toggle"
+					value={view}
+					aria-label="Map zoom"
+					onChange={(next) => {
+						setView(next);
+						if (next === 'recent') fitRecentRef.current();
+						else fitAllRef.current();
+					}}
+					options={[
+						{ value: 'recent', label: 'Recent' },
+						{ value: 'all', label: 'All' }
+					]}
+				/>
 			)}
 			<div className="heatmap-map" ref={containerRef}></div>
 		</div>

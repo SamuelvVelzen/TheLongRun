@@ -1312,47 +1312,82 @@
 	border-radius: 8px;
 }
 
-/* ---------- Heatmap Recent/All zoom toggle ---------- */
-.heatmap-view-toggle {
-	position: absolute;
-	z-index: 2;
-	left: 0.85rem;
-	top: 0.85rem;
+/* ---------- Segmented pill toggle (filters + map overlay) ---------- */
+.seg-toggle {
 	display: inline-flex;
-	border-radius: 999px;
+	width: fit-content;
+	max-width: 100%;
 	overflow: hidden;
 	border: 1px solid var(--line);
+	border-radius: 999px;
 	background: rgba(16, 20, 15, 0.85);
 }
-.heatmap-view-toggle button {
+.seg-toggle-item {
 	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 	position: relative;
-	background: transparent;
-	border: 0;
 	width: auto;
 	min-height: 44px;
+	padding: 0.5rem 0.85rem;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
 	color: var(--muted);
 	font: inherit;
-	font-size: 0.72rem;
-	font-weight: 600;
-	padding: 0.5rem 0.85rem;
+	text-decoration: none;
 	cursor: pointer;
 	transition:
 		color 160ms ease,
 		background 160ms ease,
 		border-color 160ms ease;
 }
-.heatmap-view-toggle button:not(:last-child) {
+.seg-toggle-item:not(:last-child) {
 	border-right: 1px solid var(--line);
 }
-.heatmap-view-toggle button.active,
-.heatmap-view-toggle button:has(+ .active) {
-	border-right-color: transparent;
+.seg-toggle-item.active:not(:last-child),
+.seg-toggle-item:has(+ .active) {
+	border-right-color: color-mix(in srgb, var(--accent-ink) 40%, transparent);
 }
-.heatmap-view-toggle button.active {
-	z-index: 1;
+.seg-toggle-item:active {
+	color: var(--text);
+}
+.seg-toggle-item.active {
+	color: var(--accent-ink);
 	background: var(--accent);
-	color: #10140f;
+	font-weight: 600;
+}
+
+@media (max-width: 720px) {
+	.range-filter .seg-toggle {
+		overflow-x: auto;
+	}
+	.range-filter .seg-toggle-item {
+		flex: 0 0 auto;
+		padding: 0.55rem 0.75rem;
+	}
+}
+
+/* Map overlay: position only — chrome lives on .seg-toggle. */
+.heatmap-view-toggle {
+	position: absolute;
+	z-index: 2;
+	left: 0.85rem;
+	top: 0.85rem;
+}
+.heatmap-view-toggle .seg-toggle-item {
+	font-size: 0.72rem;
+	font-weight: 600;
+}
+
+@media (max-width: 640px) {
+	.heatmap-view-toggle .seg-toggle-item {
+		min-width: 44px;
+		min-height: 44px;
+		font-size: 0.8rem;
+		padding: 0.5rem 0.9rem;
+	}
 }
 
 /* Fullscreen map overlays: clear notch / home indicator (wrap stays edge-to-edge). */
@@ -1415,9 +1450,14 @@
 		border-color: var(--accent);
 	}
 
-	.heatmap-view-toggle button:hover:not(.active) {
+	.seg-toggle-item:hover:not(.active) {
 		color: var(--text);
-		background: rgba(232, 240, 226, 0.12);
+		background: color-mix(in srgb, var(--accent) 18%, transparent);
+	}
+
+	.seg-toggle-item:hover:not(:last-child),
+	.seg-toggle-item:has(+ .seg-toggle-item:hover) {
+		border-right-color: color-mix(in srgb, var(--accent-ink) 40%, transparent);
 	}
 
 	.coach-tab:hover {

@@ -1,5 +1,5 @@
-import { useNavigate } from '@tanstack/react-router';
 import type { ActivityType } from '$lib/activity';
+import { SegmentedToggle } from './SegmentedToggle';
 
 const OPTIONS: { value: 'all' | ActivityType; label: string }[] = [
 	{ value: 'all', label: 'All' },
@@ -25,35 +25,23 @@ export function SportFilter({
 	defaultSport?: string;
 	available?: Set<string>;
 }) {
-	const navigate = useNavigate();
 	const options = OPTIONS.filter((o) => o.value === 'all' || !available || available.has(o.value));
 
 	return (
-		<div className="range-filter" role="group" aria-label="Activity type">
-			<div className="range-presets">
-				{options.map((o) => {
-					const active = sport === o.value;
-					return (
-						<button
-							key={o.value}
-							type="button"
-							className={`range-chip${active ? ' active' : ''}`}
-							aria-pressed={active}
-							onClick={() =>
-								navigate({
-									to,
-									search: (prev: Record<string, unknown>) => ({
-										...prev,
-										sport: o.value === defaultSport ? undefined : o.value
-									})
-								})
-							}
-						>
-							{o.label}
-						</button>
-					);
-				})}
-			</div>
+		<div className="range-filter">
+			<SegmentedToggle
+				value={sport}
+				aria-label="Activity type"
+				options={options.map((o) => ({
+					value: o.value,
+					label: o.label,
+					to,
+					search: (prev: Record<string, unknown>) => ({
+						...prev,
+						sport: o.value === defaultSport ? undefined : o.value
+					})
+				}))}
+			/>
 		</div>
 	);
 }

@@ -1728,58 +1728,6 @@ textarea.editor {
 	border-bottom: 1px solid var(--line);
 }
 
-.range-presets {
-	display: inline-flex;
-	width: fit-content;
-	max-width: 100%;
-	overflow: hidden;
-	border: 1px solid var(--line);
-	border-radius: 999px;
-	background: rgba(16, 20, 15, 0.85);
-}
-
-.range-chip {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	position: relative;
-	min-height: 44px;
-	padding: 0.5rem 0.85rem;
-	border: 0;
-	border-radius: 0;
-	background: transparent;
-	color: var(--muted);
-	cursor: pointer;
-	transition:
-		color 160ms ease,
-		background 160ms ease,
-		border-color 160ms ease;
-}
-
-.range-chip:not(:last-child) {
-	border-right: 1px solid var(--line);
-}
-
-.range-chip.active,
-.range-chip:has(+ .range-chip.active) {
-	border-right-color: transparent;
-}
-
-a.range-chip {
-	text-decoration: none;
-}
-
-.range-chip:active {
-	color: var(--text);
-}
-
-.range-chip.active {
-	z-index: 1;
-	color: var(--accent-ink);
-	background: var(--accent);
-	font-weight: 600;
-}
-
 .range-custom {
 	display: flex;
 	flex-wrap: wrap;
@@ -1822,15 +1770,6 @@ a.range-chip {
 	.range-apply {
 		grid-column: 1 / -1;
 		width: 100%;
-	}
-
-	.range-presets {
-		overflow-x: auto;
-	}
-
-	.range-chip {
-		flex: 0 0 auto;
-		padding: 0.55rem 0.75rem;
 	}
 }
 
@@ -2052,13 +1991,6 @@ body.map-fs-active .map-wrap.is-fullscreen:not(:fullscreen):not(:-webkit-full-sc
 		min-width: 44px;
 		min-height: 44px;
 	}
-
-	.heatmap-view-toggle button {
-		min-width: 44px;
-		min-height: 44px;
-		font-size: 0.8rem;
-		padding: 0.5rem 0.9rem;
-	}
 }
 
 @media (pointer: coarse) {
@@ -2170,11 +2102,6 @@ body.map-fs-active .map-wrap.is-fullscreen:not(:fullscreen):not(:-webkit-full-sc
 		border-color: rgba(200, 242, 90, 0.35);
 		background: rgba(200, 242, 90, 0.04);
 		transform: translateY(-1px);
-	}
-
-	.range-chip:hover:not(.active) {
-		color: var(--text);
-		background: rgba(232, 240, 226, 0.12);
 	}
 
 	.map-chrome-btn:hover {

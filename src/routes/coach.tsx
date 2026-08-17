@@ -8,6 +8,7 @@ import {
 	saveFeelings,
 	savePlanWeeks
 } from '$lib/server/functions';
+import { PLAN_WEEK_COUNT, planWeekIndex, weekToPlan } from '$lib/plan';
 import { GpxImport } from '../components/GpxImport';
 
 type CoachTab = 'debrief' | 'plan' | 'feelings';
@@ -21,8 +22,14 @@ const WEEK_OPTIONS = [
 	{ value: 520, label: 'All time' }
 ];
 
-const DEFAULT_QUESTION =
-	'What should next week look like? Give me specific sessions with day, distance and intent (days can move), and flag anything to watch.';
+function planWeekPhrase(today = new Date()): 'this week' | 'next week' {
+	const cur = Math.min(PLAN_WEEK_COUNT, Math.max(1, planWeekIndex(today)));
+	return weekToPlan(today) > cur ? 'next week' : 'this week';
+}
+
+function defaultQuestion(phrase: 'this week' | 'next week'): string {
+	return `What should ${phrase} look like? Give me specific sessions with day, distance and intent (days can move), and flag anything to watch.`;
+}
 
 function parseTab(v: unknown): CoachTab {
 	if (v === 'plan' || v === 'feelings' || v === 'debrief') return v;
@@ -159,7 +166,10 @@ function Coach() {
 		}
 	}
 
-	const fullDoc = `${brief}\n## My question\n${question.trim() || DEFAULT_QUESTION}\n`;
+	const run = debrief.run;
+	const weekPhrase = planWeekPhrase();
+	const defaultQ = defaultQuestion(weekPhrase);
+	const fullDoc = `${brief}\n## My question\n${question.trim() || defaultQ}\n`;
 
 	function generateBrief() {
 		setBriefText(fullDoc);
@@ -198,13 +208,11 @@ function Coach() {
 		}
 	}
 
-	const run = debrief.run;
-
 	return (
 		<>
 			<section className="hero">
 				<div>
-					<p className="muted">After a run · then Sunday’s next week</p>
+					<p className="muted">After a run · then {weekPhrase}</p>
 					<h1>Coach</h1>
 					<p>
 						Import the GPX, copy the debrief prompt into ChatGPT with your Strava screenshots and
@@ -230,7 +238,7 @@ function Coach() {
 					className={`coach-tab${tab === 'plan' ? ' active' : ''}`}
 					onClick={() => setTab('plan')}
 				>
-					Plan next week
+					Plan {weekPhrase}
 				</button>
 				<button
 					type="button"
@@ -371,7 +379,7 @@ function Coach() {
 						<label className="field">
 							<span>Your question for the AI (optional)</span>
 							<textarea
-								placeholder={DEFAULT_QUESTION}
+								placeholder={defaultQ}
 								value={question}
 								onChange={(e) => setQuestion(e.target.value)}
 								rows={2}
@@ -407,7 +415,7 @@ function Coach() {
 					)}
 
 					<div className="panel form" style={{ marginTop: '1rem' }}>
-						<h3>Save next week’s plan</h3>
+						<h3>Save {weekPhrase}’s plan</h3>
 						<p className="muted" style={{ marginTop: '0.3rem' }}>
 							Paste the JSON block your AI returned — merged by week number. Sessions can be any
 							days.

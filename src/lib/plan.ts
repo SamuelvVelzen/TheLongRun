@@ -34,6 +34,18 @@ export function planWeekIndex(today = new Date()): number {
 	return Math.floor((today.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
 }
 
+/**
+ * Week the Coach “plan a week” prompt should generate.
+ * Mon–Sat: current calendar week (still needs a plan if they skipped Sunday).
+ * Sunday: next week (end-of-week ritual). Never past PLAN_WEEK_COUNT; before week 1 → week 1.
+ */
+export function weekToPlan(today = new Date()): number {
+	const idx = planWeekIndex(today);
+	if (idx < 1) return 1;
+	const target = today.getDay() === 0 ? idx + 1 : idx;
+	return Math.min(PLAN_WEEK_COUNT, target);
+}
+
 export function planWeekStartIso(week: number): string {
 	const start = new Date(`${PLAN_START_ISO}T12:00:00`);
 	start.setDate(start.getDate() + (week - 1) * 7);

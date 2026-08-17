@@ -21,6 +21,7 @@ import {
 	plannedSessionFor,
 	sessionStreak,
 	weekNumberForDate,
+	weekToPlan,
 	type WeekView
 } from '$lib/plan';
 import { activityLabel, metricText, normalizeActivityType } from '$lib/activity';
@@ -235,7 +236,8 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 			: Math.max(0, Math.ceil((raceDate.getTime() - today.getTime()) / (7 * 86_400_000)));
 
 		const curWeek = Math.min(PLAN_WEEK_COUNT, Math.max(1, planWeekIndex(today)));
-		const nextWeek = Math.min(PLAN_WEEK_COUNT, curWeek + 1);
+		const targetWeek = weekToPlan(today);
+		const weekPhrase = targetWeek > curWeek ? 'next week' : 'this week';
 		const todayIso = today.toISOString().slice(0, 10);
 		const weekRange = planWeekDateRange;
 
@@ -322,7 +324,7 @@ You are my running coach. I'm training toward **${goals.race_name}** (${goals.ra
 			weeksToRace != null ? ` — about **${weeksToRace} weeks** away` : ''
 		}. I run a few times a week and cross-train by bike and walk. Session days can move — do not assume a fixed Tuesday / Friday / Sunday pattern. Below is my plan, my recent training with how each session felt (effort / shins / legs / energy, each 0–10), my weekly running volume, and my constraints.
 
-Please assess how my training is going and give me a concrete plan for **next week** — specific sessions with day, distance and intent — adjusted for how I've been recovering and laddering toward the race. Flag any red flags (injury risk, overtraining, under-recovery). Days can shift if the week needs it.
+Please assess how my training is going and give me a concrete plan for **${weekPhrase}** — specific sessions with day, distance and intent — adjusted for how I've been recovering and laddering toward the race. Flag any red flags (injury risk, overtraining, under-recovery). Days can shift if the week needs it.
 
 ## Goal
 - Race: ${goals.race_name} — ${goals.race_distance_km} km on ${goals.race_date}${weeksToRace != null ? ` (~${weeksToRace} weeks to go)` : ''}
@@ -333,7 +335,7 @@ ${goals.notes ? `\n${goals.notes}\n` : ''}
 - Today: ${todayIso}.
 - Plan block: Monday–Sunday, ${PLAN_WEEK_COUNT} weeks, from ${PLAN_START_ISO} to race day ${goals.race_date}.
 - Current week: **week ${curWeek}** (${weekRange(curWeek)}).
-- The week to plan is **week ${nextWeek}** (${weekRange(nextWeek)}). In the JSON you return, set exactly \`"week": ${nextWeek}\` and \`"dates": "${weekRange(nextWeek)}"\`.
+- The week to plan is **week ${targetWeek}** (${weekRange(targetWeek)}) — ${weekPhrase}. In the JSON you return, set exactly \`"week": ${targetWeek}\` and \`"dates": "${weekRange(targetWeek)}"\`.
 
 ## All-time summary (auto-computed from all logged activities — current, not hand-maintained)
 - Logged since ${firstDate}: ${byType.run} runs, ${byType.ride} rides, ${byType.walk} walks${byType.swim ? `, ${byType.swim} swims` : ''}${byType.strength ? `, ${byType.strength} strength sessions` : ''}.
@@ -370,12 +372,12 @@ ${gear.trim() || '(none)'}
 ${raceStrategy.trim() || '(none)'}
 
 ## When you reply
-Give your assessment and next week's sessions in prose. Then, so I can save it straight back into my app, also output **next week as one JSON object** in exactly this shape (real values, same keys). Use however many sessions the week needs, on whatever days fit — not a fixed three-day template:
+Give your assessment and ${weekPhrase}'s sessions in prose. Then, so I can save it straight back into my app, also output **${weekPhrase} as one JSON object** in exactly this shape (real values, same keys). Use however many sessions the week needs, on whatever days fit — not a fixed three-day template:
 
 \`\`\`json
 {
-  "week": ${nextWeek},
-  "dates": "${weekRange(nextWeek)}",
+  "week": ${targetWeek},
+  "dates": "${weekRange(targetWeek)}",
   "phase": "base | build | peak | taper",
   "focus": "one-line focus for the week",
   "sessions": [

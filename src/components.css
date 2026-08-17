@@ -1035,3 +1035,24 @@
 	background: var(--accent);
 	color: #10140f;
 }
+
+/* Fullscreen map overlays: clear notch / home indicator (wrap stays edge-to-edge). */
+.map-wrap.is-fullscreen .route-map-status,
+.map-wrap:fullscreen .route-map-status,
+.map-wrap:-webkit-full-screen .route-map-status,
+.map-wrap.is-fullscreen .heatmap-status,
+.map-wrap:fullscreen .heatmap-status,
+.map-wrap:-webkit-full-screen .heatmap-status,
+.map-wrap.is-fullscreen .heatmap-view-toggle,
+.map-wrap:fullscreen .heatmap-view-toggle,
+.map-wrap:-webkit-full-screen .heatmap-view-toggle {
+	top: max(0.85rem, env(safe-area-inset-top, 0px));
+	left: max(0.85rem, env(safe-area-inset-left, 0px));
+}
+
+.map-wrap.is-fullscreen .route-legend,
+.map-wrap:fullscreen .route-legend,
+.map-wrap:-webkit-full-screen .route-legend {
+	bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
+	right: max(0.85rem, env(safe-area-inset-right, 0px));
+}

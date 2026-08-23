@@ -215,6 +215,36 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 				</section>
 			)}
 
+			{data.weekView && (
+				<section className="week-strip" aria-labelledby="plan-heading">
+					<div className="week-strip-head">
+						<h2 id="plan-heading">Plan</h2>
+						<p className="muted">
+							Week {data.weekView.week.week} · {data.weekView.week.phase}
+							{data.weekView.week.focus ? ` · ${data.weekView.week.focus}` : ''}
+						</p>
+					</div>
+					<div className="week-sessions">
+						{data.weekView.sessions.map((session, i) => (
+							<div
+								key={`${session.day}-${i}`}
+								className={`week-session${session.done ? ' is-done' : ''}${session.isNext ? ' is-next' : ''}`}
+							>
+								<span className="week-day">
+									{session.day}
+									{session.done ? ' · done' : session.isNext ? ' · next' : ''}
+								</span>
+								<strong className="week-label">{session.label}</strong>
+								{session.distance_km != null && (
+									<span className="week-km">{session.distance_km} km</span>
+								)}
+								<p className="muted week-detail">{session.detail}</p>
+							</div>
+						))}
+					</div>
+				</section>
+			)}
+
 			<FilterSheet summary={filterSummary(sport, range, { country, province, place })}>
 				<SportFilter sport={sport} to="/" available={availableSports} />
 				<DateRangeFilter range={range} to="/" />
@@ -281,29 +311,6 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 						<span aria-hidden="true"> · </span>
 						{stats.mappedRuns}/{stats.runCount} mapped
 					</p>
-
-					{data.weekView && (
-						<section className="week-strip" aria-label="This week's sessions">
-							<div className="week-sessions">
-								{data.weekView.sessions.map((session, i) => (
-									<div
-										key={`${session.day}-${i}`}
-										className={`week-session${session.done ? ' is-done' : ''}${session.isNext ? ' is-next' : ''}`}
-									>
-										<span className="week-day">
-											{session.day}
-											{session.done ? ' · done' : session.isNext ? ' · next' : ''}
-										</span>
-										<strong className="week-label">{session.label}</strong>
-										{session.distance_km != null && (
-											<span className="week-km">{session.distance_km} km</span>
-										)}
-										<p className="muted week-detail">{session.detail}</p>
-									</div>
-								))}
-							</div>
-						</section>
-					)}
 
 					{trends.series.length > 0 && (
 						<TrendsSection

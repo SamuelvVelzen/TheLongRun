@@ -126,10 +126,10 @@ export function buildWeekView(
 			isNext: false
 		};
 	});
+	// Only today / future incomplete sessions count as NEXT. Past skips (e.g. Rest)
+	// must not steal the highlight after a later day is already logged.
 	const next =
-		sessions.find((s) => !s.done && (s.date == null || s.date >= todayIso)) ??
-		sessions.find((s) => !s.done) ??
-		null;
+		sessions.find((s) => !s.done && (s.date == null || s.date >= todayIso)) ?? null;
 	if (next) next.isNext = true;
 	return { week, sessions, next };
 }

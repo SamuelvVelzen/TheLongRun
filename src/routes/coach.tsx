@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import {
 	getCoachBrief,
@@ -38,6 +38,8 @@ function parseTab(v: unknown): CoachTab {
 	return 'debrief';
 }
 
+type DebriefPrompt = Awaited<ReturnType<typeof getDebriefPrompt>>;
+
 export const Route = createFileRoute('/coach')({
 	validateSearch: (s: Record<string, unknown>): CoachSearch => {
 		const n = Number(s.weeks);
@@ -47,16 +49,24 @@ export const Route = createFileRoute('/coach')({
 			slug: typeof s.slug === 'string' && s.slug ? s.slug : undefined
 		};
 	},
+	// weeks only — slug changes must not remount DeferredData/Await (that felt like a full refresh).
 	loaderDeps: ({ search }) => ({
-		weeks: search.weeks ?? ALL_TIME_WEEKS,
-		slug: search.slug ?? ''
+		weeks: search.weeks ?? ALL_TIME_WEEKS
 	}),
-	loader: ({ deps }) => ({
-		page: Promise.all([
-			getCoachBrief({ data: deps.weeks }),
-			getDebriefPrompt({ data: deps.slug })
-		]).then(([brief, debrief]) => ({ brief, debrief }))
-	}),
+	loader: ({ deps, location }) => {
+		const slug =
+			typeof location.search === 'object' &&
+			location.search &&
+			typeof (location.search as CoachSearch).slug === 'string'
+				? ((location.search as CoachSearch).slug ?? '')
+				: '';
+		return {
+			page: Promise.all([
+				getCoachBrief({ data: deps.weeks }),
+				getDebriefPrompt({ data: slug })
+			]).then(([brief, debrief]) => ({ brief, debrief }))
+		};
+	},
 	component: Coach
 });
 
@@ -70,7 +80,9 @@ function Coach() {
 	function setTab(next: CoachTab) {
 		router.navigate({
 			to: '/coach',
-			search: { tab: next, weeks: search.weeks, slug: next === 'debrief' ? search.slug : undefined }
+			search: { tab: next, weeks: search.weeks, slug: next === 'debrief' ? search.slug : undefined },
+			replace: true,
+			resetScroll: false
 		});
 	}
 
@@ -125,15 +137,16 @@ function Coach() {
 
 function CoachPanels({
 	brief,
-	debrief
+	debrief: initialDebrief
 }: {
 	brief: string;
-	debrief: Awaited<ReturnType<typeof getDebriefPrompt>>;
+	debrief: DebriefPrompt;
 }) {
 	const search = Route.useSearch();
 	const router = useRouter();
 	const weeks = search.weeks ?? ALL_TIME_WEEKS;
 	const tab = search.tab ?? 'debrief';
+	const slug = search.slug ?? '';
 
 	const [question, setQuestion] = useState('');
 	const [copied, setCopied] = useState(false);
@@ -141,7 +154,8 @@ function CoachPanels({
 	const [planJson, setPlanJson] = useState('');
 	const [planMsg, setPlanMsg] = useState('');
 
-	const [debriefPrompt, setDebriefPrompt] = useState(debrief.prompt);
+	const [debrief, setDebrief] = useState(initialDebrief);
+	const [debriefPrompt, setDebriefPrompt] = useState(initialDebrief.prompt);
 	const [debriefJson, setDebriefJson] = useState('');
 	const [debriefMsg, setDebriefMsg] = useState('');
 	const [debriefCopied, setDebriefCopied] = useState(false);
@@ -154,9 +168,31 @@ function CoachPanels({
 	const [feelJson, setFeelJson] = useState('');
 	const [feelMsg, setFeelMsg] = useState('');
 
+	// Loader remount (weeks change) brings fresh initial debrief.
 	useEffect(() => {
-		setDebriefPrompt(debrief.prompt);
-	}, [debrief.prompt]);
+		setDebrief(initialDebrief);
+		setDebriefPrompt(initialDebrief.prompt);
+	}, [initialDebrief]);
+
+	// Soft slug updates (e.g. after GPX import) refresh the prompt without remounting the page.
+	const slugHydrated = useRef<string | null>(null);
+	useEffect(() => {
+		if (slugHydrated.current === null) {
+			slugHydrated.current = slug;
+			return;
+		}
+		if (slugHydrated.current === slug) return;
+		slugHydrated.current = slug;
+		let cancelled = false;
+		getDebriefPrompt({ data: slug }).then((next) => {
+			if (cancelled) return;
+			setDebrief(next);
+			setDebriefPrompt(next.prompt);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [slug]);
 
 	async function generateFeelPrompt() {
 		setFeelBusy(true);
@@ -302,7 +338,9 @@ function CoachPanels({
 										if (last?.slug) {
 											router.navigate({
 												to: '/coach',
-												search: { tab: 'debrief', slug: last.slug, weeks: search.weeks }
+												search: { tab: 'debrief', slug: last.slug, weeks: search.weeks },
+												replace: true,
+												resetScroll: false
 											});
 										}
 									}}
@@ -388,7 +426,9 @@ function CoachPanels({
 									onChange={(e) =>
 										router.navigate({
 											to: '/coach',
-											search: { tab: 'plan', weeks: Number(e.target.value) }
+											search: { tab: 'plan', weeks: Number(e.target.value) },
+											replace: true,
+											resetScroll: false
 										})
 									}
 								>

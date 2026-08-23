@@ -188,6 +188,7 @@ export function GpxImport({
 								className="btn btn-primary"
 								to="/coach"
 								search={{ tab: 'debrief', slug: lastOk.slug }}
+								resetScroll={false}
 							>
 								Continue in Coach
 							</Link>

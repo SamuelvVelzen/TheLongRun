@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
 import type { DateRange, RangeKind } from '$lib/date-range';
+import { useNavigate } from '@tanstack/react-router';
+import { useEffect, useState } from 'react';
 import { SegmentedToggle } from './SegmentedToggle';
 
 export type RangeSearch = { range?: RangeKind; from?: string; to?: string };
@@ -40,6 +40,8 @@ export function DateRangeFilter({ range, to }: { range: DateRange; to: string })
 		e.preventDefault();
 		navigate({
 			to,
+			replace: true,
+			resetScroll: false,
 			search: (prev: Record<string, unknown>) => ({
 				...prev,
 				...rangeToSearch('custom', customFrom, customTo)

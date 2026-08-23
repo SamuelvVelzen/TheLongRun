@@ -40,6 +40,8 @@ export function PlaceFilter({
 						onChange={(e) =>
 							navigate({
 								to,
+								replace: true,
+								resetScroll: false,
 								search: (prev: Record<string, unknown>) => ({
 									...prev,
 									country: e.target.value === 'all' ? undefined : e.target.value,
@@ -66,6 +68,8 @@ export function PlaceFilter({
 						onChange={(e) =>
 							navigate({
 								to,
+								replace: true,
+								resetScroll: false,
 								search: (prev: Record<string, unknown>) => ({
 									...prev,
 									province: e.target.value === 'all' ? undefined : e.target.value,
@@ -91,6 +95,8 @@ export function PlaceFilter({
 						onChange={(e) =>
 							navigate({
 								to,
+								replace: true,
+								resetScroll: false,
 								search: (prev: Record<string, unknown>) => ({
 									...prev,
 									place: e.target.value === 'all' ? undefined : e.target.value

@@ -587,7 +587,13 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const sessionLines =
 			weekView?.sessions
 				.map((s) => {
-					const state = s.done ? 'done' : s.isNext ? 'next' : 'upcoming';
+					const state = s.done
+						? 'done'
+						: s.skipped
+							? 'skipped'
+							: s.isNext
+								? 'next'
+								: 'upcoming';
 					return `- ${s.day}${s.date ? ` (${s.date})` : ''}: ${s.label}${s.distance_km != null ? ` · ${s.distance_km} km` : ''} — ${s.detail} [${state}]`;
 				})
 				.join('\n') ?? '- (no plan week)';

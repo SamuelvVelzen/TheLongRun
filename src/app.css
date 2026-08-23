@@ -546,16 +546,14 @@ p {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 	gap: 0.65rem;
+	align-items: stretch;
 }
 
 .week-session {
-	display: grid;
-	grid-template-columns: auto 1fr auto;
-	grid-template-areas:
-		'day label km'
-		'detail detail detail';
-	gap: 0.2rem 0.55rem;
-	align-items: baseline;
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+	min-width: 0;
 	padding: 0.7rem 0.85rem;
 	border-radius: 10px;
 	background: color-mix(in srgb, var(--panel) 55%, transparent);
@@ -565,42 +563,55 @@ p {
 	opacity: 0.55;
 }
 
+.week-session.is-skipped {
+	opacity: 0.42;
+}
+
 .week-session.is-next {
 	background: color-mix(in srgb, var(--accent) 10%, var(--panel));
 	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, var(--line));
 }
 
+.week-session-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 0.5rem;
+	min-width: 0;
+}
+
 .week-day {
-	grid-area: day;
 	font-size: 0.72rem;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
 	color: var(--accent);
 	font-weight: 600;
+	min-width: 0;
+	overflow-wrap: anywhere;
 }
 
 .week-label {
-	grid-area: label;
 	font-family: var(--font-display);
 	font-size: 1rem;
 	font-weight: 700;
 	letter-spacing: -0.02em;
+	line-height: 1.25;
 	overflow-wrap: anywhere;
 }
 
 .week-km {
-	grid-area: km;
-	font-size: 0.88rem;
-	font-weight: 600;
+	flex-shrink: 0;
+	font-size: 0.92rem;
+	font-weight: 700;
+	letter-spacing: -0.02em;
 	color: var(--text);
 	white-space: nowrap;
 }
 
 .week-detail {
-	grid-area: detail;
 	font-size: 0.92rem;
 	line-height: 1.5;
-	margin-top: 0.4rem;
+	margin: 0.35rem 0 0;
 	color: var(--text);
 	opacity: 0.9;
 	overflow-wrap: anywhere;

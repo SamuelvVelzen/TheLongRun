@@ -208,7 +208,11 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 			{data.weekView && !data.weekView.next && (
 				<section className="next-up next-up-done" aria-labelledby="next-up-heading">
 					<p className="muted next-up-kicker">This week</p>
-					<h2 id="next-up-heading">All planned sessions logged</h2>
+					<h2 id="next-up-heading">
+						{data.weekView.sessions.some((s) => s.skipped)
+							? 'Week complete — some sessions skipped'
+							: 'All planned sessions logged'}
+					</h2>
 					<p className="muted">
 						Week {data.weekView.week.week} · {data.weekView.week.phase}. Use Coach to plan next week.
 					</p>
@@ -225,22 +229,35 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 						</p>
 					</div>
 					<div className="week-sessions">
-						{data.weekView.sessions.map((session, i) => (
-							<div
-								key={`${session.day}-${i}`}
-								className={`week-session${session.done ? ' is-done' : ''}${session.isNext ? ' is-next' : ''}`}
-							>
-								<span className="week-day">
-									{session.day}
-									{session.done ? ' · done' : session.isNext ? ' · next' : ''}
-								</span>
-								<strong className="week-label">{session.label}</strong>
-								{session.distance_km != null && (
-									<span className="week-km">{session.distance_km} km</span>
-								)}
-								<p className="muted week-detail">{session.detail}</p>
-							</div>
-						))}
+						{data.weekView.sessions.map((session, i) => {
+							const status = session.done
+								? 'done'
+								: session.skipped
+									? 'skipped'
+									: session.isNext
+										? 'next'
+										: null;
+							return (
+								<div
+									key={`${session.day}-${i}`}
+									className={`week-session${session.done ? ' is-done' : ''}${session.skipped ? ' is-skipped' : ''}${session.isNext ? ' is-next' : ''}`}
+								>
+									<div className="week-session-head">
+										<span className="week-day">
+											{session.day}
+											{status ? ` · ${status}` : ''}
+										</span>
+										{session.distance_km != null && (
+											<span className="week-km">{session.distance_km} km</span>
+										)}
+									</div>
+									<strong className="week-label" title={session.label}>
+										{session.label}
+									</strong>
+									<p className="muted week-detail">{session.detail}</p>
+								</div>
+							);
+						})}
 					</div>
 				</section>
 			)}

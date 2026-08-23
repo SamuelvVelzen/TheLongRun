@@ -98,6 +98,7 @@ function round1(n: number): number {
 export type WeekSessionView = PlanSession & {
 	date: string | null;
 	done: boolean;
+	skipped: boolean;
 	isToday: boolean;
 	isNext: boolean;
 };
@@ -107,6 +108,23 @@ export type WeekView = {
 	sessions: WeekSessionView[];
 	next: WeekSessionView | null;
 };
+
+const SKIP_LANG_RE = /\bskip(?:ped|ping|s)?\b/i;
+const REST_LIKE_RE = /^(rest|off|recovery)(\b|[+\-–—]|$)/i;
+
+/** Past incomplete session: workouts count as skipped; rest/off only if skip language is present. */
+export function isSessionSkipped(
+	session: Pick<PlanSession, 'label' | 'detail'>,
+	date: string | null,
+	done: boolean,
+	todayIso: string
+): boolean {
+	if (done || date == null || date >= todayIso) return false;
+	const text = `${session.label} ${session.detail}`;
+	if (SKIP_LANG_RE.test(text)) return true;
+	if (REST_LIKE_RE.test(session.label.trim())) return false;
+	return true;
+}
 
 export function buildWeekView(
 	week: PlanWeek,
@@ -118,10 +136,12 @@ export function buildWeekView(
 	const logged = new Set(runs.map((r) => r.date));
 	const sessions: WeekSessionView[] = week.sessions.map((s) => {
 		const date = dateForSessionDay(start, s.day);
+		const done = date != null && logged.has(date);
 		return {
 			...s,
 			date,
-			done: date != null && logged.has(date),
+			done,
+			skipped: isSessionSkipped(s, date, done, todayIso),
 			isToday: date === todayIso,
 			isNext: false
 		};
@@ -129,7 +149,8 @@ export function buildWeekView(
 	// Only today / future incomplete sessions count as NEXT. Past skips (e.g. Rest)
 	// must not steal the highlight after a later day is already logged.
 	const next =
-		sessions.find((s) => !s.done && (s.date == null || s.date >= todayIso)) ?? null;
+		sessions.find((s) => !s.done && !s.skipped && (s.date == null || s.date >= todayIso)) ??
+		null;
 	if (next) next.isNext = true;
 	return { week, sessions, next };
 }

@@ -480,23 +480,22 @@ p {
 }
 
 .week-strip {
-	margin: 1.75rem 0 0.25rem;
-	padding: 1rem 0 0.15rem;
-	border-top: 1px solid var(--line);
-	border-bottom: 1px solid var(--line);
+	margin: 1.35rem 0 0.35rem;
+	padding: 0;
 }
 
 .week-strip-head {
-	margin-bottom: 0.85rem;
+	margin-bottom: 0.75rem;
 }
 
 .week-strip-head h2 {
 	font-size: 1.2rem;
 	font-weight: 700;
+	margin: 0;
 }
 
 .week-strip-head p {
-	margin-top: 0.3rem;
+	margin: 0.25rem 0 0;
 	font-size: 0.92rem;
 }
 
@@ -546,7 +545,7 @@ p {
 .week-sessions {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-	gap: 0;
+	gap: 0.65rem;
 }
 
 .week-session {
@@ -557,29 +556,18 @@ p {
 		'detail detail detail';
 	gap: 0.2rem 0.55rem;
 	align-items: baseline;
-	padding: 0.65rem 1rem 0.75rem 0;
-	border-right: 1px solid var(--line);
+	padding: 0.7rem 0.85rem;
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--panel) 55%, transparent);
 }
 
 .week-session.is-done {
-	opacity: 0.5;
+	opacity: 0.55;
 }
 
 .week-session.is-next {
-	background: color-mix(in srgb, var(--accent) 8%, transparent);
-	margin: 0 -0.5rem;
-	padding-left: 0.5rem;
-	padding-right: 1.5rem;
-	border-radius: 8px;
-}
-
-.week-session:last-child {
-	border-right: 0;
-	padding-right: 0;
-}
-
-.week-session:not(:first-child) {
-	padding-left: 1rem;
+	background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, var(--line));
 }
 
 .week-day {
@@ -621,27 +609,7 @@ p {
 @media (max-width: 860px) {
 	.week-sessions {
 		grid-template-columns: 1fr;
-	}
-
-	.week-session {
-		border-right: 0;
-		border-bottom: 1px solid var(--line);
-		padding: 0.75rem 0;
-	}
-
-	.week-session:not(:first-child) {
-		padding-left: 0;
-	}
-
-	.week-session:last-child {
-		border-bottom: 0;
-		padding-bottom: 0.35rem;
-	}
-
-	.week-session.is-next {
-		margin: 0;
-		padding-left: 0.65rem;
-		padding-right: 0.65rem;
+		gap: 0.5rem;
 	}
 }
 

@@ -2099,3 +2099,107 @@ body.map-fs-active .map-wrap.is-fullscreen:not(:fullscreen):not(:-webkit-full-sc
 		color: var(--accent);
 	}
 }
+
+.effort-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+	margin: 0.45rem 0 0;
+	padding: 0;
+	list-style: none;
+}
+.effort-badges.compact {
+	margin-top: 0.35rem;
+}
+.effort-badge {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.35rem;
+	padding: 0.18rem 0.5rem;
+	border-radius: 999px;
+	border: 1px solid var(--line);
+	font-size: 0.75rem;
+	font-weight: 650;
+}
+.effort-badge-time {
+	font-variant-numeric: tabular-nums;
+}
+.effort-badge-rank {
+	color: var(--muted);
+	font-weight: 500;
+	text-transform: lowercase;
+}
+.effort-badge.rank-1 {
+	border-color: rgba(240, 193, 74, 0.45);
+	color: #f0c14a;
+	background: rgba(240, 193, 74, 0.08);
+}
+.effort-badge.rank-2 {
+	border-color: rgba(197, 208, 220, 0.4);
+	color: #c5d0dc;
+	background: rgba(197, 208, 220, 0.08);
+}
+.effort-badge.rank-3 {
+	border-color: rgba(212, 165, 116, 0.45);
+	color: #d4a574;
+	background: rgba(212, 165, 116, 0.08);
+}
+
+.effort-board {
+	margin-bottom: 1.25rem;
+}
+.effort-board-table {
+	display: grid;
+	gap: 0.15rem;
+}
+.effort-board-row {
+	display: grid;
+	grid-template-columns: 7.5rem 1fr 1fr 1fr;
+	gap: 0.5rem 0.75rem;
+	align-items: start;
+	padding: 0.45rem 0;
+	border-bottom: 1px solid rgba(232, 240, 226, 0.06);
+	font-size: 0.88rem;
+}
+.effort-board-row.head {
+	font-size: 0.72rem;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--muted);
+	border-bottom-color: var(--line);
+	padding-bottom: 0.4rem;
+}
+.effort-board-cell {
+	display: flex;
+	flex-direction: column;
+	gap: 0.1rem;
+	color: inherit;
+	text-decoration: none;
+	min-width: 0;
+}
+.effort-board-cell b {
+	font-variant-numeric: tabular-nums;
+}
+.effort-board-cell.rank-1 b {
+	color: #f0c14a;
+}
+.effort-board-cell.rank-2 b {
+	color: #c5d0dc;
+}
+.effort-board-cell.rank-3 b {
+	color: #d4a574;
+}
+.effort-board-cell:hover b {
+	text-decoration: underline;
+}
+.import-list .effort-badges {
+	margin-top: 0.4rem;
+	width: 100%;
+}
+@media (max-width: 720px) {
+	.effort-board-row {
+		grid-template-columns: 5.5rem 1fr 1fr 1fr;
+		gap: 0.35rem;
+		font-size: 0.8rem;
+	}
+}

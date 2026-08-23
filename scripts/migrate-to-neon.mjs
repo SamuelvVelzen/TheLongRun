@@ -123,6 +123,7 @@ async function createSchema() {
 		)
 	`;
 	await sql`ALTER TABLE planned_routes ADD COLUMN IF NOT EXISTS est_time text NOT NULL DEFAULT ''`;
+	await sql`ALTER TABLE runs ADD COLUMN IF NOT EXISTS best_efforts jsonb NOT NULL DEFAULT '[]'::jsonb`;
 }
 
 async function upsertRun(r) {

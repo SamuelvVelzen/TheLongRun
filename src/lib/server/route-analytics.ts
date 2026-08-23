@@ -43,3 +43,16 @@ export async function loadRouteAnalytics(
 	if (!geo) return null;
 	return analyticsFromProperties(geo.properties ?? null);
 }
+
+/** Load km splits for every stored route (used to backfill best efforts). */
+export async function listRouteSplitsById(): Promise<Map<string, RouteAnalytics['splits']>> {
+	const sql = getSql();
+	const rows = (await sql`SELECT id, geojson FROM routes`) as { id: string; geojson: unknown }[];
+	const out = new Map<string, RouteAnalytics['splits']>();
+	for (const row of rows) {
+		const geo = row.geojson as { properties?: unknown } | null;
+		const analytics = analyticsFromProperties(geo?.properties ?? null);
+		if (analytics?.splits?.length) out.set(String(row.id), analytics.splits);
+	}
+	return out;
+}

@@ -1,3 +1,5 @@
+import type { BestEffort } from '$lib/best-efforts';
+
 export type RunDay = string;
 export type SessionType =
 	'easy' | 'quality' | 'tempo' | 'long' | 'steady' | 'shakeout' | 'race' | 'other';
@@ -43,6 +45,8 @@ export interface RunRecord {
 	country: string;
 	province: string;
 	place: string;
+	/** Fastest rolling windows (5k, 10k, …) computed from GPS or km splits. */
+	best_efforts: BestEffort[];
 	/** Legacy filesystem path; unused since the move to Postgres. */
 	filepath?: string;
 }

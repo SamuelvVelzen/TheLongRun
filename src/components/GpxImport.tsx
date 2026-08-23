@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { importGpx } from '$lib/server/functions';
 import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
+import { BestEffortBadges } from './BestEffortBadges';
 
 export type GpxImportResult = {
 	name: string;
@@ -10,6 +11,7 @@ export type GpxImportResult = {
 	distanceKm?: number | null;
 	message?: string;
 	duplicate?: boolean;
+	highlights?: import('$lib/best-efforts').EffortHighlight[];
 };
 
 export function GpxImport({
@@ -55,7 +57,8 @@ export function GpxImport({
 					status: 'ok',
 					slug: res.slug,
 					distanceKm: res.distance_km,
-					duplicate: res.duplicate
+					duplicate: res.duplicate,
+					highlights: res.highlights ?? []
 				});
 			} catch (err) {
 				out.push({
@@ -179,6 +182,9 @@ export function GpxImport({
 								{r.distanceKm != null && <span className="muted">({r.distanceKm} km)</span>}
 								{r.duplicate && <span className="muted">— already logged, refreshed its map</span>}
 								{r.message && <span className="muted">— {r.message}</span>}
+								{r.highlights && r.highlights.length > 0 && (
+									<BestEffortBadges highlights={r.highlights} />
+								)}
 							</li>
 						))}
 					</ul>

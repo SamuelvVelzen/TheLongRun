@@ -1,5 +1,6 @@
 import type { RunRecord } from '$lib/types';
 import { normalizeStartTime } from '$lib/format';
+import { parseBestEfforts, type BestEffort } from '$lib/best-efforts';
 import { getSql } from './db';
 
 function toNum(value: unknown): number | null {
@@ -54,28 +55,44 @@ function rowToRun(row: Record<string, unknown>): RunRecord {
 		notes: toStr(row.notes),
 		country: toStr(row.country),
 		province: toStr(row.province),
-		place: toStr(row.place)
+		place: toStr(row.place),
+		best_efforts: parseBestEfforts(row.best_efforts)
 	};
 }
 
 /** Full record used by the internal upsert (everything except the derived slug helpers). */
 type RunColumns = Omit<RunRecord, 'filepath'>;
 
-async function upsertRun(r: RunColumns): Promise<RunRecord> {
+let ensuredBestEfforts = false;
+
+async function ensureBestEffortsColumn(): Promise<void> {
+	if (ensuredBestEfforts) return;
 	const sql = getSql();
+	await sql`ALTER TABLE runs ADD COLUMN IF NOT EXISTS best_efforts jsonb NOT NULL DEFAULT '[]'::jsonb`;
+	ensuredBestEfforts = true;
+}
+
+function effortsJson(efforts: BestEffort[] | undefined | null): string {
+	return JSON.stringify(efforts ?? []);
+}
+
+async function upsertRun(r: RunColumns): Promise<RunRecord> {
+	await ensureBestEffortsColumn();
+	const sql = getSql();
+	const efforts = effortsJson(r.best_efforts);
 	const rows = (await sql`
 		INSERT INTO runs (
 			slug, date, week, day, activity_type, session, effort, shins, legs, energy, weather, surface,
 			wanted_faster, distance_km, start_time, "time", elapsed_time, avg_pace, avg_hr, max_hr,
 			elev_gain, calories, kilojoules, max_speed, cadence, shoes, summary_image, splits_image,
-			strava_id, route, notes, country, province, place
+			strava_id, route, notes, country, province, place, best_efforts
 		) VALUES (
 			${r.slug}, ${r.date}, ${r.week}, ${r.day}, ${r.activity_type}, ${r.session}, ${r.effort}, ${r.shins},
 			${r.legs}, ${r.energy}, ${r.weather}, ${r.surface}, ${r.wanted_faster}, ${r.distance_km},
 			${r.start_time}, ${r.time}, ${r.elapsed_time}, ${r.avg_pace}, ${r.avg_hr}, ${r.max_hr},
 			${r.elev_gain}, ${r.calories}, ${r.kilojoules}, ${r.max_speed}, ${r.cadence}, ${r.shoes},
 			${r.summary_image}, ${r.splits_image}, ${r.strava_id}, ${r.route}, ${r.notes}, ${r.country},
-			${r.province}, ${r.place}
+			${r.province}, ${r.place}, ${efforts}::jsonb
 		)
 		ON CONFLICT (slug) DO UPDATE SET
 			date = EXCLUDED.date, week = EXCLUDED.week, day = EXCLUDED.day,
@@ -88,13 +105,15 @@ async function upsertRun(r: RunColumns): Promise<RunRecord> {
 			kilojoules = EXCLUDED.kilojoules, max_speed = EXCLUDED.max_speed, cadence = EXCLUDED.cadence,
 			shoes = EXCLUDED.shoes, summary_image = EXCLUDED.summary_image, splits_image = EXCLUDED.splits_image,
 			strava_id = EXCLUDED.strava_id, route = EXCLUDED.route, notes = EXCLUDED.notes,
-			country = EXCLUDED.country, province = EXCLUDED.province, place = EXCLUDED.place
+			country = EXCLUDED.country, province = EXCLUDED.province, place = EXCLUDED.place,
+			best_efforts = EXCLUDED.best_efforts
 		RETURNING *
 	`) as Record<string, unknown>[];
 	return rowToRun(rows[0]!);
 }
 
 export async function listRuns(): Promise<RunRecord[]> {
+	await ensureBestEffortsColumn();
 	const sql = getSql();
 	const rows = (await sql`SELECT * FROM runs ORDER BY date DESC, slug DESC`) as Record<
 		string,
@@ -159,6 +178,7 @@ export interface SaveRunInput {
 	country?: string;
 	province?: string;
 	place?: string;
+	best_efforts?: BestEffort[];
 }
 
 export async function findRunByStravaId(stravaId: string): Promise<RunRecord | null> {
@@ -174,6 +194,13 @@ export async function findRunByStravaId(stravaId: string): Promise<RunRecord | n
 export async function setRunRoute(slug: string, route: string): Promise<void> {
 	const sql = getSql();
 	await sql`UPDATE runs SET route = ${route} WHERE slug = ${slug}`;
+}
+
+export async function setRunBestEfforts(slug: string, efforts: BestEffort[]): Promise<void> {
+	await ensureBestEffortsColumn();
+	const sql = getSql();
+	const json = effortsJson(efforts);
+	await sql`UPDATE runs SET best_efforts = ${json}::jsonb WHERE slug = ${slug}`;
 }
 
 export type FeelingsPatch = {
@@ -290,7 +317,8 @@ export async function saveRun(input: SaveRunInput): Promise<RunRecord> {
 		notes: input.notes?.trim() ?? '',
 		country: input.country || '',
 		province: input.province || '',
-		place: input.place || ''
+		place: input.place || '',
+		best_efforts: input.best_efforts ?? []
 	});
 }
 
@@ -361,7 +389,8 @@ export async function writeRun(run: RunRecord): Promise<RunRecord> {
 		notes: run.notes?.trim() ?? '',
 		country: run.country || '',
 		province: run.province || '',
-		place: run.place || ''
+		place: run.place || '',
+		best_efforts: run.best_efforts ?? []
 	});
 }
 
@@ -445,7 +474,8 @@ export async function updateRun(slug: string, fields: UpdateRunFields): Promise<
 		notes: fields.notes,
 		country: existing.country,
 		province: existing.province,
-		place: existing.place
+		place: existing.place,
+		best_efforts: existing.best_efforts ?? []
 	});
 
 	if (newSlug !== slug) {

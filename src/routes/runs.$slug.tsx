@@ -25,6 +25,7 @@ import { StrengthEditor } from '../components/StrengthEditor';
 import { ShoesField } from '../components/ShoesField';
 import { WeatherField } from '../components/WeatherField';
 import { FeelChips, WantedFasterChips } from '../components/FeelChips';
+import { BestEffortBadges } from '../components/BestEffortBadges';
 
 export const Route = createFileRoute('/runs/$slug')({
 	loader: async ({ params }) => {
@@ -227,7 +228,7 @@ function FeelTile({
 }
 
 function RunDetail() {
-	const { run: r, analytics, shoes, hrMaxManual, hrMaxAllTime } = Route.useLoaderData();
+	const { run: r, analytics, shoes, hrMaxManual, hrMaxAllTime, bestEfforts } = Route.useLoaderData();
 	const router = useRouter();
 
 	async function onSaveHrMax(hrMax: number | null) {
@@ -764,6 +765,16 @@ function RunDetail() {
 								<h3>Route</h3>
 							</div>
 							<RouteMap routeId={routeId} kmMarkers={analytics?.kmMarkers ?? null} />
+						</div>
+					)}
+
+					{bestEfforts && bestEfforts.length > 0 && (
+						<div className="panel" style={{ marginBottom: '1rem' }}>
+							<div className="splits-head">
+								<h3>Best efforts</h3>
+								<p className="muted splits-sub">Top 3 all-time for this distance</p>
+							</div>
+							<BestEffortBadges highlights={bestEfforts} />
 						</div>
 					)}
 

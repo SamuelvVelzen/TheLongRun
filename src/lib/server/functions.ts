@@ -36,6 +36,7 @@ import {
 	listRuns,
 	runHasMap,
 	saveRun,
+	setRunBestEfforts,
 	setRunRoute,
 	updateRun as dbUpdateRun,
 	updateRunFeelings,
@@ -53,6 +54,7 @@ import {
 } from './planned-routes';
 import {
 	getRouteGeoJson,
+	listRouteSplitsById,
 	loadRouteAnalytics,
 	routeIdForRun,
 	saveRouteGeoJson
@@ -70,9 +72,46 @@ import {
 import { fetchWeatherForDateTime } from './weather';
 import { parseGpx } from './gpx';
 import { reverseGeocode } from './geo';
+import {
+	computeBestEffortsFromSplits,
+	highlightsForActivity,
+	supportsBestEfforts,
+	type EffortHighlight
+} from '$lib/best-efforts';
 
 const withMap = (runs: RunRecord[], routeIds: Set<string>): RunWithMap[] =>
 	runs.map((r) => ({ ...r, has_map: runHasMap(r, routeIds) }));
+
+async function hydrateBestEfforts(runs: RunRecord[]): Promise<RunRecord[]> {
+	const missing = runs.filter(
+		(r) => supportsBestEfforts(r.activity_type) && !(r.best_efforts?.length) && (r.route || r.strava_id)
+	);
+	if (!missing.length) return runs;
+	const splitsById = await listRouteSplitsById();
+	for (const run of missing) {
+		const id = routeIdForRun(run);
+		const splits = id ? splitsById.get(id) : undefined;
+		if (!splits?.length) continue;
+		const efforts = computeBestEffortsFromSplits(splits);
+		if (!efforts.length) continue;
+		await setRunBestEfforts(run.slug, efforts);
+		run.best_efforts = efforts;
+	}
+	return runs;
+}
+
+async function highlightsAfterSave(
+	slug: string,
+	activityType: string,
+	efforts: import('$lib/best-efforts').BestEffort[]
+): Promise<EffortHighlight[]> {
+	if (!supportsBestEfforts(activityType) || !efforts.length) return [];
+	const all = await listRuns();
+	await hydrateBestEfforts(all);
+	const row = all.find((r) => r.slug === slug);
+	if (row) row.best_efforts = efforts;
+	return highlightsForActivity(slug, activityType, all);
+}
 
 // ---------- reads ----------
 
@@ -107,6 +146,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 
 export const getTimelineRuns = createServerFn({ method: 'GET' }).handler(async () => {
 	const [runs, routeIds] = await Promise.all([listRuns(), listRouteIds()]);
+	await hydrateBestEfforts(runs);
 	return withMap(runs, routeIds);
 });
 
@@ -115,13 +155,17 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 	.handler(async ({ data: slug }) => {
 		const run = await getRun(slug);
 		if (!run) return null;
-		const [analytics, routeIds, shoes, settings, allTimeMaxHr] = await Promise.all([
+		const [analytics, routeIds, shoes, settings, allTimeMaxHr, allRuns] = await Promise.all([
 			loadRouteAnalytics(run),
 			listRouteIds(),
 			loadShoes(),
 			loadSettings(),
-			getMaxHrAllTime()
+			getMaxHrAllTime(),
+			listRuns()
 		]);
+		await hydrateBestEfforts(allRuns);
+		const current = allRuns.find((r) => r.slug === slug) ?? run;
+		const highlights = highlightsForActivity(current.slug, current.activity_type, allRuns);
 
 		// HR zones honour a manually-set HRmax; otherwise the all-time max across activities
 		// (never just this one run's noisy peak). Time-in-zone needs the stored per-point HR
@@ -140,11 +184,12 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 		}
 
 		return {
-			run: { ...run, has_map: runHasMap(run, routeIds) } as RunWithMap,
+			run: { ...current, has_map: runHasMap(current, routeIds) } as RunWithMap,
 			analytics: out,
 			shoes,
 			hrMaxManual,
-			hrMaxAllTime: allTimeMaxHr
+			hrMaxAllTime: allTimeMaxHr,
+			bestEfforts: highlights
 		};
 	});
 
@@ -804,12 +849,16 @@ export const importGpx = createServerFn({ method: 'POST' })
 		// Matched an existing activity → refresh its map/analytics, keep subjective data, no dup.
 		if (existingDup) {
 			if (route && route !== existingDup.route) await setRunRoute(existingDup.slug, route);
+			const efforts = supportsBestEfforts(activity_type) ? parsed.bestEfforts : [];
+			if (efforts.length) await setRunBestEfforts(existingDup.slug, efforts);
+			const highlights = await highlightsAfterSave(existingDup.slug, activity_type, efforts);
 			return {
 				slug: existingDup.slug,
 				activity_type,
 				distance_km: parsed.distanceKm,
 				has_route: Boolean(route),
-				duplicate: true
+				duplicate: true,
+				highlights
 			};
 		}
 
@@ -858,15 +907,23 @@ export const importGpx = createServerFn({ method: 'POST' })
 			notes: 'Imported from GPX.',
 			country: geo.country,
 			province: geo.province,
-			place: geo.place
+			place: geo.place,
+			best_efforts: supportsBestEfforts(activity_type) ? parsed.bestEfforts : []
 		});
+
+		const highlights = await highlightsAfterSave(
+			run.slug,
+			activity_type,
+			supportsBestEfforts(activity_type) ? parsed.bestEfforts : []
+		);
 
 		return {
 			slug: run.slug,
 			activity_type,
 			distance_km: parsed.distanceKm,
 			has_route: Boolean(route),
-			duplicate: false
+			duplicate: false,
+			highlights
 		};
 	});
 

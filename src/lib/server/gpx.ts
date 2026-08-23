@@ -5,6 +5,7 @@ import {
 	type TrackSample
 } from '$lib/splits';
 import { formatDuration, formatPace } from '$lib/format';
+import { computeBestEffortsFromTrack, type BestEffort } from '$lib/best-efforts';
 import { timezoneForCoord } from './geo';
 
 export interface ParsedGpx {
@@ -28,6 +29,7 @@ export interface ParsedGpx {
 	/** Start coordinate (for reverse-geocoding the location), or null if none. */
 	startLat: number | null;
 	startLng: number | null;
+	bestEfforts: BestEffort[];
 }
 
 const MAX_MOVING_GAP_S = 45;
@@ -162,6 +164,7 @@ export function parseGpx(xml: string): ParsedGpx {
 	const maxHr = hrs.length ? Math.max(...hrs) : null;
 
 	const analytics = track.length >= 2 ? computeRouteAnalytics(track, { avgHr, maxHr }) : null;
+	const bestEfforts = computeBestEffortsFromTrack(track);
 
 	return {
 		date,
@@ -187,6 +190,7 @@ export function parseGpx(xml: string): ParsedGpx {
 		analytics,
 		detectedType,
 		startLat: firstPoint?.lat ?? null,
-		startLng: firstPoint?.lng ?? null
+		startLng: firstPoint?.lng ?? null,
+		bestEfforts
 	};
 }

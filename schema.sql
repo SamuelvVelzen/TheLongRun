@@ -81,3 +81,6 @@ CREATE TABLE IF NOT EXISTS planned_routes (
 );
 
 ALTER TABLE planned_routes ADD COLUMN IF NOT EXISTS est_time text NOT NULL DEFAULT '';
+
+-- Fastest rolling windows per activity (5k / 10k / half / …), ranked at read time.
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS best_efforts jsonb NOT NULL DEFAULT '[]'::jsonb;

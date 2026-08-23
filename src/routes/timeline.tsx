@@ -18,6 +18,12 @@ import { PlaceFilter } from '../components/PlaceFilter';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 import { DeferredData } from '../components/DeferredData';
+import { BestEffortBadges, BestEffortBoard } from '../components/BestEffortBadges';
+import {
+	buildBestEffortBoard,
+	highlightsForActivity,
+	supportsBestEfforts
+} from '$lib/best-efforts';
 
 type TimelineSearch = RangeSearch & {
 	sport?: string;
@@ -116,6 +122,14 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 	const runs = filterRunsByRange(scoped, range);
 	const groups = groupRuns(runs);
 	const trends = buildTrainingTrends(runs, { endDate: range.to, fromDate: range.from });
+	const boardSport = sport === 'walk' ? 'walk' : 'run';
+	const showBoard = sport === 'all' || sport === 'run' || sport === 'walk';
+	const board = showBoard ? buildBestEffortBoard(allRuns, boardSport) : [];
+	const highlightsBySlug = new Map(
+		allRuns
+			.filter((r) => supportsBestEfforts(r.activity_type))
+			.map((r) => [r.slug, highlightsForActivity(r.slug, r.activity_type, allRuns)] as const)
+	);
 
 	const totalAllTime = allRuns.length;
 	const neverLogged = totalAllTime === 0;
@@ -165,6 +179,15 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 							}
 						/>
 					) : null}
+
+					<BestEffortBoard
+						rows={board}
+						caption={
+							boardSport === 'walk'
+								? 'All-time top 3 among walks'
+								: 'All-time top 3 among runs'
+						}
+					/>
 
 					{groups.map((group) => (
 						<div key={group.key}>
@@ -242,6 +265,10 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 														<span>{run.time}</span>
 													) : null}
 												</div>
+												<BestEffortBadges
+													compact
+													highlights={highlightsBySlug.get(run.slug) ?? []}
+												/>
 												{run.notes && <p className="muted timeline-notes">{run.notes}</p>}
 											</Link>
 											<form className="timeline-delete" onSubmit={(e) => e.preventDefault()}>

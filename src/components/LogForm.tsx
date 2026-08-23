@@ -80,7 +80,12 @@ export function LogForm({
 			if (afterSave === 'run') {
 				router.navigate({ to: '/runs/$slug', params: { slug: res.slug } });
 			} else {
-				router.navigate({ to: '/coach', search: { tab: 'debrief', slug: res.slug } });
+				router.navigate({
+					to: '/coach',
+					search: { tab: 'debrief', slug: res.slug },
+					replace: true,
+					resetScroll: false
+				});
 			}
 		} catch (err) {
 			setMessage(err instanceof Error ? err.message : 'Save failed');

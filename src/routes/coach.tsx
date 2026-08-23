@@ -54,12 +54,7 @@ export const Route = createFileRoute('/coach')({
 		weeks: search.weeks ?? ALL_TIME_WEEKS
 	}),
 	loader: ({ deps, location }) => {
-		const slug =
-			typeof location.search === 'object' &&
-			location.search &&
-			typeof (location.search as CoachSearch).slug === 'string'
-				? ((location.search as CoachSearch).slug ?? '')
-				: '';
+		const slug = (location.search as CoachSearch).slug ?? '';
 		return {
 			page: Promise.all([
 				getCoachBrief({ data: deps.weeks }),

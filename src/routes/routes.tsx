@@ -1,8 +1,14 @@
-import { useMemo, useState, type MouseEvent } from 'react';
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
-import { deletePlannedRoute, getPlannedRoutesData, importPlannedRoute } from '$lib/server/functions';
-import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
+import {
+	deletePlannedRoute,
+	getPlannedRoutesData,
+	importPlannedRoute,
+	updatePlannedRoute
+} from '$lib/server/functions';
+import type { PlannedRoute } from '$lib/types';
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { DeferredData } from '../components/DeferredData';
+import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 
 export const Route = createFileRoute('/routes')({
 	loader: () => ({ page: getPlannedRoutesData() }),
@@ -89,7 +95,6 @@ function PlannedRoutesList({
 	data: Awaited<ReturnType<typeof getPlannedRoutesData>>;
 	onMessage: (msg: string) => void;
 }) {
-	const router = useRouter();
 	const meta = useMemo<RouteMeta>(() => {
 		const out: RouteMeta = {};
 		for (const route of data.routes) {
@@ -102,18 +107,6 @@ function PlannedRoutesList({
 		}
 		return out;
 	}, [data.routes]);
-
-	async function onDeleteRoute(event: MouseEvent, slug: string, name: string) {
-		event.preventDefault();
-		event.stopPropagation();
-		if (!confirm(`Delete planned route “${name}”?`)) return;
-		try {
-			await deletePlannedRoute({ data: slug });
-			await router.invalidate();
-		} catch (error) {
-			onMessage(error instanceof Error ? error.message : 'Delete failed');
-		}
-	}
 
 	return (
 		<>
@@ -145,42 +138,109 @@ function PlannedRoutesList({
 			</div>
 			<div className="grid">
 				{data.routes.map((route) => (
-					<div key={route.slug} className="planned-route-card">
-						<Link
-							className="run-row planned-route-row"
-							to="/routes/$slug"
-							params={{ slug: route.slug }}
-						>
-							<div>
-								<strong className="run-title">{route.name}</strong>
-								<div className="muted">
-									{[route.place, route.country].filter(Boolean).join(', ') ||
-										`Saved ${route.saved_on}`}
-								</div>
-							</div>
-							<div>{route.distance_km ?? '—'} km</div>
-							<div>{route.elev_gain != null ? `↑ ${route.elev_gain} m` : 'Elevation —'}</div>
-							<div>
-								{route.waypoints.length} waypoint{route.waypoints.length === 1 ? '' : 's'}
-							</div>
-						</Link>
-						<button
-							className="btn btn-ghost btn-danger btn-icon planned-route-delete"
-							type="button"
-							aria-label={`Delete route ${route.name}`}
-							title="Delete route"
-							onClick={(event) => void onDeleteRoute(event, route.slug, route.name)}
-						>
-							<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-								<path
-									fill="currentColor"
-									d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9zm-1 12h12l1-12H5l1 12z"
-								/>
-							</svg>
-						</button>
-					</div>
+					<PlannedRouteRow key={route.slug} route={route} onMessage={onMessage} />
 				))}
 			</div>
 		</>
+	);
+}
+
+function PlannedRouteRow({
+	route,
+	onMessage
+}: {
+	route: PlannedRoute;
+	onMessage: (msg: string) => void;
+}) {
+	const router = useRouter();
+	const navigate = useNavigate();
+	const [name, setName] = useState(route.name);
+
+	useEffect(() => {
+		setName(route.name);
+	}, [route.name]);
+
+	async function persistName() {
+		const trimmed = name.trim();
+		if (!trimmed) {
+			setName(route.name);
+			return;
+		}
+		if (trimmed === route.name) return;
+		try {
+			await updatePlannedRoute({ data: { slug: route.slug, name: trimmed } });
+			await router.invalidate();
+		} catch (error) {
+			setName(route.name);
+			onMessage(error instanceof Error ? error.message : 'Save failed');
+		}
+	}
+
+	async function onDeleteRoute(event: MouseEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+		if (!confirm(`Delete planned route “${route.name}”?`)) return;
+		try {
+			await deletePlannedRoute({ data: route.slug });
+			await router.invalidate();
+		} catch (error) {
+			onMessage(error instanceof Error ? error.message : 'Delete failed');
+		}
+	}
+
+	return (
+		<div className="planned-route-card">
+			<div
+				className="run-row planned-route-row"
+				onClick={() => navigate({ to: '/routes/$slug', params: { slug: route.slug } })}
+			>
+				<div>
+					<input
+						className="route-name-input planned-route-name-input"
+						value={name}
+						required
+						aria-label={`Route name, currently ${route.name}`}
+						onClick={(event) => event.stopPropagation()}
+						onMouseDown={(event) => event.stopPropagation()}
+						onKeyDown={(event) => {
+							event.stopPropagation();
+							if (event.key === 'Enter') {
+								event.preventDefault();
+								(event.target as HTMLInputElement).blur();
+							}
+							if (event.key === 'Escape') {
+								event.preventDefault();
+								setName(route.name);
+								(event.target as HTMLInputElement).blur();
+							}
+						}}
+						onChange={(event) => setName(event.target.value)}
+						onBlur={() => void persistName()}
+					/>
+					<div className="muted">
+						{[route.place, route.country].filter(Boolean).join(', ') || `Saved ${route.saved_on}`}
+					</div>
+				</div>
+				<div>{route.distance_km ?? '—'} km</div>
+				<div>{route.elev_gain != null ? `↑ ${route.elev_gain} m` : 'Elevation —'}</div>
+				<div>
+					{route.waypoints.length} waypoint{route.waypoints.length === 1 ? '' : 's'}
+				</div>
+			</div>
+			<button
+				className="btn btn-ghost btn-danger btn-icon planned-route-delete"
+				type="button"
+				aria-label={`Delete route ${route.name}`}
+				title="Delete route"
+				onClick={(event) => void onDeleteRoute(event)}
+			>
+				<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+					<path
+						fill="currentColor"
+						d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9zm-1 12h12l1-12H5l1 12z"
+					/>
+				</svg>
+			</button>
+		</div>
 	);
 }

@@ -409,6 +409,20 @@ p {
 .planned-route-row {
 	grid-template-columns: 1.35fr 0.55fr 0.65fr 0.65fr;
 	padding-right: 3.25rem;
+	cursor: pointer;
+}
+
+.planned-route-name-input {
+	max-width: 100%;
+	padding: 0.05rem 0.35rem;
+	margin: -0.05rem -0.35rem 0.15rem;
+	font-weight: 650;
+	border-color: transparent;
+	cursor: text;
+}
+
+.planned-route-name-input:hover {
+	border-color: var(--line);
 }
 
 .planned-route-delete {

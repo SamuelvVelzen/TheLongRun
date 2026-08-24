@@ -170,6 +170,9 @@ function CoachPanels({
 	const [savedMix, setSavedMix] = useState<WeekMix>(initialMix);
 	const [mixNote, setMixNote] = useState('');
 	const [mixMsg, setMixMsg] = useState('');
+	const [mixSaveMsg, setMixSaveMsg] = useState('');
+	const [mixBusy, setMixBusy] = useState(false);
+	const mixBusyRef = useRef(false);
 	const [briefBusy, setBriefBusy] = useState(false);
 
 	// Loader remount (weeks change) brings fresh initial debrief.
@@ -278,6 +281,7 @@ function CoachPanels({
 
 	function bump(type: ActivityType, delta: number) {
 		setMix((m) => ({ ...m, [type]: Math.max(0, Math.min(10, m[type] + delta)) }));
+		setMixSaveMsg('');
 	}
 
 	async function generateBrief() {
@@ -294,12 +298,20 @@ function CoachPanels({
 	}
 
 	async function saveDefaultMix() {
+		if (mixBusyRef.current) return;
+		mixBusyRef.current = true;
+		setMixBusy(true);
+		setMixSaveMsg('');
 		try {
 			const saved = await saveWeekMix({ data: mix });
 			setSavedMix(saved);
 			setMix(saved);
+			setMixSaveMsg('Saved as your default week.');
 		} catch (e) {
-			setMixMsg(e instanceof Error ? e.message : 'Could not save the default mix.');
+			setMixSaveMsg(e instanceof Error ? e.message : 'Could not save the default mix.');
+		} finally {
+			mixBusyRef.current = false;
+			setMixBusy(false);
 		}
 	}
 
@@ -486,7 +498,7 @@ function CoachPanels({
 												type="button"
 												aria-label={`Fewer ${activityLabel(t).toLowerCase()} sessions`}
 												onClick={() => bump(t, -1)}
-												disabled={mix[t] <= 0}
+												disabled={mixBusy || mix[t] <= 0}
 											>
 												−
 											</button>
@@ -495,7 +507,7 @@ function CoachPanels({
 												type="button"
 												aria-label={`More ${activityLabel(t).toLowerCase()} sessions`}
 												onClick={() => bump(t, 1)}
-												disabled={mix[t] >= 10}
+												disabled={mixBusy || mix[t] >= 10}
 											>
 												+
 											</button>
@@ -504,11 +516,30 @@ function CoachPanels({
 								))}
 							</div>
 						</label>
-						{mixDirty && (
-							<div className="actions" style={{ marginTop: '0.35rem' }}>
-								<button className="btn btn-ghost" type="button" onClick={saveDefaultMix}>
-									Save as my default week
-								</button>
+						{(mixDirty || mixBusy || mixSaveMsg) && (
+							<div style={{ marginTop: '0.35rem' }}>
+								{(mixDirty || mixBusy) && (
+									<div className="actions">
+										<button
+											className="btn btn-ghost"
+											type="button"
+											onClick={saveDefaultMix}
+											disabled={mixBusy}
+											aria-busy={mixBusy}
+										>
+											{mixBusy ? 'Saving…' : 'Save as my default week'}
+										</button>
+									</div>
+								)}
+								{mixSaveMsg && (
+									<div
+										className={`flash${/saved/i.test(mixSaveMsg) ? ' ok-flash' : ''}`}
+										role="status"
+										style={{ marginTop: mixDirty || mixBusy ? '0.5rem' : 0, marginBottom: 0 }}
+									>
+										{mixSaveMsg}
+									</div>
+								)}
 							</div>
 						)}
 						<label className="field">

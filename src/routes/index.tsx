@@ -1,30 +1,30 @@
-import { useMemo } from 'react';
-import { createFileRoute, Link } from '@tanstack/react-router';
-import { getDashboardData } from '$lib/server/functions';
 import {
-	filterRunsByRange,
-	parseDateRange,
-	routeIdsForRuns,
-	type RangeKind
+    activityLabel,
+    activityPlural,
+    hasContext,
+    metricText,
+    normalizeActivityType,
+    showsField
+} from '$lib/activity';
+import {
+    filterRunsByRange,
+    parseDateRange,
+    routeIdsForRuns,
+    type RangeKind
 } from '$lib/date-range';
 import { buildDashboardStats, type DashboardStats } from '$lib/plan';
+import { getDashboardData } from '$lib/server/functions';
 import { buildTrainingTrends } from '$lib/trends';
-import {
-	activityLabel,
-	activityPlural,
-	hasContext,
-	metricText,
-	normalizeActivityType,
-	showsField
-} from '$lib/activity';
-import { FeelBadge } from '../components/FeelBadge';
+import { createFileRoute, Link } from '@tanstack/react-router';
+import { useMemo } from 'react';
 import { DateRangeFilter, rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
+import { DeferredData } from '../components/DeferredData';
+import { FeelBadge } from '../components/FeelBadge';
 import { FilterSheet, filterSummary } from '../components/FilterSheet';
 import { PlaceFilter } from '../components/PlaceFilter';
+import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
-import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
-import { DeferredData } from '../components/DeferredData';
 
 type DashSearch = RangeSearch & { sport?: string; country?: string; province?: string; place?: string };
 const SPORTS = ['all', 'run', 'walk', 'ride', 'swim', 'strength'];
@@ -245,6 +245,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 									<div className="week-session-head">
 										<span className="week-day">
 											{session.day}
+											{` · ${activityLabel(session.activity_type ?? 'run')}`}
 											{status ? ` · ${status}` : ''}
 										</span>
 										{session.distance_km != null && (

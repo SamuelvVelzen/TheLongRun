@@ -1,14 +1,14 @@
-import { useState } from 'react';
-import { Link, useRouter } from '@tanstack/react-router';
-import { createRun, type CreateRunInput } from '$lib/server/functions';
+import { ACTIVITY_TYPES, activityLabel, normalizeActivityType, paceFieldLabel, showsFeel, showsField } from '$lib/activity';
 import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
-import { ACTIVITY_TYPES, activityLabel, paceFieldLabel, showsFeel, showsField } from '$lib/activity';
+import { createRun, type CreateRunInput } from '$lib/server/functions';
 import type { PlanWeek } from '$lib/types';
-import { StrengthEditor } from './StrengthEditor';
-import { ShoesField } from './ShoesField';
-import { WeatherField } from './WeatherField';
+import { Link, useRouter } from '@tanstack/react-router';
+import { useState } from 'react';
 import { FeelChips, WantedFasterChips } from './FeelChips';
+import { ShoesField } from './ShoesField';
+import { StrengthEditor } from './StrengthEditor';
+import { WeatherField } from './WeatherField';
 
 const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'race', 'other'];
 
@@ -34,7 +34,13 @@ export function LogForm({
 	const derivedDay = dayFromIsoDate(dateValue || todayIso);
 	const derivedWeek = weekNumberForDate(dateValue || todayIso);
 
-	const planSession = week?.sessions.find((s) => s.day.toLowerCase() === derivedDay.toLowerCase());
+	const planSession =
+		week?.sessions.find(
+			(s) =>
+				s.day.toLowerCase() === derivedDay.toLowerCase() &&
+				normalizeActivityType(s.activity_type ?? 'run') ===
+					normalizeActivityType(activityType)
+		) ?? week?.sessions.find((s) => s.day.toLowerCase() === derivedDay.toLowerCase());
 	const defaultSession = planSession?.label.toLowerCase().includes('long')
 		? 'long'
 		: planSession?.label.toLowerCase().includes('easy')

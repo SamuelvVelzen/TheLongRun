@@ -1,7 +1,13 @@
-import matter from 'gray-matter';
-import type { Goals, PlanWeek } from '$lib/types';
 import { planWeekIndex } from '$lib/plan';
+import type { Goals, PlanWeek } from '$lib/types';
+import { DEFAULT_WEEK_MIX, normalizeWeekMix, type WeekMix } from '$lib/week-mix';
+import matter from 'gray-matter';
 import { getSql } from './db';
+
+export type AppSettings = {
+	hrMax: number | null;
+	weekMix: WeekMix;
+};
 
 export async function readContextFile(name: string): Promise<string> {
 	const sql = getSql();
@@ -98,22 +104,38 @@ export async function saveGoals(goals: Goals): Promise<void> {
 }
 
 /** App-wide settings persisted as a JSON blob in the context table. */
-export async function loadSettings(): Promise<{ hrMax: number | null }> {
+export async function loadSettings(): Promise<AppSettings> {
 	const raw = await readContextFile('settings.json');
-	if (!raw) return { hrMax: null };
+	if (!raw) return { hrMax: null, weekMix: { ...DEFAULT_WEEK_MIX } };
 	try {
-		const o = JSON.parse(raw) as { hrMax?: unknown };
+		const o = JSON.parse(raw) as { hrMax?: unknown; weekMix?: unknown };
 		const n = Number(o.hrMax);
-		return { hrMax: Number.isFinite(n) && n > 0 ? Math.round(n) : null };
+		return {
+			hrMax: Number.isFinite(n) && n > 0 ? Math.round(n) : null,
+			weekMix: o.weekMix != null ? normalizeWeekMix(o.weekMix) : { ...DEFAULT_WEEK_MIX }
+		};
 	} catch {
-		return { hrMax: null };
+		return { hrMax: null, weekMix: { ...DEFAULT_WEEK_MIX } };
 	}
 }
 
-export async function saveHrMaxSetting(hrMax: number | null): Promise<void> {
+async function saveSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
 	const current = await loadSettings();
-	const next = { ...current, hrMax: hrMax != null && hrMax > 0 ? Math.round(hrMax) : null };
+	const next: AppSettings = {
+		hrMax: patch.hrMax !== undefined ? patch.hrMax : current.hrMax,
+		weekMix: patch.weekMix ? normalizeWeekMix(patch.weekMix) : current.weekMix
+	};
 	await writeContextFile('settings.json', JSON.stringify(next));
+	return next;
+}
+
+export async function saveHrMaxSetting(hrMax: number | null): Promise<void> {
+	await saveSettings({ hrMax: hrMax != null && hrMax > 0 ? Math.round(hrMax) : null });
+}
+
+export async function saveWeekMixSetting(mix: WeekMix): Promise<WeekMix> {
+	const next = await saveSettings({ weekMix: mix });
+	return next.weekMix;
 }
 
 export async function loadShoes(): Promise<{ active: string; notes: string; rotation: string[] }> {

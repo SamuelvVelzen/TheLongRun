@@ -1,9 +1,10 @@
 /**
  * Training plan helpers + dashboard stats.
  */
-import { formatDuration, parseDurationSeconds } from '$lib/format';
 import { normalizeActivityType } from '$lib/activity';
+import { formatDuration, parseDurationSeconds } from '$lib/format';
 import type { PlanSession, PlanWeek, RunRecord } from '$lib/types';
+import { sessionActivityType } from '$lib/week-mix';
 
 export const PLAN_START_ISO = '2026-08-03';
 export const PLAN_WEEK_COUNT = 8;
@@ -133,10 +134,19 @@ export function buildWeekView(
 ): WeekView {
 	const todayIso = isoDateLocal(today);
 	const start = planWeekStartIso(week.week);
-	const logged = new Set(runs.map((r) => r.date));
+	const remaining = new Map<string, number>();
+	for (const r of runs) {
+		const key = `${r.date}|${normalizeActivityType(r.activity_type)}`;
+		remaining.set(key, (remaining.get(key) ?? 0) + 1);
+	}
 	const sessions: WeekSessionView[] = week.sessions.map((s) => {
 		const date = dateForSessionDay(start, s.day);
-		const done = date != null && logged.has(date);
+		const isRest = REST_LIKE_RE.test(s.label.trim());
+		const type = sessionActivityType(s);
+		const key = date ? `${date}|${type}` : '';
+		const left = !isRest && key ? remaining.get(key) ?? 0 : 0;
+		const done = left > 0;
+		if (done && key) remaining.set(key, left - 1);
 		return {
 			...s,
 			date,
@@ -165,6 +175,8 @@ export function sessionStreak(runs: RunRecord[], plan: PlanWeek[], today = new D
 	for (const w of plan) {
 		const start = planWeekStartIso(w.week);
 		for (const s of w.sessions) {
+			if (REST_LIKE_RE.test(s.label.trim())) continue;
+			if (sessionActivityType(s) !== 'run') continue;
 			const d = dateForSessionDay(start, s.day);
 			if (d && d <= todayIso) planned.push(d);
 		}

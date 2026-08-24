@@ -1,16 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
-import {
-	getCoachBrief,
-	getDebriefPrompt,
-	getFeelingsPrompt,
-	saveDebrief,
-	saveFeelings,
-	savePlanWeeks
-} from '$lib/server/functions';
+import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
 import { PLAN_WEEK_COUNT, planWeekIndex, weekToPlan } from '$lib/plan';
-import { GpxImport } from '../components/GpxImport';
+import {
+    getCoachBrief,
+    getDebriefPrompt,
+    getFeelingsPrompt,
+    getWeekMix,
+    saveDebrief,
+    saveFeelings,
+    savePlanWeeks,
+    saveWeekMix
+} from '$lib/server/functions';
+import { formatMixProse, mixesEqual, type WeekMix } from '$lib/week-mix';
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
+import { useEffect, useRef, useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
+import { GpxImport } from '../components/GpxImport';
 
 type CoachTab = 'debrief' | 'plan' | 'feelings';
 type CoachSearch = { weeks?: number; tab?: CoachTab; slug?: string };
@@ -30,7 +34,7 @@ function planWeekPhrase(today = new Date()): 'this week' | 'next week' {
 }
 
 function defaultQuestion(phrase: 'this week' | 'next week'): string {
-	return `What should ${phrase} look like? Give me specific sessions with day, distance and intent (days can move), and flag anything to watch.`;
+	return `What should ${phrase} look like? Plan every session in my mix (not just the runs), with day, sport, distance or duration and intent. Days can move. Flag anything to watch.`;
 }
 
 function parseTab(v: unknown): CoachTab {
@@ -56,10 +60,9 @@ export const Route = createFileRoute('/coach')({
 	loader: ({ deps, location }) => {
 		const slug = (location.search as CoachSearch).slug ?? '';
 		return {
-			page: Promise.all([
-				getCoachBrief({ data: deps.weeks }),
-				getDebriefPrompt({ data: slug })
-			]).then(([brief, debrief]) => ({ brief, debrief }))
+			page: Promise.all([getDebriefPrompt({ data: slug }), getWeekMix()]).then(
+				([debrief, weekMix]) => ({ debrief, weekMix })
+			)
 		};
 	},
 	component: Coach
@@ -124,18 +127,18 @@ function Coach() {
 				</button>
 			</div>
 			<DeferredData promise={page}>
-				{(data) => <CoachPanels brief={data.brief} debrief={data.debrief} />}
+				{(data) => <CoachPanels debrief={data.debrief} initialMix={data.weekMix} />}
 			</DeferredData>
 		</>
 	);
 }
 
 function CoachPanels({
-	brief,
-	debrief: initialDebrief
+	debrief: initialDebrief,
+	initialMix
 }: {
-	brief: string;
 	debrief: DebriefPrompt;
+	initialMix: WeekMix;
 }) {
 	const search = Route.useSearch();
 	const router = useRouter();
@@ -143,7 +146,7 @@ function CoachPanels({
 	const tab = search.tab ?? 'debrief';
 	const slug = search.slug ?? '';
 
-	const [question, setQuestion] = useState('');
+	const [question, setQuestion] = useState(() => defaultQuestion(planWeekPhrase()));
 	const [copied, setCopied] = useState(false);
 	const [briefText, setBriefText] = useState('');
 	const [planJson, setPlanJson] = useState('');
@@ -162,6 +165,12 @@ function CoachPanels({
 	const [feelCopied, setFeelCopied] = useState(false);
 	const [feelJson, setFeelJson] = useState('');
 	const [feelMsg, setFeelMsg] = useState('');
+
+	const [mix, setMix] = useState<WeekMix>(initialMix);
+	const [savedMix, setSavedMix] = useState<WeekMix>(initialMix);
+	const [mixNote, setMixNote] = useState('');
+	const [mixMsg, setMixMsg] = useState('');
+	const [briefBusy, setBriefBusy] = useState(false);
 
 	// Loader remount (weeks change) brings fresh initial debrief.
 	useEffect(() => {
@@ -265,10 +274,33 @@ function CoachPanels({
 	const run = debrief.run;
 	const weekPhrase = planWeekPhrase();
 	const defaultQ = defaultQuestion(weekPhrase);
-	const fullDoc = `${brief}\n## My question\n${question.trim() || defaultQ}\n`;
+	const mixDirty = !mixesEqual(mix, savedMix);
 
-	function generateBrief() {
-		setBriefText(fullDoc);
+	function bump(type: ActivityType, delta: number) {
+		setMix((m) => ({ ...m, [type]: Math.max(0, Math.min(10, m[type] + delta)) }));
+	}
+
+	async function generateBrief() {
+		setBriefBusy(true);
+		setMixMsg('');
+		try {
+			const next = await getCoachBrief({ data: { weeks, mix, note: mixNote } });
+			setBriefText(`${next}\n## My question\n${question.trim() || defaultQ}\n`);
+		} catch (e) {
+			setMixMsg(e instanceof Error ? e.message : 'Could not build the prompt.');
+		} finally {
+			setBriefBusy(false);
+		}
+	}
+
+	async function saveDefaultMix() {
+		try {
+			const saved = await saveWeekMix({ data: mix });
+			setSavedMix(saved);
+			setMix(saved);
+		} catch (e) {
+			setMixMsg(e instanceof Error ? e.message : 'Could not save the default mix.');
+		}
 	}
 
 	function download() {
@@ -440,17 +472,76 @@ function CoachPanels({
 							weeks so the prompt stays short.
 						</p>
 						<label className="field">
-							<span>Your question for the AI (optional)</span>
+							<span>Sports this week</span>
+							<span className="muted" style={{ fontWeight: 400 }}>
+								Default is {formatMixProse(savedMix)}. Change {weekPhrase} without saving, or save
+								as your usual week. Later you can bump runs to 4 — the prompt follows these counts.
+							</span>
+							<div className="week-mix">
+								{ACTIVITY_TYPES.map((t) => (
+									<div key={t} className={`week-mix-row${mix[t] > 0 ? ' is-on' : ''}`}>
+										<span className="week-mix-name">{activityLabel(t)}</span>
+										<div className="week-mix-step">
+											<button
+												type="button"
+												aria-label={`Fewer ${activityLabel(t).toLowerCase()} sessions`}
+												onClick={() => bump(t, -1)}
+												disabled={mix[t] <= 0}
+											>
+												−
+											</button>
+											<span className="week-mix-count">{mix[t]}</span>
+											<button
+												type="button"
+												aria-label={`More ${activityLabel(t).toLowerCase()} sessions`}
+												onClick={() => bump(t, 1)}
+												disabled={mix[t] >= 10}
+											>
+												+
+											</button>
+										</div>
+									</div>
+								))}
+							</div>
+						</label>
+						{mixDirty && (
+							<div className="actions" style={{ marginTop: '0.35rem' }}>
+								<button className="btn btn-ghost" type="button" onClick={saveDefaultMix}>
+									Save as my default week
+								</button>
+							</div>
+						)}
+						<label className="field">
+							<span>Anything unusual {weekPhrase}? (optional)</span>
+							<textarea
+								placeholder="e.g. motorcycle training Thursday, skip gym, extra long ride"
+								value={mixNote}
+								onChange={(e) => setMixNote(e.target.value)}
+								rows={2}
+							/>
+						</label>
+						{mixMsg && <div className="flash">{mixMsg}</div>}
+						<label className="field">
+							<span>Your question for the AI</span>
 							<textarea
 								placeholder={defaultQ}
 								value={question}
 								onChange={(e) => setQuestion(e.target.value)}
-								rows={2}
+								rows={3}
 							/>
 						</label>
 						<div className="actions">
-							<button className="btn btn-primary" type="button" onClick={generateBrief}>
-								{briefText ? 'Regenerate prompt' : 'Generate prompt'}
+							<button
+								className="btn btn-primary"
+								type="button"
+								onClick={generateBrief}
+								disabled={briefBusy}
+							>
+								{briefBusy
+									? 'Building…'
+									: briefText
+										? 'Regenerate prompt'
+										: 'Generate prompt'}
 							</button>
 						</div>
 					</div>

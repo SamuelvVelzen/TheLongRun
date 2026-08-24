@@ -1,83 +1,90 @@
+import { ACTIVITY_TYPES, activityLabel, activityPlural, metricText, normalizeActivityType } from '$lib/activity';
+import {
+    computeBestEffortsFromSplits,
+    highlightsForActivity,
+    supportsBestEfforts,
+    type EffortHighlight
+} from '$lib/best-efforts';
+import {
+    dayFromIsoDate,
+    formatDuration,
+    guessSession,
+    normalizeStartTime,
+    parseDurationSeconds
+} from '$lib/format';
+import { buildHrZoneSummary } from '$lib/hr-zones';
+import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
+import {
+    buildWeekView,
+    isoDateLocal,
+    PLAN_START_ISO,
+    PLAN_WEEK_COUNT,
+    plannedSessionFor,
+    planWeekDateRange,
+    planWeekIndex,
+    planWeekStartIso,
+    sessionStreak,
+    weekNumberForDate,
+    weekToPlan,
+    type WeekView
+} from '$lib/plan';
+import { analyticsToProperties, type RouteAnalytics } from '$lib/splits';
+import { parseStrengthNotes, strengthSummary } from '$lib/strength';
+import type { Goals, PlannedRoute, PlanWeek, RouteTrack, RunRecord, RunWithMap } from '$lib/types';
+import {
+    exampleSessionsForMix,
+    formatMixPromptSection,
+    normalizeWeekMix,
+    type WeekMix
+} from '$lib/week-mix';
 import { createServerFn } from '@tanstack/react-start';
 import matter from 'gray-matter';
-import type { Goals, PlanWeek, PlannedRoute, RouteTrack, RunRecord, RunWithMap } from '$lib/types';
-import { analyticsToProperties, type RouteAnalytics } from '$lib/splits';
-import { buildHrZoneSummary } from '$lib/hr-zones';
 import {
-	dayFromIsoDate,
-	formatDuration,
-	guessSession,
-	normalizeStartTime,
-	parseDurationSeconds
-} from '$lib/format';
+    currentPlanWeek,
+    loadGoals,
+    loadPlan,
+    loadSettings,
+    loadShoes,
+    readContextFile,
+    saveHrMaxSetting,
+    saveWeekMixSetting,
+    writeContextFile
+} from './context';
+import { reverseGeocode } from './geo';
+import { parseGpx } from './gpx';
 import {
-	buildWeekView,
-	isoDateLocal,
-	PLAN_START_ISO,
-	PLAN_WEEK_COUNT,
-	planWeekDateRange,
-	planWeekIndex,
-	planWeekStartIso,
-	plannedSessionFor,
-	sessionStreak,
-	weekNumberForDate,
-	weekToPlan,
-	type WeekView
-} from '$lib/plan';
-import { activityLabel, metricText, normalizeActivityType } from '$lib/activity';
-import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
-import { parseStrengthNotes, strengthSummary } from '$lib/strength';
-import {
-	deleteRun as dbDeleteRun,
-	findRunsByDate,
-	getMaxHrAllTime,
-	getRun,
-	listRouteIds,
-	listRuns,
-	runHasMap,
-	saveRun,
-	setRunBestEfforts,
-	setRunRoute,
-	updateRun as dbUpdateRun,
-	updateRunFeelings,
-	type FeelingsPatch,
-	type UpdateRunFields
-} from './runs';
-import { listRouteTracks } from './routes';
-import {
-	deletePlannedRoute as dbDeletePlannedRoute,
-	getPlannedRoute,
-	listPlannedRoutes,
-	listPlannedRouteTracks,
-	savePlannedFromFile,
-	updatePlannedRoute as dbUpdatePlannedRoute
+    deletePlannedRoute as dbDeletePlannedRoute,
+    updatePlannedRoute as dbUpdatePlannedRoute,
+    getPlannedRoute,
+    listPlannedRoutes,
+    listPlannedRouteTracks,
+    savePlannedFromFile
 } from './planned-routes';
 import {
-	getRouteGeoJson,
-	listRouteSplitsById,
-	loadRouteAnalytics,
-	routeIdForRun,
-	saveRouteGeoJson
+    getRouteGeoJson,
+    listRouteSplitsById,
+    loadRouteAnalytics,
+    routeIdForRun,
+    saveRouteGeoJson
 } from './route-analytics';
+import { listRouteTracks } from './routes';
 import {
-	currentPlanWeek,
-	loadGoals,
-	loadPlan,
-	loadSettings,
-	loadShoes,
-	readContextFile,
-	saveHrMaxSetting,
-	writeContextFile
-} from './context';
+    deleteRun as dbDeleteRun,
+    updateRun as dbUpdateRun,
+    findRunsByDate,
+    getMaxHrAllTime,
+    getRun,
+    listRouteIds,
+    listRuns,
+    runHasMap,
+    saveRun,
+    setRunBestEfforts,
+    setRunRoute,
+    updateRunFeelings,
+    type FeelingsPatch,
+    type UpdateRunFields
+} from './runs';
 import { fetchWeatherForDateTime } from './weather';
-import { parseGpx } from './gpx';
-import { reverseGeocode } from './geo';
-import {
-	computeBestEffortsFromSplits,
-	highlightsForActivity,
-	supportsBestEfforts,
-	type EffortHighlight
-} from '$lib/best-efforts';
 
 const withMap = (runs: RunRecord[], routeIds: Set<string>): RunWithMap[] =>
 	runs.map((r) => ({ ...r, has_map: runHasMap(r, routeIds) }));
@@ -386,20 +393,39 @@ export const getContextData = createServerFn({ method: 'GET' }).handler(async ()
 });
 
 export const getCoachBrief = createServerFn({ method: 'GET' })
-	.validator((weeks: number) =>
-		Number.isFinite(weeks) && weeks > 0 ? Math.floor(weeks) : 520
-	)
-	.handler(async ({ data: weeks }) => {
-		const [allRuns, goals, plan, shoes, profile, injury, gear, raceStrategy] = await Promise.all([
-			listRuns(),
-			loadGoals(),
-			loadPlan(),
-			loadShoes(),
-			readContextFile('profile.md'),
-			readContextFile('injury.md'),
-			readContextFile('gear.md'),
-			readContextFile('race-strategy.md')
-		]);
+	.validator((d: { weeks?: number; mix?: WeekMix; note?: string } | number) => {
+		if (typeof d === 'number') {
+			return {
+				weeks: Number.isFinite(d) && d > 0 ? Math.floor(d) : 520,
+				mix: undefined as WeekMix | undefined,
+				note: ''
+			};
+		}
+		const weeks =
+			Number.isFinite(d?.weeks) && (d.weeks as number) > 0 ? Math.floor(d.weeks as number) : 520;
+		return {
+			weeks,
+			mix: d?.mix,
+			note: typeof d?.note === 'string' ? d.note : ''
+		};
+	})
+	.handler(async ({ data }) => {
+		const weeks = data.weeks;
+		const [allRuns, goals, plan, shoes, profile, injury, gear, raceStrategy, settings] =
+			await Promise.all([
+				listRuns(),
+				loadGoals(),
+				loadPlan(),
+				loadShoes(),
+				readContextFile('profile.md'),
+				readContextFile('injury.md'),
+				readContextFile('gear.md'),
+				readContextFile('race-strategy.md'),
+				loadSettings()
+			]);
+		const defaultMix = settings.weekMix;
+		const thisMix = data.mix != null ? normalizeWeekMix(data.mix) : defaultMix;
+		const mixNote = data.note.trim();
 
 		const today = new Date();
 		const cutoff = new Date(today);
@@ -448,27 +474,28 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 			d.setDate(d.getDate() - off);
 			return d.toISOString().slice(0, 10);
 		};
-		const weekMap = new Map<string, { runKm: number; runs: number; other: number }>();
+		const weekMap = new Map<string, { counts: Record<string, number>; km: Record<string, number> }>();
 		for (const r of windowRuns) {
 			const wk = mondayOf(r.date);
-			const e = weekMap.get(wk) ?? { runKm: 0, runs: 0, other: 0 };
-			if (normalizeActivityType(r.activity_type) === 'run') {
-				e.runKm += r.distance_km ?? 0;
-				e.runs++;
-			} else {
-				e.other++;
-			}
+			const t = normalizeActivityType(r.activity_type);
+			const e = weekMap.get(wk) ?? { counts: {}, km: {} };
+			e.counts[t] = (e.counts[t] ?? 0) + 1;
+			if (t !== 'strength') e.km[t] = (e.km[t] ?? 0) + (r.distance_km ?? 0);
 			weekMap.set(wk, e);
 		}
 		const weekLines =
 			[...weekMap.entries()]
 				.sort((a, b) => (a[0] > b[0] ? -1 : a[0] < b[0] ? 1 : 0))
-				.map(
-					([wk, e]) =>
-						`- Week of ${wk}: ${e.runs} runs (${Math.round(e.runKm * 10) / 10} km run)${
-							e.other ? `, ${e.other} cross-training` : ''
-						}`
-				)
+				.map(([wk, e]) => {
+					const bits = ACTIVITY_TYPES.filter((t) => e.counts[t]).map((t) => {
+						const n = e.counts[t]!;
+						if (t === 'strength') return `${n} strength`;
+						const km = Math.round((e.km[t] ?? 0) * 10) / 10;
+						const name = n === 1 ? activityLabel(t).toLowerCase() : activityPlural(t);
+						return `${n} ${name}${km ? ` (${km} km)` : ''}`;
+					});
+					return `- Week of ${wk}: ${bits.join(', ') || 'no sessions'}`;
+				})
 				.join('\n') || '- (no activities in window)';
 
 		const detailCutoff = new Date(today);
@@ -496,15 +523,32 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 				.join('\n') || '| – | – | – | – | – | – | – |';
 
 		const shoeNotes = shoesNotesForBrief(shoes.notes ?? '');
+		const mixSection = formatMixPromptSection({
+			defaultMix,
+			thisWeek: thisMix,
+			weekPhrase,
+			note: mixNote
+		});
+		const exampleJson = JSON.stringify(
+			{
+				week: targetWeek,
+				dates: weekRange(targetWeek),
+				phase: 'base | build | peak | taper',
+				focus: 'one-line focus for the week',
+				sessions: exampleSessionsForMix(thisMix)
+			},
+			null,
+			2
+		);
 
 		return `# The Long Run — training context
 
 ## Coaching brief
-You are my running coach. I'm training toward **${goals.race_name}** (${goals.race_distance_km} km) on **${goals.race_date}**${
+You are my coach for the sports I actually do — not a running-only coach. I'm training toward **${goals.race_name}** (${goals.race_distance_km} km) on **${goals.race_date}**${
 			weeksToRace != null ? ` — about **${weeksToRace} weeks** away` : ''
-		}. I run a few times a week and cross-train by bike and walk. Session days can move — do not assume a fixed Tuesday / Friday / Sunday pattern. Below is my plan, my recent training with how each session felt (effort / shins / legs / energy, each 0–10), my weekly running volume, and my constraints.
+		}. Session days can move — do not assume a fixed Tuesday / Friday / Sunday pattern, and do not assume a 3-run week. Below is my plan, my recent training with how each session felt (effort / shins / legs / energy, each 0–10), weekly volume across sports, and my constraints.
 
-Please assess how my training is going and give me a concrete plan for **${weekPhrase}** — specific sessions with day, distance and intent — adjusted for how I've been recovering and laddering toward the race. Flag any red flags (injury risk, overtraining, under-recovery). Days can shift if the week needs it.
+Please assess how my training is going and give me a concrete plan for **${weekPhrase}** covering **every session in my sports mix** (runs, rides, walks, swims, strength — whatever I asked for), with day, sport, distance or duration, and intent — adjusted for how I've been recovering and laddering toward the race. Flag any red flags (injury risk, overtraining, under-recovery). Days can shift if the week needs it.
 
 ## How to read this brief
 Goal, Timing, All-time summary, weekly volume, and the Activity log are auto-computed from logged activities and are **current**. Runner profile, injury, gear, and race strategy are hand-written and may lag. If they disagree on numbers (longest run, weekly rhythm, dates), **prefer the computed sections**.
@@ -526,7 +570,7 @@ ${goals.notes ? `\n${goals.notes}\n` : ''}
 - Longest run: ${longest ? `${longest.distance_km} km (${longest.avg_pace || '—'}/km) on ${longest.date}` : '—'}.
 - Shin trend (0–10, lower = better): last 4 runs avg ${shinsRecent ?? '—'} vs prior 4 ${shinsPrior ?? '—'}.
 
-## Weekly running volume (last ${weeks} weeks)
+## Weekly volume (last ${weeks} weeks)
 ${weekLines}
 
 ## Activity log (${activityHeading})
@@ -554,23 +598,25 @@ ${gear.trim() || '(none)'}
 ## Race strategy
 ${raceStrategy.trim() || '(none)'}
 
+${mixSection}
+
 ## When you reply
-Give your assessment and ${weekPhrase}'s sessions in prose. Then, so I can save it straight back into my app, also output **${weekPhrase} as one JSON object** in exactly this shape (real values, same keys). Use however many sessions the week needs, on whatever days fit — not a fixed three-day template:
+Give your assessment and ${weekPhrase}'s sessions in prose. Then, so I can save it straight back into my app, also output **${weekPhrase} as one JSON object** in exactly this shape (real values, same keys). Match the sports mix above — not a fixed three-run template. Every session needs \`"activity_type"\` (\`run\` | \`walk\` | \`ride\` | \`swim\` | \`strength\`). Use \`distance_km: null\` for strength.
 
 \`\`\`json
-{
-  "week": ${targetWeek},
-  "dates": "${weekRange(targetWeek)}",
-  "phase": "base | build | peak | taper",
-  "focus": "one-line focus for the week",
-  "sessions": [
-    { "day": "Wednesday", "label": "Easy", "distance_km": 6, "detail": "how + why" },
-    { "day": "Saturday", "label": "Long", "distance_km": 14, "detail": "how + why" }
-  ]
-}
+${exampleJson}
 \`\`\`
 `;
 	});
+
+export const getWeekMix = createServerFn({ method: 'GET' }).handler(async () => {
+	const s = await loadSettings();
+	return s.weekMix;
+});
+
+export const saveWeekMix = createServerFn({ method: 'POST' })
+	.validator((mix: WeekMix) => normalizeWeekMix(mix))
+	.handler(async ({ data }) => saveWeekMixSetting(data));
 
 function hasFeel(r: RunRecord): boolean {
 	return (
@@ -639,15 +685,15 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 							: s.isNext
 								? 'next'
 								: 'upcoming';
-					return `- ${s.day}${s.date ? ` (${s.date})` : ''}: ${s.label}${s.distance_km != null ? ` · ${s.distance_km} km` : ''} — ${s.detail} [${state}]`;
+					return `- ${s.day}${s.date ? ` (${s.date})` : ''}: ${activityLabel(s.activity_type ?? 'run')} · ${s.label}${s.distance_km != null ? ` · ${s.distance_km} km` : ''} — ${s.detail} [${state}]`;
 				})
 				.join('\n') ?? '- (no plan week)';
 
 		const prompt = `# The Long Run — debrief this session
 
-You are my running coach. I just trained. GPS numbers are below. I'll also attach Strava screenshots and tell you how it felt.
+You are my coach for the sports I train, not a running-only coach. I just trained. GPS numbers are below. I'll also attach Strava screenshots and tell you how it felt.
 
-Update the rest of **this week** based on this session. Days can move — do not assume a fixed Tuesday / Friday / Sunday pattern. Keep, shift, shorten, or drop sessions as needed (heat, shins, heavy legs, life).
+Update the rest of **this week** based on this session. Days can move — do not assume a fixed Tuesday / Friday / Sunday pattern. Keep, shift, shorten, or drop sessions as needed (heat, shins, heavy legs, life). Keep non-run sessions (ride, walk, swim, strength) in the week unless recovery says otherwise.
 
 ## This session
 ${formatRunBriefLine(run)}
@@ -686,7 +732,8 @@ Short assessment. Then output **one JSON object** I can paste back (no prose bef
     "phase": ${JSON.stringify(week?.phase ?? '')},
     "focus": "one-line focus after this session",
     "sessions": [
-      { "day": "Wednesday", "label": "Easy", "distance_km": 7, "detail": "how + why" }
+      { "day": "Wednesday", "activity_type": "run", "label": "Easy", "distance_km": 7, "detail": "how + why" },
+      { "day": "Thursday", "activity_type": "strength", "label": "Gym", "distance_km": null, "detail": "full-body" }
     ]
   }
 }
@@ -694,7 +741,7 @@ Short assessment. Then output **one JSON object** I can paste back (no prose bef
 
 Rules:
 - \`feelings.slug\` must be exactly \`${run.slug}\`. Scores 0–10 (effort/energy 1–10). Omit fields you don't know.
-- \`week.sessions\` is the **full remaining-aware week**: keep completed sessions as they were, rewrite what's still ahead. \`day\` can be any weekday.
+- \`week.sessions\` is the **full remaining-aware week**: keep completed sessions as they were, rewrite what's still ahead. \`day\` can be any weekday. Keep rides, walks, swims and strength in the week unless recovery says to drop them. Every session needs \`"activity_type"\`.
 - If the week is finished, still return the week object with the sessions as completed.
 `;
 		return {

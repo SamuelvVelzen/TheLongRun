@@ -63,6 +63,8 @@ export interface Goals {
 export interface PlanSession {
 	day: string;
 	label: string;
+	/** run | walk | ride | swim | strength — omitted on older plan rows (treat as run). */
+	activity_type?: string;
 	distance_km: number | null;
 	detail: string;
 }

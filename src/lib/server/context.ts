@@ -1,11 +1,22 @@
 import { planWeekIndex } from '$lib/plan';
 import type { Goals, PlanWeek } from '$lib/types';
-import { DEFAULT_WEEK_MIX, normalizeWeekMix, type WeekMix } from '$lib/week-mix';
+import {
+	clonePattern,
+	DEFAULT_WEEK_PATTERN,
+	mixFromPattern,
+	normalizeWeekMix,
+	normalizeWeekPattern,
+	patternFromMix,
+	type WeekMix,
+	type WeekPattern
+} from '$lib/week-mix';
 import matter from 'gray-matter';
 import { getSql } from './db';
 
 export type AppSettings = {
 	hrMax: number | null;
+	weekPattern: WeekPattern;
+	/** Derived from weekPattern; kept so older readers still see counts. */
 	weekMix: WeekMix;
 };
 
@@ -103,27 +114,43 @@ export async function saveGoals(goals: Goals): Promise<void> {
 	await writeContextFile('goals.md', matter.stringify(goals.notes ? `${goals.notes}\n` : '', front));
 }
 
+function emptySettings(): AppSettings {
+	const weekPattern = clonePattern(DEFAULT_WEEK_PATTERN);
+	return { hrMax: null, weekPattern, weekMix: mixFromPattern(weekPattern) };
+}
+
+function patternFromSettingsBlob(o: { weekPattern?: unknown; weekMix?: unknown }): WeekPattern {
+	if (o.weekPattern != null) return normalizeWeekPattern(o.weekPattern);
+	if (o.weekMix != null) return patternFromMix(normalizeWeekMix(o.weekMix));
+	return clonePattern(DEFAULT_WEEK_PATTERN);
+}
+
 /** App-wide settings persisted as a JSON blob in the context table. */
 export async function loadSettings(): Promise<AppSettings> {
 	const raw = await readContextFile('settings.json');
-	if (!raw) return { hrMax: null, weekMix: { ...DEFAULT_WEEK_MIX } };
+	if (!raw) return emptySettings();
 	try {
-		const o = JSON.parse(raw) as { hrMax?: unknown; weekMix?: unknown };
+		const o = JSON.parse(raw) as { hrMax?: unknown; weekPattern?: unknown; weekMix?: unknown };
 		const n = Number(o.hrMax);
+		const weekPattern = patternFromSettingsBlob(o);
 		return {
 			hrMax: Number.isFinite(n) && n > 0 ? Math.round(n) : null,
-			weekMix: o.weekMix != null ? normalizeWeekMix(o.weekMix) : { ...DEFAULT_WEEK_MIX }
+			weekPattern,
+			weekMix: mixFromPattern(weekPattern)
 		};
 	} catch {
-		return { hrMax: null, weekMix: { ...DEFAULT_WEEK_MIX } };
+		return emptySettings();
 	}
 }
 
 async function saveSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
 	const current = await loadSettings();
+	const weekPattern =
+		patch.weekPattern !== undefined ? normalizeWeekPattern(patch.weekPattern) : current.weekPattern;
 	const next: AppSettings = {
 		hrMax: patch.hrMax !== undefined ? patch.hrMax : current.hrMax,
-		weekMix: patch.weekMix ? normalizeWeekMix(patch.weekMix) : current.weekMix
+		weekPattern,
+		weekMix: mixFromPattern(weekPattern)
 	};
 	await writeContextFile('settings.json', JSON.stringify(next));
 	return next;
@@ -133,9 +160,9 @@ export async function saveHrMaxSetting(hrMax: number | null): Promise<void> {
 	await saveSettings({ hrMax: hrMax != null && hrMax > 0 ? Math.round(hrMax) : null });
 }
 
-export async function saveWeekMixSetting(mix: WeekMix): Promise<WeekMix> {
-	const next = await saveSettings({ weekMix: mix });
-	return next.weekMix;
+export async function saveWeekPatternSetting(pattern: WeekPattern): Promise<WeekPattern> {
+	const next = await saveSettings({ weekPattern: pattern });
+	return next.weekPattern;
 }
 
 export async function loadShoes(): Promise<{ active: string; notes: string; rotation: string[] }> {

@@ -4,13 +4,22 @@ import {
     getCoachBrief,
     getDebriefPrompt,
     getFeelingsPrompt,
-    getWeekMix,
+    getWeekPattern,
     saveDebrief,
     saveFeelings,
     savePlanWeeks,
-    saveWeekMix
+    saveWeekPattern
 } from '$lib/server/functions';
-import { formatMixProse, mixesEqual, type WeekMix } from '$lib/week-mix';
+import {
+    formatPatternProse,
+    MAX_WEEK_SLOTS,
+    patternsEqual,
+    weekdayIndex,
+    WEEKDAYS,
+    type Weekday,
+    type WeekPattern,
+    type WeekSlot
+} from '$lib/week-mix';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
@@ -34,12 +43,95 @@ function planWeekPhrase(today = new Date()): 'this week' | 'next week' {
 }
 
 function defaultQuestion(phrase: 'this week' | 'next week'): string {
-	return `What should ${phrase} look like? Plan every session in my mix (not just the runs), with day, sport, distance or duration and intent. Days can move. Flag anything to watch.`;
+	return `What should ${phrase} look like? Keep my usual days and sports. You pick the session kind (easy / quality / long / etc.), distance and intent. If you shift a day, say why.`;
 }
 
 function parseTab(v: unknown): CoachTab {
 	if (v === 'plan' || v === 'feelings' || v === 'debrief') return v;
 	return 'debrief';
+}
+
+type SlotRow = WeekSlot & { id: string };
+let slotSeq = 0;
+
+function rowsFrom(pattern: WeekPattern): SlotRow[] {
+	return pattern.map((s) => ({ ...s, id: `slot-${++slotSeq}` }));
+}
+
+function toPattern(rows: SlotRow[]): WeekPattern {
+	return rows.map(({ day, activity_type }) => ({ day, activity_type }));
+}
+
+function nextSlot(rows: SlotRow[]): SlotRow {
+	const used = new Set(rows.map((r) => r.day));
+	const day = WEEKDAYS.find((d) => !used.has(d)) ?? 'Monday';
+	return { id: `slot-${++slotSeq}`, day, activity_type: 'run' };
+}
+
+function WeekPatternEditor({
+	rows,
+	onChange,
+	disabled
+}: {
+	rows: SlotRow[];
+	onChange: (rows: SlotRow[]) => void;
+	disabled?: boolean;
+}) {
+	const shown = [...rows].sort((a, b) => weekdayIndex(a.day) - weekdayIndex(b.day));
+
+	function patch(id: string, update: Partial<WeekSlot>) {
+		onChange(rows.map((r) => (r.id === id ? { ...r, ...update } : r)));
+	}
+
+	return (
+		<div className="week-mix">
+			{shown.map((row) => (
+				<div key={row.id} className="week-slot-row">
+					<select
+						aria-label="Weekday"
+						value={row.day}
+						disabled={disabled}
+						onChange={(e) => patch(row.id, { day: e.target.value as Weekday })}
+					>
+						{WEEKDAYS.map((d) => (
+							<option key={d} value={d}>
+								{d.slice(0, 3)}
+							</option>
+						))}
+					</select>
+					<select
+						aria-label="Sport"
+						value={row.activity_type}
+						disabled={disabled}
+						onChange={(e) => patch(row.id, { activity_type: e.target.value as ActivityType })}
+					>
+						{ACTIVITY_TYPES.map((t) => (
+							<option key={t} value={t}>
+								{activityLabel(t)}
+							</option>
+						))}
+					</select>
+					<button
+						type="button"
+						className="week-slot-remove"
+						aria-label="Remove session"
+						disabled={disabled}
+						onClick={() => onChange(rows.filter((r) => r.id !== row.id))}
+					>
+						×
+					</button>
+				</div>
+			))}
+			<button
+				className="btn btn-ghost"
+				type="button"
+				disabled={disabled || rows.length >= MAX_WEEK_SLOTS}
+				onClick={() => onChange([...rows, nextSlot(rows)])}
+			>
+				Add session
+			</button>
+		</div>
+	);
 }
 
 type DebriefPrompt = Awaited<ReturnType<typeof getDebriefPrompt>>;
@@ -60,8 +152,8 @@ export const Route = createFileRoute('/coach')({
 	loader: ({ deps, location }) => {
 		const slug = (location.search as CoachSearch).slug ?? '';
 		return {
-			page: Promise.all([getDebriefPrompt({ data: slug }), getWeekMix()]).then(
-				([debrief, weekMix]) => ({ debrief, weekMix })
+			page: Promise.all([getDebriefPrompt({ data: slug }), getWeekPattern()]).then(
+				([debrief, weekPattern]) => ({ debrief, weekPattern })
 			)
 		};
 	},
@@ -127,7 +219,7 @@ function Coach() {
 				</button>
 			</div>
 			<DeferredData promise={page}>
-				{(data) => <CoachPanels debrief={data.debrief} initialMix={data.weekMix} />}
+				{(data) => <CoachPanels debrief={data.debrief} initialPattern={data.weekPattern} />}
 			</DeferredData>
 		</>
 	);
@@ -135,10 +227,10 @@ function Coach() {
 
 function CoachPanels({
 	debrief: initialDebrief,
-	initialMix
+	initialPattern
 }: {
 	debrief: DebriefPrompt;
-	initialMix: WeekMix;
+	initialPattern: WeekPattern;
 }) {
 	const search = Route.useSearch();
 	const router = useRouter();
@@ -166,8 +258,10 @@ function CoachPanels({
 	const [feelJson, setFeelJson] = useState('');
 	const [feelMsg, setFeelMsg] = useState('');
 
-	const [mix, setMix] = useState<WeekMix>(initialMix);
-	const [savedMix, setSavedMix] = useState<WeekMix>(initialMix);
+	const [usual, setUsual] = useState<SlotRow[]>(() => rowsFrom(initialPattern));
+	const [savedPattern, setSavedPattern] = useState<WeekPattern>(initialPattern);
+	const [thisWeek, setThisWeek] = useState<SlotRow[]>(() => rowsFrom(initialPattern));
+	const [linked, setLinked] = useState(true);
 	const [mixNote, setMixNote] = useState('');
 	const [mixMsg, setMixMsg] = useState('');
 	const [mixSaveMsg, setMixSaveMsg] = useState('');
@@ -277,18 +371,17 @@ function CoachPanels({
 	const run = debrief.run;
 	const weekPhrase = planWeekPhrase();
 	const defaultQ = defaultQuestion(weekPhrase);
-	const mixDirty = !mixesEqual(mix, savedMix);
-
-	function bump(type: ActivityType, delta: number) {
-		setMix((m) => ({ ...m, [type]: Math.max(0, Math.min(10, m[type] + delta)) }));
-		setMixSaveMsg('');
-	}
+	const usualPattern = toPattern(usual);
+	const thisPattern = toPattern(linked ? usual : thisWeek);
+	const mixDirty = !patternsEqual(usualPattern, savedPattern);
 
 	async function generateBrief() {
 		setBriefBusy(true);
 		setMixMsg('');
 		try {
-			const next = await getCoachBrief({ data: { weeks, mix, note: mixNote } });
+			const next = await getCoachBrief({
+				data: { weeks, pattern: thisPattern, defaultPattern: usualPattern, note: mixNote }
+			});
 			setBriefText(`${next}\n## My question\n${question.trim() || defaultQ}\n`);
 		} catch (e) {
 			setMixMsg(e instanceof Error ? e.message : 'Could not build the prompt.');
@@ -303,12 +396,13 @@ function CoachPanels({
 		setMixBusy(true);
 		setMixSaveMsg('');
 		try {
-			const saved = await saveWeekMix({ data: mix });
-			setSavedMix(saved);
-			setMix(saved);
+			const saved = await saveWeekPattern({ data: usualPattern });
+			setSavedPattern(saved);
+			setUsual(rowsFrom(saved));
+			if (linked) setThisWeek(rowsFrom(saved));
 			setMixSaveMsg('Saved as your default week.');
 		} catch (e) {
-			setMixSaveMsg(e instanceof Error ? e.message : 'Could not save the default mix.');
+			setMixSaveMsg(e instanceof Error ? e.message : 'Could not save the default week.');
 		} finally {
 			mixBusyRef.current = false;
 			setMixBusy(false);
@@ -484,37 +578,19 @@ function CoachPanels({
 							weeks so the prompt stays short.
 						</p>
 						<label className="field">
-							<span>Sports this week</span>
+							<span>Usual week</span>
 							<span className="muted" style={{ fontWeight: 400 }}>
-								Default is {formatMixProse(savedMix)}. Change {weekPhrase} without saving, or save
-								as your usual week. Later you can bump runs to 4 — the prompt follows these counts.
+								Day and sport only — the AI chooses easy / quality / long / etc. plus distance.
+								Saved default is {formatPatternProse(savedPattern)}.
 							</span>
-							<div className="week-mix">
-								{ACTIVITY_TYPES.map((t) => (
-									<div key={t} className={`week-mix-row${mix[t] > 0 ? ' is-on' : ''}`}>
-										<span className="week-mix-name">{activityLabel(t)}</span>
-										<div className="week-mix-step">
-											<button
-												type="button"
-												aria-label={`Fewer ${activityLabel(t).toLowerCase()} sessions`}
-												onClick={() => bump(t, -1)}
-												disabled={mixBusy || mix[t] <= 0}
-											>
-												−
-											</button>
-											<span className="week-mix-count">{mix[t]}</span>
-											<button
-												type="button"
-												aria-label={`More ${activityLabel(t).toLowerCase()} sessions`}
-												onClick={() => bump(t, 1)}
-												disabled={mixBusy || mix[t] >= 10}
-											>
-												+
-											</button>
-										</div>
-									</div>
-								))}
-							</div>
+							<WeekPatternEditor
+								rows={usual}
+								disabled={mixBusy}
+								onChange={(rows) => {
+									setUsual(rows);
+									setMixSaveMsg('');
+								}}
+							/>
 						</label>
 						{(mixDirty || mixBusy || mixSaveMsg) && (
 							<div style={{ marginTop: '0.35rem' }}>
@@ -542,6 +618,51 @@ function CoachPanels({
 								)}
 							</div>
 						)}
+						<label className="field">
+							<span>{weekPhrase.charAt(0).toUpperCase() + weekPhrase.slice(1)}</span>
+							<span className="muted" style={{ fontWeight: 400 }}>
+								{linked
+									? `Using usual days. Change ${weekPhrase} only if this one is different.`
+									: `One-off for ${weekPhrase} — the prompt uses these days, not your saved usual week.`}
+							</span>
+							<div className="actions" style={{ marginTop: '0.35rem' }}>
+								<button
+									className="btn btn-ghost"
+									type="button"
+									disabled={mixBusy}
+									onClick={() => {
+										if (linked) {
+											setThisWeek(rowsFrom(usualPattern));
+											setLinked(false);
+										} else {
+											setLinked(true);
+										}
+									}}
+								>
+									{linked ? `Change ${weekPhrase} only` : 'Use usual week'}
+								</button>
+								{!linked && !patternsEqual(thisPattern, usualPattern) && (
+									<button
+										className="btn btn-ghost"
+										type="button"
+										disabled={mixBusy}
+										onClick={() => {
+											setUsual(rowsFrom(thisPattern));
+											setMixSaveMsg('');
+										}}
+									>
+										Copy to usual week
+									</button>
+								)}
+							</div>
+							{!linked && (
+								<WeekPatternEditor
+									rows={thisWeek}
+									disabled={mixBusy}
+									onChange={setThisWeek}
+								/>
+							)}
+						</label>
 						<label className="field">
 							<span>Anything unusual {weekPhrase}? (optional)</span>
 							<textarea
@@ -602,8 +723,8 @@ function CoachPanels({
 					<div className="panel form" style={{ marginTop: '1rem' }}>
 						<h3>Save {weekPhrase}’s plan</h3>
 						<p className="muted" style={{ marginTop: '0.3rem' }}>
-							Paste the JSON block your AI returned — merged by week number. Sessions can be any
-							days.
+							Paste the JSON block your AI returned — merged by week number. Keep your usual
+							days unless the reply explained a shift.
 						</p>
 						{planMsg && <div className="flash">{planMsg}</div>}
 						<label className="field">

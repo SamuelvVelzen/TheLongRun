@@ -13,7 +13,8 @@ export function RoutesHeatmap({
 	meta = {},
 	focusIds = [],
 	detailPath = '/runs/$slug',
-	emptyText = 'No GPS routes yet — import a FIT or link a Strava route.'
+	emptyText = 'No GPS routes yet — import a FIT or link a Strava route.',
+	onRouteClick
 }: {
 	tracks: RouteTrack[];
 	meta?: RouteMeta;
@@ -21,6 +22,8 @@ export function RoutesHeatmap({
 	focusIds?: string[];
 	detailPath?: '/runs/$slug' | '/routes/$slug';
 	emptyText?: string;
+	/** When set, used instead of navigating to the detail path. */
+	onRouteClick?: (slug: string) => void;
 }) {
 	const wrapRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -29,6 +32,8 @@ export function RoutesHeatmap({
 	const [view, setView] = useState<'recent' | 'all'>('recent');
 	const fitRecentRef = useRef<() => void>(() => {});
 	const fitAllRef = useRef<() => void>(() => {});
+	const onRouteClickRef = useRef(onRouteClick);
+	onRouteClickRef.current = onRouteClick;
 	const navigate = useNavigate();
 	const focusKey = focusIds.join(',');
 	const hasFocus = focusIds.length > 0;
@@ -76,7 +81,11 @@ export function RoutesHeatmap({
 						});
 						line.on('mouseover', () => line.setStyle({ weight: 5, opacity: 1 }));
 						line.on('mouseout', () => line.setStyle({ weight: 2.5, opacity: 0.38 }));
-						line.on('click', () => navigate({ to: detailPath, params: { slug: info.slug } }));
+						line.on('click', () => {
+							const handler = onRouteClickRef.current;
+							if (handler) handler(info.slug);
+							else navigate({ to: detailPath, params: { slug: info.slug } });
+						});
 						const el = line.getElement?.();
 						if (el) el.style.cursor = 'pointer';
 					}

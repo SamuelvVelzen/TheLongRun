@@ -78,6 +78,30 @@ export function downloadPlannedRouteGpx(
 	setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function sampleLngLats(track: number[][]): number[][] {
+	const maxPoints = 25;
+	const step = Math.max(1, Math.ceil(track.length / maxPoints));
+	return track.filter(
+		(_, index) => index === 0 || index === track.length - 1 || index % step === 0
+	);
+}
+
+function brouterUrlFromLngLats(points: number[][]): string | null {
+	if (points.length < 2) return null;
+	const center = points[Math.floor(points.length / 2)]!;
+	const lonlats = points.map(([lng, lat]) => `${lng},${lat}`).join(';');
+	return `https://brouter.de/brouter-web/#map=13/${center[1]}/${center[0]}/standard&lonlats=${lonlats}`;
+}
+
+function lonlatsFromWaypointsAndTrack(
+	waypoints: PlannedWaypoint[],
+	trackLngLat: number[][]
+): number[][] {
+	const points = waypoints.map((point) => [point.lng, point.lat]);
+	if (points.length >= 2) return points;
+	return sampleLngLats(trackLngLat);
+}
+
 /**
  * BRouter Web represents an editable route by its via points in the URL.
  * For track-only GPX files, sampled track points approximate the imported shape.
@@ -86,18 +110,30 @@ export function plannedRouteBrouterUrl(
 	geojson: PlannedGeoJson,
 	waypoints: PlannedWaypoint[]
 ): string | null {
-	const track = coordinates(geojson);
-	let points = waypoints.map((point) => [point.lng, point.lat]);
-	if (points.length < 2) {
-		const maxPoints = 25;
-		const step = Math.max(1, Math.ceil(track.length / maxPoints));
-		points = track
-			.filter((_, index) => index === 0 || index === track.length - 1 || index % step === 0)
-			.map((point) => [Number(point[0]), Number(point[1])]);
-	}
-	if (points.length < 2) return null;
+	return brouterUrlFromLngLats(lonlatsFromWaypointsAndTrack(waypoints, coordinates(geojson)));
+}
 
-	const center = points[Math.floor(points.length / 2)]!;
-	const lonlats = points.map(([lng, lat]) => `${lng},${lat}`).join(';');
-	return `https://brouter.de/brouter-web/#map=13/${center[1]}/${center[0]}/standard&lonlats=${lonlats}`;
+/** Build a BRouter URL from list data: waypoints plus a Leaflet [lat, lng] track. */
+export function plannedRouteBrouterUrlFromTrack(
+	waypoints: PlannedWaypoint[],
+	trackLatLng: [number, number][]
+): string | null {
+	return brouterUrlFromLngLats(
+		lonlatsFromWaypointsAndTrack(
+			waypoints,
+			trackLatLng.map(([lat, lng]) => [lng, lat])
+		)
+	);
+}
+
+/** Open BRouter in a new tab and download the GPX, matching the route detail button. */
+export function openPlannedRouteInBrouter(
+	name: string,
+	geojson: PlannedGeoJson,
+	waypoints: PlannedWaypoint[]
+): boolean {
+	const url = plannedRouteBrouterUrl(geojson, waypoints);
+	if (url) window.open(url, '_blank', 'noopener,noreferrer');
+	downloadPlannedRouteGpx(name, geojson, waypoints);
+	return Boolean(url);
 }

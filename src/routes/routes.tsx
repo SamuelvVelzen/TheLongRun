@@ -1,11 +1,17 @@
 import {
+	downloadPlannedRouteGpx,
+	plannedRouteBrouterUrl,
+	plannedRouteBrouterUrlFromTrack
+} from '$lib/planned-route-export';
+import {
 	deletePlannedRoute,
+	getPlannedRouteDetail,
 	getPlannedRoutesData,
 	importPlannedRoute,
 	updatePlannedRoute
 } from '$lib/server/functions';
-import type { PlannedRoute } from '$lib/types';
-import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router';
+import type { PlannedRoute, RouteTrack } from '$lib/types';
+import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { DeferredData } from '../components/DeferredData';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
@@ -95,6 +101,16 @@ function PlannedRoutesList({
 	data: Awaited<ReturnType<typeof getPlannedRoutesData>>;
 	onMessage: (msg: string) => void;
 }) {
+	const tracksBySlug = useMemo(() => {
+		const out = new Map<string, RouteTrack>();
+		for (const track of data.tracks) out.set(track.id, track);
+		return out;
+	}, [data.tracks]);
+	const routesBySlug = useMemo(() => {
+		const out = new Map<string, PlannedRoute>();
+		for (const route of data.routes) out.set(route.slug, route);
+		return out;
+	}, [data.routes]);
 	const meta = useMemo<RouteMeta>(() => {
 		const out: RouteMeta = {};
 		for (const route of data.routes) {
@@ -108,6 +124,15 @@ function PlannedRoutesList({
 		return out;
 	}, [data.routes]);
 
+	function openRouteInBrouter(slug: string) {
+		const route = routesBySlug.get(slug);
+		if (!route) {
+			onMessage('Route not found.');
+			return;
+		}
+		void openPlannedRouteFromList(route, tracksBySlug.get(slug), onMessage);
+	}
+
 	return (
 		<>
 			<section className="map-section" aria-labelledby="planned-routes-map">
@@ -116,7 +141,7 @@ function PlannedRoutesList({
 						<h2 id="planned-routes-map">Saved route map</h2>
 						<p>
 							{data.tracks.length
-								? `${data.tracks.length} planned route${data.tracks.length === 1 ? '' : 's'} · click a line to open`
+								? `${data.tracks.length} planned route${data.tracks.length === 1 ? '' : 's'} · click a line to open in BRouter`
 								: 'Import a route to see it here'}
 						</p>
 					</div>
@@ -127,33 +152,73 @@ function PlannedRoutesList({
 					focusIds={[]}
 					detailPath="/routes/$slug"
 					emptyText="No planned routes yet — drop a GPX route above."
+					onRouteClick={openRouteInBrouter}
 				/>
 			</section>
 
 			<div className="section-title">
 				<div>
 					<h2>Saved routes</h2>
-					<p>{data.routes.length} total</p>
+					<p>{data.routes.length} total · click a route to open in BRouter</p>
 				</div>
 			</div>
 			<div className="grid">
 				{data.routes.map((route) => (
-					<PlannedRouteRow key={route.slug} route={route} onMessage={onMessage} />
+					<PlannedRouteRow
+						key={route.slug}
+						route={route}
+						track={tracksBySlug.get(route.slug)}
+						onMessage={onMessage}
+					/>
 				))}
 			</div>
 		</>
 	);
 }
 
+async function openPlannedRouteFromList(
+	route: PlannedRoute,
+	track: RouteTrack | undefined,
+	onMessage: (msg: string) => void
+) {
+	const url = plannedRouteBrouterUrlFromTrack(route.waypoints, track?.coords ?? []);
+	let pendingTab: Window | null = null;
+	if (url) {
+		window.open(url, '_blank', 'noopener,noreferrer');
+	} else {
+		pendingTab = window.open('about:blank', '_blank');
+	}
+	try {
+		const detail = await getPlannedRouteDetail({ data: route.slug });
+		if (!detail) {
+			pendingTab?.close();
+			onMessage('Route not found.');
+			return;
+		}
+		downloadPlannedRouteGpx(detail.name, detail.geojson, detail.waypoints);
+		if (url) return;
+		const fetchedUrl = plannedRouteBrouterUrl(detail.geojson, detail.waypoints);
+		if (fetchedUrl && pendingTab) pendingTab.location.href = fetchedUrl;
+		else {
+			pendingTab?.close();
+			onMessage('The GPX was downloaded, but this route has too few points for BRouter.');
+		}
+	} catch (error) {
+		pendingTab?.close();
+		onMessage(error instanceof Error ? error.message : 'Could not open route');
+	}
+}
+
 function PlannedRouteRow({
 	route,
+	track,
 	onMessage
 }: {
 	route: PlannedRoute;
+	track: RouteTrack | undefined;
 	onMessage: (msg: string) => void;
 }) {
 	const router = useRouter();
-	const navigate = useNavigate();
 	const [name, setName] = useState(route.name);
 
 	useEffect(() => {
@@ -176,6 +241,10 @@ function PlannedRouteRow({
 		}
 	}
 
+	function onOpen() {
+		void openPlannedRouteFromList(route, track, onMessage);
+	}
+
 	async function onDeleteRoute(event: MouseEvent) {
 		event.preventDefault();
 		event.stopPropagation();
@@ -192,7 +261,8 @@ function PlannedRouteRow({
 		<div className="planned-route-card">
 			<div
 				className="run-row planned-route-row"
-				onClick={() => navigate({ to: '/routes/$slug', params: { slug: route.slug } })}
+				title="Open in BRouter and download GPX"
+				onClick={onOpen}
 			>
 				<div>
 					<input

@@ -5,7 +5,7 @@ import {
 	getPlannedRouteDetail,
 	updatePlannedRoute
 } from '$lib/server/functions';
-import { downloadPlannedRouteGpx, plannedRouteBrouterUrl } from '$lib/planned-route-export';
+import { openPlannedRouteInBrouter } from '$lib/planned-route-export';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 
 export const Route = createFileRoute('/routes/$slug')({
@@ -43,10 +43,8 @@ function PlannedRouteDetail() {
 	}
 
 	function openInBrouter() {
-		const url = plannedRouteBrouterUrl(route.geojson, route.waypoints);
-		if (url) window.open(url, '_blank', 'noopener,noreferrer');
-		downloadPlannedRouteGpx(route.name, route.geojson, route.waypoints);
-		if (!url) setMessage('The GPX was downloaded, but this route has too few points for BRouter.');
+		const opened = openPlannedRouteInBrouter(route.name, route.geojson, route.waypoints);
+		if (!opened) setMessage('The GPX was downloaded, but this route has too few points for BRouter.');
 	}
 
 	const location = [route.place, route.province, route.country].filter(Boolean).join(', ');

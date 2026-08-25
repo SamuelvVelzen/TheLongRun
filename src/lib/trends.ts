@@ -4,6 +4,7 @@
 import { formatDuration, parseDurationSeconds } from '$lib/format';
 import { avg, sumDistance, weekNumberForDate } from '$lib/plan';
 import { isoDateLocal } from '$lib/date-range';
+import { activityPlural } from '$lib/activity';
 import type { RunRecord } from '$lib/types';
 
 export type TrendPoint = {
@@ -147,7 +148,7 @@ function takeLastWithMetric(
 	return out.slice(-limit);
 }
 
-function buildPaceSeries(runs: RunRecord[]): TrendSeries | null {
+function buildPaceSeries(runs: RunRecord[], noun: string): TrendSeries | null {
 	const rows = takeLastWithMetric(runs, (r) => {
 		const secs = parseDurationSeconds(r.avg_pace);
 		if (secs == null || secs <= 0 || secs >= PACE_MAX_SECS) return null;
@@ -166,7 +167,7 @@ function buildPaceSeries(runs: RunRecord[]): TrendSeries | null {
 	return {
 		id: 'pace',
 		title: 'Pace',
-		subtitle: `Last ${points.length} runs with pace`,
+		subtitle: `Last ${points.length} ${noun} with pace`,
 		unit: '/km',
 		points,
 		latest: formatDuration(last.value),
@@ -185,6 +186,7 @@ function buildScoreSeries(
 		title: string;
 		field: 'effort' | 'shins';
 		lowerIsBetter: boolean;
+		noun: string;
 	}
 ): TrendSeries | null {
 	const rows = takeLastWithMetric(runs, (r) => r[opts.field]);
@@ -201,7 +203,7 @@ function buildScoreSeries(
 	return {
 		id: opts.id,
 		title: opts.title,
-		subtitle: `Last ${points.length} scored runs`,
+		subtitle: `Last ${points.length} scored ${opts.noun}`,
 		unit: '/10',
 		points,
 		latest: round1(last.value).toFixed(1).replace(/\.0$/, ''),
@@ -213,7 +215,7 @@ function buildScoreSeries(
 	};
 }
 
-function buildHrSeries(runs: RunRecord[]): TrendSeries | null {
+function buildHrSeries(runs: RunRecord[], noun: string): TrendSeries | null {
 	const rows = takeLastWithMetric(runs, (r) => r.avg_hr);
 	if (rows.length < 2) return null;
 
@@ -228,7 +230,7 @@ function buildHrSeries(runs: RunRecord[]): TrendSeries | null {
 	return {
 		id: 'hr',
 		title: 'Heart rate',
-		subtitle: `Last ${points.length} runs with HR`,
+		subtitle: `Last ${points.length} ${noun} with HR`,
 		unit: 'bpm',
 		points,
 		latest: String(Math.round(last.value)),
@@ -266,20 +268,22 @@ function buildDistanceSeries(
 /** Build the coherent trend set used on Dashboard / Timeline. */
 export function buildTrainingTrends(
 	runs: RunRecord[],
-	opts?: { endDate?: string | null; fromDate?: string | null }
+	opts?: { endDate?: string | null; fromDate?: string | null; sport?: string | null }
 ): TrainingTrends {
+	const noun = activityPlural(opts?.sport);
 	const series: TrendSeries[] = [];
 	const distance = buildDistanceSeries(runs, opts);
 	if (distance) series.push(distance);
 
-	const pace = buildPaceSeries(runs);
+	const pace = buildPaceSeries(runs, noun);
 	if (pace) series.push(pace);
 
 	const effort = buildScoreSeries(runs, {
 		id: 'effort',
 		title: 'Effort',
 		field: 'effort',
-		lowerIsBetter: true
+		lowerIsBetter: true,
+		noun
 	});
 	if (effort) series.push(effort);
 
@@ -287,11 +291,12 @@ export function buildTrainingTrends(
 		id: 'shins',
 		title: 'Shins',
 		field: 'shins',
-		lowerIsBetter: true
+		lowerIsBetter: true,
+		noun
 	});
 	if (shins) series.push(shins);
 
-	const hr = buildHrSeries(runs);
+	const hr = buildHrSeries(runs, noun);
 	if (hr) series.push(hr);
 
 	return { series };

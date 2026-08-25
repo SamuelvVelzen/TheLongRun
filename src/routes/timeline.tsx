@@ -104,7 +104,11 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 		.filter((r) => place === 'all' || r.place === place);
 	const runs = filterRunsByRange(scoped, range);
 	const groups = groupRuns(runs);
-	const trends = buildTrainingTrends(runs, { endDate: range.to, fromDate: range.from });
+	const trends = buildTrainingTrends(runs, {
+		endDate: range.to,
+		fromDate: range.from,
+		sport
+	});
 	const boardSport = sport === 'walk' ? 'walk' : 'run';
 	const showBoard = sport === 'all' || sport === 'run' || sport === 'walk';
 	const board = showBoard ? buildBestEffortBoard(allRuns, boardSport) : [];
@@ -157,7 +161,7 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 							trends={trends}
 							caption={
 								range.kind === 'all'
-									? 'Progress over recent weeks and runs'
+									? `Progress over recent weeks and ${activityPlural(sport)}`
 									: `Within ${range.label.toLowerCase()}`
 							}
 						/>

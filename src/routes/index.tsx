@@ -159,7 +159,11 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 		mappedRuns,
 		streak: data.streak
 	});
-	const trends = buildTrainingTrends(runs, { endDate: range.to, fromDate: range.from });
+	const trends = buildTrainingTrends(runs, {
+		endDate: range.to,
+		fromDate: range.from,
+		sport
+	});
 
 	const totalAllTime = allRuns.length;
 	const filteredEmpty = totalAllTime > 0 && stats.runCount === 0;
@@ -318,7 +322,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 							caption={
 								rangeActive
 									? `Within ${range.label.toLowerCase()}`
-									: 'Progress over recent weeks and runs'
+									: `Progress over recent weeks and ${activityPlural(sport)}`
 							}
 						/>
 					)}

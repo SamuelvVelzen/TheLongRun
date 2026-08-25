@@ -82,5 +82,24 @@ CREATE TABLE IF NOT EXISTS planned_routes (
 
 ALTER TABLE planned_routes ADD COLUMN IF NOT EXISTS est_time text NOT NULL DEFAULT '';
 
+-- A planned route can be reused across many plan days and logged activities.
+-- One plan day / one activity maps to at most one planned route.
+CREATE TABLE IF NOT EXISTS planned_route_links (
+	id             serial PRIMARY KEY,
+	route_slug     text NOT NULL REFERENCES planned_routes(slug) ON DELETE CASCADE,
+	kind           text NOT NULL,
+	activity_slug  text REFERENCES runs(slug) ON DELETE CASCADE,
+	plan_week      integer,
+	plan_day       text,
+	created_on     text NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS planned_route_links_plan_uniq
+	ON planned_route_links (plan_week, plan_day)
+	WHERE kind = 'plan';
+CREATE UNIQUE INDEX IF NOT EXISTS planned_route_links_activity_uniq
+	ON planned_route_links (activity_slug)
+	WHERE kind = 'activity';
+
 -- Fastest rolling windows per activity (5k / 10k / half / …), ranked at read time.
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS best_efforts jsonb NOT NULL DEFAULT '[]'::jsonb;

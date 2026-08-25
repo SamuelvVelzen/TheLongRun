@@ -3,7 +3,7 @@
  */
 import { normalizeActivityType } from '$lib/activity';
 import { formatDuration, parseDurationSeconds } from '$lib/format';
-import type { PlanSession, PlanWeek, RunRecord } from '$lib/types';
+import type { PlanSession, PlanWeek, RunRecord, SessionRouteRef } from '$lib/types';
 import { sessionActivityType } from '$lib/week-mix';
 
 export const PLAN_START_ISO = '2026-08-03';
@@ -102,6 +102,7 @@ export type WeekSessionView = PlanSession & {
 	skipped: boolean;
 	isToday: boolean;
 	isNext: boolean;
+	route: SessionRouteRef | null;
 };
 
 export type WeekView = {
@@ -113,6 +114,10 @@ export type WeekView = {
 const SKIP_LANG_RE = /\bskip(?:ped|ping|s)?\b/i;
 const REST_LIKE_RE = /^(rest|off|recovery)(\b|[+\-–—]|$)/i;
 
+export function isRestLike(label: string): boolean {
+	return REST_LIKE_RE.test(label.trim());
+}
+
 /** Past incomplete session: workouts count as skipped; rest/off only if skip language is present. */
 export function isSessionSkipped(
 	session: Pick<PlanSession, 'label' | 'detail'>,
@@ -123,7 +128,7 @@ export function isSessionSkipped(
 	if (done || date == null || date >= todayIso) return false;
 	const text = `${session.label} ${session.detail}`;
 	if (SKIP_LANG_RE.test(text)) return true;
-	if (REST_LIKE_RE.test(session.label.trim())) return false;
+	if (isRestLike(session.label)) return false;
 	return true;
 }
 
@@ -141,7 +146,7 @@ export function buildWeekView(
 	}
 	const sessions: WeekSessionView[] = week.sessions.map((s) => {
 		const date = dateForSessionDay(start, s.day);
-		const isRest = REST_LIKE_RE.test(s.label.trim());
+		const isRest = isRestLike(s.label);
 		const type = sessionActivityType(s);
 		const key = date ? `${date}|${type}` : '';
 		const left = !isRest && key ? remaining.get(key) ?? 0 : 0;
@@ -153,7 +158,8 @@ export function buildWeekView(
 			done,
 			skipped: isSessionSkipped(s, date, done, todayIso),
 			isToday: date === todayIso,
-			isNext: false
+			isNext: false,
+			route: null
 		};
 	});
 	// Only today / future incomplete sessions count as NEXT. Past skips (e.g. Rest)
@@ -163,6 +169,53 @@ export function buildWeekView(
 		null;
 	if (next) next.isNext = true;
 	return { week, sessions, next };
+}
+
+/** Attach planned-route refs to a week view. Key is lowercase weekday. */
+export function withSessionRoutes(
+	view: WeekView,
+	byDay: Map<string, SessionRouteRef>
+): WeekView {
+	const sessions = view.sessions.map((s) => ({
+		...s,
+		route: byDay.get(s.day.trim().toLowerCase()) ?? null
+	}));
+	const next = view.next
+		? (sessions.find((s) => s.isNext) ?? {
+				...view.next,
+				route: byDay.get(view.next.day.trim().toLowerCase()) ?? null
+			})
+		: null;
+	return { ...view, sessions, next };
+}
+
+export type UpcomingPlanSession = PlanSession & {
+	week: number;
+	date: string | null;
+	phase: string;
+};
+
+/** Current and future non-rest, non-strength sessions (today included). */
+export function upcomingPlanSessions(plan: PlanWeek[], today = new Date()): UpcomingPlanSession[] {
+	const todayIso = isoDateLocal(today);
+	const out: UpcomingPlanSession[] = [];
+	const weeks = [...plan].sort((a, b) => a.week - b.week);
+	for (const w of weeks) {
+		const start = planWeekStartIso(w.week);
+		for (const s of w.sessions) {
+			if (isRestLike(s.label)) continue;
+			if (sessionActivityType(s) === 'strength') continue;
+			const date = dateForSessionDay(start, s.day);
+			if (date && date < todayIso) continue;
+			out.push({ ...s, week: w.week, date, phase: w.phase });
+		}
+	}
+	out.sort((a, b) => {
+		if (a.date && b.date && a.date !== b.date) return a.date < b.date ? -1 : 1;
+		if (a.week !== b.week) return a.week - b.week;
+		return a.day.localeCompare(b.day);
+	});
+	return out;
 }
 
 /** Consecutive planned-session dates (from the plan, any weekdays) that have a logged run. */
@@ -175,7 +228,7 @@ export function sessionStreak(runs: RunRecord[], plan: PlanWeek[], today = new D
 	for (const w of plan) {
 		const start = planWeekStartIso(w.week);
 		for (const s of w.sessions) {
-			if (REST_LIKE_RE.test(s.label.trim())) continue;
+			if (isRestLike(s.label)) continue;
 			if (sessionActivityType(s) !== 'run') continue;
 			const d = dateForSessionDay(start, s.day);
 			if (d && d <= todayIso) planned.push(d);

@@ -16,6 +16,7 @@ import { buildHrZoneSummary } from '$lib/hr-zones';
 import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import {
     buildWeekView,
+    dateForSessionDay,
     isoDateLocal,
     PLAN_START_ISO,
     PLAN_WEEK_COUNT,
@@ -24,13 +25,27 @@ import {
     planWeekIndex,
     planWeekStartIso,
     sessionStreak,
+    upcomingPlanSessions,
     weekNumberForDate,
     weekToPlan,
+    withSessionRoutes,
     type WeekView
 } from '$lib/plan';
 import { analyticsToProperties, type RouteAnalytics } from '$lib/splits';
 import { parseStrengthNotes, strengthSummary } from '$lib/strength';
-import type { Goals, PlannedRoute, PlanWeek, RouteTrack, RunRecord, RunWithMap } from '$lib/types';
+import type {
+    ActivityAttachOption,
+    Goals,
+    PlanAttachOption,
+    PlannedRoute,
+    PlannedRouteActivityLink,
+    PlannedRoutePlanLink,
+    PlanWeek,
+    RouteTrack,
+    RunRecord,
+    RunWithMap,
+    SessionRouteRef
+} from '$lib/types';
 import {
     exampleSessionsForPattern,
     formatPatternLines,
@@ -54,12 +69,18 @@ import {
 import { reverseGeocode } from './geo';
 import { parseGpx } from './gpx';
 import {
+    attachRouteToActivity as dbAttachRouteToActivity,
+    attachRouteToPlan as dbAttachRouteToPlan,
     deletePlannedRoute as dbDeletePlannedRoute,
-    updatePlannedRoute as dbUpdatePlannedRoute,
+    detachRouteLink as dbDetachRouteLink,
+    getActivityRouteRef,
     getPlannedRoute,
+    listPlanRouteRefs,
     listPlannedRoutes,
     listPlannedRouteTracks,
-    savePlannedFromFile
+    listRouteLinks,
+    savePlannedFromFile,
+    updatePlannedRoute as dbUpdatePlannedRoute
 } from './planned-routes';
 import {
     getRouteGeoJson,
@@ -124,20 +145,33 @@ async function highlightsAfterSave(
 // ---------- reads ----------
 
 export const getDashboardData = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, tracks, routeIds, week, plan, goals, shoes] = await Promise.all([
+	const [runs, tracks, routeIds, week, plan, goals, shoes, planRefs] = await Promise.all([
 		listRuns(),
 		listRouteTracks(),
 		listRouteIds(),
 		currentPlanWeek(),
 		loadPlan(),
 		loadGoals(),
-		loadShoes()
+		loadShoes(),
+		listPlanRouteRefs()
 	]);
+	const weekView = week ? buildWeekView(week, runs) : null;
+	const byDay = new Map<string, SessionRouteRef>();
+	if (weekView) {
+		for (const ref of planRefs) {
+			if (ref.week !== weekView.week.week) continue;
+			byDay.set(ref.day.trim().toLowerCase(), {
+				slug: ref.slug,
+				name: ref.name,
+				distance_km: ref.distance_km
+			});
+		}
+	}
 	return {
 		runs: withMap(runs, routeIds),
 		tracks,
 		week,
-		weekView: week ? buildWeekView(week, runs) : null,
+		weekView: weekView ? withSessionRoutes(weekView, byDay) : null,
 		streak: sessionStreak(runs, plan),
 		goals,
 		shoes
@@ -163,14 +197,16 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 	.handler(async ({ data: slug }) => {
 		const run = await getRun(slug);
 		if (!run) return null;
-		const [analytics, routeIds, shoes, settings, allTimeMaxHr, allRuns] = await Promise.all([
-			loadRouteAnalytics(run),
-			listRouteIds(),
-			loadShoes(),
-			loadSettings(),
-			getMaxHrAllTime(),
-			listRuns()
-		]);
+		const [analytics, routeIds, shoes, settings, allTimeMaxHr, allRuns, plannedRoute] =
+			await Promise.all([
+				loadRouteAnalytics(run),
+				listRouteIds(),
+				loadShoes(),
+				loadSettings(),
+				getMaxHrAllTime(),
+				listRuns(),
+				getActivityRouteRef(slug)
+			]);
 		await hydrateBestEfforts(allRuns);
 		const current = allRuns.find((r) => r.slug === slug) ?? run;
 		const highlights = highlightsForActivity(current.slug, current.activity_type, allRuns);
@@ -197,7 +233,8 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 			shoes,
 			hrMaxManual,
 			hrMaxAllTime: allTimeMaxHr,
-			bestEfforts: highlights
+			bestEfforts: highlights,
+			plannedRoute
 		};
 	});
 
@@ -1309,7 +1346,96 @@ export const getPlannedRoutesData = createServerFn({ method: 'GET' }).handler(as
 export const getPlannedRouteDetail = createServerFn({ method: 'GET' })
 	.validator((slug: string) => slug)
 	.handler(async ({ data: slug }) => {
-		return (await getPlannedRoute(slug)) ?? null;
+		const [route, allLinks, plan, runs, routes] = await Promise.all([
+			getPlannedRoute(slug),
+			listRouteLinks(),
+			loadPlan(),
+			listRuns(),
+			listPlannedRoutes()
+		]);
+		if (!route) return null;
+		const names = new Map(routes.map((r) => [r.slug, r.name]));
+		const runBySlug = new Map(runs.map((r) => [r.slug, r]));
+		const mine = allLinks.filter((l) => l.route_slug === slug);
+
+		const planLinks: PlannedRoutePlanLink[] = [];
+		for (const link of mine) {
+			if (link.kind !== 'plan' || link.plan_week == null || !link.plan_day) continue;
+			const week = plan.find((w) => w.week === link.plan_week);
+			const session = week?.sessions.find(
+				(s) => s.day.toLowerCase() === link.plan_day!.toLowerCase()
+			);
+			planLinks.push({
+				id: link.id,
+				week: link.plan_week,
+				day: link.plan_day,
+				date: dateForSessionDay(planWeekStartIso(link.plan_week), link.plan_day),
+				label: session?.label || 'Planned session',
+				activity_type: session?.activity_type || 'run',
+				distance_km: session?.distance_km ?? null
+			});
+		}
+
+		const activityLinks: PlannedRouteActivityLink[] = [];
+		for (const link of mine) {
+			if (link.kind !== 'activity' || !link.activity_slug) continue;
+			const run = runBySlug.get(link.activity_slug);
+			if (!run) continue;
+			activityLinks.push({
+				id: link.id,
+				slug: run.slug,
+				date: run.date,
+				day: run.day,
+				activity_type: run.activity_type,
+				distance_km: run.distance_km
+			});
+		}
+
+		const planTaken = new Map<string, { slug: string; name: string }>();
+		for (const link of allLinks) {
+			if (link.kind !== 'plan' || link.plan_week == null || !link.plan_day) continue;
+			const name = names.get(link.route_slug);
+			if (!name) continue;
+			planTaken.set(`${link.plan_week}|${link.plan_day.toLowerCase()}`, {
+				slug: link.route_slug,
+				name
+			});
+		}
+		const activityTaken = new Map<string, { slug: string; name: string }>();
+		for (const link of allLinks) {
+			if (link.kind !== 'activity' || !link.activity_slug) continue;
+			const name = names.get(link.route_slug);
+			if (!name) continue;
+			activityTaken.set(link.activity_slug, { slug: link.route_slug, name });
+		}
+
+		const planOptions: PlanAttachOption[] = upcomingPlanSessions(plan)
+			.filter((s) => planTaken.get(`${s.week}|${s.day.trim().toLowerCase()}`)?.slug !== slug)
+			.map((s) => ({
+				week: s.week,
+				day: s.day,
+				date: s.date,
+				label: s.label,
+				activity_type: s.activity_type ?? 'run',
+				distance_km: s.distance_km,
+				taken_by: planTaken.get(`${s.week}|${s.day.trim().toLowerCase()}`) ?? null
+			}));
+
+		const linkedActivity = new Set(activityLinks.map((a) => a.slug));
+		const activityOptions: ActivityAttachOption[] = runs
+			.filter((r) => normalizeActivityType(r.activity_type) !== 'strength')
+			.filter((r) => !linkedActivity.has(r.slug))
+			.slice(0, 80)
+			.map((r) => ({
+				slug: r.slug,
+				date: r.date,
+				day: r.day,
+				activity_type: r.activity_type,
+				distance_km: r.distance_km,
+				taken_by: activityTaken.get(r.slug) ?? null
+			}));
+
+		return { ...route, planLinks, activityLinks, planOptions, activityOptions };
 	});
 
 export const importPlannedRoute = createServerFn({ method: 'POST' })
@@ -1335,4 +1461,39 @@ export const deletePlannedRoute = createServerFn({ method: 'POST' })
 	.validator((slug: string) => slug)
 	.handler(async ({ data: slug }) => {
 		return dbDeletePlannedRoute(slug);
+	});
+
+export const attachPlannedRoute = createServerFn({ method: 'POST' })
+	.validator((d: { slug: string; week?: number; day?: string; activity_slug?: string }) => d)
+	.handler(async ({ data }) => {
+		if (data.activity_slug) {
+			const run = await getRun(data.activity_slug);
+			if (!run) throw new Error('Activity not found.');
+			if (normalizeActivityType(run.activity_type) === 'strength') {
+				throw new Error('Strength sessions do not use a route.');
+			}
+			await dbAttachRouteToActivity(data.slug, data.activity_slug);
+			return { ok: true as const };
+		}
+		const week = data.week;
+		const day = data.day?.trim() ?? '';
+		if (week == null || !day) throw new Error('Pick a plan day or an activity.');
+		if (!Number.isInteger(week) || week < 1 || week > PLAN_WEEK_COUNT) {
+			throw new Error('That plan week is out of range.');
+		}
+		const plan = await loadPlan();
+		const found = plan
+			.find((w) => w.week === week)
+			?.sessions.find((s) => s.day.toLowerCase() === day.toLowerCase());
+		if (!found) throw new Error('That day is not on the plan.');
+		await dbAttachRouteToPlan(data.slug, week, day);
+		return { ok: true as const };
+	});
+
+export const detachPlannedRoute = createServerFn({ method: 'POST' })
+	.validator((d: { slug: string; id: number }) => d)
+	.handler(async ({ data }) => {
+		const ok = await dbDetachRouteLink(data.id, data.slug);
+		if (!ok) throw new Error('Link not found.');
+		return { ok: true as const };
 	});

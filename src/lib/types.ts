@@ -112,6 +112,61 @@ export type PlannedRoute = {
 	province: string;
 	place: string;
 	waypoints: PlannedWaypoint[];
+	/** Plan days this route is attached to (list views). */
+	plan_link_count: number;
+	/** Completed activities this route is attached to (list views). */
+	activity_link_count: number;
+};
+
+/** Compact route shown on a plan session. */
+export type SessionRouteRef = {
+	slug: string;
+	name: string;
+	distance_km: number | null;
+};
+
+/** A planned route attached to an upcoming (or current) plan day. */
+export type PlannedRoutePlanLink = {
+	id: number;
+	week: number;
+	day: string;
+	date: string | null;
+	label: string;
+	activity_type: string;
+	distance_km: number | null;
+};
+
+/** A planned route attached to a logged activity. */
+export type PlannedRouteActivityLink = {
+	id: number;
+	slug: string;
+	date: string;
+	day: string;
+	activity_type: string;
+	distance_km: number | null;
+};
+
+export type RouteAttachTakenBy = { slug: string; name: string };
+
+/** Upcoming plan session a route can be attached to. */
+export type PlanAttachOption = {
+	week: number;
+	day: string;
+	date: string | null;
+	label: string;
+	activity_type: string;
+	distance_km: number | null;
+	taken_by: RouteAttachTakenBy | null;
+};
+
+/** Logged activity a route can be attached to. */
+export type ActivityAttachOption = {
+	slug: string;
+	date: string;
+	day: string;
+	activity_type: string;
+	distance_km: number | null;
+	taken_by: RouteAttachTakenBy | null;
 };
 
 /** A run plus whether it has a stored map track (computed server-side). */

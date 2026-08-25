@@ -78,33 +78,89 @@ export function downloadPlannedRouteGpx(
 	setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function sampleLngLats(track: number[][]): number[][] {
-	const maxPoints = 25;
-	const step = Math.max(1, Math.ceil(track.length / maxPoints));
-	return track.filter(
-		(_, index) => index === 0 || index === track.length - 1 || index % step === 0
-	);
+const MAX_VIA_POINTS = 30;
+
+function round6(n: number): string {
+	return n.toFixed(6);
+}
+
+/** Local-meters distance from P to segment AB. */
+function distToSegmentMeters(p: number[], a: number[], b: number[]): number {
+	const lat0 = ((a[1] ?? 0) * Math.PI) / 180;
+	const mLat = 111132;
+	const mLng = 111320 * Math.cos(lat0);
+	const bx = ((b[0] ?? 0) - (a[0] ?? 0)) * mLng;
+	const by = ((b[1] ?? 0) - (a[1] ?? 0)) * mLat;
+	const px = ((p[0] ?? 0) - (a[0] ?? 0)) * mLng;
+	const py = ((p[1] ?? 0) - (a[1] ?? 0)) * mLat;
+	const len2 = bx * bx + by * by;
+	if (len2 < 1) return Math.hypot(px, py);
+	const t = Math.max(0, Math.min(1, (px * bx + py * by) / len2));
+	return Math.hypot(px - t * bx, py - t * by);
+}
+
+function ramerDouglasPeucker(points: number[][], epsilonM: number): number[][] {
+	if (points.length <= 2) return points;
+	const first = points[0]!;
+	const last = points[points.length - 1]!;
+	let maxDist = 0;
+	let index = 0;
+	for (let i = 1; i < points.length - 1; i++) {
+		const d = distToSegmentMeters(points[i]!, first, last);
+		if (d > maxDist) {
+			maxDist = d;
+			index = i;
+		}
+	}
+	if (maxDist <= epsilonM) return [first, last];
+	const left = ramerDouglasPeucker(points.slice(0, index + 1), epsilonM);
+	const right = ramerDouglasPeucker(points.slice(index), epsilonM);
+	return [...left.slice(0, -1), ...right];
+}
+
+/** Corner-preserving via points so BRouter can rebuild the line from the URL. */
+function simplifyToViaPoints(track: number[][]): number[][] {
+	if (track.length <= MAX_VIA_POINTS) return track;
+	let epsilon = 15;
+	let out = ramerDouglasPeucker(track, epsilon);
+	while (out.length > MAX_VIA_POINTS && epsilon < 4000) {
+		epsilon *= 1.5;
+		out = ramerDouglasPeucker(track, epsilon);
+	}
+	if (out.length <= MAX_VIA_POINTS) return out;
+	const step = (out.length - 1) / (MAX_VIA_POINTS - 1);
+	return Array.from({ length: MAX_VIA_POINTS }, (_, i) => out[Math.round(i * step)]!);
 }
 
 function brouterUrlFromLngLats(points: number[][]): string | null {
 	if (points.length < 2) return null;
-	const center = points[Math.floor(points.length / 2)]!;
-	const lonlats = points.map(([lng, lat]) => `${lng},${lat}`).join(';');
-	return `https://brouter.de/brouter-web/#map=13/${center[1]}/${center[0]}/standard&lonlats=${lonlats}`;
+	const lats = points.map((p) => Number(p[1]));
+	const lngs = points.map((p) => Number(p[0]));
+	const minLat = Math.min(...lats);
+	const maxLat = Math.max(...lats);
+	const minLng = Math.min(...lngs);
+	const maxLng = Math.max(...lngs);
+	const span = Math.max(maxLat - minLat, maxLng - minLng);
+	const zoom = span > 0.18 ? 12 : span > 0.08 ? 13 : span > 0.04 ? 14 : span > 0.018 ? 15 : 16;
+	const centerLat = (minLat + maxLat) / 2;
+	const centerLng = (minLng + maxLng) / 2;
+	const lonlats = points.map((p) => `${round6(Number(p[0]))},${round6(Number(p[1]))}`).join(';');
+	return `https://brouter.de/brouter-web/#map=${zoom}/${centerLat.toFixed(4)}/${centerLng.toFixed(4)}/standard&lonlats=${lonlats}`;
 }
 
 function lonlatsFromWaypointsAndTrack(
 	waypoints: PlannedWaypoint[],
 	trackLngLat: number[][]
 ): number[][] {
-	const points = waypoints.map((point) => [point.lng, point.lat]);
-	if (points.length >= 2) return points;
-	return sampleLngLats(trackLngLat);
+	// from+to alone would draw a straight line — need intermediate vias or the track.
+	if (waypoints.length >= 3) return waypoints.map((point) => [point.lng, point.lat]);
+	return simplifyToViaPoints(trackLngLat);
 }
 
 /**
- * BRouter Web represents an editable route by its via points in the URL.
- * For track-only GPX files, sampled track points approximate the imported shape.
+ * BRouter Web represents an editable route by its via points in the URL hash
+ * (`#map=zoom/lat/lng/standard&lonlats=lng,lat;…`), so the tab can reopen the
+ * same line without importing a GPX.
  */
 export function plannedRouteBrouterUrl(
 	geojson: PlannedGeoJson,
@@ -126,14 +182,13 @@ export function plannedRouteBrouterUrlFromTrack(
 	);
 }
 
-/** Open BRouter in a new tab and download the GPX, matching the route detail button. */
+/** Open BRouter in a new tab from the lonlats hash — no GPX download. */
 export function openPlannedRouteInBrouter(
-	name: string,
 	geojson: PlannedGeoJson,
 	waypoints: PlannedWaypoint[]
 ): boolean {
 	const url = plannedRouteBrouterUrl(geojson, waypoints);
-	if (url) window.open(url, '_blank', 'noopener,noreferrer');
-	downloadPlannedRouteGpx(name, geojson, waypoints);
-	return Boolean(url);
+	if (!url) return false;
+	window.open(url, '_blank', 'noopener,noreferrer');
+	return true;
 }

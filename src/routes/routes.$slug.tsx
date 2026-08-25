@@ -5,7 +5,7 @@ import {
 	getPlannedRouteDetail,
 	updatePlannedRoute
 } from '$lib/server/functions';
-import { openPlannedRouteInBrouter } from '$lib/planned-route-export';
+import { downloadPlannedRouteGpx, openPlannedRouteInBrouter } from '$lib/planned-route-export';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 import { RouteAttach } from '../components/RouteAttach';
 
@@ -44,8 +44,8 @@ function PlannedRouteDetail() {
 	}
 
 	function openInBrouter() {
-		const opened = openPlannedRouteInBrouter(route.name, route.geojson, route.waypoints);
-		if (!opened) setMessage('The GPX was downloaded, but this route has too few points for BRouter.');
+		const opened = openPlannedRouteInBrouter(route.geojson, route.waypoints);
+		if (!opened) setMessage('This route has too few points for BRouter.');
 	}
 
 	const location = [route.place, route.province, route.country].filter(Boolean).join(', ');
@@ -98,6 +98,13 @@ function PlannedRouteDetail() {
 				<div className="actions">
 					<button className="btn btn-primary" type="button" onClick={openInBrouter}>
 						Open in BRouter ↗
+					</button>
+					<button
+						className="btn btn-ghost"
+						type="button"
+						onClick={() => downloadPlannedRouteGpx(route.name, route.geojson, route.waypoints)}
+					>
+						Download GPX
 					</button>
 					<button className="btn btn-ghost" type="button" onClick={() => setEditing(!editing)}>
 						{editing ? 'Cancel' : 'Edit notes'}

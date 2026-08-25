@@ -6,18 +6,14 @@ import {
     normalizeActivityType,
     showsField
 } from '$lib/activity';
-import {
-    filterRunsByRange,
-    parseDateRange,
-    routeIdsForRuns,
-    type RangeKind
-} from '$lib/date-range';
+import { filterRunsByRange, parseDateRange, routeIdsForRuns } from '$lib/date-range';
+import { clearFilterSearch, validateFilterSearch } from '$lib/filter-search';
 import { buildDashboardStats, type DashboardStats } from '$lib/plan';
 import { getDashboardData } from '$lib/server/functions';
 import { buildTrainingTrends } from '$lib/trends';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
-import { DateRangeFilter, rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
+import { DateRangeFilter } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
 import { FeelBadge } from '../components/FeelBadge';
 import { FilterSheet, filterSummary } from '../components/FilterSheet';
@@ -26,21 +22,8 @@ import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 
-type DashSearch = RangeSearch & { sport?: string; country?: string; province?: string; place?: string };
-const SPORTS = ['all', 'run', 'walk', 'ride', 'swim', 'strength'];
-
 export const Route = createFileRoute('/')({
-	validateSearch: (s: Record<string, unknown>): DashSearch => ({
-		range: (['7d', '30d', 'all', 'custom'] as const).includes(s.range as RangeKind)
-			? (s.range as RangeKind)
-			: undefined,
-		from: typeof s.from === 'string' ? s.from : undefined,
-		to: typeof s.to === 'string' ? s.to : undefined,
-		sport: SPORTS.includes(s.sport as string) ? (s.sport as string) : undefined,
-		country: typeof s.country === 'string' ? s.country : undefined,
-		province: typeof s.province === 'string' ? s.province : undefined,
-		place: typeof s.place === 'string' ? s.place : undefined
-	}),
+	validateSearch: validateFilterSearch,
 	loader: () => ({ page: getDashboardData() }),
 	component: Dashboard
 });
@@ -181,7 +164,6 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 	const totalAllTime = allRuns.length;
 	const filteredEmpty = totalAllTime > 0 && stats.runCount === 0;
 	const rangeActive = range.kind !== 'all';
-	const timelineSearch = rangeToSearch(range.kind, range.from ?? undefined, range.to ?? undefined);
 
 	return (
 		<>
@@ -274,7 +256,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 					<p>
 						No {activityPlural(sport)} in {range.label.toLowerCase()}.
 					</p>
-					<Link className="btn btn-ghost" to="/" search={{}}>
+					<Link className="btn btn-ghost" to="/" search={clearFilterSearch()}>
 						Show all time
 					</Link>
 				</div>
@@ -365,7 +347,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 							</p>
 						</div>
 						<div className="actions">
-							<Link className="btn btn-ghost" to="/timeline" search={timelineSearch}>
+							<Link className="btn btn-ghost" to="/timeline">
 								Full timeline
 							</Link>
 							<Link className="btn btn-ghost" to="/import">

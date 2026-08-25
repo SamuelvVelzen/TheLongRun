@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { getTimelineRuns, deleteRun } from '$lib/server/functions';
-import { filterRunsByRange, parseDateRange, type RangeKind } from '$lib/date-range';
+import { filterRunsByRange, parseDateRange } from '$lib/date-range';
+import { clearFilterSearch, validateFilterSearch } from '$lib/filter-search';
 import { buildTrainingTrends } from '$lib/trends';
 import {
 	activityLabel,
@@ -12,7 +13,7 @@ import {
 } from '$lib/activity';
 import { FeelBadge } from '../components/FeelBadge';
 import type { RunWithMap } from '$lib/types';
-import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
+import { DateRangeFilter } from '../components/DateRangeFilter';
 import { FilterSheet, filterSummary } from '../components/FilterSheet';
 import { PlaceFilter } from '../components/PlaceFilter';
 import { SportFilter } from '../components/SportFilter';
@@ -25,26 +26,8 @@ import {
 	supportsBestEfforts
 } from '$lib/best-efforts';
 
-type TimelineSearch = RangeSearch & {
-	sport?: string;
-	country?: string;
-	province?: string;
-	place?: string;
-};
-const SPORTS = ['all', 'run', 'walk', 'ride', 'swim', 'strength'];
-
 export const Route = createFileRoute('/timeline')({
-	validateSearch: (s: Record<string, unknown>): TimelineSearch => ({
-		range: (['7d', '30d', 'all', 'custom'] as const).includes(s.range as RangeKind)
-			? (s.range as RangeKind)
-			: undefined,
-		from: typeof s.from === 'string' ? s.from : undefined,
-		to: typeof s.to === 'string' ? s.to : undefined,
-		sport: SPORTS.includes(s.sport as string) ? (s.sport as string) : undefined,
-		country: typeof s.country === 'string' ? s.country : undefined,
-		province: typeof s.province === 'string' ? s.province : undefined,
-		place: typeof s.place === 'string' ? s.place : undefined
-	}),
+	validateSearch: validateFilterSearch,
 	loader: () => ({ page: getTimelineRuns() }),
 	component: Timeline
 });
@@ -163,7 +146,7 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 					<p>
 						No {activityPlural(sport)} in {range.label.toLowerCase()}.
 					</p>
-					<Link className="btn btn-ghost" to="/timeline" search={{}}>
+					<Link className="btn btn-ghost" to="/timeline" search={clearFilterSearch()}>
 						Show all time
 					</Link>
 				</div>

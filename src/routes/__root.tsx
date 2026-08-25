@@ -1,9 +1,21 @@
 import '../app.css';
 import '../components.css';
 import type { MouseEvent, ReactNode } from 'react';
-import { Outlet, createRootRoute, HeadContent, Scripts, Link } from '@tanstack/react-router';
+import {
+	Outlet,
+	createRootRoute,
+	HeadContent,
+	Scripts,
+	Link,
+	retainSearchParams
+} from '@tanstack/react-router';
+import { FILTER_SEARCH_KEYS, validateFilterSearch } from '$lib/filter-search';
 
 export const Route = createRootRoute({
+	validateSearch: validateFilterSearch,
+	search: {
+		middlewares: [retainSearchParams([...FILTER_SEARCH_KEYS])]
+	},
 	head: () => ({
 		meta: [
 			{ charSet: 'utf-8' },
@@ -62,7 +74,7 @@ function RootComponent() {
 								to={l.href}
 								className={l.href === '/coach' ? 'nav-coach' : undefined}
 								activeProps={{ className: l.href === '/coach' ? 'nav-coach active' : 'active' }}
-								activeOptions={{ exact: l.href === '/' }}
+								activeOptions={{ exact: l.href === '/', includeSearch: false }}
 							>
 								{l.label}
 							</Link>
@@ -87,7 +99,7 @@ function RootComponent() {
 							activeProps={{
 								className: tab.primary ? 'tab-item tab-item-primary active' : 'tab-item active'
 							}}
-							activeOptions={{ exact: tab.href === '/' }}
+							activeOptions={{ exact: tab.href === '/', includeSearch: false }}
 						>
 							<span className="tab-icon">
 								<TabIcon name={tab.icon} />
@@ -109,6 +121,7 @@ function RootComponent() {
 									key={l.href}
 									to={l.href}
 									activeProps={{ className: 'active' }}
+									activeOptions={{ includeSearch: false }}
 									onClick={closeDetails}
 								>
 									{l.label}

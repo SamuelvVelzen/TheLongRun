@@ -1,11 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
 import {
 	deletePlannedRoute,
 	getPlannedRouteDetail,
 	updatePlannedRoute
 } from '$lib/server/functions';
-import { downloadPlannedRouteGpx, openPlannedRouteInBrouter } from '$lib/planned-route-export';
+import {
+	downloadPlannedRouteGpx,
+	openPlannedRouteInBrouter,
+	plannedRouteAppleMapsStartUrl,
+	preferredMapsApp,
+	type MapsPref
+} from '$lib/planned-route-export';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 import { RouteAttach } from '../components/RouteAttach';
 
@@ -41,6 +47,22 @@ function PlannedRouteDetail() {
 		if (!confirm(`Delete planned route “${route.name}”?`)) return;
 		await deletePlannedRoute({ data: route.slug });
 		await router.navigate({ to: '/routes' });
+	}
+
+	const [mapsPref, setMapsPref] = useState<MapsPref>('desktop');
+	const appleMapsUrl = plannedRouteAppleMapsStartUrl(route.geojson, route.name);
+
+	useEffect(() => {
+		setMapsPref(preferredMapsApp());
+	}, []);
+
+	function openAppleMaps() {
+		if (!appleMapsUrl) {
+			setMessage('This route has no start point for Apple Maps.');
+			return;
+		}
+		if (mapsPref === 'apple') window.location.assign(appleMapsUrl);
+		else window.open(appleMapsUrl, '_blank', 'noopener,noreferrer');
 	}
 
 	function openInBrouter() {
@@ -95,23 +117,41 @@ function PlannedRouteDetail() {
 					</h1>
 					<p>{route.notes || 'Imported from GPX.'}</p>
 				</div>
-				<div className="actions">
-					<button className="btn btn-primary" type="button" onClick={openInBrouter}>
-						Open in BRouter ↗
-					</button>
-					<button
-						className="btn btn-ghost"
-						type="button"
-						onClick={() => downloadPlannedRouteGpx(route.name, route.geojson, route.waypoints)}
-					>
-						Download GPX
-					</button>
-					<button className="btn btn-ghost" type="button" onClick={() => setEditing(!editing)}>
-						{editing ? 'Cancel' : 'Edit notes'}
-					</button>
-					<button className="btn btn-ghost btn-danger" type="button" onClick={() => void remove()}>
-						Delete
-					</button>
+				<div>
+					<div className="actions">
+						<button
+							className={mapsPref === 'apple' ? 'btn btn-primary' : 'btn btn-ghost'}
+							type="button"
+							onClick={openAppleMaps}
+						>
+							Apple Maps ↗
+						</button>
+						<button
+							className={mapsPref === 'desktop' ? 'btn btn-primary' : 'btn btn-ghost'}
+							type="button"
+							onClick={openInBrouter}
+						>
+							Open in BRouter ↗
+						</button>
+						<button
+							className="btn btn-ghost"
+							type="button"
+							onClick={() => downloadPlannedRouteGpx(route.name, route.geojson, route.waypoints)}
+						>
+							Download GPX
+						</button>
+						<button className="btn btn-ghost" type="button" onClick={() => setEditing(!editing)}>
+							{editing ? 'Cancel' : 'Edit notes'}
+						</button>
+						<button className="btn btn-ghost btn-danger" type="button" onClick={() => void remove()}>
+							Delete
+						</button>
+					</div>
+					{appleMapsUrl && (
+						<p className="muted maps-hint">
+							Opens a pin at the start. Tap it, then Create a Custom Route, and tap along the trail.
+						</p>
+					)}
 				</div>
 			</section>
 

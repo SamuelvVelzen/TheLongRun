@@ -119,17 +119,17 @@ function ramerDouglasPeucker(points: number[][], epsilonM: number): number[][] {
 }
 
 /** Corner-preserving via points so BRouter can rebuild the line from the URL. */
-function simplifyToViaPoints(track: number[][]): number[][] {
-	if (track.length <= MAX_VIA_POINTS) return track;
+function simplifyToViaPoints(track: number[][], maxPoints = MAX_VIA_POINTS): number[][] {
+	if (track.length <= maxPoints) return track;
 	let epsilon = 15;
 	let out = ramerDouglasPeucker(track, epsilon);
-	while (out.length > MAX_VIA_POINTS && epsilon < 4000) {
+	while (out.length > maxPoints && epsilon < 4000) {
 		epsilon *= 1.5;
 		out = ramerDouglasPeucker(track, epsilon);
 	}
-	if (out.length <= MAX_VIA_POINTS) return out;
-	const step = (out.length - 1) / (MAX_VIA_POINTS - 1);
-	return Array.from({ length: MAX_VIA_POINTS }, (_, i) => out[Math.round(i * step)]!);
+	if (out.length <= maxPoints) return out;
+	const step = (out.length - 1) / (maxPoints - 1);
+	return Array.from({ length: maxPoints }, (_, i) => out[Math.round(i * step)]!);
 }
 
 function brouterUrlFromLngLats(points: number[][]): string | null {
@@ -150,11 +150,17 @@ function brouterUrlFromLngLats(points: number[][]): string | null {
 
 function lonlatsFromWaypointsAndTrack(
 	waypoints: PlannedWaypoint[],
-	trackLngLat: number[][]
+	trackLngLat: number[][],
+	maxPoints = MAX_VIA_POINTS
 ): number[][] {
 	// from+to alone would draw a straight line — need intermediate vias or the track.
-	if (waypoints.length >= 3) return waypoints.map((point) => [point.lng, point.lat]);
-	return simplifyToViaPoints(trackLngLat);
+	const points =
+		waypoints.length >= 3
+			? waypoints.map((point) => [point.lng, point.lat])
+			: simplifyToViaPoints(trackLngLat, maxPoints);
+	if (points.length <= maxPoints) return points;
+	const step = (points.length - 1) / (maxPoints - 1);
+	return Array.from({ length: maxPoints }, (_, i) => points[Math.round(i * step)]!);
 }
 
 /**
@@ -167,6 +173,37 @@ export function plannedRouteBrouterUrl(
 	waypoints: PlannedWaypoint[]
 ): string | null {
 	return brouterUrlFromLngLats(lonlatsFromWaypointsAndTrack(waypoints, coordinates(geojson)));
+}
+
+/**
+ * Drop a pin at the route start on the Explore map. Apple Maps has no GPX import
+ * and no URL for Custom Route — from this pin you can tap Create a Custom Route
+ * and choose the path by tapping along trails.
+ * @see https://developer.apple.com/documentation/mapkit/unified-map-urls
+ * @see https://support.apple.com/en-gb/guide/iphone/iph3d7ebd491/ios
+ */
+export function plannedRouteAppleMapsStartUrl(
+	geojson: PlannedGeoJson,
+	name: string
+): string | null {
+	const points = coordinates(geojson);
+	if (!points.length) return null;
+	const start = points[0]!;
+	const lat = Number(start[1]).toFixed(6);
+	const lng = Number(start[0]).toFixed(6);
+	const label = name.trim() || 'Route start';
+	return `https://maps.apple.com/place?coordinate=${lat},${lng}&name=${encodeURIComponent(label)}&map=explore`;
+}
+
+export type MapsPref = 'apple' | 'desktop';
+
+/** iPhone/iPad → Apple Maps as the main action. */
+export function preferredMapsApp(): MapsPref {
+	if (typeof navigator === 'undefined') return 'desktop';
+	const ua = navigator.userAgent;
+	if (/iPhone|iPad|iPod/.test(ua)) return 'apple';
+	if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return 'apple';
+	return 'desktop';
 }
 
 /** Build a BRouter URL from list data: waypoints plus a Leaflet [lat, lng] track. */

@@ -26,6 +26,7 @@ import { ShoesField } from '../components/ShoesField';
 import { WeatherField } from '../components/WeatherField';
 import { FeelChips, WantedFasterChips } from '../components/FeelChips';
 import { BestEffortBadges } from '../components/BestEffortBadges';
+import { RouteChip } from '../components/RouteChip';
 
 export const Route = createFileRoute('/runs/$slug')({
 	loader: async ({ params }) => {
@@ -228,7 +229,8 @@ function FeelTile({
 }
 
 function RunDetail() {
-	const { run: r, analytics, shoes, hrMaxManual, hrMaxAllTime, bestEfforts } = Route.useLoaderData();
+	const { run: r, analytics, shoes, hrMaxManual, hrMaxAllTime, bestEfforts, plannedRoute } =
+		Route.useLoaderData();
 	const router = useRouter();
 
 	async function onSaveHrMax(hrMax: number | null) {
@@ -371,6 +373,14 @@ function RunDetail() {
 						{(r.place || r.country) &&
 							` · ${[r.place, r.country].filter(Boolean).join(', ')}`}
 					</p>
+					{plannedRoute && (
+						<RouteChip
+							slug={plannedRoute.slug}
+							name={plannedRoute.name}
+							distanceKm={plannedRoute.distance_km}
+							prefix="Route"
+						/>
+					)}
 					<h1 className="run-title">
 						{r.date}
 						{r.has_map && (

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createFileRoute, notFound, useRouter } from '@tanstack/react-router';
+import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
 import {
 	deletePlannedRoute,
 	getPlannedRouteDetail,
@@ -7,6 +7,7 @@ import {
 } from '$lib/server/functions';
 import { openPlannedRouteInBrouter } from '$lib/planned-route-export';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
+import { RouteAttach } from '../components/RouteAttach';
 
 export const Route = createFileRoute('/routes/$slug')({
 	loader: async ({ params }) => {
@@ -73,7 +74,8 @@ function PlannedRouteDetail() {
 			<section className="hero hero-route">
 				<div>
 					<p className="muted">
-						Planned route{location ? ` · ${location}` : ''} · saved {route.saved_on}
+						<Link to="/routes">Routes</Link>
+						{location ? ` · ${location}` : ''} · saved {route.saved_on}
 					</p>
 					<h1>
 						<input
@@ -161,6 +163,14 @@ function PlannedRouteDetail() {
 					waypoints={route.waypoints}
 				/>
 			</div>
+
+			<RouteAttach
+				slug={route.slug}
+				planLinks={route.planLinks}
+				activityLinks={route.activityLinks}
+				planOptions={route.planOptions}
+				activityOptions={route.activityOptions}
+			/>
 
 			{route.waypoints.length > 0 && (
 				<div className="panel planned-waypoints">

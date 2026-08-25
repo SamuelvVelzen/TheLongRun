@@ -22,6 +22,7 @@ import { DeferredData } from '../components/DeferredData';
 import { FeelBadge } from '../components/FeelBadge';
 import { FilterSheet, filterSummary } from '../components/FilterSheet';
 import { PlaceFilter } from '../components/PlaceFilter';
+import { RouteChip } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
@@ -199,6 +200,13 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 						{data.weekView.next.distance_km != null && `${data.weekView.next.distance_km} km · `}
 						{data.weekView.next.detail}
 					</p>
+					{data.weekView.next.route && (
+						<RouteChip
+							slug={data.weekView.next.route.slug}
+							name={data.weekView.next.route.name}
+							distanceKm={data.weekView.next.route.distance_km}
+						/>
+					)}
 					<p className="muted">
 						Week {data.weekView.week.week} · {data.weekView.week.phase}
 						{data.weekView.week.focus ? ` · ${data.weekView.week.focus}` : ''}
@@ -256,6 +264,16 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 										{session.label}
 									</strong>
 									<p className="muted week-detail">{session.detail}</p>
+									{session.route && (
+										<Link
+											className="week-route"
+											to="/routes/$slug"
+											params={{ slug: session.route.slug }}
+											title={session.route.name}
+										>
+											{session.route.name}
+										</Link>
+									)}
 								</div>
 							);
 						})}

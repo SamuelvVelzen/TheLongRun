@@ -27,6 +27,8 @@ import { WeatherField } from '../components/WeatherField';
 import { FeelChips, WantedFasterChips } from '../components/FeelChips';
 import { BestEffortBadges } from '../components/BestEffortBadges';
 import { RouteChip } from '../components/RouteChip';
+import { ConfirmDialog } from '../components/Dialog';
+import { DeleteButton } from '../components/DeleteButton';
 import { cn, ui } from '$lib/ui';
 
 export const Route = createFileRoute('/runs/$slug')({
@@ -256,6 +258,7 @@ function RunDetail() {
 	const [editWeather, setEditWeather] = useState(r.weather || '');
 	const [editStart, setEditStart] = useState(r.start_time || '');
 	const [message, setMessage] = useState('');
+	const [pendingDelete, setPendingDelete] = useState(false);
 
 	const derivedDay = dayFromIsoDate(editDate || r.date);
 	const derivedWeek = weekNumberForDate(editDate || r.date);
@@ -285,9 +288,7 @@ function RunDetail() {
 
 	async function onDelete(e: React.MouseEvent) {
 		e.preventDefault();
-		if (!confirm(`Delete run ${r.date} (${r.day})? This cannot be undone.`)) return;
-		await deleteRun({ data: r.slug });
-		router.navigate({ to: '/timeline' });
+		setPendingDelete(true);
 	}
 
 	async function onUpdate(e: React.FormEvent<HTMLFormElement>) {
@@ -430,20 +431,10 @@ function RunDetail() {
 									/>
 								</svg>
 							</button>
-							<button
-								className={cn(ui.btnGhost, ui.btnDanger, ui.btnIcon)}
-								type="button"
-								aria-label={`Delete run ${r.date}`}
-								title="Delete run"
+							<DeleteButton
+								label={`Delete run ${r.date}`}
 								onClick={onDelete}
-							>
-								<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-									<path
-										fill="currentColor"
-										d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9zm-1 12h12l1-12H5l1 12z"
-									/>
-								</svg>
-							</button>
+							/>
 						</>
 					)}
 				</div>
@@ -895,6 +886,16 @@ function RunDetail() {
 					</div>
 				</>
 			)}
+			<ConfirmDialog
+				open={pendingDelete}
+				title="Delete this activity?"
+				description={`${r.date}${r.day ? ` · ${r.day}` : ''}. This cannot be undone.`}
+				onClose={() => setPendingDelete(false)}
+				onConfirm={async () => {
+					await deleteRun({ data: r.slug });
+					router.navigate({ to: '/timeline' });
+				}}
+			/>
 		</>
 	);
 }

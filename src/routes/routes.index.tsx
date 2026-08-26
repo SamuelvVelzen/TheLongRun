@@ -5,6 +5,8 @@ import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { DeferredData } from '../components/DeferredData';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
+import { ConfirmDialog } from '../components/Dialog';
+import { DeleteButton } from '../components/DeleteButton';
 
 export const Route = createFileRoute('/routes/')({
 	loader: () => ({ page: getPlannedRoutesData() }),
@@ -172,6 +174,7 @@ function PlannedRouteRow({
 }) {
 	const router = useRouter();
 	const [name, setName] = useState(route.name);
+	const [pendingDelete, setPendingDelete] = useState(false);
 
 	useEffect(() => {
 		setName(route.name);
@@ -196,12 +199,16 @@ function PlannedRouteRow({
 	async function onDeleteRoute(event: MouseEvent) {
 		event.preventDefault();
 		event.stopPropagation();
-		if (!confirm(`Delete planned route “${route.name}”?`)) return;
+		setPendingDelete(true);
+	}
+
+	async function confirmDelete() {
 		try {
 			await deletePlannedRoute({ data: route.slug });
 			await router.invalidate();
 		} catch (error) {
 			onMessage(error instanceof Error ? error.message : 'Delete failed');
+			throw error;
 		}
 	}
 
@@ -254,25 +261,18 @@ function PlannedRouteRow({
 					{route.waypoints.length} waypoint{route.waypoints.length === 1 ? '' : 's'}
 				</div>
 			</div>
-			<button
-				className={cn(
-					ui.btnGhost,
-					ui.btnDanger,
-					ui.btnIcon,
-					'absolute top-0 bottom-0 right-[0.55rem] z-[2] my-auto opacity-100 sm:opacity-55 group-hover:opacity-100'
-				)}
-				type="button"
-				aria-label={`Delete route ${route.name}`}
-				title="Delete route"
+			<DeleteButton
+				className="absolute top-0 bottom-0 right-[0.55rem] z-[2] my-auto opacity-100 sm:opacity-55 group-hover:opacity-100"
+				label={`Delete route ${route.name}`}
 				onClick={(event) => void onDeleteRoute(event)}
-			>
-				<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-					<path
-						fill="currentColor"
-						d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9zm-1 12h12l1-12H5l1 12z"
-					/>
-				</svg>
-			</button>
+			/>
+			<ConfirmDialog
+				open={pendingDelete}
+				title="Delete this route?"
+				description={`“${route.name}” will be removed. This cannot be undone.`}
+				onClose={() => setPendingDelete(false)}
+				onConfirm={confirmDelete}
+			/>
 		</div>
 	);
 }

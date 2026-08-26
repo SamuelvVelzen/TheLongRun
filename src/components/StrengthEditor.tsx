@@ -5,9 +5,8 @@ import {
 	type StrengthExercise
 } from '$lib/strength';
 import { cn, ui } from '$lib/ui';
-
-const removeBtn =
-	'inline-flex items-center justify-center box-border border-0 bg-transparent text-muted cursor-pointer text-[1.05rem] leading-none size-11 min-w-11 min-h-11 p-0 hover:text-warn active:text-warn';
+import { ConfirmDialog } from './Dialog';
+import { DeleteButton, TrashIcon } from './DeleteButton';
 
 /**
  * Structured strength logger. Add exercises and sets (reps × kg) one at a time; it serializes to
@@ -26,6 +25,9 @@ export function StrengthEditor({
 		seed.exercises.length ? seed.exercises : [{ name: '', sets: [{ reps: 0, kg: null }] }]
 	);
 	const [extra, setExtra] = useState(seed.extra);
+	const [pending, setPending] = useState<
+		{ kind: 'exercise'; i: number } | { kind: 'set'; i: number; si: number } | null
+	>(null);
 
 	function push(next: StrengthExercise[], nextExtra = extra) {
 		setExercises(next);
@@ -77,14 +79,10 @@ export function StrengthEditor({
 							value={ex.name}
 							onChange={(e) => setName(i, e.target.value)}
 						/>
-						<button
-							type="button"
-							className={removeBtn}
-							aria-label="Remove exercise"
-							onClick={() => removeExercise(i)}
-						>
-							×
-						</button>
+						<DeleteButton
+							label="Delete exercise"
+							onClick={() => setPending({ kind: 'exercise', i })}
+						/>
 					</div>
 					<div className="flex flex-wrap items-center gap-1.5 mt-2">
 						{ex.sets.map((s, si) => (
@@ -112,11 +110,11 @@ export function StrengthEditor({
 								/>
 								<button
 									type="button"
-									className={removeBtn}
-									aria-label="Remove set"
-									onClick={() => removeSet(i, si)}
+									className={cn(ui.btnGhost, ui.btnDanger, ui.btnIcon, 'size-9 min-h-9 min-w-9')}
+									aria-label="Delete set"
+									onClick={() => setPending({ kind: 'set', i, si })}
 								>
-									×
+									<TrashIcon />
 								</button>
 							</span>
 						))}
@@ -145,6 +143,25 @@ export function StrengthEditor({
 					}}
 				/>
 			</label>
+			<ConfirmDialog
+				open={pending != null}
+				title={pending?.kind === 'set' ? 'Delete this set?' : 'Delete this exercise?'}
+				description={
+					pending?.kind === 'exercise'
+						? exercises[pending.i]?.name
+							? `“${exercises[pending.i]!.name}” and its sets will be removed.`
+							: 'This exercise and its sets will be removed.'
+						: pending?.kind === 'set'
+							? 'This set will be removed from the exercise.'
+							: null
+				}
+				onClose={() => setPending(null)}
+				onConfirm={() => {
+					if (!pending) return;
+					if (pending.kind === 'exercise') removeExercise(pending.i);
+					else removeSet(pending.i, pending.si);
+				}}
+			/>
 		</div>
 	);
 }

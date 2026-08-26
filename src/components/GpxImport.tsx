@@ -4,6 +4,8 @@ import { importGpx } from '$lib/server/functions';
 import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
 import { cn, ui } from '$lib/ui';
 import { BestEffortBadges } from './BestEffortBadges';
+import { ConfirmDialog } from './Dialog';
+import { DeleteButton } from './DeleteButton';
 
 export type GpxImportResult = {
 	name: string;
@@ -28,6 +30,7 @@ export function GpxImport({
 	const [progress, setProgress] = useState('');
 	const [results, setResults] = useState<GpxImportResult[]>([]);
 	const [activityType, setActivityType] = useState('');
+	const [pendingFile, setPendingFile] = useState<string | null>(null);
 
 	function addFiles(list: FileList | null) {
 		if (!list) return;
@@ -126,15 +129,11 @@ export function GpxImport({
 								{f.name}
 							</code>
 							<span className={ui.muted}>{(f.size / 1024).toFixed(0)} KB</span>
-							<button
-								type="button"
-								className="inline-flex items-center justify-center box-border border-0 bg-transparent text-muted text-[1.2rem] leading-none cursor-pointer size-11 min-w-11 min-h-11 p-0 hover:text-warn active:text-warn"
-								aria-label={`Remove ${f.name}`}
-								onClick={() => removeFile(f.name)}
+							<DeleteButton
+								label={`Delete ${f.name}`}
 								disabled={busy}
-							>
-								×
-							</button>
+								onClick={() => setPendingFile(f.name)}
+							/>
 						</li>
 					))}
 				</ul>
@@ -213,6 +212,16 @@ export function GpxImport({
 					)}
 				</div>
 			)}
+			<ConfirmDialog
+				open={pendingFile != null}
+				title="Remove this file?"
+				description={pendingFile ? `“${pendingFile}” will be dropped from the import list.` : null}
+				confirmLabel="Remove"
+				onClose={() => setPendingFile(null)}
+				onConfirm={() => {
+					if (pendingFile) removeFile(pendingFile);
+				}}
+			/>
 		</>
 	);
 }

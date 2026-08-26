@@ -15,6 +15,7 @@ import {
 } from '$lib/planned-route-export';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 import { RouteAttach } from '../components/RouteAttach';
+import { ConfirmDialog } from '../components/Dialog';
 
 export const Route = createFileRoute('/routes/$slug')({
 	loader: async ({ params }) => {
@@ -32,6 +33,7 @@ function PlannedRouteDetail() {
 	const [name, setName] = useState(route.name);
 	const [notes, setNotes] = useState(route.notes);
 	const [message, setMessage] = useState('');
+	const [pendingDelete, setPendingDelete] = useState(false);
 
 	async function save(event: React.FormEvent) {
 		event.preventDefault();
@@ -44,10 +46,8 @@ function PlannedRouteDetail() {
 		}
 	}
 
-	async function remove() {
-		if (!confirm(`Delete planned route “${route.name}”?`)) return;
-		await deletePlannedRoute({ data: route.slug });
-		await router.navigate({ to: '/routes' });
+	function remove() {
+		setPendingDelete(true);
 	}
 
 	const [mapsPref, setMapsPref] = useState<MapsPref>('desktop');
@@ -147,7 +147,7 @@ function PlannedRouteDetail() {
 						<button
 							className={cn(ui.btnGhost, ui.btnDanger)}
 							type="button"
-							onClick={() => void remove()}
+							onClick={remove}
 						>
 							Delete
 						</button>
@@ -239,6 +239,16 @@ function PlannedRouteDetail() {
 					</div>
 				</div>
 			)}
+			<ConfirmDialog
+				open={pendingDelete}
+				title="Delete this route?"
+				description={`“${route.name}” will be removed. This cannot be undone.`}
+				onClose={() => setPendingDelete(false)}
+				onConfirm={async () => {
+					await deletePlannedRoute({ data: route.slug });
+					await router.navigate({ to: '/routes' });
+				}}
+			/>
 		</>
 	);
 }

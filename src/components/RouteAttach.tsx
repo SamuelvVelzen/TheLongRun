@@ -9,6 +9,7 @@ import type {
 import { Link, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { cn, ui } from '$lib/ui';
+import { ConfirmDialog } from './Dialog';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -39,6 +40,11 @@ export function RouteAttach({
 	const [query, setQuery] = useState('');
 	const [busy, setBusy] = useState(false);
 	const [message, setMessage] = useState('');
+	const [pending, setPending] = useState<
+		| { kind: 'plan'; id: number; label: string }
+		| { kind: 'activity'; id: number; label: string }
+		| null
+	>(null);
 
 	const filteredActivities = useMemo(() => {
 		const q = query.trim().toLowerCase();
@@ -98,7 +104,11 @@ export function RouteAttach({
 										type="button"
 										disabled={busy}
 										onClick={() =>
-											void run(() => detachPlannedRoute({ data: { slug, id: link.id } }))
+											setPending({
+												kind: 'plan',
+												id: link.id,
+												label: `Week ${link.week} · ${link.day}`
+											})
 										}
 									>
 										Remove
@@ -163,7 +173,11 @@ export function RouteAttach({
 										type="button"
 										disabled={busy}
 										onClick={() =>
-											void run(() => detachPlannedRoute({ data: { slug, id: link.id } }))
+											setPending({
+												kind: 'activity',
+												id: link.id,
+												label: `${link.date} · ${link.day || activityLabel(link.activity_type)}`
+											})
 										}
 									>
 										Remove
@@ -215,6 +229,23 @@ export function RouteAttach({
 				</section>
 			</div>
 			{message && <div className={cn(ui.flash, 'mt-[0.85rem]')}>{message}</div>}
+			<ConfirmDialog
+				open={pending != null}
+				title="Remove this link?"
+				description={
+					pending
+						? pending.kind === 'plan'
+							? `${pending.label} will no longer use this route.`
+							: `${pending.label} will be unlinked from this route.`
+						: null
+				}
+				confirmLabel="Remove"
+				onClose={() => setPending(null)}
+				onConfirm={async () => {
+					if (!pending) return;
+					await run(() => detachPlannedRoute({ data: { slug, id: pending.id } }));
+				}}
+			/>
 		</div>
 	);
 }

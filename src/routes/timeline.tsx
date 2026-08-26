@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
+import { useState } from 'react';
 import { getTimelineRuns, deleteRun } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import { filterRunsByRange, parseDateRange, type RangeKind } from '$lib/date-range';
@@ -20,6 +21,8 @@ import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 import { DeferredData } from '../components/DeferredData';
 import { BestEffortBadges, BestEffortBoard } from '../components/BestEffortBadges';
+import { ConfirmDialog } from '../components/Dialog';
+import { DeleteButton } from '../components/DeleteButton';
 import {
 	buildBestEffortBoard,
 	highlightsForActivity,
@@ -135,13 +138,7 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 	const totalAllTime = allRuns.length;
 	const neverLogged = totalAllTime === 0;
 	const filteredEmpty = totalAllTime > 0 && !groups.length;
-
-	async function onDelete(e: React.MouseEvent, run: RunWithMap) {
-		e.preventDefault();
-		if (!confirm(`Delete run ${run.date} (${run.day})? This cannot be undone.`)) return;
-		await deleteRun({ data: run.slug });
-		router.invalidate();
-	}
+	const [pending, setPending] = useState<RunWithMap | null>(null);
 
 	return (
 		<>
@@ -289,20 +286,13 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 												className="absolute top-[0.65rem] right-[0.65rem] inline-flex items-center m-0 opacity-100 sm:opacity-55 hover:opacity-100 group-hover:opacity-100"
 												onSubmit={(e) => e.preventDefault()}
 											>
-												<button
-													className={cn(ui.btnGhost, ui.btnDanger, ui.btnIcon)}
-													type="submit"
-													aria-label={`Delete run ${run.date}`}
-													title="Delete run"
-													onClick={(e) => onDelete(e, run)}
-												>
-													<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-														<path
-															fill="currentColor"
-															d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9zm-1 12h12l1-12H5l1 12z"
-														/>
-													</svg>
-												</button>
+												<DeleteButton
+													label={`Delete run ${run.date}`}
+													onClick={(e) => {
+														e.preventDefault();
+														setPending(run);
+													}}
+												/>
 											</form>
 										</div>
 									</div>
@@ -312,6 +302,21 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 					))}
 				</>
 			)}
+			<ConfirmDialog
+				open={pending != null}
+				title="Delete this activity?"
+				description={
+					pending
+						? `${pending.date}${pending.day ? ` · ${pending.day}` : ''}. This cannot be undone.`
+						: null
+				}
+				onClose={() => setPending(null)}
+				onConfirm={async () => {
+					if (!pending) return;
+					await deleteRun({ data: pending.slug });
+					await router.invalidate();
+				}}
+			/>
 		</>
 	);
 }

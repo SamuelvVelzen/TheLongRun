@@ -1,7 +1,7 @@
-import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
 import { PLAN_WEEK_COUNT, planWeekIndex, weekToPlan } from '$lib/plan';
 import {
     getCoachBrief,
+    getCurrentWeekView,
     getDebriefPrompt,
     getFeelingsPrompt,
     getWeekPattern,
@@ -12,21 +12,24 @@ import {
 } from '$lib/server/functions';
 import {
     formatPatternProse,
-    MAX_WEEK_SLOTS,
     patternsEqual,
-    weekdayIndex,
-    WEEKDAYS,
-    type Weekday,
-    type WeekPattern,
-    type WeekSlot
+    type WeekPattern
 } from '$lib/week-mix';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
+import { ChoiceChips } from '../components/ChoiceChips';
+import { WeekPlanBoard } from '../components/WeekPlanBoard';
+import {
+    rowsFrom,
+    toPattern,
+    WeekPatternEditor,
+    type SlotRow
+} from '../components/WeekPatternEditor';
 
-type CoachTab = 'debrief' | 'plan' | 'feelings';
+type CoachTab = 'training' | 'debrief' | 'plan' | 'feelings';
 type CoachSearch = { weeks?: number; tab?: CoachTab; slug?: string };
 
 const ALL_TIME_WEEKS = 520;
@@ -48,99 +51,12 @@ function defaultQuestion(phrase: 'this week' | 'next week'): string {
 }
 
 function parseTab(v: unknown): CoachTab {
-	if (v === 'plan' || v === 'feelings' || v === 'debrief') return v;
+	if (v === 'training' || v === 'plan' || v === 'feelings' || v === 'debrief') return v;
 	return 'debrief';
 }
 
-type SlotRow = WeekSlot & { id: string };
-let slotSeq = 0;
-
-function rowsFrom(pattern: WeekPattern): SlotRow[] {
-	return pattern.map((s) => ({ ...s, id: `slot-${++slotSeq}` }));
-}
-
-function toPattern(rows: SlotRow[]): WeekPattern {
-	return rows.map(({ day, activity_type }) => ({ day, activity_type }));
-}
-
-function nextSlot(rows: SlotRow[]): SlotRow {
-	const used = new Set(rows.map((r) => r.day));
-	const day = WEEKDAYS.find((d) => !used.has(d)) ?? 'Monday';
-	return { id: `slot-${++slotSeq}`, day, activity_type: 'run' };
-}
-
-function WeekPatternEditor({
-	rows,
-	onChange,
-	disabled
-}: {
-	rows: SlotRow[];
-	onChange: (rows: SlotRow[]) => void;
-	disabled?: boolean;
-}) {
-	const shown = [...rows].sort((a, b) => weekdayIndex(a.day) - weekdayIndex(b.day));
-
-	function patch(id: string, update: Partial<WeekSlot>) {
-		onChange(rows.map((r) => (r.id === id ? { ...r, ...update } : r)));
-	}
-
-	return (
-		<div className="grid gap-[0.45rem] mt-[0.45rem]">
-			{shown.map((row) => (
-				<div
-					key={row.id}
-					className="grid grid-cols-[7.2rem_minmax(0,1fr)_2.1rem] gap-[0.35rem] items-center min-h-11 p-[0.3rem_0.45rem] border border-line rounded-xl bg-black/18 max-sm:grid-cols-[1fr_1fr_2.1rem]"
-				>
-					<select
-						className="min-w-0 w-full m-0"
-						aria-label="Weekday"
-						value={row.day}
-						disabled={disabled}
-						onChange={(e) => patch(row.id, { day: e.target.value as Weekday })}
-					>
-						{WEEKDAYS.map((d) => (
-							<option key={d} value={d}>
-								{d.slice(0, 3)}
-							</option>
-						))}
-					</select>
-					<select
-						className="min-w-0 w-full m-0"
-						aria-label="Sport"
-						value={row.activity_type}
-						disabled={disabled}
-						onChange={(e) => patch(row.id, { activity_type: e.target.value as ActivityType })}
-					>
-						{ACTIVITY_TYPES.map((t) => (
-							<option key={t} value={t}>
-								{activityLabel(t)}
-							</option>
-						))}
-					</select>
-					<button
-						type="button"
-						className="appearance-none box-border size-[2.1rem] p-0 rounded-lg border border-line bg-black/25 text-inherit font-bold leading-none cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed"
-						aria-label="Remove session"
-						disabled={disabled}
-						onClick={() => onChange(rows.filter((r) => r.id !== row.id))}
-					>
-						×
-					</button>
-				</div>
-			))}
-			<button
-				className={ui.btnGhost}
-				type="button"
-				disabled={disabled || rows.length >= MAX_WEEK_SLOTS}
-				onClick={() => onChange([...rows, nextSlot(rows)])}
-			>
-				Add session
-			</button>
-		</div>
-	);
-}
-
 type DebriefPrompt = Awaited<ReturnType<typeof getDebriefPrompt>>;
+type WeekViewData = Awaited<ReturnType<typeof getCurrentWeekView>>;
 
 export const Route = createFileRoute('/coach')({
 	validateSearch: (s: Record<string, unknown>): CoachSearch => {
@@ -158,9 +74,11 @@ export const Route = createFileRoute('/coach')({
 	loader: ({ deps, location }) => {
 		const slug = (location.search as CoachSearch).slug ?? '';
 		return {
-			page: Promise.all([getDebriefPrompt({ data: slug }), getWeekPattern()]).then(
-				([debrief, weekPattern]) => ({ debrief, weekPattern })
-			)
+			page: Promise.all([
+				getDebriefPrompt({ data: slug }),
+				getWeekPattern(),
+				getCurrentWeekView()
+			]).then(([debrief, weekPattern, weekView]) => ({ debrief, weekPattern, weekView }))
 		};
 	},
 	component: Coach
@@ -199,6 +117,15 @@ function Coach() {
 				<button
 					type="button"
 					role="tab"
+					aria-selected={tab === 'training'}
+					className={cn(ui.coachTab, tab === 'training' && ui.coachTabActive)}
+					onClick={() => setTab('training')}
+				>
+					Training
+				</button>
+				<button
+					type="button"
+					role="tab"
 					aria-selected={tab === 'debrief'}
 					className={cn(ui.coachTab, tab === 'debrief' && ui.coachTabActive)}
 					onClick={() => setTab('debrief')}
@@ -212,7 +139,7 @@ function Coach() {
 					className={cn(ui.coachTab, tab === 'plan' && ui.coachTabActive)}
 					onClick={() => setTab('plan')}
 				>
-					Plan {weekPhrase}
+					Plan
 				</button>
 				<button
 					type="button"
@@ -221,11 +148,17 @@ function Coach() {
 					className={cn(ui.coachTab, tab === 'feelings' && ui.coachTabActive)}
 					onClick={() => setTab('feelings')}
 				>
-					Week review
+					Review
 				</button>
 			</div>
 			<DeferredData promise={page}>
-				{(data) => <CoachPanels debrief={data.debrief} initialPattern={data.weekPattern} />}
+				{(data) => (
+					<CoachPanels
+						debrief={data.debrief}
+						initialPattern={data.weekPattern}
+						weekView={data.weekView}
+					/>
+				)}
 			</DeferredData>
 		</>
 	);
@@ -233,10 +166,12 @@ function Coach() {
 
 function CoachPanels({
 	debrief: initialDebrief,
-	initialPattern
+	initialPattern,
+	weekView
 }: {
 	debrief: DebriefPrompt;
 	initialPattern: WeekPattern;
+	weekView: WeekViewData;
 }) {
 	const search = Route.useSearch();
 	const router = useRouter();
@@ -450,6 +385,56 @@ function CoachPanels({
 
 	return (
 		<>
+			{tab === 'training' && (
+				<div className={cn(ui.panel, ui.form, 'mb-4')}>
+					<div className={ui.field}>
+						<span>Usual week</span>
+						<span className={cn(ui.muted, 'font-normal')}>
+							Day and sport only — the AI chooses easy / quality / long / etc. plus distance.
+							Saved default is {formatPatternProse(savedPattern)}.
+						</span>
+						<WeekPatternEditor
+							rows={usual}
+							disabled={mixBusy}
+							onChange={(rows) => {
+								setUsual(rows);
+								setMixSaveMsg('');
+							}}
+						/>
+					</div>
+					{(mixDirty || mixBusy || mixSaveMsg) && (
+						<div className="mt-[0.35rem]">
+							{(mixDirty || mixBusy) && (
+								<div className={ui.actions}>
+									<button
+										className={ui.btnPrimary}
+										type="button"
+										onClick={saveDefaultMix}
+										disabled={mixBusy}
+										aria-busy={mixBusy}
+									>
+										{mixBusy ? 'Saving…' : 'Save as my default week'}
+									</button>
+								</div>
+							)}
+							{mixSaveMsg && (
+								<div
+									className={cn(
+										ui.flash,
+										/saved/i.test(mixSaveMsg) && ui.flashOk,
+										mixDirty || mixBusy ? 'mt-2' : 'mt-0',
+										'mb-0'
+									)}
+									role="status"
+								>
+									{mixSaveMsg}
+								</div>
+							)}
+						</div>
+					)}
+				</div>
+			)}
+
 			{tab === 'debrief' && (
 				<>
 					<ol className="list-none m-0 p-0 flex flex-col gap-6 max-sm:gap-[1.15rem] [&>li>strong]:block [&>li>strong]:text-[1.05rem] [&_li.done>strong]:text-accent">
@@ -554,79 +539,57 @@ function CoachPanels({
 
 			{tab === 'plan' && (
 				<>
+					{weekView ? (
+						<WeekPlanBoard view={weekView} />
+					) : (
+						<p className={cn(ui.muted, 'mt-0 mb-4')}>No week plan saved yet.</p>
+					)}
 					<div className={cn(ui.panel, ui.form, 'mb-4')}>
-						<div className={ui.formGrid}>
-							<label className={ui.field}>
-								<span>History window</span>
-								<select
-									value={weeks}
-									onChange={(e) =>
-										router.navigate({
-											to: '/coach',
-											search: { tab: 'plan', weeks: Number(e.target.value) },
-											replace: true,
-											resetScroll: false
-										})
-									}
-								>
-									{WEEK_OPTIONS.map((o) => (
-										<option key={o.value} value={o.value}>
-											{o.label}
-										</option>
-									))}
-								</select>
-							</label>
+						<div className={ui.field}>
+							<span>History window</span>
+							<ChoiceChips
+								aria-label="History window"
+								value={String(weeks)}
+								options={WEEK_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
+								onChange={(value) =>
+									router.navigate({
+										to: '/coach',
+										search: { tab: 'plan', weeks: Number(value) },
+										replace: true,
+										resetScroll: false
+									})
+								}
+							/>
 						</div>
 						<p className={cn(ui.muted, 'mt-[0.4rem]')}>
 							All time is the default. The detailed activity table still covers only the last ~12
 							weeks so the prompt stays short.
 						</p>
-						<label className={ui.field}>
-							<span>Usual week</span>
-							<span className={cn(ui.muted, 'font-normal')}>
-								Day and sport only — the AI chooses easy / quality / long / etc. plus distance.
-								Saved default is {formatPatternProse(savedPattern)}.
-							</span>
-							<WeekPatternEditor
-								rows={usual}
-								disabled={mixBusy}
-								onChange={(rows) => {
-									setUsual(rows);
-									setMixSaveMsg('');
-								}}
-							/>
-						</label>
-						{(mixDirty || mixBusy || mixSaveMsg) && (
-							<div className="mt-[0.35rem]">
-								{(mixDirty || mixBusy) && (
-									<div className={ui.actions}>
-										<button
-											className={ui.btnGhost}
-											type="button"
-											onClick={saveDefaultMix}
-											disabled={mixBusy}
-											aria-busy={mixBusy}
-										>
-											{mixBusy ? 'Saving…' : 'Save as my default week'}
-										</button>
-									</div>
-								)}
-								{mixSaveMsg && (
-									<div
-										className={cn(
-											ui.flash,
-											/saved/i.test(mixSaveMsg) && ui.flashOk,
-											mixDirty || mixBusy ? 'mt-2' : 'mt-0',
-											'mb-0'
-										)}
-										role="status"
-									>
-										{mixSaveMsg}
-									</div>
-								)}
+						<p className={cn(ui.muted, 'mt-2 mb-0')}>
+							Usual week: {formatPatternProse(savedPattern)}.{' '}
+							<Link
+								className="text-accent font-semibold"
+								to="/coach"
+								search={{ tab: 'training', weeks: search.weeks }}
+							>
+								Edit in Training
+							</Link>
+							.
+						</p>
+						{mixDirty && (
+							<div className={ui.actions}>
+								<button
+									className={ui.btnGhost}
+									type="button"
+									onClick={saveDefaultMix}
+									disabled={mixBusy}
+									aria-busy={mixBusy}
+								>
+									{mixBusy ? 'Saving…' : 'Save usual week'}
+								</button>
 							</div>
 						)}
-						<label className={ui.field}>
+						<div className={ui.field}>
 							<span>{weekPhrase.charAt(0).toUpperCase() + weekPhrase.slice(1)}</span>
 							<span className={cn(ui.muted, 'font-normal')}>
 								{linked
@@ -670,7 +633,7 @@ function CoachPanels({
 									onChange={setThisWeek}
 								/>
 							)}
-						</label>
+						</div>
 						<label className={ui.field}>
 							<span>Anything unusual {weekPhrase}? (optional)</span>
 							<textarea
@@ -765,17 +728,17 @@ function CoachPanels({
 							End-of-week dump from a long ChatGPT thread. If you debriefed each run already, you
 							can skip this.
 						</p>
-						<div className={ui.formGrid}>
-							<label className={ui.field}>
-								<span>Duration</span>
-								<select value={feelWeeks} onChange={(e) => setFeelWeeks(Number(e.target.value))}>
-									{[1, 2, 3, 4, 6, 8].map((w) => (
-										<option key={w} value={w}>
-											{w} week{w === 1 ? '' : 's'}
-										</option>
-									))}
-								</select>
-							</label>
+						<div className={ui.field}>
+							<span>Duration</span>
+							<ChoiceChips
+								aria-label="Duration"
+								value={String(feelWeeks)}
+								options={[1, 2, 3, 4, 6, 8].map((w) => ({
+									value: String(w),
+									label: `${w} week${w === 1 ? '' : 's'}`
+								}))}
+								onChange={(value) => setFeelWeeks(Number(value))}
+							/>
 						</div>
 						<div className={ui.actions}>
 							<button

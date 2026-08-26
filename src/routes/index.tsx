@@ -197,31 +197,79 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 	const filteredEmpty = totalAllTime > 0 && stats.runCount === 0;
 	const rangeActive = range.kind !== 'all';
 	const timelineSearch = rangeToSearch(range.kind, range.from ?? undefined, range.to ?? undefined);
+	const highlightSessions = data.weekView?.next?.isToday
+		? data.weekView.sessions.filter((s) => s.isToday)
+		: data.weekView?.next
+			? [data.weekView.next]
+			: [];
+	const highlightHead = highlightSessions[0];
 
 	return (
 		<>
-			{data.weekView?.next && (
+			{highlightHead && data.weekView && (
 				<section className={nextUp} aria-labelledby="next-up-heading">
-					<p className={nextUpKicker}>
-						{data.weekView.next.isToday ? 'Today' : 'Next up'}
-					</p>
-					<h2 id="next-up-heading">
-						{data.weekView.next.day}
-						{data.weekView.next.date ? ` · ${data.weekView.next.date.slice(5)}` : ''} ·{' '}
-						{data.weekView.next.label}
-					</h2>
-					<p>
-						{data.weekView.next.distance_km != null && `${data.weekView.next.distance_km} km · `}
-						{data.weekView.next.detail}
-					</p>
-					{data.weekView.next.route && (
-						<RouteChip
-							slug={data.weekView.next.route.slug}
-							name={data.weekView.next.route.name}
-							distanceKm={data.weekView.next.route.distance_km}
-						/>
+					<p className={nextUpKicker}>{highlightHead.isToday ? 'Today' : 'Next up'}</p>
+					{highlightSessions.length === 1 ? (
+						<>
+							<h2 id="next-up-heading">
+								{highlightHead.day}
+								{highlightHead.date ? ` · ${highlightHead.date.slice(5)}` : ''} ·{' '}
+								{highlightHead.label}
+							</h2>
+							<p>
+								{highlightHead.distance_km != null && `${highlightHead.distance_km} km · `}
+								{highlightHead.detail}
+							</p>
+							{highlightHead.route && (
+								<RouteChip
+									slug={highlightHead.route.slug}
+									name={highlightHead.route.name}
+									distanceKm={highlightHead.route.distance_km}
+								/>
+							)}
+						</>
+					) : (
+						<>
+							<h2 id="next-up-heading">
+								{highlightHead.day}
+								{highlightHead.date ? ` · ${highlightHead.date.slice(5)}` : ''}
+							</h2>
+							<div className="grid gap-3 mt-[0.45rem]">
+								{highlightSessions.map((session, i) => (
+									<div
+										key={`${session.day}-${session.label}-${i}`}
+										className={cn(
+											i > 0 && 'pt-3 border-t border-line',
+											session.done && 'opacity-80',
+											session.skipped && 'opacity-55'
+										)}
+									>
+										<p className="m-0 text-[0.82rem] font-semibold text-muted">
+											{activityLabel(session.activity_type ?? 'run')}
+											{session.distance_km != null ? ` · ${session.distance_km} km` : ''}
+											{session.done ? ' · completed' : session.isNext ? ' · next' : ''}
+										</p>
+										<strong className="block font-display text-[1.15rem] tracking-[-0.02em]">
+											{session.label}
+										</strong>
+										<p className="m-0 mt-[0.2rem]">{session.detail}</p>
+										{session.route && (
+											<RouteChip
+												slug={session.route.slug}
+												name={session.route.name}
+												distanceKm={session.route.distance_km}
+											/>
+										)}
+									</div>
+								))}
+							</div>
+						</>
 					)}
 					<p className={cn(ui.muted, 'mt-[0.4rem]')}>
+						<Link className="text-accent font-semibold" to="/coach" search={{ tab: 'plan' }}>
+							Full week in Coach
+						</Link>
+						<span aria-hidden="true"> · </span>
 						Week {data.weekView.week.week} · {data.weekView.week.phase}
 						{data.weekView.week.focus ? ` · ${data.weekView.week.focus}` : ''}
 					</p>
@@ -236,76 +284,12 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 							: 'All planned sessions logged'}
 					</h2>
 					<p className={cn(ui.muted, 'mt-[0.4rem]')}>
-						Week {data.weekView.week.week} · {data.weekView.week.phase}. Use Coach to plan next week.
+						Week {data.weekView.week.week} · {data.weekView.week.phase}.{' '}
+						<Link className="text-accent font-semibold" to="/coach" search={{ tab: 'plan' }}>
+							See the week in Coach
+						</Link>
+						.
 					</p>
-				</section>
-			)}
-
-			{data.weekView && (
-				<section className="mt-[1.35rem] mb-[0.35rem] p-0" aria-labelledby="plan-heading">
-					<div className="mb-3 [&_h2]:text-[1.2rem] [&_h2]:font-bold [&_h2]:m-0 [&_p]:mt-1 [&_p]:mb-0 [&_p]:text-[0.92rem]">
-						<h2 id="plan-heading">Plan</h2>
-						<p className={ui.muted}>
-							Week {data.weekView.week.week} · {data.weekView.week.phase}
-							{data.weekView.week.focus ? ` · ${data.weekView.week.focus}` : ''}
-						</p>
-					</div>
-					<div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-[0.65rem] items-stretch max-[860px]:grid-cols-1 max-[860px]:gap-2">
-						{data.weekView.sessions.map((session, i) => {
-							const status = session.done
-								? 'done'
-								: session.skipped
-									? 'skipped'
-									: session.isNext
-										? 'next'
-										: null;
-							return (
-								<div
-									key={`${session.day}-${i}`}
-									className={cn(
-										'flex flex-col gap-[0.15rem] min-w-0 p-[0.7rem_0.85rem] rounded-[10px]',
-										session.isNext
-											? 'bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent)_40%,var(--color-line))]'
-											: 'bg-[color-mix(in_srgb,var(--color-panel)_55%,transparent)]',
-										session.done && 'opacity-55',
-										session.skipped && 'opacity-42'
-									)}
-								>
-									<div className="flex items-baseline justify-between gap-2 min-w-0">
-										<span className="text-[0.72rem] tracking-[0.06em] uppercase text-accent font-semibold min-w-0 [overflow-wrap:anywhere]">
-											{session.day}
-											{` · ${activityLabel(session.activity_type ?? 'run')}`}
-											{status ? ` · ${status}` : ''}
-										</span>
-										{session.distance_km != null && (
-											<span className="shrink-0 text-[0.92rem] font-bold tracking-[-0.02em] text-fg whitespace-nowrap">
-												{session.distance_km} km
-											</span>
-										)}
-									</div>
-									<strong
-										className="font-display text-base font-bold tracking-[-0.02em] leading-[1.25] [overflow-wrap:anywhere]"
-										title={session.label}
-									>
-										{session.label}
-									</strong>
-									<p className="text-[0.92rem] leading-[1.5] mt-[0.35rem] text-fg opacity-90 [overflow-wrap:anywhere]">
-										{session.detail}
-									</p>
-									{session.route && (
-										<Link
-											className="block mt-auto pt-[0.45rem] text-[0.8rem] font-[650] text-accent overflow-hidden text-ellipsis whitespace-nowrap hover:underline"
-											to="/routes/$slug"
-											params={{ slug: session.route.slug }}
-											title={session.route.name}
-										>
-											{session.route.name}
-										</Link>
-									)}
-								</div>
-							);
-						})}
-					</div>
 				</section>
 			)}
 

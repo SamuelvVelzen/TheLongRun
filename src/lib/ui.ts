@@ -17,7 +17,7 @@ export const ui = {
 	btnDanger:
 		'text-warn border-[rgba(255,138,91,0.35)] hover:bg-warn/10 hover:border-warn active:bg-warn/10 active:border-warn',
 	btnIcon:
-		'size-11 min-h-11 min-w-11 p-0 rounded-full leading-[0] shrink-0 self-center box-border max-sm:!flex-none max-sm:!size-11 max-sm:!min-h-11 max-sm:!min-w-11 max-sm:!p-0',
+		'size-11 min-h-11 min-w-11 p-0! px-0! py-0! rounded-full leading-none shrink-0 self-center box-border max-sm:!flex-none max-sm:!size-11 max-sm:!min-h-11 max-sm:!min-w-11 max-sm:!p-0',
 	btnSm: 'min-h-11 px-[0.85rem] py-2 text-[0.82rem]',
 	field: 'grid gap-[0.35rem] text-[0.9rem] text-muted',
 	req: "after:content-['_*'] after:text-accent",
@@ -59,10 +59,19 @@ export const ui = {
 	dropzone:
 		'flex flex-col items-center justify-center gap-[0.35rem] p-[2.25rem_1.2rem] border-2 border-dashed border-line rounded-box bg-black/18 text-muted cursor-pointer text-center transition-[border-color,background-color,color] duration-150 ease-out hover:border-accent hover:text-fg active:border-accent active:text-fg max-sm:p-[1.5rem_0.85rem] [&_strong]:font-display [&_strong]:text-[1.02rem] [&_strong]:text-fg',
 	dropzoneOver: 'border-accent bg-[rgba(200,242,90,0.08)] text-fg',
-	coachTabs: 'flex gap-[0.3rem] mb-4 border-b border-line max-sm:gap-0',
+	coachTabs: 'flex gap-[0.3rem] mb-4 border-b border-line max-sm:gap-0 max-sm:overflow-x-auto',
 	coachTab:
-		'appearance-none bg-transparent border-0 border-b-2 border-transparent -mb-px min-h-11 px-[0.9rem] py-[0.55rem] font-semibold text-muted cursor-pointer hover:text-fg active:text-fg max-sm:flex-1 max-sm:min-w-0 max-sm:px-1.5 max-sm:py-2 max-sm:text-[0.82rem] max-sm:text-center max-sm:leading-[1.25]',
+		'appearance-none bg-transparent border-0 border-b-2 border-transparent -mb-px min-h-11 px-[0.9rem] py-[0.55rem] font-semibold text-muted cursor-pointer hover:text-fg active:text-fg max-sm:flex-1 max-sm:min-w-0 max-sm:px-1 max-sm:py-2 max-sm:text-[0.78rem] max-sm:text-center max-sm:leading-[1.25]',
 	coachTabActive: 'text-fg border-b-accent',
+	choiceChips: 'flex flex-wrap gap-[0.4rem]',
+	choiceChip:
+		'appearance-none inline-flex items-center justify-center min-h-11 px-[0.95rem] py-2 rounded-full border border-solid border-line bg-transparent text-muted font-semibold cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:border-[rgba(200,242,90,0.35)] disabled:opacity-35 disabled:cursor-not-allowed aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent',
+	dialogRoot: 'fixed inset-0 z-[20000] flex items-end justify-center p-0 sm:items-center sm:p-4',
+	dialogBackdrop: 'absolute inset-0 bg-black/55',
+	dialogPanel:
+		'relative z-[1] flex w-full max-h-[min(88vh,100%)] flex-col gap-4 overflow-y-auto [overscroll-behavior:contain] border border-line border-b-0 rounded-t-box bg-surface p-[1.15rem_1.2rem_calc(1.15rem+env(safe-area-inset-bottom,0px))] shadow-lift sm:max-w-[26rem] sm:border-b sm:rounded-box sm:p-[1.25rem_1.35rem]',
+	statusPill:
+		'inline-flex items-center gap-1 shrink-0 px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] tracking-[0.06em] uppercase font-bold',
 	routeChip:
 		'inline-flex items-center gap-[0.3rem] max-w-full mt-2 px-[0.75rem] py-[0.28rem] rounded-full border border-[color-mix(in_srgb,var(--color-accent)_40%,var(--color-line))] bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] text-accent text-[0.85rem] font-[650] overflow-hidden text-ellipsis whitespace-nowrap hover:bg-[color-mix(in_srgb,var(--color-accent)_20%,transparent)]',
 	segToggle:

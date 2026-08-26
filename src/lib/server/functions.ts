@@ -111,6 +111,20 @@ import { fetchWeatherForDateTime } from './weather';
 const withMap = (runs: RunRecord[], routeIds: Set<string>): RunWithMap[] =>
 	runs.map((r) => ({ ...r, has_map: runHasMap(r, routeIds) }));
 
+function attachPlanRoutes(weekView: WeekView | null, planRefs: Awaited<ReturnType<typeof listPlanRouteRefs>>): WeekView | null {
+	if (!weekView) return null;
+	const byDay = new Map<string, SessionRouteRef>();
+	for (const ref of planRefs) {
+		if (ref.week !== weekView.week.week) continue;
+		byDay.set(ref.day.trim().toLowerCase(), {
+			slug: ref.slug,
+			name: ref.name,
+			distance_km: ref.distance_km
+		});
+	}
+	return withSessionRoutes(weekView, byDay);
+}
+
 async function hydrateBestEfforts(runs: RunRecord[]): Promise<RunRecord[]> {
 	const missing = runs.filter(
 		(r) => supportsBestEfforts(r.activity_type) && !(r.best_efforts?.length) && (r.route || r.strava_id)
@@ -155,23 +169,12 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 		loadShoes(),
 		listPlanRouteRefs()
 	]);
-	const weekView = week ? buildWeekView(week, runs) : null;
-	const byDay = new Map<string, SessionRouteRef>();
-	if (weekView) {
-		for (const ref of planRefs) {
-			if (ref.week !== weekView.week.week) continue;
-			byDay.set(ref.day.trim().toLowerCase(), {
-				slug: ref.slug,
-				name: ref.name,
-				distance_km: ref.distance_km
-			});
-		}
-	}
+	const weekView = attachPlanRoutes(week ? buildWeekView(week, runs) : null, planRefs);
 	return {
 		runs: withMap(runs, routeIds),
 		tracks,
 		week,
-		weekView: weekView ? withSessionRoutes(weekView, byDay) : null,
+		weekView,
 		streak: sessionStreak(runs, plan),
 		goals,
 		shoes
@@ -184,6 +187,15 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 		goals: Goals;
 		shoes: { active: string; notes: string; rotation: string[] };
 	};
+});
+
+export const getCurrentWeekView = createServerFn({ method: 'GET' }).handler(async () => {
+	const [runs, week, planRefs] = await Promise.all([
+		listRuns(),
+		currentPlanWeek(),
+		listPlanRouteRefs()
+	]);
+	return attachPlanRoutes(week ? buildWeekView(week, runs) : null, planRefs);
 });
 
 export const getTimelineRuns = createServerFn({ method: 'GET' }).handler(async () => {

@@ -15,6 +15,7 @@ import {
 import { buildDashboardStats, type DashboardStats } from '$lib/plan';
 import { getDashboardData } from '$lib/server/functions';
 import { buildTrainingTrends } from '$lib/trends';
+import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { DateRangeFilter, rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
@@ -30,6 +31,19 @@ import { TrendsSection } from '../components/TrendsSection';
 type DashSearch = RangeSearch & { sport?: string; country?: string; province?: string; place?: string };
 const SPORTS = ['all', 'run', 'walk', 'ride', 'swim', 'strength'];
 
+const nextUpBase =
+	'mt-5 p-[1rem_1.1rem_1.05rem] border border-line rounded-xl max-sm:p-[0.85rem_0.9rem_0.9rem] [&_h2]:text-[1.45rem] [&_h2]:font-[750] [&_h2]:tracking-[-0.03em] [&_h2]:m-0 [&_h2]:mb-[0.35rem] [&_h2]:[overflow-wrap:anywhere] [&_p]:m-0 [&_p]:leading-[1.45] max-sm:[&_h2]:text-[1.2rem]';
+const nextUp = cn(
+	nextUpBase,
+	'bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))]'
+);
+const nextUpDone = cn(nextUpBase, 'bg-panel');
+const nextUpKicker = 'text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent m-0 mb-1';
+const statsItem =
+	'py-[0.15rem] pr-[0.85rem] border-r border-line min-w-0 last:border-r-0 last:pr-0 not-first:pl-[0.85rem] max-sm:[&:nth-child(3n)]:border-r-0 max-sm:[&:nth-child(3n)]:pr-0 max-sm:[&:nth-child(3n+1)]:pl-0 max-sm:[&:nth-child(n+4)]:border-t max-sm:[&:nth-child(n+4)]:pt-3';
+const statsLabel = 'block text-[0.78rem] tracking-[0.02em]';
+const statsValue = 'block font-display font-bold tracking-[-0.03em] mt-[0.2rem] leading-[1.15]';
+const statsUnit = 'text-[0.85rem] font-medium text-muted tracking-normal';
 export const Route = createFileRoute('/')({
 	validateSearch: (s: Record<string, unknown>): DashSearch => ({
 		range: (['7d', '30d', 'all', 'custom'] as const).includes(s.range as RangeKind)
@@ -82,20 +96,20 @@ function Dashboard() {
 	const { page } = Route.useLoaderData();
 	return (
 		<>
-			<section className="hero hero-home">
+			<section className={cn(ui.hero, ui.heroHome)}>
 				<div>
-					<p className="muted">Personal training desk · no accounts</p>
+					<p className={ui.muted}>Personal training desk · no accounts</p>
 					<h1>The Long Run</h1>
 					<p>
 						After a run: import the GPX in Coach, paste ChatGPT’s debrief, and the next session
 						stays current. Stats and maps live here.
 					</p>
 				</div>
-				<div className="actions">
-					<Link className="btn btn-primary" to="/coach" search={{ tab: 'debrief' }}>
+				<div className={ui.actions}>
+					<Link className={ui.btnPrimary} to="/coach" search={{ tab: 'debrief' }}>
 						Coach
 					</Link>
-					<Link className="btn btn-ghost" to="/import">
+					<Link className={ui.btnGhost} to="/import">
 						Add activity
 					</Link>
 				</div>
@@ -187,8 +201,8 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 	return (
 		<>
 			{data.weekView?.next && (
-				<section className="next-up" aria-labelledby="next-up-heading">
-					<p className="muted next-up-kicker">
+				<section className={nextUp} aria-labelledby="next-up-heading">
+					<p className={nextUpKicker}>
 						{data.weekView.next.isToday ? 'Today' : 'Next up'}
 					</p>
 					<h2 id="next-up-heading">
@@ -207,36 +221,36 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 							distanceKm={data.weekView.next.route.distance_km}
 						/>
 					)}
-					<p className="muted">
+					<p className={cn(ui.muted, 'mt-[0.4rem]')}>
 						Week {data.weekView.week.week} · {data.weekView.week.phase}
 						{data.weekView.week.focus ? ` · ${data.weekView.week.focus}` : ''}
 					</p>
 				</section>
 			)}
 			{data.weekView && !data.weekView.next && (
-				<section className="next-up next-up-done" aria-labelledby="next-up-heading">
-					<p className="muted next-up-kicker">This week</p>
+				<section className={nextUpDone} aria-labelledby="next-up-heading">
+					<p className={nextUpKicker}>This week</p>
 					<h2 id="next-up-heading">
 						{data.weekView.sessions.some((s) => s.skipped)
 							? 'Week complete — some sessions skipped'
 							: 'All planned sessions logged'}
 					</h2>
-					<p className="muted">
+					<p className={cn(ui.muted, 'mt-[0.4rem]')}>
 						Week {data.weekView.week.week} · {data.weekView.week.phase}. Use Coach to plan next week.
 					</p>
 				</section>
 			)}
 
 			{data.weekView && (
-				<section className="week-strip" aria-labelledby="plan-heading">
-					<div className="week-strip-head">
+				<section className="mt-[1.35rem] mb-[0.35rem] p-0" aria-labelledby="plan-heading">
+					<div className="mb-3 [&_h2]:text-[1.2rem] [&_h2]:font-bold [&_h2]:m-0 [&_p]:mt-1 [&_p]:mb-0 [&_p]:text-[0.92rem]">
 						<h2 id="plan-heading">Plan</h2>
-						<p className="muted">
+						<p className={ui.muted}>
 							Week {data.weekView.week.week} · {data.weekView.week.phase}
 							{data.weekView.week.focus ? ` · ${data.weekView.week.focus}` : ''}
 						</p>
 					</div>
-					<div className="week-sessions">
+					<div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-[0.65rem] items-stretch max-[860px]:grid-cols-1 max-[860px]:gap-2">
 						{data.weekView.sessions.map((session, i) => {
 							const status = session.done
 								? 'done'
@@ -248,25 +262,39 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 							return (
 								<div
 									key={`${session.day}-${i}`}
-									className={`week-session${session.done ? ' is-done' : ''}${session.skipped ? ' is-skipped' : ''}${session.isNext ? ' is-next' : ''}`}
+									className={cn(
+										'flex flex-col gap-[0.15rem] min-w-0 p-[0.7rem_0.85rem] rounded-[10px]',
+										session.isNext
+											? 'bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent)_40%,var(--color-line))]'
+											: 'bg-[color-mix(in_srgb,var(--color-panel)_55%,transparent)]',
+										session.done && 'opacity-55',
+										session.skipped && 'opacity-42'
+									)}
 								>
-									<div className="week-session-head">
-										<span className="week-day">
+									<div className="flex items-baseline justify-between gap-2 min-w-0">
+										<span className="text-[0.72rem] tracking-[0.06em] uppercase text-accent font-semibold min-w-0 [overflow-wrap:anywhere]">
 											{session.day}
 											{` · ${activityLabel(session.activity_type ?? 'run')}`}
 											{status ? ` · ${status}` : ''}
 										</span>
 										{session.distance_km != null && (
-											<span className="week-km">{session.distance_km} km</span>
+											<span className="shrink-0 text-[0.92rem] font-bold tracking-[-0.02em] text-fg whitespace-nowrap">
+												{session.distance_km} km
+											</span>
 										)}
 									</div>
-									<strong className="week-label" title={session.label}>
+									<strong
+										className="font-display text-base font-bold tracking-[-0.02em] leading-[1.25] [overflow-wrap:anywhere]"
+										title={session.label}
+									>
 										{session.label}
 									</strong>
-									<p className="muted week-detail">{session.detail}</p>
+									<p className="text-[0.92rem] leading-[1.5] mt-[0.35rem] text-fg opacity-90 [overflow-wrap:anywhere]">
+										{session.detail}
+									</p>
 									{session.route && (
 										<Link
-											className="week-route"
+											className="block mt-auto pt-[0.45rem] text-[0.8rem] font-[650] text-accent overflow-hidden text-ellipsis whitespace-nowrap hover:underline"
 											to="/routes/$slug"
 											params={{ slug: session.route.slug }}
 											title={session.route.name}
@@ -288,59 +316,70 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 			</FilterSheet>
 
 			{filteredEmpty ? (
-				<div className="panel muted range-empty">
+				<div className={cn(ui.panel, ui.muted, 'grid gap-[0.85rem] justify-items-start')}>
 					<p>
 						No {activityPlural(sport)} in {range.label.toLowerCase()}.
 					</p>
-					<Link className="btn btn-ghost" to="/" search={{}}>
+					<Link className={ui.btnGhost} to="/" search={{}}>
 						Show all time
 					</Link>
 				</div>
 			) : (
 				<>
-					<section className="stats-strip" aria-label="Training stats">
-						<div className="stats-strip-item stats-strip-lead">
-							<span className="stats-strip-label">Days to {data.goals.race_name}</span>
-							<strong className="stats-strip-value">{stats.daysToRace ?? '—'}</strong>
-						</div>
-						<div className="stats-strip-item">
-							<span className="stats-strip-label">{rangeActive ? range.label : 'Logged'}</span>
-							<strong className="stats-strip-value">
-								{stats.totalKm}
-								<span className="stats-strip-unit"> km</span>
+					<section
+						className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-0 mb-[0.55rem] py-[0.85rem] border-y border-line max-sm:grid-cols-3 max-sm:gap-y-[0.85rem] max-sm:py-3"
+						aria-label="Training stats"
+					>
+						<div className={statsItem}>
+							<span className={cn(statsLabel, 'text-accent font-semibold')}>
+								Days to {data.goals.race_name}
+							</span>
+							<strong className={cn(statsValue, 'text-accent text-[2.1rem] max-sm:text-[1.7rem]')}>
+								{stats.daysToRace ?? '—'}
 							</strong>
 						</div>
-						<div className="stats-strip-item">
-							<span className="stats-strip-label">Sessions</span>
-							<strong className="stats-strip-value">{stats.runCount}</strong>
+						<div className={statsItem}>
+							<span className={cn(statsLabel, 'text-muted')}>
+								{rangeActive ? range.label : 'Logged'}
+							</span>
+							<strong className={cn(statsValue, 'text-[1.35rem] max-sm:text-[1.2rem]')}>
+								{stats.totalKm}
+								<span className={statsUnit}> km</span>
+							</strong>
 						</div>
-						<div className="stats-strip-item">
-							<span className="stats-strip-label">Longest</span>
-							<strong className="stats-strip-value">
+						<div className={statsItem}>
+							<span className={cn(statsLabel, 'text-muted')}>Sessions</span>
+							<strong className={cn(statsValue, 'text-[1.35rem] max-sm:text-[1.2rem]')}>
+								{stats.runCount}
+							</strong>
+						</div>
+						<div className={statsItem}>
+							<span className={cn(statsLabel, 'text-muted')}>Longest</span>
+							<strong className={cn(statsValue, 'text-[1.35rem] max-sm:text-[1.2rem]')}>
 								{stats.longestKm ?? '—'}
-								{stats.longestKm != null && <span className="stats-strip-unit"> km</span>}
+								{stats.longestKm != null && <span className={statsUnit}> km</span>}
 							</strong>
 						</div>
 						{!rangeActive && (
 							<>
-								<div className="stats-strip-item">
-									<span className="stats-strip-label">This month</span>
-									<strong className="stats-strip-value">
+								<div className={statsItem}>
+									<span className={cn(statsLabel, 'text-muted')}>This month</span>
+									<strong className={cn(statsValue, 'text-[1.35rem] max-sm:text-[1.2rem]')}>
 										{stats.monthRuns}
-										<span className="stats-strip-unit"> · {stats.monthKm} km</span>
+										<span className={statsUnit}> · {stats.monthKm} km</span>
 									</strong>
 								</div>
-								<div className="stats-strip-item">
-									<span className="stats-strip-label">Last 7 days</span>
-									<strong className="stats-strip-value">
+								<div className={statsItem}>
+									<span className={cn(statsLabel, 'text-muted')}>Last 7 days</span>
+									<strong className={cn(statsValue, 'text-[1.35rem] max-sm:text-[1.2rem]')}>
 										{stats.weekKm}
-										<span className="stats-strip-unit"> km</span>
+										<span className={statsUnit}> km</span>
 									</strong>
 								</div>
 							</>
 						)}
 					</section>
-					<p className="stats-meta muted">
+					<p className={cn('mb-7 text-[0.88rem]', ui.muted)}>
 						Shins {shinLabel(stats)}
 						<span aria-hidden="true"> · </span>
 						Session streak {stats.streak || '—'}
@@ -359,8 +398,8 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 						/>
 					)}
 
-					<section className="map-section" aria-labelledby="routes-heading">
-						<div className="section-title map-section-head">
+					<section className="mb-1" aria-labelledby="routes-heading">
+						<div className={cn(ui.sectionTitle, 'mt-2')}>
 							<div>
 								<h2 id="routes-heading">{rangeActive ? 'Routes in range' : 'All routes'}</h2>
 								<p>
@@ -375,38 +414,38 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 						<RoutesHeatmap tracks={tracks} meta={routeMeta} focusIds={focusIds} />
 					</section>
 
-					<div className="section-title">
+					<div className={ui.sectionTitle}>
 						<div>
 							<h2>{rangeActive ? 'Runs in range' : 'Recent runs'}</h2>
 							<p>
 								{stats.runCount} {rangeActive ? `in ${range.label.toLowerCase()}` : 'total'}
 							</p>
 						</div>
-						<div className="actions">
-							<Link className="btn btn-ghost" to="/timeline" search={timelineSearch}>
+						<div className={ui.actions}>
+							<Link className={ui.btnGhost} to="/timeline" search={timelineSearch}>
 								Full timeline
 							</Link>
-							<Link className="btn btn-ghost" to="/import">
+							<Link className={ui.btnGhost} to="/import">
 								Add
 							</Link>
 						</div>
 					</div>
 
-					<div className="grid">
+					<div className={ui.grid}>
 						{recent.length ? (
 							recent.map((run, i) => (
 								<Link
 									key={run.slug}
-									className="run-row run-row-compact"
+									className={cn(ui.runRow, ui.runRowCompact)}
 									to="/runs/$slug"
 									params={{ slug: run.slug }}
 									style={{ animationDelay: `${i * 40}ms` }}
 								>
-									<strong className="run-title">
+									<strong className={ui.runTitle}>
 										{run.date}
 										{run.has_map && (
 											<span
-												className="map-badge"
+												className={ui.mapBadge}
 												title="Route map available"
 												aria-label="Has route map"
 											>
@@ -420,16 +459,20 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 										)}
 										{hasContext(run) && <FeelBadge />}
 									</strong>
-									<div className="run-row-metric">
+									<div className="font-[650] tracking-[-0.02em] max-sm:text-[0.95rem]">
 										{showsField(run.activity_type, 'distance')
 											? `${run.distance_km ?? '—'} km · ${metricText(run)}`
 											: metricText(run)}
 									</div>
-									<div className="muted run-row-sub">{compactRunSub(run)}</div>
+									<div className={cn(ui.muted, 'text-[0.8rem] max-sm:text-[0.76rem]')}>
+										{compactRunSub(run)}
+									</div>
 								</Link>
 							))
 						) : (
-							<div className="panel muted">No runs yet. Import a file or log one manually.</div>
+							<div className={cn(ui.panel, ui.muted)}>
+								No runs yet. Import a file or log one manually.
+							</div>
 						)}
 					</div>
 				</>

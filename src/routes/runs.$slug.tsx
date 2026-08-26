@@ -27,6 +27,7 @@ import { WeatherField } from '../components/WeatherField';
 import { FeelChips, WantedFasterChips } from '../components/FeelChips';
 import { BestEffortBadges } from '../components/BestEffortBadges';
 import { RouteChip } from '../components/RouteChip';
+import { cn, ui } from '$lib/ui';
 
 export const Route = createFileRoute('/runs/$slug')({
 	loader: async ({ params }) => {
@@ -84,11 +85,11 @@ function InlineText({
 
 	if (!editing) {
 		return (
-			<div className={`quick-field${multiline ? ' quick-field-wide' : ''}`}>
-				<span className="muted quick-label">{label}</span>
+			<div className={cn('flex flex-col gap-[0.28rem] min-w-0', multiline && 'col-span-full')}>
+				<span className={cn(ui.muted, 'text-[0.72rem] uppercase tracking-[0.05em]')}>{label}</span>
 				<button
 					type="button"
-					className="quick-value"
+					className="flex items-center justify-between gap-2 w-full min-h-11 text-left bg-white/[0.03] border border-line rounded-lg p-[0.5rem_0.65rem] text-inherit font-inherit cursor-pointer hover:border-accent hover:bg-[rgba(200,242,90,0.06)] active:border-accent group/qv"
 					onClick={() => {
 						setVal(value);
 						setEditing(true);
@@ -96,11 +97,14 @@ function InlineText({
 					title="Click to edit"
 				>
 					{value ? (
-						<span className="quick-value-text">{value}</span>
+						<span className="whitespace-pre-wrap break-words">{value}</span>
 					) : (
-						<span className="muted">— add</span>
+						<span className={ui.muted}>— add</span>
 					)}
-					<span className="quick-edit-pencil" aria-hidden="true">
+					<span
+						className="shrink-0 opacity-100 text-accent text-[0.85rem] sm:opacity-0 group-hover/qv:opacity-100"
+						aria-hidden="true"
+					>
 						✎
 					</span>
 				</button>
@@ -109,11 +113,12 @@ function InlineText({
 	}
 
 	return (
-		<div className={`quick-field editing${multiline ? ' quick-field-wide' : ''}`}>
-			<span className="muted quick-label">{label}</span>
-			<div className={`quick-edit-row${multiline ? ' col' : ''}`}>
+		<div className={cn('flex flex-col gap-[0.28rem] min-w-0', multiline && 'col-span-full')}>
+			<span className={cn(ui.muted, 'text-[0.72rem] uppercase tracking-[0.05em]')}>{label}</span>
+			<div className={cn('flex gap-[0.4rem] items-center', multiline && 'flex-col items-stretch')}>
 				{multiline ? (
 					<textarea
+						className="flex-1 min-w-0"
 						value={val}
 						placeholder={placeholder}
 						rows={3}
@@ -122,6 +127,7 @@ function InlineText({
 					/>
 				) : (
 					<input
+						className="flex-1 min-w-0"
 						value={val}
 						type={numeric ? 'number' : 'text'}
 						placeholder={placeholder}
@@ -141,10 +147,10 @@ function InlineText({
 						))}
 					</datalist>
 				)}
-				<div className="quick-edit-actions">
+				<div className={cn('flex gap-[0.35rem] shrink-0', multiline && 'justify-end')}>
 					<button
 						type="button"
-						className="btn btn-primary btn-sm"
+						className={cn(ui.btnPrimary, ui.btnSm)}
 						onClick={save}
 						disabled={busy}
 					>
@@ -152,7 +158,7 @@ function InlineText({
 					</button>
 					<button
 						type="button"
-						className="btn btn-ghost btn-sm"
+						className={cn(ui.btnGhost, ui.btnSm)}
 						onClick={() => setEditing(false)}
 						disabled={busy}
 					>
@@ -194,8 +200,9 @@ function FeelTile({
 
 	if (editing) {
 		return (
-			<div className="metric metric-emph metric-edit">
+			<div className={cn(ui.metric, ui.metricEmph, 'pt-2')}>
 				<input
+					className="font-display text-[1.35rem] min-h-11 px-2 py-[0.35rem] rounded-lg w-full"
 					type="number"
 					min={min}
 					max={max}
@@ -215,7 +222,11 @@ function FeelTile({
 	return (
 		<button
 			type="button"
-			className="metric metric-emph metric-editable"
+			className={cn(
+				ui.metric,
+				ui.metricEmph,
+				'block w-full text-left font-inherit text-inherit cursor-pointer hover:border-accent hover:bg-[rgba(200,242,90,0.1)] active:border-accent active:bg-[rgba(200,242,90,0.1)]'
+			)}
 			title="Click to edit"
 			onClick={() => {
 				setVal(value != null ? String(value) : '');
@@ -364,9 +375,9 @@ function RunDetail() {
 
 	return (
 		<>
-			<section className="hero">
+			<section className={ui.hero}>
 				<div>
-					<p className="muted">
+					<p className={ui.muted}>
 						{activityLabel(r.activity_type)} · {r.day} · {r.session}
 						{r.week != null && ` · week ${r.week}`}
 						{r.start_time && ` · started ${r.start_time}`}
@@ -381,11 +392,11 @@ function RunDetail() {
 							prefix="Route"
 						/>
 					)}
-					<h1 className="run-title">
+					<h1 className={ui.runTitle}>
 						{r.date}
 						{r.has_map && (
 							<span
-								className="map-badge map-badge-lg"
+								className={cn(ui.mapBadge, 'ml-[0.15rem] align-middle')}
 								title="Route map available"
 								aria-label="Has route map"
 							>
@@ -402,11 +413,11 @@ function RunDetail() {
 						<p>{(strength ? strength.extra : r.notes) || 'No notes for this run.'}</p>
 					)}
 				</div>
-				<div className="actions">
+				<div className={ui.actions}>
 					{!editing && (
 						<>
 							<button
-								className="btn btn-ghost btn-icon"
+								className={cn(ui.btnGhost, ui.btnIcon)}
 								type="button"
 								aria-label="Edit run"
 								title="Edit run"
@@ -420,7 +431,7 @@ function RunDetail() {
 								</svg>
 							</button>
 							<button
-								className="btn btn-ghost btn-danger btn-icon"
+								className={cn(ui.btnGhost, ui.btnDanger, ui.btnIcon)}
 								type="button"
 								aria-label={`Delete run ${r.date}`}
 								title="Delete run"
@@ -438,16 +449,16 @@ function RunDetail() {
 				</div>
 			</section>
 
-			{message && <div className="flash">{message}</div>}
+			{message && <div className={ui.flash}>{message}</div>}
 
 			{editing ? (
-				<form className="form" method="POST" onSubmit={onUpdate}>
-					<div className="panel">
-					<div className="form-section">
-					<h3 className="form-section-title">Activity</h3>
-					<div className="form-grid">
-						<label className="field">
-							<span className="req">Date</span>
+				<form className={ui.form} method="POST" onSubmit={onUpdate}>
+					<div className={ui.panel}>
+					<div className={ui.formSection}>
+					<h3 className={ui.formSectionTitle}>Activity</h3>
+					<div className={ui.formGrid}>
+						<label className={ui.field}>
+							<span className={ui.req}>Date</span>
 							<input
 								type="date"
 								name="date"
@@ -455,13 +466,13 @@ function RunDetail() {
 								value={editDate}
 								onChange={(e) => setEditDate(e.target.value)}
 							/>
-							<span className="field-hint muted">
+							<span className={cn(ui.fieldHint, ui.muted)}>
 								{derivedDay}
 								{derivedWeek != null && ` · week ${derivedWeek}`}
 							</span>
 						</label>
-						<label className="field">
-							<span className="req">Activity</span>
+						<label className={ui.field}>
+							<span className={ui.req}>Activity</span>
 							<select
 								name="activity_type"
 								value={editActivity}
@@ -475,7 +486,7 @@ function RunDetail() {
 							</select>
 						</label>
 						{editActivity === 'run' && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>Session</span>
 								<select name="session" defaultValue={r.session}>
 									{sessions.map((s) => (
@@ -489,11 +500,11 @@ function RunDetail() {
 					</div>
 					</div>
 
-					<div className="form-section">
-					<h3 className="form-section-title">Numbers</h3>
-					<div className="form-grid">
+					<div className={ui.formSection}>
+					<h3 className={ui.formSectionTitle}>Numbers</h3>
+					<div className={ui.formGrid}>
 						{showsField(editActivity, 'distance') && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>Distance (km)</span>
 								<input
 									name="distance_km"
@@ -503,8 +514,8 @@ function RunDetail() {
 								/>
 							</label>
 						)}
-						<label className="field">
-							<span className="req">Start time</span>
+						<label className={ui.field}>
+							<span className={ui.req}>Start time</span>
 							<input
 								type="time"
 								name="start_time"
@@ -513,12 +524,12 @@ function RunDetail() {
 								onChange={(e) => setEditStart(e.target.value)}
 							/>
 						</label>
-						<label className="field">
+						<label className={ui.field}>
 							<span>Duration</span>
 							<input name="time" placeholder="45:12 or 1:15:01" defaultValue={r.time || ''} />
 						</label>
 						{showsField(editActivity, 'pace') && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>{paceFieldLabel(editActivity)}</span>
 								<input
 									name="avg_pace"
@@ -529,7 +540,7 @@ function RunDetail() {
 							</label>
 						)}
 						{showsField(editActivity, 'hr') && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>Avg HR</span>
 								<input
 									name="avg_hr"
@@ -540,7 +551,7 @@ function RunDetail() {
 							</label>
 						)}
 						{showsField(editActivity, 'hr') && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>Max HR</span>
 								<input
 									name="max_hr"
@@ -551,7 +562,7 @@ function RunDetail() {
 							</label>
 						)}
 						{showsField(editActivity, 'elevation') && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>Elev gain (m)</span>
 								<input
 									name="elev_gain"
@@ -562,7 +573,7 @@ function RunDetail() {
 							</label>
 						)}
 						{showsField(editActivity, 'cadence') && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>Cadence</span>
 								<input
 									name="cadence"
@@ -575,9 +586,9 @@ function RunDetail() {
 					</div>
 					</div>
 
-					<div className="form-section">
-					<h3 className="form-section-title">How it felt & details</h3>
-					<div className="form-grid">
+					<div className={ui.formSection}>
+					<h3 className={ui.formSectionTitle}>How it felt & details</h3>
+					<div className={ui.formGrid}>
 						{showsFeel(editActivity, 'effort') && (
 							<FeelChips name="effort" label="Effort (1–10)" min={1} max={10} defaultValue={r.effort} />
 						)}
@@ -603,7 +614,7 @@ function RunDetail() {
 							/>
 						)}
 						{showsField(editActivity, 'surface') && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>Surface</span>
 								<input
 									name="surface"
@@ -622,42 +633,42 @@ function RunDetail() {
 					</div>
 
 					{editActivity === 'strength' ? (
-						<div className="field">
+						<div className={ui.field}>
 							<span>Sets</span>
 							<StrengthEditor initial={r.notes} onChange={setEditNotes} />
 						</div>
 					) : (
-						<label className="field">
+						<label className={ui.field}>
 							<span>Notes</span>
 							<textarea name="notes" defaultValue={r.notes}></textarea>
 						</label>
 					)}
 					</div>
 
-					<div className="actions form-sticky-actions">
-						<button className="btn btn-primary" type="submit">
+					<div className={cn(ui.actions, ui.stickyActions)}>
+						<button className={cn(ui.btnPrimary, ui.stickyPrimary)} type="submit">
 							Save changes
 						</button>
-						<button className="btn btn-ghost" type="button" onClick={() => setEditing(false)}>
+						<button className={ui.btnGhost} type="button" onClick={() => setEditing(false)}>
 							Cancel
 						</button>
 					</div>
 				</form>
 			) : (
 				<>
-					<div className="metrics metrics-primary" style={{ marginBottom: '1rem' }}>
+					<div className={cn(ui.metrics, 'mb-4')}>
 						{showsField(r.activity_type, 'distance') && (
-							<div className="metric metric-emph">
+							<div className={cn(ui.metric, ui.metricEmph)}>
 								<b>{r.distance_km ?? '—'}</b>
 								<span>km</span>
 							</div>
 						)}
-						<div className="metric metric-emph">
+						<div className={cn(ui.metric, ui.metricEmph)}>
 							<b>{metric.value}</b>
 							<span>{metricSub}</span>
 						</div>
 						{metric.unit !== '' && (
-							<div className="metric metric-emph">
+							<div className={cn(ui.metric, ui.metricEmph)}>
 								<b>{r.time || '—'}</b>
 								<span>
 									{r.elapsed_time && r.elapsed_time !== r.time
@@ -667,58 +678,61 @@ function RunDetail() {
 							</div>
 						)}
 						{r.avg_hr != null || r.max_hr != null ? (
-							<div className="metric metric-hr">
-								<div className="metric-hr-vals">
+							<div className={cn(ui.metric, 'flex-[1.4_1_9rem]')}>
+								<div className="flex items-baseline gap-1">
 									<b>{r.avg_hr ?? '—'}</b>
-									<span className="metric-hr-sep">/</span>
-									<strong className="metric-hr-max">{r.max_hr ?? '—'}</strong>
+									<span className="text-muted text-[0.95rem]">/</span>
+									<strong className="font-display text-[1.05rem] text-warn">{r.max_hr ?? '—'}</strong>
 								</div>
 								<span>HR avg / max</span>
 								{hrFill != null && (
-									<div className="hr-bar" aria-hidden="true">
-										<div className="hr-bar-fill" style={{ width: `${hrFill}%` }}></div>
+									<div className="mt-[0.45rem] h-1 rounded-full bg-white/8 overflow-hidden" aria-hidden="true">
+										<div
+											className="h-full rounded-[inherit] bg-[linear-gradient(90deg,var(--color-accent),var(--color-warn))]"
+											style={{ width: `${hrFill}%` }}
+										></div>
 									</div>
 								)}
 							</div>
 						) : (
-							<div className="metric">
+							<div className={ui.metric}>
 								<b>—</b>
 								<span>HR</span>
 							</div>
 						)}
 						{showsField(r.activity_type, 'elevation') && (
-							<div className="metric">
+							<div className={ui.metric}>
 								<b>{r.elev_gain != null ? r.elev_gain : '—'}</b>
 								<span>elev m</span>
 							</div>
 						)}
 						{showsField(r.activity_type, 'cadence') && (
-							<div className="metric">
+							<div className={ui.metric}>
 								<b>{r.cadence ?? '—'}</b>
 								<span>cadence</span>
 							</div>
 						)}
 						{r.calories != null && (
-							<div className="metric">
+							<div className={ui.metric}>
 								<b>{r.calories}</b>
 								<span>kcal</span>
 							</div>
 						)}
 						{r.kilojoules != null && (
-							<div className="metric">
+							<div className={ui.metric}>
 								<b>{r.kilojoules}</b>
 								<span>kJ</span>
 							</div>
 						)}
 						{r.max_speed != null && (
-							<div className="metric">
+							<div className={ui.metric}>
 								<b>{r.max_speed}</b>
 								<span>max km/h</span>
 							</div>
 						)}
 					</div>
 
-					<div className="metrics feel-metrics" style={{ marginBottom: '1.25rem' }}>
+					<div className={cn(ui.metrics, 'mb-5')}>
 						{showsFeel(r.activity_type, 'effort') && (
 							<FeelTile label="effort" value={r.effort} min={1} max={10} onSave={(v) => patchRun({ effort: v })} />
 						)}
@@ -734,12 +748,12 @@ function RunDetail() {
 					</div>
 
 					{strength && strength.exercises.length > 0 && (
-						<div className="panel" style={{ marginBottom: '1rem' }}>
-							<div className="splits-head">
+						<div className={cn(ui.panel, 'mb-4')}>
+							<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
 								<h3>Sets</h3>
-								<p className="muted splits-sub">reps × kg</p>
+								<p className={cn(ui.muted, 'text-[0.85rem]')}>reps × kg</p>
 							</div>
-							<div className="strength-view-row strength-view-head">
+							<div className="grid grid-cols-[minmax(6rem,1.4fr)_2fr_auto_auto] gap-x-[0.9rem] gap-y-1.5 items-center py-[0.32rem] border-b border-line text-[0.72rem] uppercase tracking-[0.06em] text-muted pb-1.5">
 								<span>Exercise</span>
 								<span>Sets</span>
 								<span>Top</span>
@@ -749,17 +763,20 @@ function RunDetail() {
 								const t = topSet(ex);
 								const vol = Math.round(exerciseVolume(ex));
 								return (
-									<div className="strength-view-row" key={i}>
+									<div
+										className="grid grid-cols-[minmax(6rem,1.4fr)_2fr_auto_auto] gap-x-[0.9rem] gap-y-1.5 items-center py-[0.32rem] border-b border-[rgba(232,240,226,0.06)] text-[0.9rem] last:border-b-0"
+										key={i}
+									>
 										<span>{ex.name}</span>
-										<span className="muted">
+										<span className={ui.muted}>
 											{ex.sets
 												.map((s) => (s.kg != null ? `${s.reps}×${s.kg}` : `${s.reps}`))
 												.join(', ')}
 										</span>
-										<span className="splits-pace">
+										<span className="font-display font-bold text-accent">
 											{t ? (t.kg != null ? `${t.reps}×${t.kg}kg` : `${t.reps} reps`) : '—'}
 										</span>
-										<span className="muted">{vol ? `${vol} kg` : '—'}</span>
+										<span className={ui.muted}>{vol ? `${vol} kg` : '—'}</span>
 									</div>
 								);
 							})}
@@ -767,11 +784,8 @@ function RunDetail() {
 					)}
 
 					{r.route && routeId && (
-						<div
-							className="panel"
-							style={{ marginBottom: '1rem', padding: 0, overflow: 'hidden' }}
-						>
-							<div style={{ padding: '1.1rem 1.2rem 0.6rem' }}>
+						<div className={cn(ui.panel, 'mb-4 p-0 overflow-hidden')}>
+							<div className="p-[1.1rem_1.2rem_0.6rem]">
 								<h3>Route</h3>
 							</div>
 							<RouteMap routeId={routeId} kmMarkers={analytics?.kmMarkers ?? null} />
@@ -779,10 +793,10 @@ function RunDetail() {
 					)}
 
 					{bestEfforts && bestEfforts.length > 0 && (
-						<div className="panel" style={{ marginBottom: '1rem' }}>
-							<div className="splits-head">
+						<div className={cn(ui.panel, 'mb-4')}>
+							<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
 								<h3>Best efforts</h3>
-								<p className="muted splits-sub">Top 3 all-time for this distance</p>
+								<p className={cn(ui.muted, 'text-[0.85rem]')}>Top 3 all-time for this distance</p>
 							</div>
 							<BestEffortBadges highlights={bestEfforts} />
 						</div>
@@ -797,12 +811,12 @@ function RunDetail() {
 						/>
 					)}
 
-					<div className="panel quick-panel" style={{ marginBottom: '1rem' }}>
-						<div className="splits-head">
+					<div className={cn(ui.panel, 'mb-4')}>
+						<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.9rem]">
 							<h3>Notes &amp; conditions</h3>
-							<p className="muted splits-sub">Click any value to update it</p>
+							<p className={cn(ui.muted, 'text-[0.85rem]')}>Click any value to update it</p>
 						</div>
-						<div className="quick-grid">
+						<div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-x-4 gap-y-3 mb-4">
 							{showsField(r.activity_type, 'weather') && (
 								<InlineText
 									label="Weather"
@@ -830,9 +844,11 @@ function RunDetail() {
 								/>
 							)}
 							{showsFeel(r.activity_type, 'wanted_faster') && (
-								<div className="quick-field">
-									<span className="muted quick-label">Wanted faster</span>
-									<div className="quick-wanted">
+								<div className="flex flex-col gap-[0.28rem] min-w-0">
+									<span className={cn(ui.muted, 'text-[0.72rem] uppercase tracking-[0.05em]')}>
+										Wanted faster
+									</span>
+									<div className="flex gap-[0.3rem]">
 										{(['Y', 'N', ''] as const).map((opt) => {
 											const active =
 												(opt === 'Y' && r.wanted_faster === true) ||
@@ -842,7 +858,12 @@ function RunDetail() {
 												<button
 													key={opt || 'none'}
 													type="button"
-													className={`chip${active ? ' active' : ''}`}
+													className={cn(
+														'flex-1 min-h-11 border rounded-lg p-[0.5rem_0.4rem] font-inherit text-[0.85rem] cursor-pointer hover:border-accent active:border-accent',
+														active
+															? 'border-accent bg-[rgba(200,242,90,0.12)] text-fg font-semibold'
+															: 'bg-white/[0.03] border-line text-muted'
+													)}
 													onClick={() =>
 														patchRun({
 															wanted_faster: opt === 'Y' ? true : opt === 'N' ? false : null
@@ -866,7 +887,11 @@ function RunDetail() {
 								onSave={(v) => patchRun({ notes: v })}
 							/>
 						)}
-						{r.start_time && <p className="muted quick-start">Started {r.start_time}</p>}
+						{r.start_time && (
+							<p className={cn(ui.muted, 'mt-[0.4rem] mb-0 text-[0.82rem]')}>
+								Started {r.start_time}
+							</p>
+						)}
 					</div>
 				</>
 			)}

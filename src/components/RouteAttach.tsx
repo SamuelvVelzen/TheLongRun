@@ -8,6 +8,7 @@ import type {
 } from '$lib/types';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
+import { cn, ui } from '$lib/ui';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -63,32 +64,37 @@ export function RouteAttach({
 	}
 
 	return (
-		<div className="panel route-attach">
+		<div className={cn(ui.panel, 'mb-4 [&_>h3]:m-0')}>
 			<h3>Use this route</h3>
-			<p className="muted">
+			<p className={cn(ui.muted, 'mt-[0.3rem] m-0')}>
 				Attach it to upcoming plan days — the same loop can cover Monday and later weeks — or
 				link it to a logged activity.
 			</p>
 
-			<div className="route-attach-body">
+			<div className="grid gap-5 mt-4">
 				<section>
-					<h4>Plan days</h4>
+					<h4 className="m-0 mb-[0.45rem] text-[0.92rem] tracking-[0.04em] uppercase text-muted">
+						Plan days
+					</h4>
 					{planLinks.length ? (
-						<div className="route-attach-list">
+						<div className="grid gap-2 mb-3">
 							{planLinks.map((link) => (
-								<div key={link.id} className="route-attach-row">
-									<div>
+								<div
+									key={link.id}
+									className="flex items-center justify-between gap-3 p-[0.7rem_0.85rem] border border-line rounded-xl bg-white/[0.02]"
+								>
+									<div className="min-w-0">
 										<strong>
 											Week {link.week} · {link.day}
 											{link.date ? ` · ${shortDate(link.date)}` : ''}
 										</strong>
-										<div className="muted">
+										<div className={ui.muted}>
 											{activityLabel(link.activity_type)} · {link.label}
 											{link.distance_km != null ? ` · ${link.distance_km} km` : ''}
 										</div>
 									</div>
 									<button
-										className="btn btn-ghost btn-danger"
+										className={cn(ui.btnGhost, ui.btnDanger, 'shrink-0 min-h-9 px-[0.8rem] py-1.5')}
 										type="button"
 										disabled={busy}
 										onClick={() =>
@@ -101,10 +107,10 @@ export function RouteAttach({
 							))}
 						</div>
 					) : (
-						<p className="muted route-attach-empty">Not on a plan day yet.</p>
+						<p className={cn(ui.muted, 'm-0 mb-[0.65rem] text-[0.92rem]')}>Not on a plan day yet.</p>
 					)}
 					{planOptions.length > 0 && (
-						<label className="field">
+						<label className={ui.field}>
 							<span>Add a plan day</span>
 							<select
 								disabled={busy}
@@ -133,22 +139,27 @@ export function RouteAttach({
 				</section>
 
 				<section>
-					<h4>Logged activities</h4>
+					<h4 className="m-0 mb-[0.45rem] text-[0.92rem] tracking-[0.04em] uppercase text-muted">
+						Logged activities
+					</h4>
 					{activityLinks.length ? (
-						<div className="route-attach-list">
+						<div className="grid gap-2 mb-3">
 							{activityLinks.map((link) => (
-								<div key={link.id} className="route-attach-row">
-									<Link to="/runs/$slug" params={{ slug: link.slug }}>
+								<div
+									key={link.id}
+									className="flex items-center justify-between gap-3 p-[0.7rem_0.85rem] border border-line rounded-xl bg-white/[0.02]"
+								>
+									<Link className="min-w-0" to="/runs/$slug" params={{ slug: link.slug }}>
 										<strong>
 											{link.date} · {link.day || activityLabel(link.activity_type)}
 										</strong>
-										<div className="muted">
+										<div className={ui.muted}>
 											{activityLabel(link.activity_type)}
 											{link.distance_km != null ? ` · ${link.distance_km} km` : ''}
 										</div>
 									</Link>
 									<button
-										className="btn btn-ghost btn-danger"
+										className={cn(ui.btnGhost, ui.btnDanger, 'shrink-0 min-h-9 px-[0.8rem] py-1.5')}
 										type="button"
 										disabled={busy}
 										onClick={() =>
@@ -161,11 +172,13 @@ export function RouteAttach({
 							))}
 						</div>
 					) : (
-						<p className="muted route-attach-empty">Not linked to a logged activity yet.</p>
+						<p className={cn(ui.muted, 'm-0 mb-[0.65rem] text-[0.92rem]')}>
+							Not linked to a logged activity yet.
+						</p>
 					)}
 					{activityOptions.length > 0 && (
-						<div className="route-attach-add">
-							<label className="field">
+						<div className="grid gap-[0.65rem]">
+							<label className={ui.field}>
 								<span>Find an activity</span>
 								<input
 									type="search"
@@ -175,7 +188,7 @@ export function RouteAttach({
 									onChange={(event) => setQuery(event.target.value)}
 								/>
 							</label>
-							<label className="field">
+							<label className={ui.field}>
 								<span>Link an activity</span>
 								<select
 									disabled={busy || !filteredActivities.length}
@@ -201,7 +214,7 @@ export function RouteAttach({
 					)}
 				</section>
 			</div>
-			{message && <div className="flash">{message}</div>}
+			{message && <div className={cn(ui.flash, 'mt-[0.85rem]')}>{message}</div>}
 		</div>
 	);
 }

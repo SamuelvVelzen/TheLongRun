@@ -1,3 +1,5 @@
+import { ui } from '$lib/ui';
+
 /** Shoes input with a dropdown of your Context shoes (active + rotation), still free-typeable. */
 export function ShoesField({
 	options,
@@ -10,7 +12,7 @@ export function ShoesField({
 }) {
 	const opts = [...new Set(options.map((o) => o.trim()).filter(Boolean))];
 	return (
-		<label className="field">
+		<label className={ui.field}>
 			<span>Shoes</span>
 			<input name={name} list="shoes-options" defaultValue={defaultValue ?? ''} placeholder="Shoe" />
 			<datalist id="shoes-options">

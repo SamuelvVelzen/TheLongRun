@@ -1,5 +1,6 @@
 import { deletePlannedRoute, getPlannedRoutesData, importPlannedRoute, updatePlannedRoute } from '$lib/server/functions';
 import type { PlannedRoute } from '$lib/types';
+import { cn, ui } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { DeferredData } from '../components/DeferredData';
@@ -38,9 +39,9 @@ function PlannedRoutes() {
 
 	return (
 		<>
-			<section className="hero">
+			<section className={ui.hero}>
 				<div>
-					<p className="muted">Keep planned routes separate from completed activities</p>
+					<p className={ui.muted}>Keep planned routes separate from completed activities</p>
 					<h1>Routes</h1>
 					<p>
 						Import a <strong>GPX route</strong>, then open it to attach the loop to upcoming plan
@@ -50,7 +51,7 @@ function PlannedRoutes() {
 			</section>
 
 			<label
-				className={`dropzone route-import-dropzone${dragOver ? ' dragover' : ''}`}
+				className={cn(ui.dropzone, 'mb-5', dragOver && ui.dropzoneOver)}
 				onDragOver={(event) => {
 					event.preventDefault();
 					setDragOver(true);
@@ -70,10 +71,12 @@ function PlannedRoutes() {
 					onChange={(event) => void importFile(event.target.files?.[0])}
 				/>
 				<strong>{busy ? 'Saving route…' : 'Choose a GPX'}</strong>
-				<span className="muted">or tap to browse · waypoints are imported when available</span>
-				<span className="muted dropzone-dnd">You can also drop a GPX or GeoJSON file here</span>
+				<span className={ui.muted}>or tap to browse · waypoints are imported when available</span>
+				<span className={cn(ui.muted, 'hidden [@media(hover:hover)_and_(pointer:fine)]:block')}>
+					You can also drop a GPX or GeoJSON file here
+				</span>
 			</label>
-			{message && <div className="flash">{message}</div>}
+			{message && <div className={ui.flash}>{message}</div>}
 			<DeferredData promise={page}>
 				{(data) => <PlannedRoutesList data={data} onMessage={setMessage} />}
 			</DeferredData>
@@ -109,8 +112,8 @@ function PlannedRoutesList({
 
 	return (
 		<>
-			<section className="map-section" aria-labelledby="planned-routes-map">
-				<div className="section-title map-section-head">
+			<section className="mb-1" aria-labelledby="planned-routes-map">
+				<div className={cn(ui.sectionTitle, 'mt-2')}>
 					<div>
 						<h2 id="planned-routes-map">Saved route map</h2>
 						<p>
@@ -129,13 +132,13 @@ function PlannedRoutesList({
 				/>
 			</section>
 
-			<div className="section-title">
+			<div className={ui.sectionTitle}>
 				<div>
 					<h2>Saved routes</h2>
 					<p>{data.routes.length} total · open a route to attach it to a plan day</p>
 				</div>
 			</div>
-			<div className="grid">
+			<div className={ui.grid}>
 				{data.routes.map((route) => (
 					<PlannedRouteRow key={route.slug} route={route} onMessage={onMessage} />
 				))}
@@ -203,9 +206,12 @@ function PlannedRouteRow({
 	}
 
 	return (
-		<div className="planned-route-card">
+		<div className="relative group">
 			<div
-				className="run-row planned-route-row"
+				className={cn(
+					ui.runRow,
+					'grid-cols-[1.35fr_0.55fr_0.65fr_0.65fr] pr-[3.25rem] cursor-pointer'
+				)}
 				role="link"
 				tabIndex={0}
 				title="Open route"
@@ -219,7 +225,7 @@ function PlannedRouteRow({
 			>
 				<div>
 					<input
-						className="route-name-input planned-route-name-input"
+						className="block w-full max-w-full m-[-0.05rem_-0.35rem_0.15rem] px-[0.35rem] py-[0.05rem] border border-dashed border-transparent rounded-[10px] bg-transparent text-inherit font-inherit font-[650] cursor-text hover:border-line focus:border-solid focus:border-accent focus:outline-none"
 						value={name}
 						required
 						aria-label={`Route name, currently ${route.name}`}
@@ -240,7 +246,7 @@ function PlannedRouteRow({
 						onChange={(event) => setName(event.target.value)}
 						onBlur={() => void persistName()}
 					/>
-					<div className="muted">{linkSummary(route)}</div>
+					<div className={ui.muted}>{linkSummary(route)}</div>
 				</div>
 				<div>{route.distance_km ?? '—'} km</div>
 				<div>{route.elev_gain != null ? `↑ ${route.elev_gain} m` : 'Elevation —'}</div>
@@ -249,7 +255,12 @@ function PlannedRouteRow({
 				</div>
 			</div>
 			<button
-				className="btn btn-ghost btn-danger btn-icon planned-route-delete"
+				className={cn(
+					ui.btnGhost,
+					ui.btnDanger,
+					ui.btnIcon,
+					'absolute top-0 bottom-0 right-[0.55rem] z-[2] my-auto opacity-100 sm:opacity-55 group-hover:opacity-100'
+				)}
 				type="button"
 				aria-label={`Delete route ${route.name}`}
 				title="Delete route"

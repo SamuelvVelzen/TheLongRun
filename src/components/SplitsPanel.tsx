@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { formatDuration } from '$lib/format';
 import type { KmSplit, RouteAnalytics } from '$lib/splits';
+import { cn, ui } from '$lib/ui';
 
 const zoneColors: Record<number, string> = {
 	1: '#7dffa8',
@@ -10,6 +11,9 @@ const zoneColors: Record<number, string> = {
 	5: '#ff5b5b'
 };
 
+const splitsRow =
+	'grid grid-cols-[2.6rem_3.4rem_3.2rem_2.6rem_minmax(4rem,1fr)] gap-x-[0.65rem] gap-y-[0.45rem] items-center py-[0.28rem] text-[0.92rem] border-b border-[rgba(232,240,226,0.06)] max-[520px]:grid-cols-[2.4rem_3.1rem_2.8rem_2.2rem_minmax(2.5rem,1fr)] max-[520px]:gap-x-1.5 max-[520px]:gap-y-[0.3rem] max-[520px]:text-[0.85rem]';
+
 export function SplitsPanel({
 	analytics,
 	hrMaxManual = null,
@@ -17,11 +21,8 @@ export function SplitsPanel({
 	onSaveHrMax
 }: {
 	analytics: RouteAnalytics;
-	/** User-set HRmax (null = using the dynamic all-time max). */
 	hrMaxManual?: number | null;
-	/** All-time max HR across activities, shown as the dynamic option. */
 	hrMaxAllTime?: number | null;
-	/** Persist a new HRmax (null clears back to dynamic). Enables the inline editor. */
 	onSaveHrMax?: (hrMax: number | null) => void;
 }) {
 	const splits = analytics.splits;
@@ -52,43 +53,49 @@ export function SplitsPanel({
 	if (!splits.length && !zones) return null;
 
 	return (
-		<div className="panel splits-panel" style={{ marginBottom: '1rem' }}>
+		<div className={cn(ui.panel, 'p-[1.1rem_1.2rem_1.25rem] mb-4')}>
 			{splits.length > 0 && (
 				<>
-					<div className="splits-head">
+					<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
 						<h3>Pace per km</h3>
-						<p className="muted splits-sub">Computed from GPS + time</p>
+						<p className={cn(ui.muted, 'text-[0.85rem]')}>Computed from GPS + time</p>
 					</div>
-					<div className="splits-list" role="table" aria-label="Kilometer splits">
-						<div className="splits-row splits-row-head" role="row">
+					<div className="flex flex-col gap-[0.2rem]" role="table" aria-label="Kilometer splits">
+						<div
+							className={cn(
+								splitsRow,
+								'text-[0.72rem] uppercase tracking-[0.06em] text-muted border-b-line pb-[0.45rem]'
+							)}
+							role="row"
+						>
 							<span role="columnheader">Km</span>
 							<span role="columnheader">Pace</span>
 							<span role="columnheader">Time</span>
 							<span role="columnheader">HR</span>
-							<span className="splits-bar-col" role="presentation"></span>
+							<span className="flex items-center min-h-[0.55rem]" role="presentation"></span>
 						</div>
 						{splits.map((split) => (
 							<div
 								key={split.km}
-								className={`splits-row${split.isPartial ? ' partial' : ''}`}
+								className={cn(splitsRow, split.isPartial && 'opacity-[0.78]')}
 								role="row"
 							>
 								<span role="cell">
 									{split.isPartial ? `${split.distanceKm.toFixed(2)}` : split.km}
-									<span className="splits-unit">{split.isPartial ? ' km' : ''}</span>
+									<span className="text-[0.75rem] text-muted">{split.isPartial ? ' km' : ''}</span>
 								</span>
-								<span role="cell" className="splits-pace">
+								<span role="cell" className="font-display font-bold text-accent">
 									{split.pace || '—'}
 								</span>
-								<span role="cell" className="muted">
+								<span role="cell" className={ui.muted}>
 									{formatDuration(split.seconds) || '—'}
 								</span>
-								<span role="cell" className="muted">
+								<span role="cell" className={ui.muted}>
 									{split.avgHr ?? '—'}
 								</span>
-								<span className="splits-bar-col" role="presentation">
+								<span className="flex items-center min-h-[0.55rem]" role="presentation">
 									<span
-										className="splits-bar"
+										className="block h-[0.45rem] rounded-full bg-[linear-gradient(90deg,rgba(200,242,90,0.35),var(--color-accent))] min-w-[0.4rem]"
 										style={{ width: `${barWidth(split)}%` }}
 										title={split.pace ? `${split.pace}/km` : ''}
 									></span>
@@ -100,11 +107,11 @@ export function SplitsPanel({
 			)}
 
 			{zones && (
-				<div className={`zones-block${splits.length > 0 ? ' zones-spaced' : ''}`}>
-					<div className="splits-head zones-head">
+				<div className={splits.length > 0 ? 'mt-[1.35rem] pt-[1.15rem] border-t border-line' : undefined}>
+					<div className="flex items-start justify-between gap-3 mb-[0.85rem] flex-wrap">
 						<div>
 							<h3>Heart rate zones</h3>
-							<p className="muted splits-sub">
+							<p className={cn(ui.muted, 'text-[0.85rem]')}>
 								% of HRmax {zones.hrMax}
 								{zones.source === 'activity' && ' (from this run’s max)'}
 								{zones.source === 'profile' && ' (your HRmax)'}
@@ -116,8 +123,9 @@ export function SplitsPanel({
 						</div>
 						{onSaveHrMax &&
 							(editingMax ? (
-								<div className="hrmax-edit">
+								<div className="flex items-center gap-[0.35rem] flex-wrap justify-end">
 									<input
+										className="w-[5.5rem]"
 										type="number"
 										value={maxInput}
 										autoFocus
@@ -128,13 +136,13 @@ export function SplitsPanel({
 											if (e.key === 'Escape') setEditingMax(false);
 										}}
 									/>
-									<button type="button" className="btn btn-primary btn-sm" onClick={saveMax}>
+									<button type="button" className={cn(ui.btnPrimary, ui.btnSm)} onClick={saveMax}>
 										Save
 									</button>
 									{hrMaxManual != null && (
 										<button
 											type="button"
-											className="btn btn-ghost btn-sm"
+											className={cn(ui.btnGhost, ui.btnSm)}
 											title={
 												hrMaxAllTime
 													? `Use the all-time max (${hrMaxAllTime})`
@@ -152,7 +160,7 @@ export function SplitsPanel({
 							) : (
 								<button
 									type="button"
-									className="btn btn-ghost btn-sm hrmax-btn"
+									className={cn(ui.btnGhost, ui.btnSm, 'shrink-0')}
 									onClick={() => {
 										setMaxInput(String(hrMaxManual ?? zones.hrMax ?? ''));
 										setEditingMax(true);
@@ -165,31 +173,40 @@ export function SplitsPanel({
 
 					{zones.distribution?.some((z) => z.seconds > 0) ? (
 						<>
-							<div className="zone-stack" aria-hidden="true">
+							<div className="flex h-[0.55rem] rounded-full overflow-hidden bg-white/6 mb-[0.85rem]" aria-hidden="true">
 								{zones.distribution.map((z) =>
 									z.pct > 0 ? (
 										<span
 											key={z.zone}
-											className="zone-stack-seg"
+											className="min-w-px"
 											style={{ flex: Math.max(z.pct, 1), background: zoneColors[z.zone] }}
 											title={`Z${z.zone} ${z.label}: ${z.pct}%`}
 										></span>
 									) : null
 								)}
 							</div>
-							<div className="zone-grid">
+							<div className="grid grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-[0.55rem]">
 								{zones.distribution.map((z) => (
-									<div key={z.zone} className={`zone-card${z.seconds <= 0 ? ' empty' : ''}`}>
-										<div className="zone-card-top">
-											<span className="zone-dot" style={{ background: zoneColors[z.zone] }}></span>
+									<div
+										key={z.zone}
+										className={cn(
+											'p-[0.55rem_0.65rem] rounded-xl border border-line bg-black/18',
+											z.seconds <= 0 && 'opacity-45'
+										)}
+									>
+										<div className="flex items-center gap-[0.35rem] text-[0.85rem] mb-1">
+											<span
+												className="size-[0.45rem] rounded-full shrink-0"
+												style={{ background: zoneColors[z.zone] }}
+											></span>
 											<strong>Z{z.zone}</strong>
-											<span className="muted">{z.label}</span>
+											<span className={ui.muted}>{z.label}</span>
 										</div>
-										<div className="zone-card-vals">
-											<b>{formatDuration(z.seconds) || '0:00'}</b>
-											<span className="muted zone-pct">{z.pct}%</span>
+										<div className="flex items-baseline gap-[0.45rem]">
+											<b className="font-display text-[1.1rem]">{formatDuration(z.seconds) || '0:00'}</b>
+											<span className={cn(ui.muted, 'text-[0.8rem]')}>{z.pct}%</span>
 										</div>
-										<p className="muted zone-bpm">
+										<p className={cn(ui.muted, 'text-[0.75rem] mt-[0.15rem]')}>
 											{z.minBpm}–{z.maxBpm} bpm
 										</p>
 									</div>
@@ -197,7 +214,7 @@ export function SplitsPanel({
 							</div>
 						</>
 					) : zones.avgZone != null ? (
-						<p className="zone-avg-only">
+						<p className="m-0 text-[0.95rem]">
 							Average HR sat in <strong>Z{zones.avgZone}</strong>
 							{zones.avgHr != null && ` (${zones.avgHr} bpm)`} — no per-point HR for time-in-zone.
 						</p>

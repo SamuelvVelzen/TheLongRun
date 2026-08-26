@@ -122,15 +122,25 @@ export function RoutesHeatmap({
 	}, [tracks, meta, navigate, focusKey, detailPath]);
 
 	if (!tracks.length) {
-		return <div className="heatmap-empty muted">{emptyText}</div>;
+		return (
+			<div className="p-[2rem_1.2rem] text-center border border-dashed border-line rounded-box bg-black/20 text-muted">
+				{emptyText}
+			</div>
+		);
 	}
 
 	return (
-		<div className="heatmap-wrap map-wrap" ref={wrapRef}>
-			{status && <p className={`heatmap-status${failed ? ' error' : ''}`}>{status}</p>}
+		<div className="heatmap-wrap map-wrap relative rounded-box overflow-hidden border border-line bg-black/35" ref={wrapRef}>
+			{status && (
+				<p
+					className={`heatmap-status absolute z-[2] left-[0.85rem] top-[0.85rem] m-0 px-[0.65rem] py-[0.35rem] rounded-full bg-[rgba(16,20,15,0.85)] border border-line text-[0.85rem] ${failed ? 'text-[#ffd4c2] border-[rgba(255,138,91,0.4)]' : 'text-muted'}`}
+				>
+					{status}
+				</p>
+			)}
 			{hasFocus && !status && (
 				<SegmentedToggle
-					className="heatmap-view-toggle"
+					className="heatmap-view-toggle absolute z-[2] left-[0.85rem] top-[0.85rem] [&_button]:text-[0.72rem] [&_button]:font-semibold max-sm:[&_button]:min-w-11 max-sm:[&_button]:min-h-11 max-sm:[&_button]:text-[0.8rem] max-sm:[&_button]:px-[0.9rem] max-sm:[&_button]:py-2"
 					value={view}
 					aria-label="Map zoom"
 					onChange={(next) => {
@@ -144,7 +154,7 @@ export function RoutesHeatmap({
 					]}
 				/>
 			)}
-			<div className="heatmap-map" ref={containerRef}></div>
+			<div className="heatmap-map h-[min(360px,42vh)] w-full z-0 max-sm:h-[50vh] max-sm:min-h-[280px]" ref={containerRef}></div>
 		</div>
 	);
 }

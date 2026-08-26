@@ -5,6 +5,7 @@ import { createRun, type CreateRunInput } from '$lib/server/functions';
 import type { PlanWeek } from '$lib/types';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
+import { cn, ui } from '$lib/ui';
 import { FeelChips, WantedFasterChips } from './FeelChips';
 import { ShoesField } from './ShoesField';
 import { StrengthEditor } from './StrengthEditor';
@@ -99,14 +100,14 @@ export function LogForm({
 	}
 
 	return (
-		<form className="form" method="POST" onSubmit={onSubmit}>
-			{message && <div className="flash">{message}</div>}
-			<div className="panel">
-				<div className="form-section">
-					<h3 className="form-section-title">Activity</h3>
-					<div className="form-grid">
-						<label className="field">
-							<span className="req">Date</span>
+		<form className={ui.form} method="POST" onSubmit={onSubmit}>
+			{message && <div className={ui.flash}>{message}</div>}
+			<div className={ui.panel}>
+				<div className={ui.formSection}>
+					<h3 className={ui.formSectionTitle}>Activity</h3>
+					<div className={ui.formGrid}>
+						<label className={ui.field}>
+							<span className={ui.req}>Date</span>
 							<input
 								type="date"
 								name="date"
@@ -114,13 +115,13 @@ export function LogForm({
 								value={dateValue}
 								onChange={(e) => setDateValue(e.target.value)}
 							/>
-							<span className="field-hint muted">
+							<span className={cn(ui.fieldHint, ui.muted)}>
 								{derivedDay}
 								{derivedWeek != null && ` · week ${derivedWeek}`}
 							</span>
 						</label>
-						<label className="field">
-							<span className="req">Type</span>
+						<label className={ui.field}>
+							<span className={ui.req}>Type</span>
 							<select value={activityType} onChange={(e) => setActivityType(e.target.value)}>
 								{ACTIVITY_TYPES.map((t) => (
 									<option key={t} value={t}>
@@ -130,7 +131,7 @@ export function LogForm({
 							</select>
 						</label>
 						{activityType === 'run' && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>Session</span>
 								<select name="session" defaultValue={defaultSession}>
 									{SESSIONS.map((s) => (
@@ -144,16 +145,16 @@ export function LogForm({
 					</div>
 				</div>
 
-				<div className="form-section">
-					<h3 className="form-section-title">Numbers</h3>
-					<div className="form-grid">
+				<div className={ui.formSection}>
+					<h3 className={ui.formSectionTitle}>Numbers</h3>
+					<div className={ui.formGrid}>
 						{showsField(activityType, 'distance') && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>Distance (km)</span>
 								<input name="distance_km" type="text" inputMode="decimal" placeholder="7.04" />
 							</label>
 						)}
-						<label className="field">
+						<label className={ui.field}>
 							<span>Duration</span>
 							<input
 								name="time"
@@ -162,8 +163,8 @@ export function LogForm({
 								onChange={(e) => setDurationValue(e.target.value)}
 							/>
 						</label>
-						<label className="field">
-							<span className="req">Start time</span>
+						<label className={ui.field}>
+							<span className={ui.req}>Start time</span>
 							<input
 								type="time"
 								name="start_time"
@@ -173,31 +174,31 @@ export function LogForm({
 							/>
 						</label>
 						{showsField(activityType, 'pace') && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>{paceFieldLabel(activityType)}</span>
 								<input name="avg_pace" inputMode="decimal" placeholder="6:29" />
 							</label>
 						)}
 						{showsField(activityType, 'hr') && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>Avg HR</span>
 								<input name="avg_hr" type="text" inputMode="numeric" placeholder="147" />
 							</label>
 						)}
 						{showsField(activityType, 'hr') && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>Max HR</span>
 								<input name="max_hr" type="text" inputMode="numeric" placeholder="172" />
 							</label>
 						)}
 						{showsField(activityType, 'elevation') && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>Elev gain (m)</span>
 								<input name="elev_gain" type="text" inputMode="decimal" placeholder="48" />
 							</label>
 						)}
 						{showsField(activityType, 'cadence') && (
-							<label className="field">
+							<label className={ui.field}>
 								<span>Cadence</span>
 								<input name="cadence" type="text" inputMode="numeric" placeholder="176" />
 							</label>
@@ -205,9 +206,9 @@ export function LogForm({
 					</div>
 				</div>
 
-				<div className="form-section">
-					<h3 className="form-section-title">How it felt</h3>
-					<div className="form-grid">
+				<div className={ui.formSection}>
+					<h3 className={ui.formSectionTitle}>How it felt</h3>
+					<div className={ui.formGrid}>
 						{showsFeel(activityType, 'effort') && (
 							<FeelChips name="effort" label="Effort (1–10)" min={1} max={10} />
 						)}
@@ -224,12 +225,12 @@ export function LogForm({
 					</div>
 				</div>
 
-				<div className="form-section">
-					<h3 className="form-section-title">Details</h3>
+				<div className={ui.formSection}>
+					<h3 className={ui.formSectionTitle}>Details</h3>
 					{(showsField(activityType, 'weather') ||
 						showsField(activityType, 'surface') ||
 						showsField(activityType, 'shoes')) && (
-						<div className="form-grid">
+						<div className={ui.formGrid}>
 							{showsField(activityType, 'weather') && (
 								<WeatherField
 									value={weather}
@@ -240,7 +241,7 @@ export function LogForm({
 								/>
 							)}
 							{showsField(activityType, 'surface') && (
-								<label className="field">
+								<label className={ui.field}>
 									<span>Surface</span>
 									<input
 										name="surface"
@@ -258,12 +259,12 @@ export function LogForm({
 						</div>
 					)}
 					{activityType === 'strength' ? (
-						<div className="field" style={{ marginTop: '0.85rem' }}>
+						<div className={cn(ui.field, 'mt-[0.85rem]')}>
 							<span>Sets</span>
 							<StrengthEditor initial={strengthNotes} onChange={setStrengthNotes} />
 						</div>
 					) : (
-						<label className="field" style={{ marginTop: '0.85rem' }}>
+						<label className={cn(ui.field, 'mt-[0.85rem]')}>
 							<span>Notes</span>
 							<textarea name="notes" placeholder="How it felt, route, heat, fatigue…"></textarea>
 						</label>
@@ -271,11 +272,11 @@ export function LogForm({
 				</div>
 			</div>
 
-			<div className="actions form-sticky-actions">
-				<button className="btn btn-primary" type="submit">
+			<div className={cn(ui.actions, ui.stickyActions)}>
+				<button className={cn(ui.btnPrimary, ui.stickyPrimary)} type="submit">
 					Save activity
 				</button>
-				<Link className="btn btn-ghost" to="/">
+				<Link className={ui.btnGhost} to="/">
 					Cancel
 				</Link>
 			</div>

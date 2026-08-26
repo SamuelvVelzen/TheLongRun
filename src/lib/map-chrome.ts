@@ -32,10 +32,11 @@ export function leafletMapOptions() {
 function iconBtn(label: string, title: string, svg: string): HTMLButtonElement {
 	const btn = document.createElement('button');
 	btn.type = 'button';
-	btn.className = 'map-chrome-btn';
+	btn.className =
+		'map-chrome-btn inline-flex items-center justify-center size-11 min-w-11 min-h-11 p-0 rounded-[10px] border border-line bg-[rgba(16,20,15,0.88)] text-fg cursor-pointer shadow-[0_8px_20px_rgba(0,0,0,0.35)] transition-colors duration-150 hover:border-[rgba(200,242,90,0.45)] hover:text-accent active:border-[rgba(200,242,90,0.45)] active:text-accent focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2';
 	btn.title = title;
 	btn.setAttribute('aria-label', title);
-	btn.innerHTML = `<span class="map-chrome-ico" aria-hidden="true">${svg}</span><span class="map-chrome-sr">${label}</span>`;
+	btn.innerHTML = `<span class="map-chrome-ico flex leading-[0]" aria-hidden="true">${svg}</span><span class="sr-only">${label}</span>`;
 	return btn;
 }
 
@@ -209,7 +210,8 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	wrap.addEventListener('focusin', enableWheel);
 
 	const bar = document.createElement('div');
-	bar.className = 'map-chrome';
+	bar.className =
+		'map-chrome absolute z-[500] top-[0.65rem] right-[0.65rem] flex flex-col gap-[0.35rem] pointer-events-auto max-sm:top-2 max-sm:right-2 max-sm:gap-[0.3rem]';
 	bar.setAttribute('role', 'toolbar');
 	bar.setAttribute('aria-label', 'Map controls');
 
@@ -243,7 +245,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	};
 
 	const syncFullButton = (on: boolean) => {
-		btnFull.innerHTML = `<span class="map-chrome-ico" aria-hidden="true">${on ? SVG_EXIT : SVG_FULL}</span><span class="map-chrome-sr">${on ? 'Exit' : 'Fullscreen'}</span>`;
+		btnFull.innerHTML = `<span class="map-chrome-ico flex leading-[0] [&_svg]:size-3.5" aria-hidden="true">${on ? SVG_EXIT : SVG_FULL}</span><span class="sr-only">${on ? 'Exit' : 'Fullscreen'}</span>`;
 		btnFull.title = on ? 'Exit fullscreen' : 'Fullscreen';
 		btnFull.setAttribute('aria-label', btnFull.title);
 		btnFull.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -288,7 +290,8 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 
 	const hint = coarse ? document.createElement('p') : null;
 	if (hint) {
-		hint.className = 'map-gesture-hint';
+		hint.className =
+			'map-gesture-hint hidden [@media(pointer:coarse)]:block absolute z-[500] left-1/2 bottom-[max(1.85rem,env(safe-area-inset-bottom,0px))] -translate-x-1/2 m-0 px-[0.7rem] py-[0.35rem] rounded-full bg-[rgba(16,20,15,0.88)] border border-line text-muted text-[0.72rem] font-semibold pointer-events-none whitespace-nowrap max-w-[calc(100%-5.5rem)] overflow-hidden text-ellipsis';
 		hint.textContent = 'Two fingers to pan · tap fullscreen';
 		wrap.appendChild(hint);
 	}
@@ -419,7 +422,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 export function kmMarkerIcon(L: LeafletGlobal, km: number) {
 	return L.divIcon({
 		className: 'km-marker',
-		html: `<span class="km-marker-pill">${km}</span>`,
+		html: `<span class="km-marker-pill inline-flex items-center justify-center min-w-[1.35rem] h-[1.35rem] px-1 rounded-full bg-[rgba(16,20,15,0.88)] border border-[rgba(200,242,90,0.55)] text-accent font-display text-[0.68rem] font-bold leading-none shadow-[0_4px_12px_rgba(0,0,0,0.4)]">${km}</span>`,
 		iconSize: [22, 22],
 		iconAnchor: [11, 11]
 	});

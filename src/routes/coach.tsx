@@ -20,6 +20,7 @@ import {
     type WeekPattern,
     type WeekSlot
 } from '$lib/week-mix';
+import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
@@ -84,10 +85,14 @@ function WeekPatternEditor({
 	}
 
 	return (
-		<div className="week-mix">
+		<div className="grid gap-[0.45rem] mt-[0.45rem]">
 			{shown.map((row) => (
-				<div key={row.id} className="week-slot-row">
+				<div
+					key={row.id}
+					className="grid grid-cols-[7.2rem_minmax(0,1fr)_2.1rem] gap-[0.35rem] items-center min-h-11 p-[0.3rem_0.45rem] border border-line rounded-xl bg-black/18 max-sm:grid-cols-[1fr_1fr_2.1rem]"
+				>
 					<select
+						className="min-w-0 w-full m-0"
 						aria-label="Weekday"
 						value={row.day}
 						disabled={disabled}
@@ -100,6 +105,7 @@ function WeekPatternEditor({
 						))}
 					</select>
 					<select
+						className="min-w-0 w-full m-0"
 						aria-label="Sport"
 						value={row.activity_type}
 						disabled={disabled}
@@ -113,7 +119,7 @@ function WeekPatternEditor({
 					</select>
 					<button
 						type="button"
-						className="week-slot-remove"
+						className="appearance-none box-border size-[2.1rem] p-0 rounded-lg border border-line bg-black/25 text-inherit font-bold leading-none cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed"
 						aria-label="Remove session"
 						disabled={disabled}
 						onClick={() => onChange(rows.filter((r) => r.id !== row.id))}
@@ -123,7 +129,7 @@ function WeekPatternEditor({
 				</div>
 			))}
 			<button
-				className="btn btn-ghost"
+				className={ui.btnGhost}
 				type="button"
 				disabled={disabled || rows.length >= MAX_WEEK_SLOTS}
 				onClick={() => onChange([...rows, nextSlot(rows)])}
@@ -178,9 +184,9 @@ function Coach() {
 
 	return (
 		<>
-			<section className="hero">
+			<section className={ui.hero}>
 				<div>
-					<p className="muted">After a run · then {weekPhrase}</p>
+					<p className={ui.muted}>After a run · then {weekPhrase}</p>
 					<h1>Coach</h1>
 					<p>
 						Import the GPX, copy the debrief prompt into ChatGPT with your Strava screenshots and
@@ -189,12 +195,12 @@ function Coach() {
 				</div>
 			</section>
 
-			<div className="coach-tabs" role="tablist">
+			<div className={ui.coachTabs} role="tablist">
 				<button
 					type="button"
 					role="tab"
 					aria-selected={tab === 'debrief'}
-					className={`coach-tab${tab === 'debrief' ? ' active' : ''}`}
+					className={cn(ui.coachTab, tab === 'debrief' && ui.coachTabActive)}
 					onClick={() => setTab('debrief')}
 				>
 					After a run
@@ -203,7 +209,7 @@ function Coach() {
 					type="button"
 					role="tab"
 					aria-selected={tab === 'plan'}
-					className={`coach-tab${tab === 'plan' ? ' active' : ''}`}
+					className={cn(ui.coachTab, tab === 'plan' && ui.coachTabActive)}
 					onClick={() => setTab('plan')}
 				>
 					Plan {weekPhrase}
@@ -212,7 +218,7 @@ function Coach() {
 					type="button"
 					role="tab"
 					aria-selected={tab === 'feelings'}
-					className={`coach-tab${tab === 'feelings' ? ' active' : ''}`}
+					className={cn(ui.coachTab, tab === 'feelings' && ui.coachTabActive)}
 					onClick={() => setTab('feelings')}
 				>
 					Week review
@@ -446,15 +452,15 @@ function CoachPanels({
 		<>
 			{tab === 'debrief' && (
 				<>
-					<ol className="coach-flow">
+					<ol className="list-none m-0 p-0 flex flex-col gap-6 max-sm:gap-[1.15rem] [&>li>strong]:block [&>li>strong]:text-[1.05rem] [&_li.done>strong]:text-accent">
 						<li className={run ? 'done' : 'current'}>
 							<strong>1. Import the GPX</strong>
-							<span className="muted">
+							<span className={cn(ui.muted, 'block mt-1')}>
 								Download from Strava, then drop it here. ChatGPT can wait — the prompt needs this
 								run in the app first.
 							</span>
 							{run && (
-								<p className="coach-flow-run">
+								<p className="mt-[0.45rem] mb-0 font-semibold max-sm:[overflow-wrap:anywhere]">
 									Latest in the prompt:{' '}
 									<Link to="/runs/$slug" params={{ slug: run.slug }}>
 										{run.date}
@@ -464,7 +470,7 @@ function CoachPanels({
 									{run.hasFeel ? ' · feel already saved' : ' · no feel yet'}
 								</p>
 							)}
-							<div className="panel form" style={{ marginTop: '0.75rem' }}>
+							<div className={cn(ui.panel, ui.form, 'mt-3')}>
 								<GpxImport
 									onImported={(ok) => {
 										const last = ok[ok.length - 1];
@@ -479,7 +485,7 @@ function CoachPanels({
 									}}
 								/>
 							</div>
-							<p className="muted" style={{ marginTop: '0.5rem' }}>
+							<p className={cn(ui.muted, 'mt-2')}>
 								No GPS?{' '}
 								<Link to="/import" search={{ mode: 'manual' }}>
 									Log manually
@@ -489,27 +495,25 @@ function CoachPanels({
 						</li>
 						<li className={run && debriefPrompt ? 'current' : undefined}>
 							<strong>2. Copy the prompt</strong>
-							<span className="muted">
+							<span className={cn(ui.muted, 'block mt-1')}>
 								In ChatGPT: attach the Strava general + pace screenshots, paste this, and say how
 								the run felt.
 							</span>
 							{debrief.error && !debriefPrompt && (
-								<p className="muted" style={{ marginTop: '0.4rem' }}>
-									{debrief.error}
-								</p>
+								<p className={cn(ui.muted, 'mt-[0.4rem]')}>{debrief.error}</p>
 							)}
 							{debriefPrompt && (
-								<div className="panel form" style={{ marginTop: '0.75rem' }}>
-									<label className="field">
+								<div className={cn(ui.panel, ui.form, 'mt-3')}>
+									<label className={ui.field}>
 										<textarea
-											className="editor"
+											className={ui.editor}
 											rows={14}
 											value={debriefPrompt}
 											onChange={(e) => setDebriefPrompt(e.target.value)}
 										/>
 									</label>
-									<div className="actions">
-										<button className="btn btn-primary" type="button" onClick={copyDebrief}>
+									<div className={ui.actions}>
+										<button className={ui.btnPrimary} type="button" onClick={copyDebrief}>
 											{debriefCopied ? 'Copied' : 'Copy prompt'}
 										</button>
 									</div>
@@ -518,23 +522,23 @@ function CoachPanels({
 						</li>
 						<li>
 							<strong>3. Paste ChatGPT’s JSON</strong>
-							<span className="muted">
+							<span className={cn(ui.muted, 'block mt-1')}>
 								Feelings for this run plus the updated rest of the week. Days can change.
 							</span>
-							<div className="panel form" style={{ marginTop: '0.75rem' }}>
-								{debriefMsg && <div className="flash">{debriefMsg}</div>}
-								<label className="field">
+							<div className={cn(ui.panel, ui.form, 'mt-3')}>
+								{debriefMsg && <div className={ui.flash}>{debriefMsg}</div>}
+								<label className={ui.field}>
 									<textarea
-										className="editor"
+										className={ui.editor}
 										rows={8}
 										placeholder='{ "feelings": { "slug": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
 										value={debriefJson}
 										onChange={(e) => setDebriefJson(e.target.value)}
 									/>
 								</label>
-								<div className="actions">
+								<div className={ui.actions}>
 									<button
-										className="btn btn-primary"
+										className={ui.btnPrimary}
 										type="button"
 										onClick={saveDebriefReply}
 										disabled={!debriefJson.trim()}
@@ -550,9 +554,9 @@ function CoachPanels({
 
 			{tab === 'plan' && (
 				<>
-					<div className="panel form" style={{ marginBottom: '1rem' }}>
-						<div className="form-grid">
-							<label className="field">
+					<div className={cn(ui.panel, ui.form, 'mb-4')}>
+						<div className={ui.formGrid}>
+							<label className={ui.field}>
 								<span>History window</span>
 								<select
 									value={weeks}
@@ -573,13 +577,13 @@ function CoachPanels({
 								</select>
 							</label>
 						</div>
-						<p className="muted" style={{ marginTop: '0.4rem' }}>
+						<p className={cn(ui.muted, 'mt-[0.4rem]')}>
 							All time is the default. The detailed activity table still covers only the last ~12
 							weeks so the prompt stays short.
 						</p>
-						<label className="field">
+						<label className={ui.field}>
 							<span>Usual week</span>
-							<span className="muted" style={{ fontWeight: 400 }}>
+							<span className={cn(ui.muted, 'font-normal')}>
 								Day and sport only — the AI chooses easy / quality / long / etc. plus distance.
 								Saved default is {formatPatternProse(savedPattern)}.
 							</span>
@@ -593,11 +597,11 @@ function CoachPanels({
 							/>
 						</label>
 						{(mixDirty || mixBusy || mixSaveMsg) && (
-							<div style={{ marginTop: '0.35rem' }}>
+							<div className="mt-[0.35rem]">
 								{(mixDirty || mixBusy) && (
-									<div className="actions">
+									<div className={ui.actions}>
 										<button
-											className="btn btn-ghost"
+											className={ui.btnGhost}
 											type="button"
 											onClick={saveDefaultMix}
 											disabled={mixBusy}
@@ -609,25 +613,29 @@ function CoachPanels({
 								)}
 								{mixSaveMsg && (
 									<div
-										className={`flash${/saved/i.test(mixSaveMsg) ? ' ok-flash' : ''}`}
+										className={cn(
+											ui.flash,
+											/saved/i.test(mixSaveMsg) && ui.flashOk,
+											mixDirty || mixBusy ? 'mt-2' : 'mt-0',
+											'mb-0'
+										)}
 										role="status"
-										style={{ marginTop: mixDirty || mixBusy ? '0.5rem' : 0, marginBottom: 0 }}
 									>
 										{mixSaveMsg}
 									</div>
 								)}
 							</div>
 						)}
-						<label className="field">
+						<label className={ui.field}>
 							<span>{weekPhrase.charAt(0).toUpperCase() + weekPhrase.slice(1)}</span>
-							<span className="muted" style={{ fontWeight: 400 }}>
+							<span className={cn(ui.muted, 'font-normal')}>
 								{linked
 									? `Using usual days. Change ${weekPhrase} only if this one is different.`
 									: `One-off for ${weekPhrase} — the prompt uses these days, not your saved usual week.`}
 							</span>
-							<div className="actions" style={{ marginTop: '0.35rem' }}>
+							<div className={cn(ui.actions, 'mt-[0.35rem]')}>
 								<button
-									className="btn btn-ghost"
+									className={ui.btnGhost}
 									type="button"
 									disabled={mixBusy}
 									onClick={() => {
@@ -643,7 +651,7 @@ function CoachPanels({
 								</button>
 								{!linked && !patternsEqual(thisPattern, usualPattern) && (
 									<button
-										className="btn btn-ghost"
+										className={ui.btnGhost}
 										type="button"
 										disabled={mixBusy}
 										onClick={() => {
@@ -663,7 +671,7 @@ function CoachPanels({
 								/>
 							)}
 						</label>
-						<label className="field">
+						<label className={ui.field}>
 							<span>Anything unusual {weekPhrase}? (optional)</span>
 							<textarea
 								placeholder="e.g. motorcycle training Thursday, skip gym, extra long ride"
@@ -672,8 +680,8 @@ function CoachPanels({
 								rows={2}
 							/>
 						</label>
-						{mixMsg && <div className="flash">{mixMsg}</div>}
-						<label className="field">
+						{mixMsg && <div className={ui.flash}>{mixMsg}</div>}
+						<label className={ui.field}>
 							<span>Your question for the AI</span>
 							<textarea
 								placeholder={defaultQ}
@@ -682,9 +690,9 @@ function CoachPanels({
 								rows={3}
 							/>
 						</label>
-						<div className="actions">
+						<div className={ui.actions}>
 							<button
-								className="btn btn-primary"
+								className={ui.btnPrimary}
 								type="button"
 								onClick={generateBrief}
 								disabled={briefBusy}
@@ -699,46 +707,46 @@ function CoachPanels({
 					</div>
 
 					{briefText && (
-						<div className="panel form">
+						<div className={cn(ui.panel, ui.form)}>
 							<h3>Prompt (editable — tweak before you copy)</h3>
-							<label className="field" style={{ marginTop: '0.5rem' }}>
+							<label className={cn(ui.field, 'mt-2')}>
 								<textarea
-									className="editor"
+									className={ui.editor}
 									rows={16}
 									value={briefText}
 									onChange={(e) => setBriefText(e.target.value)}
 								/>
 							</label>
-							<div className="actions">
-								<button className="btn btn-primary" type="button" onClick={download}>
+							<div className={ui.actions}>
+								<button className={ui.btnPrimary} type="button" onClick={download}>
 									Download .md
 								</button>
-								<button className="btn btn-ghost" type="button" onClick={copy}>
+								<button className={ui.btnGhost} type="button" onClick={copy}>
 									{copied ? 'Copied' : 'Copy'}
 								</button>
 							</div>
 						</div>
 					)}
 
-					<div className="panel form" style={{ marginTop: '1rem' }}>
+					<div className={cn(ui.panel, ui.form, 'mt-4')}>
 						<h3>Save {weekPhrase}’s plan</h3>
-						<p className="muted" style={{ marginTop: '0.3rem' }}>
+						<p className={cn(ui.muted, 'mt-[0.3rem]')}>
 							Paste the JSON block your AI returned — merged by week number. Keep your usual
 							days unless the reply explained a shift.
 						</p>
-						{planMsg && <div className="flash">{planMsg}</div>}
-						<label className="field">
+						{planMsg && <div className={ui.flash}>{planMsg}</div>}
+						<label className={ui.field}>
 							<textarea
-								className="editor"
+								className={ui.editor}
 								rows={8}
 								placeholder='{ "week": 3, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'
 								value={planJson}
 								onChange={(e) => setPlanJson(e.target.value)}
 							/>
 						</label>
-						<div className="actions">
+						<div className={ui.actions}>
 							<button
-								className="btn btn-primary"
+								className={ui.btnPrimary}
 								type="button"
 								onClick={savePlan}
 								disabled={!planJson.trim()}
@@ -752,13 +760,13 @@ function CoachPanels({
 
 			{tab === 'feelings' && (
 				<>
-					<div className="panel form" style={{ marginBottom: '1rem' }}>
-						<p className="muted" style={{ marginTop: 0 }}>
+					<div className={cn(ui.panel, ui.form, 'mb-4')}>
+						<p className={cn(ui.muted, 'mt-0')}>
 							End-of-week dump from a long ChatGPT thread. If you debriefed each run already, you
 							can skip this.
 						</p>
-						<div className="form-grid">
-							<label className="field">
+						<div className={ui.formGrid}>
+							<label className={ui.field}>
 								<span>Duration</span>
 								<select value={feelWeeks} onChange={(e) => setFeelWeeks(Number(e.target.value))}>
 									{[1, 2, 3, 4, 6, 8].map((w) => (
@@ -769,9 +777,9 @@ function CoachPanels({
 								</select>
 							</label>
 						</div>
-						<div className="actions">
+						<div className={ui.actions}>
 							<button
-								className="btn btn-primary"
+								className={ui.btnPrimary}
 								type="button"
 								onClick={generateFeelPrompt}
 								disabled={feelBusy}
@@ -779,12 +787,12 @@ function CoachPanels({
 								{feelBusy ? 'Building…' : 'Generate prompt'}
 							</button>
 							{feelPrompt && (
-								<button className="btn btn-ghost" type="button" onClick={copyFeelPrompt}>
+								<button className={ui.btnGhost} type="button" onClick={copyFeelPrompt}>
 									{feelCopied ? 'Copied' : 'Copy prompt'}
 								</button>
 							)}
 							{feelCount != null && (
-								<span className="muted" style={{ alignSelf: 'center' }}>
+								<span className={cn(ui.muted, 'self-center')}>
 									{feelCount} activit{feelCount === 1 ? 'y' : 'ies'}
 								</span>
 							)}
@@ -792,11 +800,11 @@ function CoachPanels({
 					</div>
 
 					{feelPrompt && (
-						<div className="panel form">
+						<div className={cn(ui.panel, ui.form)}>
 							<h3>Prompt (editable — tweak before you copy)</h3>
-							<label className="field" style={{ marginTop: '0.5rem' }}>
+							<label className={cn(ui.field, 'mt-2')}>
 								<textarea
-									className="editor"
+									className={ui.editor}
 									rows={14}
 									value={feelPrompt}
 									onChange={(e) => setFeelPrompt(e.target.value)}
@@ -805,25 +813,25 @@ function CoachPanels({
 						</div>
 					)}
 
-					<div className="panel form" style={{ marginTop: '1rem' }}>
+					<div className={cn(ui.panel, ui.form, 'mt-4')}>
 						<h3>Save the feelings</h3>
-						<p className="muted" style={{ marginTop: '0.3rem' }}>
+						<p className={cn(ui.muted, 'mt-[0.3rem]')}>
 							Paste the JSON block — feelings are written onto each activity by slug. Device data is
 							never touched.
 						</p>
-						{feelMsg && <div className="flash">{feelMsg}</div>}
-						<label className="field">
+						{feelMsg && <div className={ui.flash}>{feelMsg}</div>}
+						<label className={ui.field}>
 							<textarea
-								className="editor"
+								className={ui.editor}
 								rows={8}
 								placeholder='{ "activities": [ { "slug": "…", "shins": 3, "notes": "…" } ] }'
 								value={feelJson}
 								onChange={(e) => setFeelJson(e.target.value)}
 							/>
 						</label>
-						<div className="actions">
+						<div className={ui.actions}>
 							<button
-								className="btn btn-primary"
+								className={ui.btnPrimary}
 								type="button"
 								onClick={saveFeel}
 								disabled={!feelJson.trim()}

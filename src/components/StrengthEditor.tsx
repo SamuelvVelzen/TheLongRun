@@ -4,6 +4,10 @@ import {
 	parseStrengthNotes,
 	type StrengthExercise
 } from '$lib/strength';
+import { cn, ui } from '$lib/ui';
+
+const removeBtn =
+	'inline-flex items-center justify-center box-border border-0 bg-transparent text-muted cursor-pointer text-[1.05rem] leading-none size-11 min-w-11 min-h-11 p-0 hover:text-warn active:text-warn';
 
 /**
  * Structured strength logger. Add exercises and sets (reps × kg) one at a time; it serializes to
@@ -63,37 +67,42 @@ export function StrengthEditor({
 	};
 
 	return (
-		<div className="strength-editor">
+		<div className="grid gap-[0.7rem]">
 			{exercises.map((ex, i) => (
-				<div className="strength-ex" key={i}>
-					<div className="strength-ex-head">
+				<div className="border border-line rounded-[10px] p-[0.6rem_0.7rem] bg-black/15" key={i}>
+					<div className="flex gap-2 items-center">
 						<input
-							className="strength-name"
+							className="flex-1 min-w-0"
 							placeholder="Exercise (e.g. seated row)"
 							value={ex.name}
 							onChange={(e) => setName(i, e.target.value)}
 						/>
 						<button
 							type="button"
-							className="strength-x"
+							className={removeBtn}
 							aria-label="Remove exercise"
 							onClick={() => removeExercise(i)}
 						>
 							×
 						</button>
 					</div>
-					<div className="strength-sets">
+					<div className="flex flex-wrap items-center gap-1.5 mt-2">
 						{ex.sets.map((s, si) => (
-							<span className="strength-set" key={si}>
+							<span
+								className="inline-flex items-center gap-[0.2rem] border border-line rounded-lg p-[0.15rem_0.3rem]"
+								key={si}
+							>
 								<input
+									className="w-[3.75rem] min-h-11 text-center"
 									type="number"
 									min="0"
 									placeholder="reps"
 									value={s.reps || ''}
 									onChange={(e) => setSet(i, si, 'reps', e.target.value)}
 								/>
-								<span className="strength-x-sep">×</span>
+								<span className={ui.muted}>×</span>
 								<input
+									className="w-[3.75rem] min-h-11 text-center"
 									type="number"
 									min="0"
 									step="0.5"
@@ -103,7 +112,7 @@ export function StrengthEditor({
 								/>
 								<button
 									type="button"
-									className="strength-x"
+									className={removeBtn}
 									aria-label="Remove set"
 									onClick={() => removeSet(i, si)}
 								>
@@ -111,16 +120,20 @@ export function StrengthEditor({
 								</button>
 							</span>
 						))}
-						<button type="button" className="btn btn-ghost strength-add-set" onClick={() => addSet(i)}>
+						<button
+							type="button"
+							className={cn(ui.btnGhost, 'min-h-11 px-[0.85rem] py-[0.45rem]')}
+							onClick={() => addSet(i)}
+						>
 							+ set
 						</button>
 					</div>
 				</div>
 			))}
-			<button type="button" className="btn btn-ghost" onClick={addExercise}>
+			<button type="button" className={ui.btnGhost} onClick={addExercise}>
 				+ exercise
 			</button>
-			<label className="field" style={{ marginTop: '0.7rem' }}>
+			<label className={cn(ui.field, 'mt-[0.7rem]')}>
 				<span>Extra notes (optional)</span>
 				<textarea
 					rows={2}

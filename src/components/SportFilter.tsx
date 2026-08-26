@@ -28,7 +28,7 @@ export function SportFilter({
 	const options = OPTIONS.filter((o) => o.value === 'all' || !available || available.has(o.value));
 
 	return (
-		<div className="range-filter">
+		<div className="contents">
 			<SegmentedToggle
 				value={sport}
 				aria-label="Activity type"

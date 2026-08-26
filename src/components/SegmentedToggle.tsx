@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import { cn, ui } from '$lib/ui';
 
 type SearchFn = (prev: Record<string, unknown>) => Record<string, unknown>;
 
@@ -28,18 +29,17 @@ export function SegmentedToggle<T extends string>({
 
 	return (
 		<div
-			className={['seg-toggle', className].filter(Boolean).join(' ')}
+			className={cn(ui.segToggle, className)}
 			role={ariaLabel ? 'group' : undefined}
 			aria-label={ariaLabel}
 		>
 			{options.map((opt) => {
 				const selected = opt.value === value;
-				const itemClass = `seg-toggle-item${selected ? ' active' : ''}`;
 				return (
 					<button
 						key={opt.value}
 						type="button"
-						className={itemClass}
+						className={cn(ui.segItem, selected && ui.segItemActive)}
 						aria-pressed={selected}
 						onClick={() => {
 							if (selected) return;

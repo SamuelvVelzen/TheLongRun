@@ -1,10 +1,15 @@
 import { useState } from 'react';
+import { cn, ui } from '$lib/ui';
 
 function range(min: number, max: number): number[] {
 	const out: number[] = [];
 	for (let n = min; n <= max; n++) out.push(n);
 	return out;
 }
+
+const feelChip =
+	'flex-[1_1_2.5rem] min-w-11 min-h-11 inline-flex items-center justify-center p-0 border border-line rounded-[10px] bg-black/25 text-muted font-inherit tabular-nums cursor-pointer transition-[border-color,color,background-color] duration-150 ease-out hover:border-accent active:border-accent';
+const feelChipActive = 'border-accent bg-accent text-accent-ink font-semibold';
 
 /** Tappable 0–10 / 1–10 scores; posts the same hidden field name as the old number input. */
 export function FeelChips({
@@ -26,17 +31,17 @@ export function FeelChips({
 	const selected = value === '' ? null : Number(value);
 
 	return (
-		<div className="field feel-field">
+		<div className={cn(ui.field, 'col-span-full')}>
 			<span>{label}</span>
 			<input type="hidden" name={name} value={value} />
-			<div className="feel-chips" role="group" aria-label={label}>
+			<div className="flex flex-wrap gap-[0.3rem]" role="group" aria-label={label}>
 				{range(min, max).map((n) => {
 					const active = selected === n;
 					return (
 						<button
 							key={n}
 							type="button"
-							className={`feel-chip${active ? ' active' : ''}`}
+							className={cn(feelChip, active && feelChipActive)}
 							aria-pressed={active}
 							onClick={() => setValue(active ? '' : String(n))}
 						>
@@ -65,17 +70,17 @@ export function WantedFasterChips({
 	] as const;
 
 	return (
-		<div className="field feel-field">
+		<div className={cn(ui.field, 'col-span-full')}>
 			<span>Wanted to go faster?</span>
 			<input type="hidden" name={name} value={value} />
-			<div className="feel-chips feel-chips-wanted" role="group" aria-label="Wanted to go faster?">
+			<div className="flex flex-wrap gap-[0.3rem] [&_button]:flex-[1_1_4rem]" role="group" aria-label="Wanted to go faster?">
 				{opts.map((opt) => {
 					const active = value === opt.v;
 					return (
 						<button
 							key={opt.v || 'unset'}
 							type="button"
-							className={`feel-chip${active ? ' active' : ''}`}
+							className={cn(feelChip, active && feelChipActive)}
 							aria-pressed={active}
 							onClick={() => setValue(opt.v)}
 						>

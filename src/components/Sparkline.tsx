@@ -77,7 +77,6 @@ export function Sparkline({
 		const i = nearestIndex(e.clientX, e.currentTarget);
 		if (!tipFor(i)) return;
 		if (pinned && active === i) {
-			// Second tap on the same point opens it (if pickable), else dismiss.
 			if (onPick) {
 				onPick(i);
 				return;
@@ -112,9 +111,9 @@ export function Sparkline({
 	const activeCoord = active !== null ? geometry.coords[active] : null;
 
 	return (
-		<div className="spark-root" ref={rootRef}>
+		<div className="relative block min-w-0 touch-manipulation" ref={rootRef}>
 			<svg
-				className="sparkline"
+				className="block overflow-visible cursor-crosshair touch-manipulation"
 				viewBox={`0 0 ${width} ${height}`}
 				width="100%"
 				height={height}
@@ -127,18 +126,27 @@ export function Sparkline({
 				onPointerUp={onPointerUp}
 				onClick={onClick}
 			>
-				{geometry.area && <path className="spark-area" d={geometry.area} fill={color} />}
+				{geometry.area && <path className="opacity-[0.14] pointer-events-none" d={geometry.area} fill={color} />}
 				{geometry.path && (
 					<>
-						<path className="spark-hit" d={geometry.path} fill="none" />
-						<path className="spark-line" d={geometry.path} stroke={color} fill="none" />
+						<path
+							className="spark-hit stroke-transparent [stroke-width:16] [stroke-linecap:round] [stroke-linejoin:round] pointer-events-[stroke]"
+							d={geometry.path}
+							fill="none"
+						/>
+						<path
+							className="spark-line [stroke-width:1.75] [stroke-linecap:round] [stroke-linejoin:round] pointer-events-none"
+							d={geometry.path}
+							stroke={color}
+							fill="none"
+						/>
 					</>
 				)}
 			</svg>
 
 			{activeCoord && (
 				<div
-					className="spark-marker"
+					className="absolute z-[1] size-[7px] mt-[-3.5px] ml-[-3.5px] rounded-full shadow-[0_0_0_2px_rgba(16,20,15,0.9),0_0_8px_rgba(200,242,90,0.45)] pointer-events-none"
 					style={{
 						left: `${(activeCoord.x / width) * 100}%`,
 						top: `${(activeCoord.y / height) * 100}%`,
@@ -150,16 +158,24 @@ export function Sparkline({
 
 			{activeTip && activeCoord && (
 				<div
-					className="spark-tip"
+					className="absolute z-[2] -translate-x-1/2 -translate-y-[calc(100%+10px)] flex flex-col items-center gap-[0.05rem] px-[0.45rem] py-[0.28rem] rounded-lg border border-line bg-[#1a2218] shadow-[0_8px_22px_rgba(0,0,0,0.4)] pointer-events-none whitespace-nowrap max-w-[min(11rem,70vw)] after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-[5px] after:border-transparent after:border-t-[#1a2218]"
 					style={{
 						left: `${(activeCoord.x / width) * 100}%`,
 						top: `${(activeCoord.y / height) * 100}%`
 					}}
 					role="tooltip"
 				>
-					<span className="spark-tip-value">{activeTip.display}</span>
-					<span className="spark-tip-label">{activeTip.label}</span>
-					{onPick && <span className="spark-tip-open">open →</span>}
+					<span className="font-display font-bold text-[0.78rem] tracking-[-0.02em] text-accent leading-[1.15]">
+						{activeTip.display}
+					</span>
+					<span className="text-[0.68rem] text-muted leading-[1.15] overflow-hidden text-ellipsis max-w-full">
+						{activeTip.label}
+					</span>
+					{onPick && (
+						<span className="text-[0.62rem] font-semibold tracking-[0.04em] text-accent leading-[1.3]">
+							open →
+						</span>
+					)}
 				</div>
 			)}
 		</div>

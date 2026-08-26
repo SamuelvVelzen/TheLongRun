@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { getContextData, saveShoes, saveContextFile } from '$lib/server/functions';
+import { cn, ui } from '$lib/ui';
 import { DeferredData } from '../components/DeferredData';
 
 export const Route = createFileRoute('/context')({
@@ -12,9 +13,9 @@ function Context() {
 	const { page } = Route.useLoaderData();
 	return (
 		<>
-			<section className="hero">
+			<section className={ui.hero}>
 				<div>
-					<p className="muted">Profile, plan, gear, and race notes</p>
+					<p className={ui.muted}>Profile, plan, gear, and race notes</p>
 					<h1>Context</h1>
 					<p>Read the formatted docs and edit markdown when something changes.</p>
 				</div>
@@ -99,52 +100,51 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 
 	return (
 		<>
-			{copyError && <div className="flash">{copyError}</div>}
-			{saveFlash && <div className="flash ok-flash">Saved {saveFlash}</div>}
-			{message && <div className="flash">{message}</div>}
+			{copyError && <div className={ui.flash}>{copyError}</div>}
+			{saveFlash && <div className={cn(ui.flash, ui.flashOk)}>Saved {saveFlash}</div>}
+			{message && <div className={ui.flash}>{message}</div>}
 
-			<form
-				className="panel form"
-				method="POST"
-				onSubmit={onSaveShoes}
-				style={{ marginBottom: '1.25rem' }}
-			>
+			<form className={cn(ui.panel, ui.form, 'mb-5')} method="POST" onSubmit={onSaveShoes}>
 				<h2>Current shoes</h2>
-				<div className="form-grid" style={{ marginTop: '0.8rem' }}>
-					<label className="field">
+				<div className={cn(ui.formGrid, 'mt-[0.8rem]')}>
+					<label className={ui.field}>
 						<span>Active pair</span>
 						<input name="active" defaultValue={data.shoes.active} required />
 					</label>
-					<label className="field">
+					<label className={ui.field}>
 						<span>Rotation (one per line)</span>
 						<textarea name="rotation" rows={3} defaultValue={data.shoes.rotation.join('\n')} />
 					</label>
 				</div>
-				<label className="field">
+				<label className={ui.field}>
 					<span>Notes</span>
 					<textarea name="notes" rows={3} defaultValue={data.shoes.notes} />
 				</label>
-				<button className="btn btn-primary" type="submit">
+				<button className={ui.btnPrimary} type="submit">
 					Update shoes
 				</button>
 			</form>
 
-			<div className="grid">
+			<div className={ui.grid}>
 				{data.files.map((file) => (
 					<details
 						key={file.name}
 						id={`ctx-${file.name}`}
-						className="panel context-card"
+						className={ui.panel}
 						open={openName === file.name || editing === file.name}
 					>
-						<summary>
-							<span className="context-title">{file.title}</span>
-							<span className="muted context-path">data/context/{file.name}</span>
+						<summary className="cursor-pointer list-none flex flex-wrap items-baseline gap-x-3 gap-y-[0.45rem] min-h-11 [&::-webkit-details-marker]:hidden">
+							<span className="font-display text-[1.15rem] max-sm:text-[1.05rem] max-sm:[overflow-wrap:anywhere]">
+								{file.title}
+							</span>
+							<span className={cn(ui.muted, 'text-[0.85rem] max-sm:flex-[1_1_100%] max-sm:text-[0.8rem] max-sm:[overflow-wrap:anywhere] max-sm:break-words')}>
+								data/context/{file.name}
+							</span>
 						</summary>
 
-						<div className="actions" style={{ marginTop: '0.85rem' }}>
+						<div className={cn(ui.actions, 'mt-[0.85rem]')}>
 							<button
-								className="btn btn-ghost"
+								className={ui.btnGhost}
 								type="button"
 								onClick={() => copyText(file.body, file.name)}
 							>
@@ -152,7 +152,7 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 							</button>
 							{editing !== file.name && (
 								<button
-									className="btn btn-ghost"
+									className={ui.btnGhost}
 									type="button"
 									onClick={() => startEdit(file.name, file.body)}
 								>
@@ -162,33 +162,32 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 						</div>
 
 						{file.name === 'plan.json' && editing !== file.name && (
-							<p className="muted" style={{ marginTop: '0.6rem' }}>
+							<p className={cn(ui.muted, 'mt-[0.6rem]')}>
 								Week headers only — Edit to see or change the full JSON.
 							</p>
 						)}
 
 						{editing === file.name ? (
 							<form
-								className="form"
+								className={cn(ui.form, 'mt-[0.9rem]')}
 								method="POST"
-								style={{ marginTop: '0.9rem' }}
 								onSubmit={(e) => onSaveFile(e, file.name)}
 							>
-								<label className="field">
+								<label className={ui.field}>
 									<span>Markdown source</span>
 									<textarea
 										name="body"
-										className="editor"
+										className={ui.editor}
 										rows={18}
 										value={draft}
 										onChange={(e) => setDraft(e.target.value)}
 									/>
 								</label>
-								<div className="actions">
-									<button className="btn btn-primary" type="submit">
+								<div className={ui.actions}>
+									<button className={ui.btnPrimary} type="submit">
 										Save
 									</button>
-									<button className="btn btn-ghost" type="button" onClick={() => setEditing(null)}>
+									<button className={ui.btnGhost} type="button" onClick={() => setEditing(null)}>
 										Cancel
 									</button>
 								</div>

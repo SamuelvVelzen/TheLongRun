@@ -1,7 +1,7 @@
 import '../app.css';
-import '../components.css';
 import type { MouseEvent, ReactNode } from 'react';
 import { Outlet, createRootRoute, HeadContent, Scripts, Link } from '@tanstack/react-router';
+import { cn } from '$lib/ui';
 
 export const Route = createRootRoute({
 	head: () => ({
@@ -38,6 +38,16 @@ const tabs = [
 	{ href: '/routes', label: 'Routes', icon: 'routes', primary: false }
 ] as const;
 
+const navLink =
+	'inline-flex items-center min-h-11 px-3 py-[0.45rem] rounded-full text-muted whitespace-nowrap transition-colors duration-150 hover:text-fg hover:bg-panel data-[status=active]:text-fg data-[status=active]:bg-panel';
+const navCoach =
+	'inline-flex items-center min-h-11 px-3 py-[0.45rem] rounded-full text-accent whitespace-nowrap transition-colors duration-150 hover:text-accent-ink hover:bg-accent data-[status=active]:text-accent-ink data-[status=active]:bg-accent';
+const tabItem =
+	'group flex-1 flex flex-col items-center justify-center gap-[0.12rem] min-w-0 min-h-11 p-[0.2rem_0.15rem] rounded-xl text-muted bg-transparent cursor-pointer transition-colors duration-150 hover:text-fg active:text-fg data-[status=active]:text-accent data-[status=active]:hover:text-accent';
+const tabItemPrimary = cn(tabItem, 'text-accent');
+const tabMoreLink =
+	'flex items-center min-h-11 px-[0.9rem] py-[0.55rem] rounded-xl text-muted transition-colors duration-150 hover:text-fg hover:bg-panel data-[status=active]:text-fg data-[status=active]:bg-panel active:text-fg active:bg-panel';
+
 function closeDetails(e: MouseEvent<HTMLElement>) {
 	const details = e.currentTarget.closest('details');
 	if (!details) return;
@@ -50,67 +60,73 @@ function closeDetails(e: MouseEvent<HTMLElement>) {
 function RootComponent() {
 	return (
 		<RootDocument>
-			<div className="shell">
-				<header className="nav">
-					<Link to="/" className="brand">
+			<div className="relative z-1 flex flex-1 flex-col w-[min(1120px,calc(100%-2rem))] min-h-dvh mx-auto pt-5 pr-[env(safe-area-inset-right,0px)] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] max-sm:w-[min(1120px,calc(100%-1.25rem))] max-sm:pt-[0.85rem] max-sm:pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]">
+				<header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-8 pt-[calc(0.85rem+env(safe-area-inset-top,0px))] pb-[0.85rem] border-b border-line max-sm:justify-start max-sm:gap-0 max-sm:mb-4 max-sm:pt-[max(0.45rem,env(safe-area-inset-top,0px))] max-sm:pb-[0.45rem]">
+					<Link
+						to="/"
+						className="shrink-0 font-display font-extrabold text-[1.35rem] tracking-[-0.04em] max-sm:text-[1.15rem] max-sm:py-[0.15rem] [&_span]:text-accent"
+					>
 						The Long <span>Run</span>
 					</Link>
-					<nav className="nav-links" aria-label="Primary">
+					<nav className="flex flex-1 flex-wrap items-center justify-end gap-[0.35rem] max-sm:hidden" aria-label="Primary">
 						{headerLinks.map((l) => (
 							<Link
 								key={l.href}
 								to={l.href}
-								className={l.href === '/coach' ? 'nav-coach' : undefined}
-								activeProps={{ className: l.href === '/coach' ? 'nav-coach active' : 'active' }}
+								className={l.href === '/coach' ? navCoach : navLink}
 								activeOptions={{ exact: l.href === '/' }}
 							>
 								{l.label}
 							</Link>
 						))}
-						<a
-							href={PLAN_ROUTE_HREF}
-							target="_blank"
-							rel="noreferrer noopener"
-							className="nav-external"
-						>
+						<a href={PLAN_ROUTE_HREF} target="_blank" rel="noreferrer noopener" className={navLink}>
 							Plan route ↗
 						</a>
 					</nav>
 				</header>
 				<Outlet />
-				<nav className="tab-bar" aria-label="Primary">
+				<nav
+					className="hidden max-sm:flex items-stretch justify-around fixed inset-x-0 bottom-0 z-40 gap-[0.15rem] min-h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pt-[0.3rem] pl-[max(0.35rem,env(safe-area-inset-left,0px))] pr-[max(0.35rem,env(safe-area-inset-right,0px))] pb-[calc(0.3rem+env(safe-area-inset-bottom,0px))] border-t border-line bg-[rgba(16,20,15,0.96)] shadow-[0_-12px_32px_rgba(0,0,0,0.28)]"
+					aria-label="Primary"
+				>
 					{tabs.map((tab) => (
 						<Link
 							key={tab.href}
 							to={tab.href}
-							className={tab.primary ? 'tab-item tab-item-primary' : 'tab-item'}
-							activeProps={{
-								className: tab.primary ? 'tab-item tab-item-primary active' : 'tab-item active'
-							}}
+							className={tab.primary ? tabItemPrimary : tabItem}
 							activeOptions={{ exact: tab.href === '/' }}
 						>
-							<span className="tab-icon">
+							<span
+								className={cn(
+									'flex items-center justify-center size-6 leading-[0]',
+									tab.primary &&
+										'size-11 -mt-[1.15rem] rounded-full bg-accent text-accent-ink shadow-[0_8px_18px_rgba(0,0,0,0.35)] group-data-[status=active]:shadow-[0_0_0_3px_rgba(200,242,90,0.22),0_8px_18px_rgba(0,0,0,0.35)]'
+								)}
+							>
 								<TabIcon name={tab.icon} />
 							</span>
-							<span className="tab-label">{tab.label}</span>
+							<span className="text-[0.68rem] font-semibold tracking-[0.01em] leading-none whitespace-nowrap">
+								{tab.label}
+							</span>
 						</Link>
 					))}
-					<details className="tab-more">
-						<summary className="tab-item">
-							<span className="tab-icon">
+					<details className="relative flex-1 min-w-0 group">
+						<summary className={cn(tabItem, 'list-none w-full [&::-webkit-details-marker]:hidden group-has-[a[data-status=active]]:text-accent')}>
+							<span className="flex items-center justify-center size-6 leading-[0]">
 								<TabIcon name="more" />
 							</span>
-							<span className="tab-label">More</span>
+							<span className="text-[0.68rem] font-semibold tracking-[0.01em] leading-none whitespace-nowrap">
+								More
+							</span>
 						</summary>
-						<div className="tab-more-scrim" onClick={closeDetails} aria-hidden="true" />
-						<div className="tab-more-menu">
+						<div
+							className="fixed inset-0 z-40 bg-black/45 cursor-pointer"
+							onClick={closeDetails}
+							aria-hidden="true"
+						/>
+						<div className="fixed left-3 right-3 bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] z-[41] grid gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">
 							{moreLinks.map((l) => (
-								<Link
-									key={l.href}
-									to={l.href}
-									activeProps={{ className: 'active' }}
-									onClick={closeDetails}
-								>
+								<Link key={l.href} to={l.href} className={tabMoreLink} onClick={closeDetails}>
 									{l.label}
 								</Link>
 							))}
@@ -118,7 +134,7 @@ function RootComponent() {
 								href={PLAN_ROUTE_HREF}
 								target="_blank"
 								rel="noreferrer noopener"
-								className="nav-external"
+								className={tabMoreLink}
 							>
 								Plan route ↗
 							</a>

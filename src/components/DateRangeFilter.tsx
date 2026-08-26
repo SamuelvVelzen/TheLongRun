@@ -1,6 +1,7 @@
 import type { DateRange, RangeKind } from '$lib/date-range';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import { cn, ui } from '$lib/ui';
 import { SegmentedToggle } from './SegmentedToggle';
 
 export type RangeSearch = { range?: RangeKind; from?: string; to?: string };
@@ -58,8 +59,9 @@ export function DateRangeFilter({ range, to }: { range: DateRange; to: string })
 	}
 
 	return (
-		<div className="range-filter" role="group" aria-label="Date range">
+		<div className="contents" role="group" aria-label="Date range">
 			<SegmentedToggle
+				className="max-[720px]:overflow-x-auto [&_button]:max-[720px]:shrink-0 [&_button]:max-[720px]:px-3 [&_button]:max-[720px]:py-[0.55rem]"
 				value={range.kind === 'custom' || customOpen ? 'custom' : range.kind}
 				onChange={(kind) => {
 					if (kind === 'custom') openCustom();
@@ -79,26 +81,28 @@ export function DateRangeFilter({ range, to }: { range: DateRange; to: string })
 			/>
 
 			{(customOpen || range.kind === 'custom') && (
-				<form className="range-custom" onSubmit={applyCustom}>
-					<label className="field range-date">
+				<form className="flex flex-wrap items-end gap-3 basis-full max-[720px]:grid max-[720px]:grid-cols-2" onSubmit={applyCustom}>
+					<label className={cn(ui.field, 'flex-1 basis-36 min-w-0 max-[720px]:flex-none')}>
 						<span>From</span>
 						<input
 							type="date"
 							name="from"
+							className="min-h-11"
 							value={customFrom}
 							onChange={(e) => setCustomFrom(e.target.value)}
 						/>
 					</label>
-					<label className="field range-date">
+					<label className={cn(ui.field, 'flex-1 basis-36 min-w-0 max-[720px]:flex-none')}>
 						<span>To</span>
 						<input
 							type="date"
 							name="to"
+							className="min-h-11"
 							value={customTo}
 							onChange={(e) => setCustomTo(e.target.value)}
 						/>
 					</label>
-					<button className="btn btn-primary range-apply" type="submit">
+					<button className={cn(ui.btnPrimary, 'shrink-0 min-h-11 max-[720px]:col-span-full max-[720px]:w-full')} type="submit">
 						Apply
 					</button>
 				</form>

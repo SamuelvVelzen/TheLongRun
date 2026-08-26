@@ -1,10 +1,14 @@
 import { useNavigate } from '@tanstack/react-router';
+import { ui } from '$lib/ui';
 
 type PlaceRun = { country?: string; province?: string; place?: string };
 
 function distinct(arr: (string | undefined)[]) {
 	return [...new Set(arr.filter(Boolean) as string[])].sort();
 }
+
+const filterLabel =
+	'inline-flex items-center gap-1.5 text-[0.85rem] max-sm:grid max-sm:gap-[0.3rem] max-sm:w-full [&_select]:w-auto [&_select]:min-h-11 [&_select]:px-3 [&_select]:py-2 [&_select]:rounded-lg max-sm:[&_select]:w-full';
 
 /**
  * Cascading country / province / place selects. Options shrink as parents are chosen.
@@ -33,8 +37,8 @@ export function PlaceFilter({
 	return (
 		<>
 			{availableCountries.length > 1 && (
-				<label className="filter-country">
-					<span className="muted">Country</span>
+				<label className={filterLabel}>
+					<span className={ui.muted}>Country</span>
 					<select
 						value={country}
 						onChange={(e) =>
@@ -61,8 +65,8 @@ export function PlaceFilter({
 				</label>
 			)}
 			{availableProvinces.length > 1 && (
-				<label className="filter-country">
-					<span className="muted">Province</span>
+				<label className={filterLabel}>
+					<span className={ui.muted}>Province</span>
 					<select
 						value={province}
 						onChange={(e) =>
@@ -88,8 +92,8 @@ export function PlaceFilter({
 				</label>
 			)}
 			{availablePlaces.length > 1 && (
-				<label className="filter-country">
-					<span className="muted">Place</span>
+				<label className={filterLabel}>
+					<span className={ui.muted}>Place</span>
 					<select
 						value={place}
 						onChange={(e) =>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { importGpx } from '$lib/server/functions';
 import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
+import { cn, ui } from '$lib/ui';
 import { BestEffortBadges } from './BestEffortBadges';
 
 export type GpxImportResult = {
@@ -82,7 +83,7 @@ export function GpxImport({
 	return (
 		<>
 			<label
-				className={`dropzone${dragOver ? ' dragover' : ''}`}
+				className={cn(ui.dropzone, dragOver && ui.dropzoneOver)}
 				onDragOver={(e) => {
 					e.preventDefault();
 					setDragOver(true);
@@ -108,19 +109,26 @@ export function GpxImport({
 					/>
 				</svg>
 				<strong>Choose a GPX</strong>
-				<span className="muted">or tap to browse — multiple files supported</span>
-				<span className="muted dropzone-dnd">You can also drop files here</span>
+				<span className={ui.muted}>or tap to browse — multiple files supported</span>
+				<span className={cn(ui.muted, 'hidden [@media(hover:hover)_and_(pointer:fine)]:block')}>
+					You can also drop files here
+				</span>
 			</label>
 
 			{files.length > 0 && (
-				<ul className="upload-list">
+				<ul className="list-none m-[0.9rem_0_0] p-0 grid gap-1.5">
 					{files.map((f) => (
-						<li key={f.name}>
-							<code>{f.name}</code>
-							<span className="muted">{(f.size / 1024).toFixed(0)} KB</span>
+						<li
+							key={f.name}
+							className="flex items-center gap-[0.6rem] p-[0.5rem_0.7rem] border border-line rounded-[10px] bg-black/18 text-[0.9rem]"
+						>
+							<code className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+								{f.name}
+							</code>
+							<span className={ui.muted}>{(f.size / 1024).toFixed(0)} KB</span>
 							<button
 								type="button"
-								className="upload-remove"
+								className="inline-flex items-center justify-center box-border border-0 bg-transparent text-muted text-[1.2rem] leading-none cursor-pointer size-11 min-w-11 min-h-11 p-0 hover:text-warn active:text-warn"
 								aria-label={`Remove ${f.name}`}
 								onClick={() => removeFile(f.name)}
 								disabled={busy}
@@ -132,7 +140,7 @@ export function GpxImport({
 				</ul>
 			)}
 
-			<label className="field">
+			<label className={ui.field}>
 				<span>Activity type</span>
 				<select
 					value={activityType}
@@ -148,9 +156,9 @@ export function GpxImport({
 				</select>
 			</label>
 
-			<div className="actions">
+			<div className={ui.actions}>
 				<button
-					className="btn btn-primary"
+					className={ui.btnPrimary}
 					type="button"
 					onClick={onImport}
 					disabled={busy || files.length === 0}
@@ -162,14 +170,17 @@ export function GpxImport({
 			</div>
 
 			{results.length > 0 && (
-				<div style={{ marginTop: '1rem' }}>
+				<div className="mt-4">
 					<h3>
 						Imported {okCount} / {results.length}
 					</h3>
-					<ul className="import-list">
+					<ul className="list-none m-[0.85rem_0_0] p-0 grid gap-2 text-[0.92rem]">
 						{results.map((r) => (
-							<li key={r.name}>
-								<span className={`tag${r.status === 'ok' ? ' accent' : ''}`}>{r.status}</span>
+							<li
+								key={r.name}
+								className="flex flex-wrap items-center gap-[0.45rem] py-2 border-b border-line last:border-b-0"
+							>
+								<span className={cn(ui.tag, r.status === 'ok' && ui.tagAccent)}>{r.status}</span>
 								<code>{r.name}</code>
 								{r.slug && (
 									<>
@@ -179,9 +190,9 @@ export function GpxImport({
 										</Link>
 									</>
 								)}
-								{r.distanceKm != null && <span className="muted">({r.distanceKm} km)</span>}
-								{r.duplicate && <span className="muted">— already logged, refreshed its map</span>}
-								{r.message && <span className="muted">— {r.message}</span>}
+								{r.distanceKm != null && <span className={ui.muted}>({r.distanceKm} km)</span>}
+								{r.duplicate && <span className={ui.muted}>— already logged, refreshed its map</span>}
+								{r.message && <span className={ui.muted}>— {r.message}</span>}
 								{r.highlights && r.highlights.length > 0 && (
 									<BestEffortBadges highlights={r.highlights} />
 								)}
@@ -189,9 +200,9 @@ export function GpxImport({
 						))}
 					</ul>
 					{coachAfter && lastOk?.slug && (
-						<div className="actions" style={{ marginTop: '0.75rem' }}>
+						<div className={cn(ui.actions, 'mt-3')}>
 							<Link
-								className="btn btn-primary"
+								className={ui.btnPrimary}
 								to="/coach"
 								search={{ tab: 'debrief', slug: lastOk.slug }}
 								resetScroll={false}

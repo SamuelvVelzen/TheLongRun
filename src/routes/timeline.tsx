@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { getTimelineRuns, deleteRun } from '$lib/server/functions';
+import { cn, ui } from '$lib/ui';
 import { filterRunsByRange, parseDateRange, type RangeKind } from '$lib/date-range';
 import { buildTrainingTrends } from '$lib/trends';
 import {
@@ -79,17 +80,17 @@ function Timeline() {
 	const { page } = Route.useLoaderData();
 	return (
 		<>
-			<section className="hero">
+			<section className={ui.hero}>
 				<div>
-					<p className="muted">Every session in order</p>
+					<p className={ui.muted}>Every session in order</p>
 					<h1>Timeline</h1>
 					<p>Add a file, or open one for notes and full metrics.</p>
 				</div>
-				<div className="actions">
-					<Link className="btn btn-primary" to="/import">
+				<div className={ui.actions}>
+					<Link className={ui.btnPrimary} to="/import">
 						Add activity
 					</Link>
-					<Link className="btn btn-ghost" to="/coach" search={{ tab: 'debrief' }}>
+					<Link className={ui.btnGhost} to="/coach" search={{ tab: 'debrief' }}>
 						Coach
 					</Link>
 				</div>
@@ -157,13 +158,13 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 			</FilterSheet>
 
 			{neverLogged ? (
-				<div className="panel muted">No activities yet.</div>
+				<div className={cn(ui.panel, ui.muted)}>No activities yet.</div>
 			) : filteredEmpty ? (
-				<div className="panel muted range-empty">
+				<div className={cn(ui.panel, ui.muted, 'grid gap-[0.85rem] justify-items-start')}>
 					<p>
 						No {activityPlural(sport)} in {range.label.toLowerCase()}.
 					</p>
-					<Link className="btn btn-ghost" to="/timeline" search={{}}>
+					<Link className={ui.btnGhost} to="/timeline" search={{}}>
 						Show all time
 					</Link>
 				</div>
@@ -191,7 +192,7 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 
 					{groups.map((group) => (
 						<div key={group.key}>
-							<div className="section-title">
+							<div className={ui.sectionTitle}>
 								<div>
 									<h2>{group.label}</h2>
 									<p>
@@ -200,24 +201,31 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 								</div>
 							</div>
 
-							<div className="timeline">
+							<div className="grid gap-[0.35rem] mb-6 max-sm:gap-[0.45rem]">
 								{group.runs.map((run, i) => (
 									<div
 										key={run.slug}
-										className="timeline-item"
+										className="group grid grid-cols-[1.4rem_1fr] gap-[0.85rem] items-stretch animate-rise max-sm:grid-cols-[1rem_1fr] max-sm:gap-[0.65rem]"
 										style={{ animationDelay: `${i * 35}ms` }}
 									>
-										<div className="timeline-rail" aria-hidden="true">
-											<span className="timeline-dot"></span>
+										<div
+											className="relative flex justify-center before:content-[''] before:absolute before:top-0 before:-bottom-[0.35rem] before:w-0.5 before:bg-[rgba(200,242,90,0.22)] group-last:before:bottom-1/2"
+											aria-hidden="true"
+										>
+											<span className="relative z-[1] size-[0.7rem] mt-5 rounded-full bg-accent shadow-[0_0_0_4px_rgba(200,242,90,0.12)]"></span>
 										</div>
-										<div className="timeline-card">
-											<Link className="timeline-link" to="/runs/$slug" params={{ slug: run.slug }}>
-												<div className="timeline-head">
-													<strong className="run-title">
+										<div className="relative p-4 px-[1.1rem] border border-line rounded-[14px] bg-white/[0.02] transition-[border-color,background-color,transform] duration-150 group-hover:border-[rgba(200,242,90,0.35)] group-hover:bg-[rgba(200,242,90,0.04)] group-hover:-translate-y-px group-active:border-[rgba(200,242,90,0.35)] group-active:bg-[rgba(200,242,90,0.04)] group-active:-translate-y-px max-sm:p-[0.85rem_0.95rem]">
+											<Link
+												className="block text-inherit pr-[2.4rem]"
+												to="/runs/$slug"
+												params={{ slug: run.slug }}
+											>
+												<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.35rem]">
+													<strong className={ui.runTitle}>
 														{run.date}
 														{run.has_map && (
 															<span
-																className="map-badge"
+																className={ui.mapBadge}
 																title="Route map available"
 																aria-label="Has route map"
 															>
@@ -231,13 +239,15 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 														)}
 														{hasContext(run) && <FeelBadge />}
 													</strong>
-													<span className="tag accent">{activityLabel(run.activity_type)}</span>
+													<span className={cn(ui.tag, ui.tagAccent)}>
+														{activityLabel(run.activity_type)}
+													</span>
 												</div>
 												{(run.day ||
 													(run.session && run.session !== 'other') ||
 													run.week != null ||
 													run.start_time) && (
-													<p className="muted timeline-sub">
+													<p className={cn(ui.muted, 'mt-[0.2rem] text-[0.82rem]')}>
 														{[
 															run.day || null,
 															run.session && run.session !== 'other' ? run.session : null,
@@ -248,7 +258,7 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 															.join(' · ')}
 													</p>
 												)}
-												<div className="timeline-metrics">
+												<div className="flex flex-wrap gap-x-[0.85rem] gap-y-[0.35rem] mt-[0.4rem] text-muted text-[0.9rem]">
 													{showsField(run.activity_type, 'distance') && (
 														<span>{run.distance_km ?? '—'} km</span>
 													)}
@@ -269,11 +279,18 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 													compact
 													highlights={highlightsBySlug.get(run.slug) ?? []}
 												/>
-												{run.notes && <p className="muted timeline-notes">{run.notes}</p>}
+												{run.notes && (
+													<p className={cn(ui.muted, 'mt-[0.35rem] line-clamp-1 overflow-hidden max-sm:mt-[0.28rem]')}>
+														{run.notes}
+													</p>
+												)}
 											</Link>
-											<form className="timeline-delete" onSubmit={(e) => e.preventDefault()}>
+											<form
+												className="absolute top-[0.65rem] right-[0.65rem] inline-flex items-center m-0 opacity-100 sm:opacity-55 hover:opacity-100 group-hover:opacity-100"
+												onSubmit={(e) => e.preventDefault()}
+											>
 												<button
-													className="btn btn-ghost btn-danger btn-icon"
+													className={cn(ui.btnGhost, ui.btnDanger, ui.btnIcon)}
 													type="submit"
 													aria-label={`Delete run ${run.date}`}
 													title="Delete run"

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
+import { cn, ui } from '$lib/ui';
 import {
 	deletePlannedRoute,
 	getPlannedRouteDetail,
@@ -93,15 +94,15 @@ function PlannedRouteDetail() {
 
 	return (
 		<>
-			<section className="hero hero-route">
+			<section className={cn(ui.hero, ui.heroRoute)}>
 				<div>
-					<p className="muted">
+					<p className={ui.muted}>
 						<Link to="/routes">Routes</Link>
 						{location ? ` · ${location}` : ''} · saved {route.saved_on}
 					</p>
 					<h1>
 						<input
-							className="route-name-input"
+							className="block w-full max-w-[min(28ch,100%)] m-0 px-[0.4rem] py-[0.1rem] border border-dashed border-line rounded-[10px] bg-transparent text-inherit font-inherit focus:border-solid focus:border-accent focus:outline-none"
 							value={name}
 							required
 							aria-label="Route name"
@@ -118,91 +119,95 @@ function PlannedRouteDetail() {
 					<p>{route.notes || 'Imported from GPX.'}</p>
 				</div>
 				<div>
-					<div className="actions">
+					<div className={ui.actions}>
 						<button
-							className={mapsPref === 'apple' ? 'btn btn-primary' : 'btn btn-ghost'}
+							className={mapsPref === 'apple' ? ui.btnPrimary : ui.btnGhost}
 							type="button"
 							onClick={openAppleMaps}
 						>
 							Apple Maps ↗
 						</button>
 						<button
-							className={mapsPref === 'desktop' ? 'btn btn-primary' : 'btn btn-ghost'}
+							className={mapsPref === 'desktop' ? ui.btnPrimary : ui.btnGhost}
 							type="button"
 							onClick={openInBrouter}
 						>
 							Open in BRouter ↗
 						</button>
 						<button
-							className="btn btn-ghost"
+							className={ui.btnGhost}
 							type="button"
 							onClick={() => downloadPlannedRouteGpx(route.name, route.geojson, route.waypoints)}
 						>
 							Download GPX
 						</button>
-						<button className="btn btn-ghost" type="button" onClick={() => setEditing(!editing)}>
+						<button className={ui.btnGhost} type="button" onClick={() => setEditing(!editing)}>
 							{editing ? 'Cancel' : 'Edit notes'}
 						</button>
-						<button className="btn btn-ghost btn-danger" type="button" onClick={() => void remove()}>
+						<button
+							className={cn(ui.btnGhost, ui.btnDanger)}
+							type="button"
+							onClick={() => void remove()}
+						>
 							Delete
 						</button>
 					</div>
 					{appleMapsUrl && (
-						<p className="muted maps-hint">
+						<p className={cn(ui.muted, 'mt-3 mb-0 max-w-[36ch] text-[0.92rem]')}>
 							Opens a pin at the start. Tap it, then Create a Custom Route, and tap along the trail.
 						</p>
 					)}
 				</div>
 			</section>
 
-			{message && <div className="flash">{message}</div>}
+			{message && <div className={ui.flash}>{message}</div>}
 			{editing && (
-				<form className="panel form" onSubmit={save} style={{ marginBottom: '1rem' }}>
-					<label className="field">
+				<form className={cn(ui.panel, ui.form, 'mb-4')} onSubmit={save}>
+					<label className={ui.field}>
 						<span>Notes</span>
 						<textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
 					</label>
-					<div className="actions">
-						<button className="btn btn-primary" type="submit">
+					<div className={ui.actions}>
+						<button className={ui.btnPrimary} type="submit">
 							Save
 						</button>
 					</div>
 				</form>
 			)}
 
-			<div className="metrics metrics-primary planned-route-metrics">
-				<div className="metric metric-emph">
+			<div className={cn(ui.metrics, 'mb-4')}>
+				<div className={cn(ui.metric, ui.metricEmph)}>
 					<b>{route.distance_km ?? '—'}</b>
 					<span>km</span>
 				</div>
 				{route.est_time && (
-					<div className="metric metric-emph">
+					<div className={cn(ui.metric, ui.metricEmph)}>
 						<b>{route.est_time}</b>
 						<span>estimated time</span>
 					</div>
 				)}
-				<div className="metric">
+				<div className={ui.metric}>
 					<b>{route.elev_gain ?? '—'}</b>
 					<span>elev gain m</span>
 				</div>
-				<div className="metric">
+				<div className={ui.metric}>
 					<b>{route.elev_loss ?? '—'}</b>
 					<span>elev loss m</span>
 				</div>
-				<div className="metric">
+				<div className={ui.metric}>
 					<b>{elevationRange}</b>
 					<span>elevation range</span>
 				</div>
-				<div className="metric">
+				<div className={ui.metric}>
 					<b>{route.waypoints.length}</b>
 					<span>waypoints</span>
 				</div>
 			</div>
 
-			<div className="panel planned-route-map-panel">
-				<div className="planned-route-map-head">
+			<div className={cn(ui.panel, 'mb-4 p-0 overflow-hidden')}>
+				<div className="p-[1.1rem_1.2rem_0.65rem]">
 					<h3>Route</h3>
-					<p className="muted">Kilometres and available GPX waypoints are marked</p>
+					<p className={cn(ui.muted, 'mt-1')}>Kilometres and available GPX waypoints are marked</p>
 				</div>
 				<PlannedRouteMap
 					geojson={route.geojson}
@@ -220,13 +225,13 @@ function PlannedRouteDetail() {
 			/>
 
 			{route.waypoints.length > 0 && (
-				<div className="panel planned-waypoints">
+				<div className={cn(ui.panel, 'mb-4')}>
 					<h3>Waypoints</h3>
-					<div className="planned-waypoint-list">
+					<div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-0 mt-3 border-t border-line [&>div]:flex [&>div]:flex-col [&>div]:gap-[0.15rem] [&>div]:py-[0.7rem] [&>div]:pr-4 [&>div]:border-b [&>div]:border-line">
 						{route.waypoints.map((waypoint, index) => (
 							<div key={`${waypoint.name}-${index}`}>
 								<strong>{waypoint.name}</strong>
-								<span className="muted">
+								<span className={ui.muted}>
 									{waypoint.lat.toFixed(5)}, {waypoint.lng.toFixed(5)}
 								</span>
 							</div>

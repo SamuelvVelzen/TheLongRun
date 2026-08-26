@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { getLogDefaults } from '$lib/server/functions';
+import { cn, ui } from '$lib/ui';
 import { GpxImport } from '../components/GpxImport';
 import { LogForm } from '../components/LogForm';
 import { DeferredData } from '../components/DeferredData';
@@ -20,9 +21,9 @@ function AddActivity() {
 
 	return (
 		<>
-			<section className="hero">
+			<section className={ui.hero}>
 				<div>
-					<p className="muted">GPX file or type it in</p>
+					<p className={ui.muted}>GPX file or type it in</p>
 					<h1>Add activity</h1>
 					<p>
 						Import a <code>.gpx</code> from Strava, or log numbers by hand. Then open{' '}
@@ -34,13 +35,13 @@ function AddActivity() {
 				</div>
 			</section>
 
-			<div className="coach-tabs" role="tablist">
+			<div className={ui.coachTabs} role="tablist">
 				<Link
 					to="/import"
 					search={{ mode: 'gpx' }}
 					role="tab"
 					aria-selected={mode === 'gpx'}
-					className={`coach-tab${mode === 'gpx' ? ' active' : ''}`}
+					className={cn(ui.coachTab, mode === 'gpx' && ui.coachTabActive)}
 				>
 					GPX file
 				</Link>
@@ -49,14 +50,14 @@ function AddActivity() {
 					search={{ mode: 'manual' }}
 					role="tab"
 					aria-selected={mode === 'manual'}
-					className={`coach-tab${mode === 'manual' ? ' active' : ''}`}
+					className={cn(ui.coachTab, mode === 'manual' && ui.coachTabActive)}
 				>
 					Log manually
 				</Link>
 			</div>
 
 			{mode === 'gpx' ? (
-				<div className="panel form">
+				<div className={cn(ui.panel, ui.form)}>
 					<GpxImport coachAfter />
 				</div>
 			) : (

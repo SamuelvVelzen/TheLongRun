@@ -112,7 +112,8 @@ export type WeekView = {
 };
 
 const SKIP_LANG_RE = /\bskip(?:ped|ping|s)?\b/i;
-const REST_LIKE_RE = /^(rest|off|recovery)(\b|[+\-–—]|$)/i;
+/** Rest / off days — not recovery workouts like "Recovery easy". */
+const REST_LIKE_RE = /^(rest|off|recovery)(\s*(day|only))?$/i;
 
 export function isRestLike(label: string): boolean {
 	return REST_LIKE_RE.test(label.trim());
@@ -169,6 +170,34 @@ export function buildWeekView(
 		null;
 	if (next) next.isNext = true;
 	return { week, sessions, next };
+}
+
+export type WeekDayGroup = {
+	day: string;
+	date: string | null;
+	isToday: boolean;
+	sessions: WeekSessionView[];
+};
+
+/** Sessions grouped by weekday, only days that have at least one session. */
+export function weekDayGroups(view: WeekView): WeekDayGroup[] {
+	const byDay = new Map<string, WeekSessionView[]>();
+	for (const s of view.sessions) {
+		const key =
+			WEEKDAYS.find((d) => d.toLowerCase() === s.day.trim().toLowerCase()) ?? s.day.trim();
+		const list = byDay.get(key) ?? [];
+		list.push(s);
+		byDay.set(key, list);
+	}
+	return WEEKDAYS.filter((d) => byDay.has(d)).map((day) => {
+		const sessions = byDay.get(day)!;
+		return {
+			day,
+			date: sessions[0]?.date ?? null,
+			isToday: sessions.some((s) => s.isToday),
+			sessions
+		};
+	});
 }
 
 /** Attach planned-route refs to a week view. Key is lowercase weekday. */

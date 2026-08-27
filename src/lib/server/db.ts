@@ -1,30 +1,58 @@
-import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
-import { env as cfEnv } from 'cloudflare:workers';
+import { env } from 'cloudflare:workers';
 
 /**
- * Neon serverless (HTTP) client. Works on Cloudflare Workers and Node.
+ * D1 tagged-template helper. Same call shape as the old Neon `sql`...`` client:
+ * interpolations become bound parameters (`?`), and the promise resolves to row objects.
  *
- * DATABASE_URL is read from the Cloudflare `cloudflare:workers` env binding (where secrets and
- * vars live on Workers), falling back to process.env for Node/other contexts. Read at request time
- * (getSql is only called inside server-function handlers), never at module scope.
- * Set it as an encrypted secret on the Worker (dashboard → Variables and Secrets) for production,
- * and in .env for local dev. Use the Neon *pooled* connection string (host contains `-pooler`).
+ * `env.DB` is read at query time (inside server-function handlers), never at module scope.
  */
-let _sql: NeonQueryFunction<false, false> | null = null;
+export type SqlQuery = (
+	strings: TemplateStringsArray,
+	...values: unknown[]
+) => Promise<Record<string, unknown>[]>;
 
-function databaseUrl(): string | undefined {
-	const fromCf = (cfEnv as Record<string, string | undefined>).DATABASE_URL;
-	return fromCf ?? process.env.DATABASE_URL;
-}
-
-export function getSql(): NeonQueryFunction<false, false> {
-	if (_sql) return _sql;
-	const url = databaseUrl();
-	if (!url) {
+function getDb(): D1Database {
+	const db = env.DB;
+	if (!db || typeof db.prepare !== 'function') {
 		throw new Error(
-			'DATABASE_URL is not set. Add the Neon pooled connection string to your environment.'
+			'D1 binding DB is missing. Add d1_databases in wrangler.jsonc and run npm run d1:apply:local.'
 		);
 	}
-	_sql = neon(url);
-	return _sql;
+	return db;
+}
+
+function bindValue(value: unknown): string | number | null {
+	if (value === undefined || value === null) return null;
+	if (typeof value === 'boolean') return value ? 1 : 0;
+	if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+	if (typeof value === 'string') return value;
+	if (typeof value === 'bigint') return Number(value);
+	throw new Error(`Unsupported D1 bind value: ${typeof value}`);
+}
+
+export function getSql(): SqlQuery {
+	return async (strings, ...values) => {
+		let query = strings[0] ?? '';
+		const params: Array<string | number | null> = [];
+		for (let i = 0; i < values.length; i++) {
+			query += `?${strings[i + 1] ?? ''}`;
+			params.push(bindValue(values[i]));
+		}
+		const db = getDb();
+		const stmt = params.length ? db.prepare(query).bind(...params) : db.prepare(query);
+		const { results } = await stmt.all();
+		return results;
+	};
+}
+
+/** D1 stores JSON as TEXT; Neon used to return parsed objects. */
+export function parseJsonColumn(raw: unknown): unknown {
+	if (raw == null || raw === '') return null;
+	if (typeof raw === 'object') return raw;
+	if (typeof raw !== 'string') return raw;
+	try {
+		return JSON.parse(raw);
+	} catch {
+		return null;
+	}
 }

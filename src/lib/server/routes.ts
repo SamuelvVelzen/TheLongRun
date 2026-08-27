@@ -3,7 +3,8 @@ import { getSql } from './db';
 
 export type { RouteTrack };
 
-const MAX_POINTS = 180;
+/** Heatmap / list maps use this many points. Detail maps still load full GeoJSON. */
+export const POLYLINE_MAX_POINTS = 180;
 
 export function downsample(coords: [number, number][], maxPoints: number): [number, number][] {
 	if (coords.length <= maxPoints) return coords;
@@ -56,28 +57,80 @@ export function coordsFromGeoJson(raw: unknown): [number, number][] {
 }
 
 /** Downsampled lat/lng polyline from a GeoJSON Feature / geometry. */
-export function polylineFromGeoJson(raw: unknown, maxPoints = MAX_POINTS): [number, number][] {
+export function polylineFromGeoJson(
+	raw: unknown,
+	maxPoints = POLYLINE_MAX_POINTS
+): [number, number][] {
 	return downsample(coordsFromGeoJson(raw), maxPoints);
 }
 
-/** Read every stored GeoJSON track; return downsampled lat/lng polylines. */
+export function polylineJson(coords: [number, number][]): string {
+	return JSON.stringify(coords);
+}
+
+/** Stored heatmap polyline: `[[lat, lng], …]`. */
+export function parsePolyline(raw: unknown): [number, number][] {
+	let value = raw;
+	if (typeof value === 'string') {
+		try {
+			value = JSON.parse(value);
+		} catch {
+			return [];
+		}
+	}
+	if (!Array.isArray(value)) return [];
+	const out: [number, number][] = [];
+	for (const c of value) {
+		if (!Array.isArray(c) || c.length < 2) continue;
+		const lat = Number(c[0]);
+		const lng = Number(c[1]);
+		if (Number.isFinite(lat) && Number.isFinite(lng)) out.push([lat, lng]);
+	}
+	return out;
+}
+
+let ensuredPolyline = false;
+let ensuringPolyline: Promise<void> | null = null;
+
+/** Add `routes.polyline` and fill any rows that still only have GeoJSON. */
+export async function ensureRoutePolylines(): Promise<void> {
+	if (ensuredPolyline) return;
+	if (!ensuringPolyline) {
+		ensuringPolyline = (async () => {
+			try {
+				const sql = getSql();
+				await sql`ALTER TABLE routes ADD COLUMN IF NOT EXISTS polyline jsonb`;
+				const rows = (await sql`SELECT id, geojson FROM routes WHERE polyline IS NULL`) as {
+					id: string;
+					geojson: unknown;
+				}[];
+				for (const row of rows) {
+					const json = polylineJson(polylineFromGeoJson(row.geojson));
+					await sql`UPDATE routes SET polyline = ${json}::jsonb WHERE id = ${row.id}`;
+				}
+				ensuredPolyline = true;
+			} catch (error) {
+				ensuringPolyline = null;
+				throw error;
+			}
+		})();
+	}
+	await ensuringPolyline;
+}
+
+/** Read stored heatmap polylines (not full GeoJSON). */
 export async function listRouteTracks(): Promise<RouteTrack[]> {
+	await ensureRoutePolylines();
 	const sql = getSql();
-	const rows = (await sql`SELECT id, geojson FROM routes`) as {
+	const rows = (await sql`SELECT id, polyline FROM routes`) as {
 		id: string;
-		geojson: unknown;
+		polyline: unknown;
 	}[];
 
 	const tracks: RouteTrack[] = [];
 	for (const row of rows) {
-		try {
-			const coords = polylineFromGeoJson(row.geojson, MAX_POINTS);
-			if (coords.length >= 2) {
-				tracks.push({ id: String(row.id), coords });
-			}
-		} catch {
-			// skip corrupt / non-geojson rows
-		}
+		const coords = parsePolyline(row.polyline);
+		if (coords.length >= 2) tracks.push({ id: String(row.id), coords });
 	}
 	return tracks;
 }

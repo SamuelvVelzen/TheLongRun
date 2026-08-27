@@ -82,7 +82,7 @@ export interface CoachMessage {
 	content: string;
 }
 
-/** Downsampled lat/lng track for the dashboard all-routes map. */
+/** Downsampled lat/lng track (~180 points) for heatmap / list maps. Detail maps use full GeoJSON. */
 export type RouteTrack = {
 	id: string;
 	coords: [number, number][];

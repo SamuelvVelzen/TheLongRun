@@ -1,6 +1,7 @@
 import { analyticsFromProperties, type RouteAnalytics } from '$lib/splits';
 import type { RunRecord } from '$lib/types';
 import { getSql } from './db';
+import { ensureRoutePolylines, polylineFromGeoJson, polylineJson } from './routes';
 
 /** Resolve the stored route id from a run (`/routes/{id}.json` or strava_id). */
 export function routeIdForRun(run: Pick<RunRecord, 'route' | 'strava_id'>): string | null {
@@ -14,12 +15,15 @@ export function routeIdForRun(run: Pick<RunRecord, 'route' | 'strava_id'>): stri
 	return id || null;
 }
 
-/** Upsert a route's GeoJSON track by id. */
+/** Upsert a route's GeoJSON track by id, plus a downsampled heatmap polyline. */
 export async function saveRouteGeoJson(id: string, geojson: unknown): Promise<void> {
+	await ensureRoutePolylines();
 	const sql = getSql();
+	const line = polylineJson(polylineFromGeoJson(geojson));
 	await sql`
-		INSERT INTO routes (id, geojson) VALUES (${id}, ${JSON.stringify(geojson)}::jsonb)
-		ON CONFLICT (id) DO UPDATE SET geojson = EXCLUDED.geojson
+		INSERT INTO routes (id, geojson, polyline)
+		VALUES (${id}, ${JSON.stringify(geojson)}::jsonb, ${line}::jsonb)
+		ON CONFLICT (id) DO UPDATE SET geojson = EXCLUDED.geojson, polyline = EXCLUDED.polyline
 	`;
 }
 

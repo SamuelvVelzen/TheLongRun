@@ -2,7 +2,7 @@ import type { PlannedRoute, PlannedWaypoint, RouteTrack, SessionRouteRef } from 
 import type { KmMarker } from '$lib/splits';
 import { WEEKDAYS } from '$lib/week-mix';
 import { getSql } from './db';
-import { polylineFromGeoJson } from './routes';
+import { parsePolyline, polylineFromGeoJson, polylineJson } from './routes';
 import { parsePlannedFile } from './planned-file';
 import { reverseGeocode } from './geo';
 import { analyticsToProperties } from '$lib/splits';
@@ -100,13 +100,22 @@ async function ensureTable(): Promise<void> {
 						province text NOT NULL DEFAULT '',
 						place text NOT NULL DEFAULT '',
 						waypoints jsonb NOT NULL DEFAULT '[]'::jsonb,
-						geojson jsonb NOT NULL
+						geojson jsonb NOT NULL,
+						polyline jsonb
 					)
 				`
 			);
 			await ignoreDup(
 				() => sql`ALTER TABLE planned_routes ADD COLUMN IF NOT EXISTS est_time text NOT NULL DEFAULT ''`
 			);
+			await ignoreDup(() => sql`ALTER TABLE planned_routes ADD COLUMN IF NOT EXISTS polyline jsonb`);
+			const missing = (await sql`
+				SELECT slug, geojson FROM planned_routes WHERE polyline IS NULL
+			`) as { slug: string; geojson: unknown }[];
+			for (const row of missing) {
+				const json = polylineJson(polylineFromGeoJson(row.geojson));
+				await sql`UPDATE planned_routes SET polyline = ${json}::jsonb WHERE slug = ${row.slug}`;
+			}
 			await ignoreDup(
 				() => sql`
 					CREATE TABLE IF NOT EXISTS planned_route_links (
@@ -198,18 +207,14 @@ export async function listPlannedRoutes(): Promise<PlannedRoute[]> {
 export async function listPlannedRouteTracks(): Promise<RouteTrack[]> {
 	await ensureTable();
 	const sql = getSql();
-	const rows = (await sql`SELECT slug, geojson FROM planned_routes`) as {
+	const rows = (await sql`SELECT slug, polyline FROM planned_routes`) as {
 		slug: string;
-		geojson: unknown;
+		polyline: unknown;
 	}[];
 	const tracks: RouteTrack[] = [];
 	for (const row of rows) {
-		try {
-			const coords = polylineFromGeoJson(row.geojson, 180);
-			if (coords.length >= 2) tracks.push({ id: row.slug, coords });
-		} catch {
-			// skip corrupt rows
-		}
+		const coords = parsePolyline(row.polyline);
+		if (coords.length >= 2) tracks.push({ id: row.slug, coords });
 	}
 	return tracks;
 }
@@ -274,12 +279,13 @@ export async function savePlannedFromFile(input: {
 	const rows = (await sql`
 		INSERT INTO planned_routes (
 			slug, name, notes, distance_km, elev_gain, elev_loss, elev_min, elev_max,
-			point_count, est_time, saved_on, country, province, place, waypoints, geojson
+			point_count, est_time, saved_on, country, province, place, waypoints, geojson, polyline
 		) VALUES (
 			${slug}, ${parsed.name}, ${input.notes?.trim() ?? ''}, ${parsed.distanceKm},
 			${parsed.elevGain}, ${parsed.elevLoss}, ${parsed.elevMin}, ${parsed.elevMax},
 			${parsed.points.length}, ${parsed.estTime}, ${saved_on}, ${geo.country}, ${geo.province}, ${geo.place},
-			${JSON.stringify(parsed.waypoints)}::jsonb, ${JSON.stringify(geojson)}::jsonb
+			${JSON.stringify(parsed.waypoints)}::jsonb, ${JSON.stringify(geojson)}::jsonb,
+			${polylineJson(polylineFromGeoJson(geojson))}::jsonb
 		)
 		RETURNING slug, name, notes, distance_km, elev_gain, elev_loss, elev_min, elev_max,
 			point_count, est_time, saved_on, country, province, place, waypoints

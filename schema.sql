@@ -48,10 +48,14 @@ CREATE INDEX IF NOT EXISTS runs_strava_id_idx ON runs (strava_id);
 
 -- GeoJSON route tracks, kept out of `runs` so list queries stay light.
 -- id is the route id (Strava activity id) — i.e. the `{id}.json` filename without extension.
+-- `polyline` is a downsampled [[lat, lng], …] used by heatmaps; detail maps still read `geojson`.
 CREATE TABLE IF NOT EXISTS routes (
-	id       text PRIMARY KEY,
-	geojson  jsonb NOT NULL
+	id        text PRIMARY KEY,
+	geojson   jsonb NOT NULL,
+	polyline  jsonb
 );
+
+ALTER TABLE routes ADD COLUMN IF NOT EXISTS polyline jsonb;
 
 -- Free-form context documents (goals.md, shoes.md, plan.json, profile.md, ...).
 CREATE TABLE IF NOT EXISTS context (
@@ -77,10 +81,12 @@ CREATE TABLE IF NOT EXISTS planned_routes (
 	province     text NOT NULL DEFAULT '',
 	place        text NOT NULL DEFAULT '',
 	waypoints    jsonb NOT NULL DEFAULT '[]'::jsonb,
-	geojson      jsonb NOT NULL
+	geojson      jsonb NOT NULL,
+	polyline     jsonb
 );
 
 ALTER TABLE planned_routes ADD COLUMN IF NOT EXISTS est_time text NOT NULL DEFAULT '';
+ALTER TABLE planned_routes ADD COLUMN IF NOT EXISTS polyline jsonb;
 
 -- A planned route can be reused across many plan days and logged activities.
 -- One plan day / one activity maps to at most one planned route.

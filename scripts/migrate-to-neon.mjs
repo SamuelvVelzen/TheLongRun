@@ -64,6 +64,59 @@ function str(value) {
 	return value === null || value === undefined ? '' : String(value);
 }
 
+const POLYLINE_MAX_POINTS = 180;
+
+function downsampleCoords(coords, maxPoints = POLYLINE_MAX_POINTS) {
+	if (coords.length <= maxPoints) return coords;
+	const out = [];
+	const last = coords.length - 1;
+	const step = last / (maxPoints - 1);
+	for (let i = 0; i < maxPoints - 1; i++) out.push(coords[Math.round(i * step)]);
+	out.push(coords[last]);
+	return out;
+}
+
+function coordsFromGeoJson(raw) {
+	if (typeof raw === 'string') {
+		try {
+			raw = JSON.parse(raw);
+		} catch {
+			return [];
+		}
+	}
+	if (!raw || typeof raw !== 'object') return [];
+	const coordinates = raw.geometry?.coordinates ?? raw.coordinates;
+	const geomType = raw.geometry?.type ?? raw.type;
+	if (geomType === 'MultiLineString' && Array.isArray(coordinates)) {
+		const flat = [];
+		for (const line of coordinates) {
+			if (!Array.isArray(line)) continue;
+			for (const c of line) {
+				if (Array.isArray(c) && c.length >= 2) {
+					const lng = Number(c[0]);
+					const lat = Number(c[1]);
+					if (Number.isFinite(lat) && Number.isFinite(lng)) flat.push([lat, lng]);
+				}
+			}
+		}
+		return flat;
+	}
+	if (!Array.isArray(coordinates)) return [];
+	const out = [];
+	for (const c of coordinates) {
+		if (Array.isArray(c) && c.length >= 2) {
+			const lng = Number(c[0]);
+			const lat = Number(c[1]);
+			if (Number.isFinite(lat) && Number.isFinite(lng)) out.push([lat, lng]);
+		}
+	}
+	return out;
+}
+
+function polylineFromGeoJson(raw) {
+	return downsampleCoords(coordsFromGeoJson(raw));
+}
+
 async function createSchema() {
 	await sql`
 		CREATE TABLE IF NOT EXISTS runs (
@@ -100,7 +153,10 @@ async function createSchema() {
 	await sql`ALTER TABLE runs ADD COLUMN IF NOT EXISTS activity_type text NOT NULL DEFAULT 'run'`;
 	await sql`CREATE INDEX IF NOT EXISTS runs_date_idx ON runs (date DESC)`;
 	await sql`CREATE INDEX IF NOT EXISTS runs_strava_id_idx ON runs (strava_id)`;
-	await sql`CREATE TABLE IF NOT EXISTS routes (id text PRIMARY KEY, geojson jsonb NOT NULL)`;
+	await sql`CREATE TABLE IF NOT EXISTS routes (
+		id text PRIMARY KEY, geojson jsonb NOT NULL, polyline jsonb
+	)`;
+	await sql`ALTER TABLE routes ADD COLUMN IF NOT EXISTS polyline jsonb`;
 	await sql`CREATE TABLE IF NOT EXISTS context (name text PRIMARY KEY, content text NOT NULL DEFAULT '')`;
 	await sql`
 		CREATE TABLE IF NOT EXISTS planned_routes (
@@ -119,10 +175,12 @@ async function createSchema() {
 			province text NOT NULL DEFAULT '',
 			place text NOT NULL DEFAULT '',
 			waypoints jsonb NOT NULL DEFAULT '[]'::jsonb,
-			geojson jsonb NOT NULL
+			geojson jsonb NOT NULL,
+			polyline jsonb
 		)
 	`;
 	await sql`ALTER TABLE planned_routes ADD COLUMN IF NOT EXISTS est_time text NOT NULL DEFAULT ''`;
+	await sql`ALTER TABLE planned_routes ADD COLUMN IF NOT EXISTS polyline jsonb`;
 	await sql`ALTER TABLE runs ADD COLUMN IF NOT EXISTS best_efforts jsonb NOT NULL DEFAULT '[]'::jsonb`;
 }
 
@@ -212,9 +270,11 @@ async function migrateRoutes() {
 			console.warn(`  skipped invalid GeoJSON: ${f}`);
 			continue;
 		}
+		const line = JSON.stringify(polylineFromGeoJson(geo));
 		await sql`
-			INSERT INTO routes (id, geojson) VALUES (${id}, ${JSON.stringify(geo)}::jsonb)
-			ON CONFLICT (id) DO UPDATE SET geojson = EXCLUDED.geojson
+			INSERT INTO routes (id, geojson, polyline)
+			VALUES (${id}, ${JSON.stringify(geo)}::jsonb, ${line}::jsonb)
+			ON CONFLICT (id) DO UPDATE SET geojson = EXCLUDED.geojson, polyline = EXCLUDED.polyline
 		`;
 		n++;
 	}
@@ -236,9 +296,25 @@ async function migrateContext() {
 	return n;
 }
 
+async function backfillPolylines() {
+	const routeRows = await sql`SELECT id, geojson FROM routes WHERE polyline IS NULL`;
+	for (const row of routeRows) {
+		const line = JSON.stringify(polylineFromGeoJson(row.geojson));
+		await sql`UPDATE routes SET polyline = ${line}::jsonb WHERE id = ${row.id}`;
+	}
+	const plannedRows = await sql`SELECT slug, geojson FROM planned_routes WHERE polyline IS NULL`;
+	for (const row of plannedRows) {
+		const line = JSON.stringify(polylineFromGeoJson(row.geojson));
+		await sql`UPDATE planned_routes SET polyline = ${line}::jsonb WHERE slug = ${row.slug}`;
+	}
+	return { routes: routeRows.length, planned: plannedRows.length };
+}
+
 console.log(`Migrating from ${dataRoot} → Neon…`);
 await createSchema();
 console.log('  schema ready');
+const backfilled = await backfillPolylines();
+console.log(`  polylines backfilled: routes ${backfilled.routes}, planned ${backfilled.planned}`);
 const runs = await migrateRuns();
 console.log(`  runs:    ${runs}`);
 const routes = await migrateRoutes();

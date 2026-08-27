@@ -6,16 +6,10 @@ Target URL: **`longrun.vanvelzen.dev`**. Data lives in Cloudflare D1 (`thelongru
 
 ```bash
 npm install
-npx wrangler login            # same Cloudflare account
+npm run login                 # same Cloudflare account
 npm run d1:apply:local        # empty local SQLite
+npm run d1:pull               # optional: copy remote D1 into local
 npm run dev                   # local D1 under .wrangler/state (gitignored)
-```
-
-To copy production data onto that local file:
-
-```bash
-npx wrangler d1 export thelongrun --remote --output=backup.sql
-npx wrangler d1 execute thelongrun --local --file=backup.sql
 ```
 
 Deploy from any machine with Wrangler logged in; it always uses remote D1:

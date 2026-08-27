@@ -20,22 +20,26 @@ No filesystem at runtime — runs, GeoJSON route tracks, and context docs are al
 
 ```bash
 npm install
-npx wrangler login            # same Cloudflare account that owns the D1 database
+npm run login                 # same Cloudflare account that owns the D1 database
 npm run d1:apply:local        # creates the local SQLite file if needed
+npm run d1:pull               # optional: copy remote D1 into local
 npm run dev
 ```
 
 Open the URL Vite prints (default http://localhost:3000).
 
-The local DB lives in `.wrangler/state` (gitignored). It does not travel with the repo. On a
-new machine, after `d1:apply:local`, copy production data down:
-
-```bash
-npx wrangler d1 export thelongrun --remote --output=backup.sql
-npx wrangler d1 execute thelongrun --local --file=backup.sql
-```
+The local DB lives in `.wrangler/state` (gitignored). It does not travel with the repo.
+`npm run d1:pull` writes a backup to `.wrangler/d1-backup.sql` then loads it locally.
 
 Or skip the copy and just `npm run deploy` — that uses the remote D1 in WEUR.
+
+Useful D1 commands:
+
+```bash
+npm run d1:counts:local
+npm run d1:counts:remote
+npm run d1:exec:remote -- --command="SELECT slug, date FROM runs ORDER BY date DESC LIMIT 10"
+```
 
 ## Project layout
 

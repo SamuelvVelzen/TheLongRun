@@ -1,7 +1,7 @@
 import type { PlannedRoute, PlannedWaypoint, RouteTrack, SessionRouteRef } from '$lib/types';
 import type { KmMarker } from '$lib/splits';
 import { WEEKDAYS } from '$lib/week-mix';
-import { getSql } from './db';
+import { getSql, parseJsonColumn } from './db';
 import { parsePolyline, polylineFromGeoJson, polylineJson } from './routes';
 import { parsePlannedFile } from './planned-file';
 import { reverseGeocode } from './geo';
@@ -27,9 +27,10 @@ function toStr(value: unknown): string {
 }
 
 function parseWaypoints(raw: unknown): PlannedWaypoint[] {
-	if (!Array.isArray(raw)) return [];
+	const value = Array.isArray(raw) ? raw : parseJsonColumn(raw);
+	if (!Array.isArray(value)) return [];
 	const out: PlannedWaypoint[] = [];
-	for (const w of raw) {
+	for (const w of value) {
 		if (!w || typeof w !== 'object') continue;
 		const o = w as Record<string, unknown>;
 		const lat = Number(o.lat);
@@ -60,93 +61,6 @@ function rowToRoute(row: Record<string, unknown>): PlannedRoute {
 		plan_link_count: toNum(row.plan_link_count) ?? 0,
 		activity_link_count: toNum(row.activity_link_count) ?? 0
 	};
-}
-
-let ensured = false;
-let ensuring: Promise<void> | null = null;
-
-function isAlreadyExists(error: unknown): boolean {
-	const msg = error instanceof Error ? error.message : String(error);
-	return /already exists|duplicate key value/i.test(msg);
-}
-
-async function ensureTable(): Promise<void> {
-	if (ensured) return;
-	if (!ensuring) {
-		ensuring = (async () => {
-			const sql = getSql();
-			const ignoreDup = async (fn: () => Promise<unknown>) => {
-				try {
-					await fn();
-				} catch (error) {
-					if (!isAlreadyExists(error)) throw error;
-				}
-			};
-			await ignoreDup(
-				() => sql`
-					CREATE TABLE IF NOT EXISTS planned_routes (
-						slug text PRIMARY KEY,
-						name text NOT NULL,
-						notes text NOT NULL DEFAULT '',
-						distance_km double precision,
-						elev_gain double precision,
-						elev_loss double precision,
-						elev_min double precision,
-						elev_max double precision,
-						point_count integer NOT NULL DEFAULT 0,
-						est_time text NOT NULL DEFAULT '',
-						saved_on text NOT NULL,
-						country text NOT NULL DEFAULT '',
-						province text NOT NULL DEFAULT '',
-						place text NOT NULL DEFAULT '',
-						waypoints jsonb NOT NULL DEFAULT '[]'::jsonb,
-						geojson jsonb NOT NULL,
-						polyline jsonb
-					)
-				`
-			);
-			await ignoreDup(
-				() => sql`ALTER TABLE planned_routes ADD COLUMN IF NOT EXISTS est_time text NOT NULL DEFAULT ''`
-			);
-			await ignoreDup(() => sql`ALTER TABLE planned_routes ADD COLUMN IF NOT EXISTS polyline jsonb`);
-			const missing = (await sql`
-				SELECT slug, geojson FROM planned_routes WHERE polyline IS NULL
-			`) as { slug: string; geojson: unknown }[];
-			for (const row of missing) {
-				const json = polylineJson(polylineFromGeoJson(row.geojson));
-				await sql`UPDATE planned_routes SET polyline = ${json}::jsonb WHERE slug = ${row.slug}`;
-			}
-			await ignoreDup(
-				() => sql`
-					CREATE TABLE IF NOT EXISTS planned_route_links (
-						id serial PRIMARY KEY,
-						route_slug text NOT NULL REFERENCES planned_routes(slug) ON DELETE CASCADE,
-						kind text NOT NULL,
-						activity_slug text REFERENCES runs(slug) ON DELETE CASCADE,
-						plan_week integer,
-						plan_day text,
-						created_on text NOT NULL
-					)
-				`
-			);
-			await ignoreDup(
-				() => sql`
-					CREATE UNIQUE INDEX IF NOT EXISTS planned_route_links_plan_uniq
-					ON planned_route_links (plan_week, plan_day)
-					WHERE kind = 'plan'
-				`
-			);
-			await ignoreDup(
-				() => sql`
-					CREATE UNIQUE INDEX IF NOT EXISTS planned_route_links_activity_uniq
-					ON planned_route_links (activity_slug)
-					WHERE kind = 'activity'
-				`
-			);
-			ensured = true;
-		})();
-	}
-	await ensuring;
 }
 
 function slugify(name: string): string {
@@ -183,7 +97,6 @@ async function nextFreeSlug(base: string): Promise<string> {
 }
 
 export async function listPlannedRoutes(): Promise<PlannedRoute[]> {
-	await ensureTable();
 	const sql = getSql();
 	const rows = (await sql`
 		SELECT r.slug, r.name, r.notes, r.distance_km, r.elev_gain, r.elev_loss, r.elev_min, r.elev_max,
@@ -192,11 +105,11 @@ export async function listPlannedRoutes(): Promise<PlannedRoute[]> {
 			COALESCE(a.activity_link_count, 0) AS activity_link_count
 		FROM planned_routes r
 		LEFT JOIN (
-			SELECT route_slug, COUNT(*)::int AS plan_link_count
+			SELECT route_slug, COUNT(*) AS plan_link_count
 			FROM planned_route_links WHERE kind = 'plan' GROUP BY route_slug
 		) p ON p.route_slug = r.slug
 		LEFT JOIN (
-			SELECT route_slug, COUNT(*)::int AS activity_link_count
+			SELECT route_slug, COUNT(*) AS activity_link_count
 			FROM planned_route_links WHERE kind = 'activity' GROUP BY route_slug
 		) a ON a.route_slug = r.slug
 		ORDER BY r.saved_on DESC, r.name ASC
@@ -205,7 +118,6 @@ export async function listPlannedRoutes(): Promise<PlannedRoute[]> {
 }
 
 export async function listPlannedRouteTracks(): Promise<RouteTrack[]> {
-	await ensureTable();
 	const sql = getSql();
 	const rows = (await sql`SELECT slug, polyline FROM planned_routes`) as {
 		slug: string;
@@ -220,7 +132,6 @@ export async function listPlannedRouteTracks(): Promise<RouteTrack[]> {
 }
 
 export async function getPlannedRoute(slug: string): Promise<PlannedRouteDetail | null> {
-	await ensureTable();
 	if (!slug || slug.includes('..') || slug.includes('/') || slug.includes('\\')) return null;
 	const sql = getSql();
 	const rows = (await sql`SELECT * FROM planned_routes WHERE slug = ${slug} LIMIT 1`) as Record<
@@ -230,7 +141,7 @@ export async function getPlannedRoute(slug: string): Promise<PlannedRouteDetail 
 	if (!rows.length) return null;
 	const row = rows[0]!;
 	const route = rowToRoute(row);
-	const geojson = (row.geojson ?? {}) as PlannedRouteDetail['geojson'];
+	const geojson = (parseJsonColumn(row.geojson) ?? {}) as PlannedRouteDetail['geojson'];
 	const props =
 		geojson && typeof geojson === 'object'
 			? ((geojson as { properties?: { km_markers?: KmMarker[] } }).properties ?? null)
@@ -244,7 +155,6 @@ export async function savePlannedFromFile(input: {
 	filename: string;
 	notes?: string;
 }): Promise<PlannedRoute> {
-	await ensureTable();
 	const parsed = parsePlannedFile(input.text, input.filename);
 	const slug = await nextFreeSlug(slugify(parsed.name));
 	const geo =
@@ -284,8 +194,8 @@ export async function savePlannedFromFile(input: {
 			${slug}, ${parsed.name}, ${input.notes?.trim() ?? ''}, ${parsed.distanceKm},
 			${parsed.elevGain}, ${parsed.elevLoss}, ${parsed.elevMin}, ${parsed.elevMax},
 			${parsed.points.length}, ${parsed.estTime}, ${saved_on}, ${geo.country}, ${geo.province}, ${geo.place},
-			${JSON.stringify(parsed.waypoints)}::jsonb, ${JSON.stringify(geojson)}::jsonb,
-			${polylineJson(polylineFromGeoJson(geojson))}::jsonb
+			${JSON.stringify(parsed.waypoints)}, ${JSON.stringify(geojson)},
+			${polylineJson(polylineFromGeoJson(geojson))}
 		)
 		RETURNING slug, name, notes, distance_km, elev_gain, elev_loss, elev_min, elev_max,
 			point_count, est_time, saved_on, country, province, place, waypoints
@@ -297,7 +207,6 @@ export async function updatePlannedRoute(
 	slug: string,
 	fields: { name?: string; notes?: string }
 ): Promise<PlannedRoute | null> {
-	await ensureTable();
 	const current = await getPlannedRoute(slug);
 	if (!current) return null;
 	const name = fields.name != null ? fields.name.trim() : current.name;
@@ -314,7 +223,6 @@ export async function updatePlannedRoute(
 }
 
 export async function deletePlannedRoute(slug: string): Promise<boolean> {
-	await ensureTable();
 	if (!slug || slug.includes('..') || slug.includes('/') || slug.includes('\\')) return false;
 	const sql = getSql();
 	const rows =
@@ -352,7 +260,6 @@ function rowToLink(row: Record<string, unknown>): RouteLinkRow {
 }
 
 export async function listRouteLinks(routeSlug?: string): Promise<RouteLinkRow[]> {
-	await ensureTable();
 	const sql = getSql();
 	const rows = (
 		routeSlug
@@ -372,7 +279,6 @@ export async function listRouteLinks(routeSlug?: string): Promise<RouteLinkRow[]
 }
 
 export async function listPlanRouteRefs(): Promise<PlanRouteRef[]> {
-	await ensureTable();
 	const sql = getSql();
 	const rows = (await sql`
 		SELECT l.plan_week, l.plan_day, r.slug, r.name, r.distance_km
@@ -392,7 +298,6 @@ export async function listPlanRouteRefs(): Promise<PlanRouteRef[]> {
 }
 
 export async function getActivityRouteRef(activitySlug: string): Promise<SessionRouteRef | null> {
-	await ensureTable();
 	if (!activitySlug) return null;
 	const sql = getSql();
 	const rows = (await sql`
@@ -412,7 +317,6 @@ export async function attachRouteToPlan(
 	week: number,
 	day: string
 ): Promise<RouteLinkRow> {
-	await ensureTable();
 	const route = await getPlannedRoute(routeSlug);
 	if (!route) throw new Error('Route not found.');
 	const planDay = canonicalDay(day);
@@ -433,7 +337,6 @@ export async function attachRouteToActivity(
 	routeSlug: string,
 	activitySlug: string
 ): Promise<RouteLinkRow> {
-	await ensureTable();
 	const route = await getPlannedRoute(routeSlug);
 	if (!route) throw new Error('Route not found.');
 	const sql = getSql();
@@ -450,7 +353,6 @@ export async function attachRouteToActivity(
 }
 
 export async function detachRouteLink(id: number, routeSlug: string): Promise<boolean> {
-	await ensureTable();
 	if (!Number.isFinite(id) || id < 1) return false;
 	const sql = getSql();
 	const rows = (await sql`

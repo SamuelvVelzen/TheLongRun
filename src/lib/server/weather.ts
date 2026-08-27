@@ -1,7 +1,7 @@
 import type { RunRecord } from '$lib/types';
 import { normalizeStartTime, parseDurationSeconds } from '$lib/format';
 import { getRouteGeoJson, routeIdForRun } from './route-analytics';
-import { getSql } from './db';
+import { getSql, parseJsonColumn } from './db';
 
 /** Athlete default from typical route centroid (Harderwijk / Flevoland area, NL). Override with DEFAULT_LAT / DEFAULT_LON. */
 export const FALLBACK_LAT = 52.35;
@@ -81,7 +81,7 @@ async function centroidFromAnyRoute(): Promise<LatLon | null> {
 	const sql = getSql();
 	const rows = (await sql`SELECT geojson FROM routes LIMIT 1`) as { geojson: unknown }[];
 	if (!rows.length) return null;
-	return centroidFromGeoJson(rows[0]!.geojson);
+	return centroidFromGeoJson(parseJsonColumn(rows[0]!.geojson));
 }
 
 export async function getDefaultLocation(): Promise<LatLon> {

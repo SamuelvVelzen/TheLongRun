@@ -19,6 +19,13 @@ export function downsample(coords: [number, number][], maxPoints: number): [numb
 }
 
 export function coordsFromGeoJson(raw: unknown): [number, number][] {
+	if (typeof raw === 'string') {
+		try {
+			raw = JSON.parse(raw);
+		} catch {
+			return [];
+		}
+	}
 	if (!raw || typeof raw !== 'object') return [];
 	const geo = raw as {
 		type?: string;
@@ -89,38 +96,8 @@ export function parsePolyline(raw: unknown): [number, number][] {
 	return out;
 }
 
-let ensuredPolyline = false;
-let ensuringPolyline: Promise<void> | null = null;
-
-/** Add `routes.polyline` and fill any rows that still only have GeoJSON. */
-export async function ensureRoutePolylines(): Promise<void> {
-	if (ensuredPolyline) return;
-	if (!ensuringPolyline) {
-		ensuringPolyline = (async () => {
-			try {
-				const sql = getSql();
-				await sql`ALTER TABLE routes ADD COLUMN IF NOT EXISTS polyline jsonb`;
-				const rows = (await sql`SELECT id, geojson FROM routes WHERE polyline IS NULL`) as {
-					id: string;
-					geojson: unknown;
-				}[];
-				for (const row of rows) {
-					const json = polylineJson(polylineFromGeoJson(row.geojson));
-					await sql`UPDATE routes SET polyline = ${json}::jsonb WHERE id = ${row.id}`;
-				}
-				ensuredPolyline = true;
-			} catch (error) {
-				ensuringPolyline = null;
-				throw error;
-			}
-		})();
-	}
-	await ensuringPolyline;
-}
-
 /** Read stored heatmap polylines (not full GeoJSON). */
 export async function listRouteTracks(): Promise<RouteTrack[]> {
-	await ensureRoutePolylines();
 	const sql = getSql();
 	const rows = (await sql`SELECT id, polyline FROM routes`) as {
 		id: string;

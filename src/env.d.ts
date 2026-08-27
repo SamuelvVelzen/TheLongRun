@@ -15,7 +15,7 @@ interface D1Database {
 declare module 'cloudflare:workers' {
 	export const env: {
 		DB: D1Database;
-		DATABASE_URL?: string;
+		DATABASE_URL?: string; // dump scripts only
 		DEFAULT_LAT?: string;
 		DEFAULT_LON?: string;
 	};

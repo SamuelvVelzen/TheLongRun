@@ -1,7 +1,7 @@
 import { analyticsFromProperties, type RouteAnalytics } from '$lib/splits';
 import type { RunRecord } from '$lib/types';
-import { getSql } from './db';
-import { ensureRoutePolylines, polylineFromGeoJson, polylineJson } from './routes';
+import { getSql, parseJsonColumn } from './db';
+import { polylineFromGeoJson, polylineJson } from './routes';
 
 /** Resolve the stored route id from a run (`/routes/{id}.json` or strava_id). */
 export function routeIdForRun(run: Pick<RunRecord, 'route' | 'strava_id'>): string | null {
@@ -17,12 +17,11 @@ export function routeIdForRun(run: Pick<RunRecord, 'route' | 'strava_id'>): stri
 
 /** Upsert a route's GeoJSON track by id, plus a downsampled heatmap polyline. */
 export async function saveRouteGeoJson(id: string, geojson: unknown): Promise<void> {
-	await ensureRoutePolylines();
 	const sql = getSql();
 	const line = polylineJson(polylineFromGeoJson(geojson));
 	await sql`
 		INSERT INTO routes (id, geojson, polyline)
-		VALUES (${id}, ${JSON.stringify(geojson)}::jsonb, ${line}::jsonb)
+		VALUES (${id}, ${JSON.stringify(geojson)}, ${line})
 		ON CONFLICT (id) DO UPDATE SET geojson = EXCLUDED.geojson, polyline = EXCLUDED.polyline
 	`;
 }
@@ -34,7 +33,7 @@ export async function getRouteGeoJson(id: string): Promise<unknown | null> {
 	const rows = (await sql`SELECT geojson FROM routes WHERE id = ${id} LIMIT 1`) as {
 		geojson: unknown;
 	}[];
-	return rows.length ? rows[0]!.geojson : null;
+	return rows.length ? parseJsonColumn(rows[0]!.geojson) : null;
 }
 
 /** Load splits / HR zones / km markers stored on the route GeoJSON properties. */
@@ -54,7 +53,7 @@ export async function listRouteSplitsById(): Promise<Map<string, RouteAnalytics[
 	const rows = (await sql`SELECT id, geojson FROM routes`) as { id: string; geojson: unknown }[];
 	const out = new Map<string, RouteAnalytics['splits']>();
 	for (const row of rows) {
-		const geo = row.geojson as { properties?: unknown } | null;
+		const geo = parseJsonColumn(row.geojson) as { properties?: unknown } | null;
 		const analytics = analyticsFromProperties(geo?.properties ?? null);
 		if (analytics?.splits?.length) out.set(String(row.id), analytics.splits);
 	}

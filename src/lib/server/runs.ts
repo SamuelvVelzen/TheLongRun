@@ -14,12 +14,12 @@ function toStr(value: unknown): string {
 }
 
 function toBoolOrNull(value: unknown): boolean | null {
-	if (value === true || value === 'true' || value === 't') return true;
-	if (value === false || value === 'false' || value === 'f') return false;
+	if (value === true || value === 1 || value === 'true' || value === 't' || value === '1') return true;
+	if (value === false || value === 0 || value === 'false' || value === 'f' || value === '0') return false;
 	return null;
 }
 
-/** Map a DB row to a RunRecord (columns are already typed by Postgres). */
+/** Map a DB row to a RunRecord. */
 function rowToRun(row: Record<string, unknown>): RunRecord {
 	return {
 		slug: toStr(row.slug),
@@ -63,21 +63,11 @@ function rowToRun(row: Record<string, unknown>): RunRecord {
 /** Full record used by the internal upsert (everything except the derived slug helpers). */
 type RunColumns = Omit<RunRecord, 'filepath'>;
 
-let ensuredBestEfforts = false;
-
-async function ensureBestEffortsColumn(): Promise<void> {
-	if (ensuredBestEfforts) return;
-	const sql = getSql();
-	await sql`ALTER TABLE runs ADD COLUMN IF NOT EXISTS best_efforts jsonb NOT NULL DEFAULT '[]'::jsonb`;
-	ensuredBestEfforts = true;
-}
-
 function effortsJson(efforts: BestEffort[] | undefined | null): string {
 	return JSON.stringify(efforts ?? []);
 }
 
 async function upsertRun(r: RunColumns): Promise<RunRecord> {
-	await ensureBestEffortsColumn();
 	const sql = getSql();
 	const efforts = effortsJson(r.best_efforts);
 	const rows = (await sql`
@@ -92,7 +82,7 @@ async function upsertRun(r: RunColumns): Promise<RunRecord> {
 			${r.start_time}, ${r.time}, ${r.elapsed_time}, ${r.avg_pace}, ${r.avg_hr}, ${r.max_hr},
 			${r.elev_gain}, ${r.calories}, ${r.kilojoules}, ${r.max_speed}, ${r.cadence}, ${r.shoes},
 			${r.summary_image}, ${r.splits_image}, ${r.strava_id}, ${r.route}, ${r.notes}, ${r.country},
-			${r.province}, ${r.place}, ${efforts}::jsonb
+			${r.province}, ${r.place}, ${efforts}
 		)
 		ON CONFLICT (slug) DO UPDATE SET
 			date = EXCLUDED.date, week = EXCLUDED.week, day = EXCLUDED.day,
@@ -113,7 +103,6 @@ async function upsertRun(r: RunColumns): Promise<RunRecord> {
 }
 
 export async function listRuns(): Promise<RunRecord[]> {
-	await ensureBestEffortsColumn();
 	const sql = getSql();
 	const rows = (await sql`SELECT * FROM runs ORDER BY date DESC, slug DESC`) as Record<
 		string,
@@ -197,10 +186,9 @@ export async function setRunRoute(slug: string, route: string): Promise<void> {
 }
 
 export async function setRunBestEfforts(slug: string, efforts: BestEffort[]): Promise<void> {
-	await ensureBestEffortsColumn();
 	const sql = getSql();
 	const json = effortsJson(efforts);
-	await sql`UPDATE runs SET best_efforts = ${json}::jsonb WHERE slug = ${slug}`;
+	await sql`UPDATE runs SET best_efforts = ${json} WHERE slug = ${slug}`;
 }
 
 export type FeelingsPatch = {

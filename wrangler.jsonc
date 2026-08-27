@@ -1,6 +1,7 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "thelongrun",
+	"account_id": "fabce8a1620293827f383c4f8d256647",
 	"compatibility_date": "2026-08-04",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "@tanstack/react-start/server-entry",
@@ -11,8 +12,7 @@
 		{
 			"binding": "DB",
 			"database_name": "thelongrun",
-			// Replace after `npx wrangler d1 create thelongrun` (local Miniflare accepts this).
-			"database_id": "00000000-0000-0000-0000-000000000000",
+			"database_id": "fa63c363-bf9e-4398-9d37-de883b59afb1",
 			"migrations_dir": "migrations"
 		}
 	]

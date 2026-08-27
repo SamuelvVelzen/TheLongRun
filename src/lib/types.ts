@@ -47,7 +47,7 @@ export interface RunRecord {
 	place: string;
 	/** Fastest rolling windows (5k, 10k, …) computed from GPS or km splits. */
 	best_efforts: BestEffort[];
-	/** Legacy filesystem path; unused since the move to Postgres. */
+	/** Legacy filesystem path; unused since the move to D1. */
 	filepath?: string;
 }
 

@@ -1,11 +1,11 @@
 # The Long Run
 
-Personal run tracker. **React + TanStack Start**, **Neon Postgres**, deployed to **Cloudflare Workers**.
+Personal run tracker. **React + TanStack Start**, **Cloudflare D1**, deployed to **Cloudflare Workers**.
 
 ## Stack
 
 - **TanStack Start** (React 19, Vite, SSR, file-based routing, server functions)
-- **Neon** — serverless Postgres over HTTP (works in the Workers runtime)
+- **Cloudflare D1** — SQLite bound into the Worker (local Miniflare while developing)
 - **Cloudflare Workers** via `@cloudflare/vite-plugin` + Wrangler
 - Maps: Leaflet (loaded from CDN); charts/sparklines are hand-rolled SVG
 
@@ -14,18 +14,28 @@ Activities are typed (**run / walk / ride / swim**) with sport-appropriate headl
 computes distance / pace / HR / elevation / per-km splits). The dashboard has a sport toggle
 (defaults to running). Automatic **Strava sync** is the planned next step.
 
-No filesystem at runtime — runs, GeoJSON route tracks, and context docs are all Postgres tables.
+No filesystem at runtime — runs, GeoJSON route tracks, and context docs are all D1 tables.
 
 ## Quick start (local)
 
 ```bash
-cp .env.example .env          # fill in DATABASE_URL (Neon pooled string)
 npm install
-npm run migrate               # creates tables + loads data/ into Neon (one time)
+npx wrangler login            # same Cloudflare account that owns the D1 database
+npm run d1:apply:local        # creates the local SQLite file if needed
 npm run dev
 ```
 
 Open the URL Vite prints (default http://localhost:3000).
+
+The local DB lives in `.wrangler/state` (gitignored). It does not travel with the repo. On a
+new machine, after `d1:apply:local`, copy production data down:
+
+```bash
+npx wrangler d1 export thelongrun --remote --output=backup.sql
+npx wrangler d1 execute thelongrun --local --file=backup.sql
+```
+
+Or skip the copy and just `npm run deploy` — that uses the remote D1 in WEUR.
 
 ## Project layout
 
@@ -37,34 +47,36 @@ src/
                      Sparkline, DateRangeFilter
   lib/               framework-agnostic logic: splits, trends, format, plan,
                      date-range, hr-zones, markdown, leaflet, map-chrome, types
-  lib/server/        db (Neon), runs, routes, route-analytics, context, weather,
+  lib/server/        db (D1), runs, routes, route-analytics, context, weather,
                      functions (createServerFn wrappers = the data layer / RPC)
   app.css            global styles     components.css   ported component styles
-scripts/migrate-to-neon.mjs            one-time data import
-schema.sql                             table definitions (also applied by migrate)
+migrations/          D1 schema (applied with npm run d1:apply:local / :remote)
+schema.sql           same schema, for reading
 ```
 
-## Data model (Neon)
+## Data model (D1)
 
 | Table | Holds |
 |-------|-------|
 | `runs` | one row per run |
-| `routes` | `id` + GeoJSON track (splits / HR zones / km markers in `properties`) |
+| `routes` | `id` + GeoJSON track + downsampled `polyline` for heatmaps |
 | `context` | goals, shoes, plan.json, profile, injury, gear, race strategy |
+| `planned_routes` | BRouter exports (not activity GPS) |
+| `planned_route_links` | plan-day / activity attachments |
 
 ## How data flows
 
 Route `loader`s call **server functions** (`src/lib/server/functions.ts`), which run only on
-the server and query Neon. Mutations (create / update / delete run, save context) are POST server
+the server and query D1. Mutations (create / update / delete run, save context) are POST server
 functions called from the components, followed by `router.invalidate()`.
 
-`DATABASE_URL` is read from the `cloudflare:workers` env binding (falling back to `process.env`)
-**inside** each server-function handler. Add activities via the **Log run** form or **Import GPX**.
+The D1 binding `DB` comes from `wrangler.jsonc`. Add activities via the **Log run** form or
+**Import GPX**.
 
 ## Deploy → `longrun.vanvelzen.dev`
 
-See **GOLIVE.md**. Short version: create the Neon DB, `npm run migrate`, set `DATABASE_URL` as a
-Wrangler secret, `npm run deploy`, add the custom domain, lock it with Cloudflare Access.
+See **GOLIVE.md**. Short version: `npx wrangler login`, `npm run deploy`. The Worker already
+has the D1 binding; no database URL.
 
 ## Weather
 

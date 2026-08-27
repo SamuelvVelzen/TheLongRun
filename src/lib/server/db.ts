@@ -1,8 +1,8 @@
 import { env } from 'cloudflare:workers';
 
 /**
- * D1 tagged-template helper. Same call shape as the old Neon `sql`...`` client:
- * interpolations become bound parameters (`?`), and the promise resolves to row objects.
+ * D1 tagged-template helper: interpolations become bound parameters (`?`),
+ * and the promise resolves to row objects.
  *
  * `env.DB` is read at query time (inside server-function handlers), never at module scope.
  */
@@ -45,7 +45,7 @@ export function getSql(): SqlQuery {
 	};
 }
 
-/** D1 stores JSON as TEXT; Neon used to return parsed objects. */
+/** D1 stores JSON as TEXT. */
 export function parseJsonColumn(raw: unknown): unknown {
 	if (raw == null || raw === '') return null;
 	if (typeof raw === 'object') return raw;

@@ -459,6 +459,11 @@ body.map-fs-active .map-wrap.is-fullscreen:not(:fullscreen):not(:-webkit-full-sc
 	}
 }
 
+/* Invert OSM tiles to a dark canvas; route overlays stay in the overlay pane. */
+.map-wrap .leaflet-tile-pane {
+	filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.35);
+}
+
 .route-map .leaflet-control-attribution,
 .heatmap-map .leaflet-control-attribution,
 .map-wrap .leaflet-control-attribution {

@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import type { PlannedWaypoint } from '$lib/types';
 import type { KmMarker } from '$lib/splits';
 import { loadLeaflet } from '$lib/leaflet';
-import { attachMapChrome, kmMarkerIcon, leafletMapOptions, type MapChromeHandle } from '$lib/map-chrome';
+import {
+	addDarkBasemap,
+	attachMapChrome,
+	kmMarkerIcon,
+	leafletMapOptions,
+	type MapChromeHandle
+} from '$lib/map-chrome';
 
 export function PlannedRouteMap({
 	geojson,
@@ -34,12 +40,7 @@ export function PlannedRouteMap({
 				const coords = raw.map((c) => [Number(c[1]), Number(c[0])] as [number, number]);
 
 				map = L.map(containerRef.current, leafletMapOptions());
-				L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-					attribution:
-						'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-					subdomains: 'abcd',
-					maxZoom: 19
-				}).addTo(map);
+				addDarkBasemap(L, map);
 
 				L.polyline(coords, {
 					color: '#c8f25a',

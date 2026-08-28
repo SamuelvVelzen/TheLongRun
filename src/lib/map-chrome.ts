@@ -29,6 +29,18 @@ export function leafletMapOptions() {
 	};
 }
 
+/**
+ * Dark OSM raster tiles. CARTO's free `dark_all` tiles now stamp
+ * "API KEY REQUIRED" on every request without a key.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function addDarkBasemap(L: LeafletGlobal, map: any) {
+	L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+		maxZoom: 19
+	}).addTo(map);
+}
+
 function iconBtn(label: string, title: string, svg: string): HTMLButtonElement {
 	const btn = document.createElement('button');
 	btn.type = 'button';

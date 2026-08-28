@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { loadLeaflet } from '$lib/leaflet';
-import { attachMapChrome, leafletMapOptions, type MapChromeHandle } from '$lib/map-chrome';
+import {
+	addDarkBasemap,
+	attachMapChrome,
+	leafletMapOptions,
+	type MapChromeHandle
+} from '$lib/map-chrome';
 import type { RouteTrack } from '$lib/types';
 import { SegmentedToggle } from './SegmentedToggle';
 
@@ -54,12 +59,7 @@ export function RoutesHeatmap({
 				if (cancelled || !containerRef.current || !wrapRef.current) return;
 
 				map = L.map(containerRef.current, leafletMapOptions());
-				L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-					attribution:
-						'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-					subdomains: 'abcd',
-					maxZoom: 19
-				}).addTo(map);
+				addDarkBasemap(L, map);
 
 				const allBounds = L.latLngBounds([]);
 				const focusSet = new Set(focusIds);

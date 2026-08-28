@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadLeaflet } from '$lib/leaflet';
-import { attachMapChrome, kmMarkerIcon, leafletMapOptions, type MapChromeHandle } from '$lib/map-chrome';
+import {
+	addDarkBasemap,
+	attachMapChrome,
+	kmMarkerIcon,
+	leafletMapOptions,
+	type MapChromeHandle
+} from '$lib/map-chrome';
 import { analyticsFromProperties, haversineMeters, type KmMarker } from '$lib/splits';
 import { getRouteGeoJsonFn } from '$lib/server/functions';
 
@@ -65,12 +71,7 @@ export function RouteMap({
 				const markers = kmMarkers?.length ? kmMarkers : (analytics?.kmMarkers ?? []);
 
 				map = L.map(containerRef.current, leafletMapOptions());
-				L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-					attribution:
-						'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-					subdomains: 'abcd',
-					maxZoom: 19
-				}).addTo(map);
+				addDarkBasemap(L, map);
 
 				const splits = analytics?.splits ?? [];
 				const kmSec = splits.map((s) => (s.distanceKm > 0 ? s.seconds / s.distanceKm : 0));

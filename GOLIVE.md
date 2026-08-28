@@ -12,11 +12,11 @@ npm run d1:pull               # optional: copy remote D1 into local
 npm run dev                   # local D1 under .wrangler/state (gitignored)
 ```
 
-Deploy from any machine with Wrangler logged in; it always uses remote D1:
+Production deploys from a push to `main` (Cloudflare Workers Builds). Do not run
+`wrangler deploy` from this machine.
 
-```bash
-npm run deploy
-```
+D1 schema changes are not part of that build — apply them with `npm run d1:apply:remote`
+before or after the Worker rolls out.
 
 Optional weather defaults: Worker → Settings → Variables (`DEFAULT_LAT` / `DEFAULT_LON`).
 
@@ -29,7 +29,7 @@ Already on `longrun.vanvelzen.dev` (zone `vanvelzen.dev` is on Cloudflare).
 Dashboard → **Zero Trust → Access → Applications** → self-hosted app for `longrun.vanvelzen.dev`,
 policy **Allow** your email.
 
-## After deploy
+## After a main push
 
 - **Log run** / **Import GPX** write to D1.
 - If an old Worker secret `DATABASE_URL` is still set, delete it (Settings → Variables and Secrets).

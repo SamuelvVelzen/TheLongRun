@@ -31,8 +31,6 @@ Open the URL Vite prints (default http://localhost:3000).
 The local DB lives in `.wrangler/state` (gitignored). It does not travel with the repo.
 `npm run d1:pull` writes a backup to `.wrangler/d1-backup.sql` then loads it locally.
 
-Or skip the copy and just `npm run deploy` — that uses the remote D1 in WEUR.
-
 Useful D1 commands:
 
 ```bash
@@ -79,8 +77,8 @@ The D1 binding `DB` comes from `wrangler.jsonc`. Add activities via the **Log ru
 
 ## Deploy → `longrun.vanvelzen.dev`
 
-See **GOLIVE.md**. Short version: `npx wrangler login`, `npm run deploy`. The Worker already
-has the D1 binding; no database URL.
+Push to `main`. Cloudflare builds and deploys the Worker automatically. Do not deploy from
+this machine. See **GOLIVE.md**. The Worker already has the D1 binding; no database URL.
 
 ## Weather
 

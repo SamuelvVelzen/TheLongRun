@@ -1,4 +1,4 @@
-import { activityLabel } from '$lib/activity';
+import { activityLabel, normalizeActivityType } from '$lib/activity';
 import { weekDayGroups, type WeekView } from '$lib/plan';
 import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
@@ -15,11 +15,13 @@ function shortDate(iso: string | null): string {
 function StatusBadge({
 	done,
 	skipped,
+	unlogged,
 	isNext,
 	isToday
 }: {
 	done: boolean;
 	skipped: boolean;
+	unlogged: boolean;
 	isNext: boolean;
 	isToday: boolean;
 }) {
@@ -33,6 +35,18 @@ function StatusBadge({
 	if (skipped) {
 		return (
 			<span className={cn(ui.statusPill, 'text-muted border border-line bg-black/20')}>Skipped</span>
+		);
+	}
+	if (unlogged) {
+		return (
+			<span
+				className={cn(
+					ui.statusPill,
+					'text-muted border border-dashed border-line bg-black/10'
+				)}
+			>
+				No log
+			</span>
 		);
 	}
 	if (isNext) {
@@ -123,6 +137,7 @@ export function WeekPlanBoard({ view }: { view: WeekView }) {
 											<StatusBadge
 												done={session.done}
 												skipped={session.skipped}
+												unlogged={session.unlogged}
 												isNext={session.isNext}
 												isToday={session.isToday}
 											/>
@@ -133,6 +148,21 @@ export function WeekPlanBoard({ view }: { view: WeekView }) {
 										<p className="m-0 text-[0.9rem] leading-[1.45] text-fg/90 [overflow-wrap:anywhere]">
 											{session.detail}
 										</p>
+										{session.unlogged && (
+											<Link
+												className="block pt-1 text-[0.8rem] font-[650] text-accent hover:underline"
+												to="/import"
+												search={{
+													mode:
+														normalizeActivityType(session.activity_type) ===
+														'strength'
+															? 'manual'
+															: 'gpx'
+												}}
+											>
+												Log this
+											</Link>
+										)}
 										{session.route && (
 											<Link
 												className="block pt-1 text-[0.8rem] font-[650] text-accent overflow-hidden text-ellipsis whitespace-nowrap hover:underline"

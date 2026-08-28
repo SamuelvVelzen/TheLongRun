@@ -100,6 +100,8 @@ export type WeekSessionView = PlanSession & {
 	date: string | null;
 	done: boolean;
 	skipped: boolean;
+	/** Past workout with no matching log and no skip language in the plan. */
+	unlogged: boolean;
 	isToday: boolean;
 	isNext: boolean;
 	route: SessionRouteRef | null;
@@ -119,7 +121,7 @@ export function isRestLike(label: string): boolean {
 	return REST_LIKE_RE.test(label.trim());
 }
 
-/** Past incomplete session: workouts count as skipped; rest/off only if skip language is present. */
+/** Past incomplete session: skipped only when the plan says so (not from a missing log). */
 export function isSessionSkipped(
 	session: Pick<PlanSession, 'label' | 'detail'>,
 	date: string | null,
@@ -127,10 +129,19 @@ export function isSessionSkipped(
 	todayIso: string
 ): boolean {
 	if (done || date == null || date >= todayIso) return false;
-	const text = `${session.label} ${session.detail}`;
-	if (SKIP_LANG_RE.test(text)) return true;
-	if (isRestLike(session.label)) return false;
-	return true;
+	return SKIP_LANG_RE.test(`${session.label} ${session.detail}`);
+}
+
+/** Past workout with no log and no skip language. Rest/off days stay blank, not unlogged. */
+export function isSessionUnlogged(
+	label: string,
+	date: string | null,
+	done: boolean,
+	skipped: boolean,
+	todayIso: string
+): boolean {
+	if (done || skipped || date == null || date >= todayIso) return false;
+	return !isRestLike(label);
 }
 
 export function buildWeekView(
@@ -153,21 +164,24 @@ export function buildWeekView(
 		const left = !isRest && key ? remaining.get(key) ?? 0 : 0;
 		const done = left > 0;
 		if (done && key) remaining.set(key, left - 1);
+		const skipped = isSessionSkipped(s, date, done, todayIso);
 		return {
 			...s,
 			date,
 			done,
-			skipped: isSessionSkipped(s, date, done, todayIso),
+			skipped,
+			unlogged: isSessionUnlogged(s.label, date, done, skipped, todayIso),
 			isToday: date === todayIso,
 			isNext: false,
 			route: null
 		};
 	});
-	// Only today / future incomplete sessions count as NEXT. Past skips (e.g. Rest)
+	// Only today / future incomplete sessions count as NEXT. Past unlogged / skipped
 	// must not steal the highlight after a later day is already logged.
 	const next =
-		sessions.find((s) => !s.done && !s.skipped && (s.date == null || s.date >= todayIso)) ??
-		null;
+		sessions.find(
+			(s) => !s.done && !s.skipped && !s.unlogged && (s.date == null || s.date >= todayIso)
+		) ?? null;
 	if (next) next.isNext = true;
 	return { week, sessions, next };
 }

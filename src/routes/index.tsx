@@ -279,9 +279,11 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 				<section className={nextUpDone} aria-labelledby="next-up-heading">
 					<p className={nextUpKicker}>This week</p>
 					<h2 id="next-up-heading">
-						{data.weekView.sessions.some((s) => s.skipped)
-							? 'Week complete — some sessions skipped'
-							: 'All planned sessions logged'}
+						{data.weekView.sessions.some((s) => s.unlogged)
+							? 'Some sessions not logged yet'
+							: data.weekView.sessions.some((s) => s.skipped)
+								? 'Week complete — some sessions skipped'
+								: 'All planned sessions logged'}
 					</h2>
 					<p className={cn(ui.muted, 'mt-[0.4rem]')}>
 						Week {data.weekView.week.week} · {data.weekView.week.phase}.{' '}

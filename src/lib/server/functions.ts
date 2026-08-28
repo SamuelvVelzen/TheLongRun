@@ -741,9 +741,11 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 						? 'done'
 						: s.skipped
 							? 'skipped'
-							: s.isNext
-								? 'next'
-								: 'upcoming';
+							: s.unlogged
+								? 'unlogged — no activity logged yet, do not assume skipped'
+								: s.isNext
+									? 'next'
+									: 'upcoming';
 					return `- ${s.day}${s.date ? ` (${s.date})` : ''}: ${activityLabel(s.activity_type ?? 'run')} · ${s.label}${s.distance_km != null ? ` · ${s.distance_km} km` : ''} — ${s.detail} [${state}]`;
 				})
 				.join('\n') ?? '- (no plan week)';

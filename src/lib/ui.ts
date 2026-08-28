@@ -60,8 +60,10 @@ export const ui = {
 		'flex flex-col items-center justify-center gap-[0.35rem] p-[2.25rem_1.2rem] border-2 border-dashed border-line rounded-box bg-black/18 text-muted cursor-pointer text-center transition-[border-color,background-color,color] duration-150 ease-out hover:border-accent hover:text-fg active:border-accent active:text-fg max-sm:p-[1.5rem_0.85rem] [&_strong]:font-display [&_strong]:text-[1.02rem] [&_strong]:text-fg',
 	dropzoneOver: 'border-accent bg-[rgba(200,242,90,0.08)] text-fg',
 	coachTabs: 'flex gap-[0.3rem] mb-4 border-b border-line max-sm:gap-0 max-sm:overflow-x-auto',
+	// Selected styles use aria-* variants (not a second class): cn() does not merge
+	// conflicting utilities, so text-muted/border-transparent would otherwise win.
 	coachTab:
-		'appearance-none bg-transparent border-0 border-b-2 border-transparent -mb-px min-h-11 px-[0.9rem] py-[0.55rem] font-semibold text-muted cursor-pointer hover:text-fg active:text-fg max-sm:flex-1 max-sm:min-w-0 max-sm:px-1 max-sm:py-2 max-sm:text-[0.78rem] max-sm:text-center max-sm:leading-[1.25]',
+		'appearance-none bg-transparent border-0 border-b-2 border-transparent -mb-px min-h-11 px-[0.9rem] py-[0.55rem] font-semibold text-muted cursor-pointer hover:text-fg active:text-fg max-sm:flex-1 max-sm:min-w-0 max-sm:px-1 max-sm:py-2 max-sm:text-[0.78rem] max-sm:text-center max-sm:leading-[1.25] aria-[selected=true]:text-fg! aria-[selected=true]:border-b-accent! data-[status=active]:text-fg! data-[status=active]:border-b-accent!',
 	coachTabActive: 'text-fg border-b-accent',
 	choiceChips: 'flex flex-wrap gap-[0.4rem]',
 	choiceChip:
@@ -77,6 +79,6 @@ export const ui = {
 	segToggle:
 		'inline-flex w-fit max-w-full overflow-hidden border border-line rounded-full bg-[rgba(16,20,15,0.85)]',
 	segItem:
-		'appearance-none inline-flex items-center justify-center relative w-auto min-h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted font-inherit no-underline cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out aria-[pressed=false]:hover:text-fg aria-[pressed=false]:hover:bg-[color-mix(in_srgb,var(--color-accent)_18%,transparent)] active:text-fg',
+		'appearance-none inline-flex items-center justify-center relative w-auto min-h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted font-inherit no-underline cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out aria-[pressed=false]:hover:text-fg aria-[pressed=false]:hover:bg-[color-mix(in_srgb,var(--color-accent)_18%,transparent)] active:text-fg aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold aria-[pressed=true]:active:text-accent-ink',
 	segItemActive: 'text-accent-ink bg-accent font-semibold'
 } as const;

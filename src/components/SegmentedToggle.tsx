@@ -39,7 +39,7 @@ export function SegmentedToggle<T extends string>({
 					<button
 						key={opt.value}
 						type="button"
-						className={cn(ui.segItem, selected && ui.segItemActive)}
+						className={ui.segItem}
 						aria-pressed={selected}
 						onClick={() => {
 							if (selected) return;

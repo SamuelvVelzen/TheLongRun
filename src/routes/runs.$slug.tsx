@@ -19,7 +19,13 @@ import {
 	showsFeel,
 	showsField
 } from '$lib/activity';
-import { parseStrengthNotes, topSet, exerciseVolume } from '$lib/strength';
+import {
+	exerciseTotalLabel,
+	formatSetDisplay,
+	formatSetTop,
+	parseStrengthNotes,
+	topSet
+} from '$lib/strength';
 import { RouteMap } from '../components/RouteMap';
 import { SplitsPanel } from '../components/SplitsPanel';
 import { StrengthEditor } from '../components/StrengthEditor';
@@ -399,11 +405,16 @@ function RunDetail() {
 			<section className={ui.hero}>
 				<div>
 					<p className={ui.muted}>
-						{activityLabel(r.activity_type)} · {r.day} · {r.session}
-						{r.week != null && ` · week ${r.week}`}
-						{r.start_time && ` · started ${r.start_time}`}
-						{(r.place || r.country) &&
-							` · ${[r.place, r.country].filter(Boolean).join(', ')}`}
+						{[
+							activityLabel(r.activity_type),
+							r.day || null,
+							r.session && r.session !== 'other' ? r.session : null,
+							r.week != null ? `week ${r.week}` : null,
+							r.start_time ? `started ${r.start_time}` : null,
+							r.place || r.country ? [r.place, r.country].filter(Boolean).join(', ') : null
+						]
+							.filter(Boolean)
+							.join(' · ')}
 					</p>
 					{plannedRoute && (
 						<RouteChip
@@ -431,7 +442,7 @@ function RunDetail() {
 						)}
 					</h1>
 					{!editing && (
-						<p>{(strength ? strength.extra : r.notes) || 'No notes for this run.'}</p>
+						<p>{(strength ? strength.extra : r.notes) || 'No notes for this activity.'}</p>
 					)}
 				</div>
 				<div className={ui.actions}>
@@ -440,8 +451,8 @@ function RunDetail() {
 							<button
 								className={cn(ui.btnGhost, ui.btnIcon)}
 								type="button"
-								aria-label="Edit run"
-								title="Edit run"
+								aria-label="Edit activity"
+								title="Edit activity"
 								onClick={startEditing}
 							>
 								<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
@@ -452,7 +463,7 @@ function RunDetail() {
 								</svg>
 							</button>
 							<DeleteButton
-								label={`Delete run ${r.date}`}
+								label={`Delete ${activityLabel(r.activity_type).toLowerCase()} ${r.date}`}
 								onClick={onDelete}
 							/>
 						</>
@@ -762,17 +773,16 @@ function RunDetail() {
 						<div className={cn(ui.panel, 'mb-4')}>
 							<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
 								<h3>Sets</h3>
-								<p className={cn(ui.muted, 'text-[0.85rem]')}>reps × kg</p>
+								<p className={cn(ui.muted, 'text-[0.85rem]')}>weight, reps, or time</p>
 							</div>
 							<div className="grid grid-cols-[minmax(6rem,1.4fr)_2fr_auto_auto] gap-x-[0.9rem] gap-y-1.5 items-center py-[0.32rem] border-b border-line text-[0.72rem] uppercase tracking-[0.06em] text-muted pb-1.5">
 								<span>Exercise</span>
 								<span>Sets</span>
 								<span>Top</span>
-								<span>Volume</span>
+								<span>Total</span>
 							</div>
 							{strength.exercises.map((ex, i) => {
 								const t = topSet(ex);
-								const vol = Math.round(exerciseVolume(ex));
 								return (
 									<div
 										className="grid grid-cols-[minmax(6rem,1.4fr)_2fr_auto_auto] gap-x-[0.9rem] gap-y-1.5 items-center py-[0.32rem] border-b border-[rgba(232,240,226,0.06)] text-[0.9rem] last:border-b-0"
@@ -780,14 +790,12 @@ function RunDetail() {
 									>
 										<span>{ex.name}</span>
 										<span className={ui.muted}>
-											{ex.sets
-												.map((s) => (s.kg != null ? `${s.reps}×${s.kg}` : `${s.reps}`))
-												.join(', ')}
+											{ex.sets.map((s) => formatSetDisplay(s, ex.kind)).join(', ')}
 										</span>
 										<span className="font-display font-bold text-accent">
-											{t ? (t.kg != null ? `${t.reps}×${t.kg}kg` : `${t.reps} reps`) : '—'}
+											{t ? formatSetTop(t, ex.kind) : '—'}
 										</span>
-										<span className={ui.muted}>{vol ? `${vol} kg` : '—'}</span>
+										<span className={ui.muted}>{exerciseTotalLabel(ex)}</span>
 									</div>
 								);
 							})}

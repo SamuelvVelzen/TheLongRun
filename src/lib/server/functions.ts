@@ -53,6 +53,7 @@ import {
     normalizeWeekPattern,
     type WeekPattern
 } from '$lib/week-mix';
+import { requireAuth } from './auth';
 import { createServerFn } from '@tanstack/react-start';
 import matter from 'gray-matter';
 import {
@@ -158,6 +159,11 @@ async function highlightsAfterSave(
 
 // ---------- reads ----------
 
+export const getAuthState = createServerFn({ method: 'GET' }).handler(async () => {
+	const { readAuthSession } = await import('./auth.server');
+	return readAuthSession();
+});
+
 export const getDashboardData = createServerFn({ method: 'GET' }).handler(async () => {
 	const [runs, tracks, routeIds, week, plan, goals, shoes, planRefs] = await Promise.all([
 		listRuns(),
@@ -250,7 +256,7 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 		};
 	});
 
-export const saveHrMax = createServerFn({ method: 'POST' })
+export const saveHrMax = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((hrMax: number | null) => hrMax)
 	.handler(async ({ data }) => {
 		await saveHrMaxSetting(data);
@@ -666,7 +672,7 @@ export const getWeekPattern = createServerFn({ method: 'GET' }).handler(async ()
 	return s.weekPattern;
 });
 
-export const saveWeekPattern = createServerFn({ method: 'POST' })
+export const saveWeekPattern = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((pattern: WeekPattern) => normalizeWeekPattern(pattern))
 	.handler(async ({ data }) => saveWeekPatternSetting(data));
 
@@ -840,7 +846,7 @@ export type CreateRunInput = {
 	notes: string;
 };
 
-export const createRun = createServerFn({ method: 'POST' })
+export const createRun = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((d: CreateRunInput) => d)
 	.handler(async ({ data }) => {
 		const date = data.date.trim();
@@ -884,7 +890,7 @@ export const createRun = createServerFn({ method: 'POST' })
 		return { slug: run.slug };
 	});
 
-export const importGpx = createServerFn({ method: 'POST' })
+export const importGpx = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((d: { xml: string; activityType?: string }) => d)
 	.handler(async ({ data }) => {
 		const parsed = parseGpx(data.xml);
@@ -1054,7 +1060,7 @@ export type UpdateRunInput = {
 	notes: string;
 };
 
-export const updateRun = createServerFn({ method: 'POST' })
+export const updateRun = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((d: UpdateRunInput) => d)
 	.handler(async ({ data }) => {
 		const date = data.date.trim();
@@ -1090,7 +1096,7 @@ export const updateRun = createServerFn({ method: 'POST' })
 		return { slug: run.slug };
 	});
 
-export const deleteRun = createServerFn({ method: 'POST' })
+export const deleteRun = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((slug: string) => slug)
 	.handler(async ({ data: slug }) => {
 		return dbDeleteRun(slug);
@@ -1193,14 +1199,14 @@ function feelingsRowsFrom(parsed: unknown): Record<string, unknown>[] {
 }
 
 /** Merge AI-returned plan week(s) into plan.json (replace by week number, keep the rest). */
-export const savePlanWeeks = createServerFn({ method: 'POST' })
+export const savePlanWeeks = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((jsonText: string) => jsonText)
 	.handler(async ({ data: jsonText }) => {
 		return mergePlanWeeks(asPlanWeeks(parseJsonPayload(jsonText)));
 	});
 
 /** Save a debrief reply: feelings for this run + an updated week plan. */
-export const saveDebrief = createServerFn({ method: 'POST' })
+export const saveDebrief = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((jsonText: string) => jsonText)
 	.handler(async ({ data: jsonText }) => {
 		const parsed = parseJsonPayload(jsonText);
@@ -1302,7 +1308,7 @@ ${table}
 	});
 
 /** Save AI-summarised feelings back onto activities by slug (subjective fields only). */
-export const saveFeelings = createServerFn({ method: 'POST' })
+export const saveFeelings = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((jsonText: string) => jsonText)
 	.handler(async ({ data: jsonText }) => {
 		const rows = feelingsRowsFrom(parseJsonPayload(jsonText));
@@ -1310,7 +1316,7 @@ export const saveFeelings = createServerFn({ method: 'POST' })
 		return applyFeelingsRows(rows);
 	});
 
-export const saveShoes = createServerFn({ method: 'POST' })
+export const saveShoes = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((d: { active: string; rotation: string[]; notes: string }) => d)
 	.handler(async ({ data }) => {
 		if (!data.active.trim()) throw new Error('Active shoes required');
@@ -1326,7 +1332,7 @@ export const saveShoes = createServerFn({ method: 'POST' })
 
 const EDITABLE = new Set(CONTEXT_FILES.map((f) => f.name));
 
-export const saveContextFile = createServerFn({ method: 'POST' })
+export const saveContextFile = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((d: { name: string; body: string }) => d)
 	.handler(async ({ data }) => {
 		const name = data.name.trim();
@@ -1450,7 +1456,7 @@ export const getPlannedRouteDetail = createServerFn({ method: 'GET' })
 		return { ...route, planLinks, activityLinks, planOptions, activityOptions };
 	});
 
-export const importPlannedRoute = createServerFn({ method: 'POST' })
+export const importPlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((d: { text: string; filename: string }) => d)
 	.handler(async ({ data }) => {
 		const route = await savePlannedFromFile(data);
@@ -1461,7 +1467,7 @@ export const importPlannedRoute = createServerFn({ method: 'POST' })
 		};
 	});
 
-export const updatePlannedRoute = createServerFn({ method: 'POST' })
+export const updatePlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((d: { slug: string; name?: string; notes?: string }) => d)
 	.handler(async ({ data }) => {
 		const route = await dbUpdatePlannedRoute(data.slug, { name: data.name, notes: data.notes });
@@ -1469,13 +1475,13 @@ export const updatePlannedRoute = createServerFn({ method: 'POST' })
 		return { slug: route.slug };
 	});
 
-export const deletePlannedRoute = createServerFn({ method: 'POST' })
+export const deletePlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((slug: string) => slug)
 	.handler(async ({ data: slug }) => {
 		return dbDeletePlannedRoute(slug);
 	});
 
-export const attachPlannedRoute = createServerFn({ method: 'POST' })
+export const attachPlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((d: { slug: string; week?: number; day?: string; activity_slug?: string }) => d)
 	.handler(async ({ data }) => {
 		if (data.activity_slug) {
@@ -1502,7 +1508,7 @@ export const attachPlannedRoute = createServerFn({ method: 'POST' })
 		return { ok: true as const };
 	});
 
-export const detachPlannedRoute = createServerFn({ method: 'POST' })
+export const detachPlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((d: { slug: string; id: number }) => d)
 	.handler(async ({ data }) => {
 		const ok = await dbDetachRouteLink(data.id, data.slug);

@@ -17,5 +17,10 @@ declare module 'cloudflare:workers' {
 		DB: D1Database;
 		DEFAULT_LAT?: string;
 		DEFAULT_LON?: string;
+		AUTH_DEV_BYPASS?: string;
+		SESSION_SECRET?: string;
+		CF_ACCESS_AUD?: string;
+		CF_ACCESS_TEAM_DOMAIN?: string;
+		CF_ACCESS_EMAIL?: string;
 	};
 }

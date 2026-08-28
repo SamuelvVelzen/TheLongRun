@@ -73,12 +73,14 @@ the server and query D1. Mutations (create / update / delete run, save context) 
 functions called from the components, followed by `router.invalidate()`.
 
 The D1 binding `DB` comes from `wrangler.jsonc`. Add activities via the **Log run** form or
-**Import GPX**.
+**Import GPX** (sign-in required in production). GET loaders are public; POST server functions
+check the session cookie.
 
 ## Deploy → `longrun.vanvelzen.dev`
 
 Push to `main`. Cloudflare builds and deploys the Worker automatically. Do not deploy from
 this machine. See **GOLIVE.md**. The Worker already has the D1 binding; no database URL.
+Viewing is public; edits go through Cloudflare Access on `/login`, then a 30-day session cookie.
 
 ## Weather
 

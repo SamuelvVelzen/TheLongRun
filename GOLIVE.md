@@ -24,10 +24,37 @@ Optional weather defaults: Worker → Settings → Variables (`DEFAULT_LAT` / `D
 
 Already on `longrun.vanvelzen.dev` (zone `vanvelzen.dev` is on Cloudflare).
 
-## Lock it to just you (Cloudflare Access)
+## Lock writes to just you (Cloudflare Access)
 
-Dashboard → **Zero Trust → Access → Applications** → self-hosted app for `longrun.vanvelzen.dev`,
-policy **Allow** your email.
+Anyone can **view**. Create / update / delete need a sign-in. Access is only the login door;
+the Worker then sets a **30-day** session cookie so you are not prompted every day.
+
+1. Create a session secret (32+ characters):
+   ```bash
+   openssl rand -base64 32
+   npx wrangler secret put SESSION_SECRET
+   ```
+2. Zero Trust → Access → Applications:
+   - If you already have an app for the whole `longrun.vanvelzen.dev` domain, **edit it**:
+     Path **`/login`**. Policy still **Allow** your email.
+   - Session duration: **1 month** (Access max). Our cookie is also 30 days, so a successful
+     `/login` lasts a month even if Access defaults to 24 hours.
+   - Additional settings → copy the **Application Audience (AUD) Tag**.
+3. Your team domain is `https://<team>.cloudflareaccess.com` (Zero Trust → Settings).
+   ```bash
+   npx wrangler secret put CF_ACCESS_AUD
+   npx wrangler secret put CF_ACCESS_TEAM_DOMAIN   # https://YOURTEAM.cloudflareaccess.com
+   # optional extra lock:
+   npx wrangler secret put CF_ACCESS_EMAIL         # your email
+   ```
+4. Push to `main` (Cloudflare deploys from that), then open
+   `https://longrun.vanvelzen.dev/login` once (full page load, not a client-side click if
+   Access is still warming up). After that, Sign in / Sign out are in the header.
+
+**Order:** set the secrets and deploy **before** you shrink Access off the rest of the site.
+Until Access only covers `/login`, the whole hostname stays private.
+
+Locally, `.dev.vars` has `AUTH_DEV_BYPASS=1` so `npm run dev` can still edit without Access.
 
 ## After a main push
 

@@ -113,7 +113,7 @@ export function SplitsPanel({
 							<h3>Heart rate zones</h3>
 							<p className={cn(ui.muted, 'text-[0.85rem]')}>
 								% of HRmax {zones.hrMax}
-								{zones.source === 'activity' && ' (from this run’s max)'}
+								{zones.source === 'activity' && ' (from this activity’s max)'}
 								{zones.source === 'profile' && ' (your HRmax)'}
 								{zones.source === 'alltime' && ' (all-time max)'}
 								{zones.avgZone != null && zones.avgHr != null && (

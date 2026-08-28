@@ -166,7 +166,7 @@ function buildPaceSeries(runs: RunRecord[]): TrendSeries | null {
 	return {
 		id: 'pace',
 		title: 'Pace',
-		subtitle: `Last ${points.length} runs with pace`,
+		subtitle: `Last ${points.length} with pace`,
 		unit: '/km',
 		points,
 		latest: formatDuration(last.value),
@@ -201,7 +201,7 @@ function buildScoreSeries(
 	return {
 		id: opts.id,
 		title: opts.title,
-		subtitle: `Last ${points.length} scored runs`,
+		subtitle: `Last ${points.length} scored`,
 		unit: '/10',
 		points,
 		latest: round1(last.value).toFixed(1).replace(/\.0$/, ''),
@@ -228,7 +228,7 @@ function buildHrSeries(runs: RunRecord[]): TrendSeries | null {
 	return {
 		id: 'hr',
 		title: 'Heart rate',
-		subtitle: `Last ${points.length} runs with HR`,
+		subtitle: `Last ${points.length} with HR`,
 		unit: 'bpm',
 		points,
 		latest: String(Math.round(last.value)),

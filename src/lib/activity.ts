@@ -53,6 +53,48 @@ export function activityPlural(sport: string | null | undefined): string {
 	}
 }
 
+/** Count label: "1 run", "21 activities", "3 strength sessions". */
+export function activityCount(n: number, sport: string | null | undefined): string {
+	if (n === 1) {
+		switch (sport) {
+			case 'run':
+				return '1 run';
+			case 'walk':
+				return '1 walk';
+			case 'ride':
+				return '1 ride';
+			case 'swim':
+				return '1 swim';
+			case 'strength':
+				return '1 strength session';
+			default:
+				return '1 activity';
+		}
+	}
+	return `${n} ${activityPlural(sport)}`;
+}
+
+/** Group caption: "21 activities · 192.5 km" (km omitted when 0 or strength-only). */
+export function activityTally(
+	n: number,
+	sport: string | null | undefined,
+	km?: number
+): string {
+	const head = activityCount(n, sport);
+	if (sport === 'strength' || km == null || km <= 0) return head;
+	return `${head} · ${km} km`;
+}
+
+/** List heading: "Recent activities" / "Runs in range". */
+export function activityListHeading(
+	sport: string | null | undefined,
+	kind: 'recent' | 'range'
+): string {
+	const noun = activityPlural(sport);
+	if (kind === 'range') return `${noun.charAt(0).toUpperCase()}${noun.slice(1)} in range`;
+	return `Recent ${noun}`;
+}
+
 export type ActivityField =
 	| 'distance'
 	| 'pace'

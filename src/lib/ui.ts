@@ -63,7 +63,7 @@ export const ui = {
 	// Selected styles use aria-* variants (not a second class): cn() does not merge
 	// conflicting utilities, so text-muted/border-transparent would otherwise win.
 	coachTab:
-		'appearance-none bg-transparent border-0 border-b-2 border-transparent -mb-px min-h-11 px-[0.9rem] py-[0.55rem] font-semibold text-muted cursor-pointer hover:text-fg active:text-fg max-sm:flex-1 max-sm:min-w-0 max-sm:px-1 max-sm:py-2 max-sm:text-[0.78rem] max-sm:text-center max-sm:leading-[1.25] aria-[selected=true]:text-fg! aria-[selected=true]:border-b-accent! data-[status=active]:text-fg! data-[status=active]:border-b-accent!',
+		'appearance-none bg-transparent border-0 border-b-2 border-transparent -mb-px min-h-11 px-[0.9rem] py-[0.55rem] font-semibold text-muted cursor-pointer hover:text-fg active:text-fg max-sm:flex-1 max-sm:min-w-0 max-sm:px-1 max-sm:py-2 max-sm:h-auto max-sm:text-[0.78rem] max-sm:text-center max-sm:leading-[1.25] max-sm:whitespace-normal aria-[selected=true]:text-fg! aria-[selected=true]:border-b-accent! data-[status=active]:text-fg! data-[status=active]:border-b-accent!',
 	coachTabActive: 'text-fg border-b-accent',
 	choiceChips: 'flex flex-wrap gap-[0.4rem]',
 	choiceChip:
@@ -77,8 +77,8 @@ export const ui = {
 	routeChip:
 		'inline-flex items-center gap-[0.3rem] max-w-full mt-2 px-[0.75rem] py-[0.28rem] rounded-full border border-[color-mix(in_srgb,var(--color-accent)_40%,var(--color-line))] bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] text-accent text-[0.85rem] font-[650] overflow-hidden text-ellipsis whitespace-nowrap hover:bg-[color-mix(in_srgb,var(--color-accent)_20%,transparent)]',
 	segToggle:
-		'inline-flex w-fit max-w-full overflow-hidden border border-line rounded-full bg-[rgba(16,20,15,0.85)]',
+		'inline-flex w-fit max-w-full overflow-x-auto overflow-y-hidden border border-line rounded-full bg-[rgba(16,20,15,0.85)] max-sm:w-full',
 	segItem:
-		'appearance-none inline-flex items-center justify-center relative w-auto min-h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted font-inherit no-underline cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out aria-[pressed=false]:hover:text-fg aria-[pressed=false]:hover:bg-[color-mix(in_srgb,var(--color-accent)_18%,transparent)] active:text-fg aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold aria-[pressed=true]:active:text-accent-ink',
+		'appearance-none inline-flex items-center justify-center relative w-auto min-h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted font-inherit no-underline cursor-pointer shrink-0 max-sm:flex-1 transition-[color,background-color,border-color] duration-150 ease-out aria-[pressed=false]:hover:text-fg aria-[pressed=false]:hover:bg-[color-mix(in_srgb,var(--color-accent)_18%,transparent)] active:text-fg aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold aria-[pressed=true]:active:text-accent-ink',
 	segItemActive: 'text-accent-ink bg-accent font-semibold'
 } as const;

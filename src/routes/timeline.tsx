@@ -8,6 +8,7 @@ import { buildTrainingTrends } from '$lib/trends';
 import {
 	activityLabel,
 	activityPlural,
+	activityTally,
 	hasContext,
 	metricText,
 	normalizeActivityType,
@@ -173,7 +174,7 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 							trends={trends}
 							caption={
 								range.kind === 'all'
-									? 'Progress over recent weeks and runs'
+									? 'Progress over recent weeks'
 									: `Within ${range.label.toLowerCase()}`
 							}
 						/>
@@ -193,9 +194,7 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 							<div className={ui.sectionTitle}>
 								<div>
 									<h2>{group.label}</h2>
-									<p>
-										{group.runs.length} runs · {group.totalKm} km
-									</p>
+									<p>{activityTally(group.runs.length, sport, group.totalKm)}</p>
 								</div>
 							</div>
 
@@ -289,7 +288,7 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 												onSubmit={(e) => e.preventDefault()}
 											>
 												<DeleteButton
-													label={`Delete run ${run.date}`}
+													label={`Delete ${activityLabel(run.activity_type).toLowerCase()} ${run.date}`}
 													onClick={(e) => {
 														e.preventDefault();
 														setPending(run);

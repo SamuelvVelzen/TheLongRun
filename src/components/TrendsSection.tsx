@@ -13,7 +13,7 @@ type Props = {
 export function TrendsSection({
 	trends,
 	heading = 'Trends',
-	caption = 'Progress over recent weeks and runs'
+	caption = 'Progress over recent weeks'
 }: Props) {
 	const [activeBar, setActiveBar] = useState<number | null>(null);
 	const [barPinned, setBarPinned] = useState(false);

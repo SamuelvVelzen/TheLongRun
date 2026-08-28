@@ -8,8 +8,7 @@ function range(min: number, max: number): number[] {
 }
 
 const feelChip =
-	'flex-[1_1_2.5rem] min-w-11 min-h-11 inline-flex items-center justify-center p-0 border border-line rounded-[10px] bg-black/25 text-muted font-inherit tabular-nums cursor-pointer transition-[border-color,color,background-color] duration-150 ease-out hover:border-accent active:border-accent';
-const feelChipActive = 'border-accent bg-accent text-accent-ink font-semibold';
+	'flex-[1_1_2.5rem] min-w-11 min-h-11 inline-flex items-center justify-center p-0 border border-line rounded-[10px] bg-black/25 text-muted font-inherit tabular-nums cursor-pointer transition-[border-color,color,background-color] duration-150 ease-out hover:border-accent active:border-accent aria-[pressed=true]:border-accent! aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:font-semibold';
 
 /** Tappable 0–10 / 1–10 scores; posts the same hidden field name as the old number input. */
 export function FeelChips({
@@ -41,7 +40,7 @@ export function FeelChips({
 						<button
 							key={n}
 							type="button"
-							className={cn(feelChip, active && feelChipActive)}
+							className={feelChip}
 							aria-pressed={active}
 							onClick={() => setValue(active ? '' : String(n))}
 						>
@@ -80,7 +79,7 @@ export function WantedFasterChips({
 						<button
 							key={opt.v || 'unset'}
 							type="button"
-							className={cn(feelChip, active && feelChipActive)}
+							className={feelChip}
 							aria-pressed={active}
 							onClick={() => setValue(opt.v)}
 						>

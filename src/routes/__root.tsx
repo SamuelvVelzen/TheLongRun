@@ -1,9 +1,9 @@
-import '../app.css';
-import type { MouseEvent, ReactNode } from 'react';
-import { Outlet, createRootRoute, HeadContent, Scripts, Link } from '@tanstack/react-router';
 import { AuthProvider, SignInLink, useAuthed } from '$lib/auth';
 import { getAuthState } from '$lib/server/functions';
 import { cn } from '$lib/ui';
+import { createRootRoute, HeadContent, Link, Outlet, Scripts } from '@tanstack/react-router';
+import type { MouseEvent, ReactNode } from 'react';
+import '../app.css';
 
 export const Route = createRootRoute({
 	head: () => ({
@@ -42,16 +42,16 @@ const tabs = [
 ] as const;
 
 const navLink =
-	'inline-flex items-center min-h-11 px-3 py-[0.45rem] rounded-full text-muted whitespace-nowrap transition-colors duration-150 hover:text-fg hover:bg-panel data-[status=active]:text-fg data-[status=active]:bg-panel';
+	'inline-flex items-center min-h-11 px-3 py-[0.45rem] rounded-full text-muted whitespace-nowrap transition-colors duration-150 hover:text-fg hover:bg-panel data-[status=active]:text-fg! data-[status=active]:bg-panel!';
 const navCoach =
-	'inline-flex items-center min-h-11 px-3 py-[0.45rem] rounded-full text-accent whitespace-nowrap transition-colors duration-150 hover:text-accent-ink hover:bg-accent data-[status=active]:text-accent-ink data-[status=active]:bg-accent';
+	'inline-flex items-center min-h-11 px-3 py-[0.45rem] rounded-full text-muted whitespace-nowrap transition-colors duration-150 hover:text-fg hover:bg-panel data-[status=active]:text-accent-ink! data-[status=active]:bg-accent!';
 const navAuth =
 	'inline-flex items-center justify-center size-11 shrink-0 rounded-full text-muted transition-colors duration-150 hover:text-fg hover:bg-panel';
 const tabItem =
-	'group flex-1 flex flex-col items-center justify-center gap-[0.12rem] min-w-0 min-h-11 p-[0.2rem_0.15rem] rounded-xl text-muted bg-transparent cursor-pointer transition-colors duration-150 hover:text-fg active:text-fg data-[status=active]:text-accent data-[status=active]:hover:text-accent';
+	'group flex-1 flex flex-col items-center justify-center gap-[0.12rem] min-w-0 min-h-11 p-[0.2rem_0.15rem] rounded-xl text-muted bg-transparent cursor-pointer transition-colors duration-150 hover:text-fg active:text-fg data-[status=active]:text-accent! data-[status=active]:hover:text-accent';
 const tabItemPrimary = cn(tabItem, 'text-accent');
 const tabMoreLink =
-	'flex items-center min-h-11 px-[0.9rem] py-[0.55rem] rounded-xl text-muted transition-colors duration-150 hover:text-fg hover:bg-panel data-[status=active]:text-fg data-[status=active]:bg-panel active:text-fg active:bg-panel';
+	'flex items-center min-h-11 px-[0.9rem] py-[0.55rem] rounded-xl text-muted transition-colors duration-150 hover:text-fg hover:bg-panel data-[status=active]:text-fg! data-[status=active]:bg-panel! active:text-fg active:bg-panel';
 
 function closeDetails(e: MouseEvent<HTMLElement>) {
 	const details = e.currentTarget.closest('details');
@@ -91,7 +91,7 @@ function RootShell() {
 								key={l.href}
 								to={l.href}
 								className={l.href === '/coach' ? navCoach : navLink}
-								activeOptions={{ exact: l.href === '/' }}
+								activeOptions={{ exact: l.href === '/', includeSearch: false }}
 							>
 								{l.label}
 							</Link>
@@ -112,13 +112,13 @@ function RootShell() {
 							key={tab.href}
 							to={tab.href}
 							className={tab.primary ? tabItemPrimary : tabItem}
-							activeOptions={{ exact: tab.href === '/' }}
+							activeOptions={{ exact: tab.href === '/', includeSearch: false }}
 						>
 							<span
 								className={cn(
 									'flex items-center justify-center size-6 leading-[0]',
 									tab.primary &&
-										'size-11 -mt-[1.15rem] rounded-full bg-accent text-accent-ink shadow-[0_8px_18px_rgba(0,0,0,0.35)] group-data-[status=active]:shadow-[0_0_0_3px_rgba(200,242,90,0.22),0_8px_18px_rgba(0,0,0,0.35)]'
+									'size-11 -mt-[1.15rem] rounded-full bg-accent text-accent-ink shadow-[0_8px_18px_rgba(0,0,0,0.35)] group-data-[status=active]:shadow-[0_0_0_3px_rgba(200,242,90,0.22),0_8px_18px_rgba(0,0,0,0.35)]'
 								)}
 							>
 								<TabIcon name={tab.icon} />
@@ -144,7 +144,13 @@ function RootShell() {
 						/>
 						<div className="fixed left-3 right-3 bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] z-[41] grid gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">
 							{extra.map((l) => (
-								<Link key={l.href} to={l.href} className={tabMoreLink} onClick={closeDetails}>
+								<Link
+									key={l.href}
+									to={l.href}
+									className={tabMoreLink}
+									activeOptions={{ includeSearch: false }}
+									onClick={closeDetails}
+								>
 									{l.label}
 								</Link>
 							))}

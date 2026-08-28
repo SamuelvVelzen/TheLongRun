@@ -1,5 +1,6 @@
 import {
     activityLabel,
+    activityListHeading,
     activityPlural,
     hasContext,
     metricText,
@@ -132,7 +133,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 	if (search.from) sp.set('from', search.from);
 	if (search.to) sp.set('to', search.to);
 	const range = parseDateRange(sp);
-	const sport = search.sport ?? 'run';
+	const sport = search.sport ?? 'all';
 	const country = search.country ?? 'all';
 	const province = search.province ?? 'all';
 	const place = search.place ?? 'all';
@@ -166,7 +167,9 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 			m[id] = {
 				slug: run.slug,
 				title: `${run.date} · ${activityLabel(run.activity_type)}`,
-				sub: `${run.distance_km ?? '—'} km · ${metricText(run)}`
+				sub: showsField(run.activity_type, 'distance')
+					? `${run.distance_km ?? '—'} km · ${metricText(run)}`
+					: metricText(run)
 			};
 		}
 		return m;
@@ -301,7 +304,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 			)}
 
 			<FilterSheet summary={filterSummary(sport, range, { country, province, place })}>
-				<SportFilter sport={sport} to="/" available={availableSports} />
+				<SportFilter sport={sport} to="/" defaultSport="all" available={availableSports} />
 				<DateRangeFilter range={range} to="/" />
 				<PlaceFilter to="/" runs={allRuns} country={country} province={province} place={place} />
 			</FilterSheet>
@@ -357,7 +360,9 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 									<span className={cn(statsLabel, 'text-muted')}>This month</span>
 									<strong className={cn(statsValue, 'text-[1.35rem] max-sm:text-[1.2rem]')}>
 										{stats.monthRuns}
-										<span className={statsUnit}> · {stats.monthKm} km</span>
+										{stats.monthKm > 0 && (
+											<span className={statsUnit}> · {stats.monthKm} km</span>
+										)}
 									</strong>
 								</div>
 								<div className={statsItem}>
@@ -371,8 +376,12 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 						)}
 					</section>
 					<p className={cn('mb-7 text-[0.88rem]', ui.muted)}>
-						Shins {shinLabel(stats)}
-						<span aria-hidden="true"> · </span>
+						{(sport === 'all' || sport === 'run' || sport === 'walk') && (
+							<>
+								Shins {shinLabel(stats)}
+								<span aria-hidden="true"> · </span>
+							</>
+						)}
 						Session streak {stats.streak || '—'}
 						<span aria-hidden="true"> · </span>
 						{stats.mappedRuns}/{stats.runCount} mapped
@@ -384,7 +393,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 							caption={
 								rangeActive
 									? `Within ${range.label.toLowerCase()}`
-									: 'Progress over recent weeks and runs'
+									: 'Progress over recent weeks'
 							}
 						/>
 					)}
@@ -392,12 +401,16 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 					<section className="mb-1" aria-labelledby="routes-heading">
 						<div className={cn(ui.sectionTitle, 'mt-2')}>
 							<div>
-								<h2 id="routes-heading">{rangeActive ? 'Routes in range' : 'All routes'}</h2>
+								<h2 id="routes-heading">
+									{rangeActive || sport !== 'all' || locationActive
+										? 'Routes in view'
+										: 'All routes'}
+								</h2>
 								<p>
 									{tracks.length
 										? `${tracks.length} tracks overlaid · overlaps glow brighter`
-										: rangeActive
-											? 'No GPS routes in this range'
+										: rangeActive || sport !== 'all' || locationActive
+											? 'No GPS routes in this view'
 											: 'Heatmap appears when GPS routes are imported'}
 								</p>
 							</div>
@@ -407,13 +420,23 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 
 					<div className={ui.sectionTitle}>
 						<div>
-							<h2>{rangeActive ? 'Runs in range' : 'Recent runs'}</h2>
+							<h2>{activityListHeading(sport, rangeActive ? 'range' : 'recent')}</h2>
 							<p>
 								{stats.runCount} {rangeActive ? `in ${range.label.toLowerCase()}` : 'total'}
 							</p>
 						</div>
 						<div className={ui.actions}>
-							<Link className={ui.btnGhost} to="/timeline" search={timelineSearch}>
+							<Link
+								className={ui.btnGhost}
+								to="/timeline"
+								search={{
+									...timelineSearch,
+									sport: sport === 'all' ? undefined : sport,
+									country: country === 'all' ? undefined : country,
+									province: province === 'all' ? undefined : province,
+									place: place === 'all' ? undefined : place
+								}}
+							>
 								Full timeline
 							</Link>
 							<Link className={ui.btnGhost} to="/import">
@@ -450,10 +473,17 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 										)}
 										{hasContext(run) && <FeelBadge />}
 									</strong>
-									<div className="font-[650] tracking-[-0.02em] max-sm:text-[0.95rem]">
-										{showsField(run.activity_type, 'distance')
-											? `${run.distance_km ?? '—'} km · ${metricText(run)}`
-											: metricText(run)}
+									<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.2rem] font-[650] tracking-[-0.02em] max-sm:text-[0.95rem]">
+										{sport === 'all' && (
+											<span className={cn(ui.tag, ui.tagAccent)}>
+												{activityLabel(run.activity_type)}
+											</span>
+										)}
+										<span>
+											{showsField(run.activity_type, 'distance')
+												? `${run.distance_km ?? '—'} km · ${metricText(run)}`
+												: metricText(run)}
+										</span>
 									</div>
 									<div className={cn(ui.muted, 'text-[0.8rem] max-sm:text-[0.76rem]')}>
 										{compactRunSub(run)}
@@ -462,7 +492,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 							))
 						) : (
 							<div className={cn(ui.panel, ui.muted)}>
-								No runs yet. Import a file or log one manually.
+								No {activityPlural(sport)} yet. Import a file or log one manually.
 							</div>
 						)}
 					</div>

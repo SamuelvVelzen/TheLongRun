@@ -18,7 +18,7 @@ export function RoutesHeatmap({
 	meta = {},
 	focusIds = [],
 	detailPath = '/runs/$slug',
-	emptyText = 'No GPS routes yet — import a FIT or link a Strava route.',
+	emptyText = 'No GPS routes yet — import a GPX or attach a route.',
 	onRouteClick
 }: {
 	tracks: RouteTrack[];

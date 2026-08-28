@@ -13,6 +13,7 @@ import {
     type RangeKind
 } from '$lib/date-range';
 import { buildDashboardStats, type DashboardStats } from '$lib/plan';
+import { SignInLink, useAuthed } from '$lib/auth';
 import { getDashboardData } from '$lib/server/functions';
 import { buildTrainingTrends } from '$lib/trends';
 import { cn, ui } from '$lib/ui';
@@ -94,24 +95,28 @@ function shinLabel(s: DashboardStats) {
 
 function Dashboard() {
 	const { page } = Route.useLoaderData();
+	const authed = useAuthed();
 	return (
 		<>
 			<section className={cn(ui.hero, ui.heroHome)}>
 				<div>
-					<p className={ui.muted}>Personal training desk · no accounts</p>
+					<p className={ui.muted}>Personal training desk</p>
 					<h1>The Long Run</h1>
 					<p>
-						After a run: import the GPX in Coach, paste ChatGPT’s debrief, and the next session
-						stays current. Stats and maps live here.
+						Stats, maps, and this week’s plan live here. After a race, debrief in Coach.
 					</p>
 				</div>
 				<div className={ui.actions}>
-					<Link className={ui.btnPrimary} to="/coach" search={{ tab: 'debrief' }}>
+					<Link className={ui.btnPrimary} to="/coach">
 						Coach
 					</Link>
-					<Link className={ui.btnGhost} to="/import">
-						Add activity
-					</Link>
+					{authed ? (
+						<Link className={ui.btnGhost} to="/import">
+							Add activity
+						</Link>
+					) : (
+						<SignInLink className={ui.btnGhost}>Sign in to edit</SignInLink>
+					)}
 				</div>
 			</section>
 			<DeferredData promise={page}>{(data) => <DashboardBody data={data} />}</DeferredData>

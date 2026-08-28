@@ -1,3 +1,4 @@
+import { useAuthed } from '$lib/auth';
 import { activityLabel } from '$lib/activity';
 import { attachPlannedRoute, detachPlannedRoute } from '$lib/server/functions';
 import type {
@@ -37,6 +38,7 @@ export function RouteAttach({
 	activityOptions: ActivityAttachOption[];
 }) {
 	const router = useRouter();
+	const authed = useAuthed();
 	const [query, setQuery] = useState('');
 	const [busy, setBusy] = useState(false);
 	const [message, setMessage] = useState('');
@@ -99,6 +101,7 @@ export function RouteAttach({
 											{link.distance_km != null ? ` · ${link.distance_km} km` : ''}
 										</div>
 									</div>
+									{authed && (
 									<button
 										className={cn(ui.btnGhost, ui.btnDanger, 'shrink-0 min-h-9 px-[0.8rem] py-1.5')}
 										type="button"
@@ -113,13 +116,14 @@ export function RouteAttach({
 									>
 										Remove
 									</button>
+									)}
 								</div>
 							))}
 						</div>
 					) : (
 						<p className={cn(ui.muted, 'm-0 mb-[0.65rem] text-[0.92rem]')}>Not on a plan day yet.</p>
 					)}
-					{planOptions.length > 0 && (
+					{authed && planOptions.length > 0 && (
 						<label className={ui.field}>
 							<span>Add a plan day</span>
 							<select
@@ -168,6 +172,7 @@ export function RouteAttach({
 											{link.distance_km != null ? ` · ${link.distance_km} km` : ''}
 										</div>
 									</Link>
+									{authed && (
 									<button
 										className={cn(ui.btnGhost, ui.btnDanger, 'shrink-0 min-h-9 px-[0.8rem] py-1.5')}
 										type="button"
@@ -182,6 +187,7 @@ export function RouteAttach({
 									>
 										Remove
 									</button>
+									)}
 								</div>
 							))}
 						</div>
@@ -190,7 +196,7 @@ export function RouteAttach({
 							Not linked to a logged activity yet.
 						</p>
 					)}
-					{activityOptions.length > 0 && (
+					{authed && activityOptions.length > 0 && (
 						<div className="grid gap-[0.65rem]">
 							<label className={ui.field}>
 								<span>Find an activity</span>

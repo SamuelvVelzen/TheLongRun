@@ -1,12 +1,11 @@
+import { useAuthed } from '$lib/auth';
 import { PLAN_WEEK_COUNT, planWeekIndex, weekToPlan } from '$lib/plan';
 import {
     getCoachBrief,
     getCurrentWeekView,
     getDebriefPrompt,
-    getFeelingsPrompt,
     getWeekPattern,
     saveDebrief,
-    saveFeelings,
     savePlanWeeks,
     saveWeekPattern
 } from '$lib/server/functions';
@@ -29,7 +28,7 @@ import {
     type SlotRow
 } from '../components/WeekPatternEditor';
 
-type CoachTab = 'training' | 'debrief' | 'plan' | 'feelings';
+type CoachTab = 'training' | 'debrief' | 'plan' | 'generate';
 type CoachSearch = { weeks?: number; tab?: CoachTab; slug?: string };
 
 const ALL_TIME_WEEKS = 520;
@@ -51,8 +50,14 @@ function defaultQuestion(phrase: 'this week' | 'next week'): string {
 }
 
 function parseTab(v: unknown): CoachTab {
-	if (v === 'training' || v === 'plan' || v === 'feelings' || v === 'debrief') return v;
-	return 'debrief';
+	if (v === 'training' || v === 'plan' || v === 'generate' || v === 'debrief') return v;
+	return 'training';
+}
+
+function visibleTab(tab: CoachTab | undefined, authed: boolean): CoachTab {
+	const next = tab ?? 'training';
+	if ((next === 'debrief' || next === 'generate') && !authed) return 'training';
+	return next;
 }
 
 type DebriefPrompt = Awaited<ReturnType<typeof getDebriefPrompt>>;
@@ -88,7 +93,8 @@ function Coach() {
 	const { page } = Route.useLoaderData();
 	const search = Route.useSearch();
 	const router = useRouter();
-	const tab = search.tab ?? 'debrief';
+	const authed = useAuthed();
+	const tab = visibleTab(search.tab, authed);
 	const weekPhrase = planWeekPhrase();
 
 	function setTab(next: CoachTab) {
@@ -104,11 +110,11 @@ function Coach() {
 		<>
 			<section className={ui.hero}>
 				<div>
-					<p className={ui.muted}>After a run · then {weekPhrase}</p>
+					<p className={ui.muted}>{weekPhrase.charAt(0).toUpperCase() + weekPhrase.slice(1)}</p>
 					<h1>Coach</h1>
 					<p>
-						Import the GPX, copy the debrief prompt into ChatGPT with your Strava screenshots and
-						how it felt, then paste the JSON back. Next session on the dashboard is up to date.
+						Usual week and the plan toward the race. After a race, debrief so the next sessions stay
+						current.
 					</p>
 				</div>
 			</section>
@@ -126,30 +132,34 @@ function Coach() {
 				<button
 					type="button"
 					role="tab"
-					aria-selected={tab === 'debrief'}
-					className={cn(ui.coachTab, tab === 'debrief' && ui.coachTabActive)}
-					onClick={() => setTab('debrief')}
-				>
-					After a run
-				</button>
-				<button
-					type="button"
-					role="tab"
 					aria-selected={tab === 'plan'}
 					className={cn(ui.coachTab, tab === 'plan' && ui.coachTabActive)}
 					onClick={() => setTab('plan')}
 				>
 					Plan
 				</button>
-				<button
-					type="button"
-					role="tab"
-					aria-selected={tab === 'feelings'}
-					className={cn(ui.coachTab, tab === 'feelings' && ui.coachTabActive)}
-					onClick={() => setTab('feelings')}
-				>
-					Review
-				</button>
+				{authed && (
+					<button
+						type="button"
+						role="tab"
+						aria-selected={tab === 'generate'}
+						className={cn(ui.coachTab, tab === 'generate' && ui.coachTabActive)}
+						onClick={() => setTab('generate')}
+					>
+						Generate
+					</button>
+				)}
+				{authed && (
+					<button
+						type="button"
+						role="tab"
+						aria-selected={tab === 'debrief'}
+						className={cn(ui.coachTab, tab === 'debrief' && ui.coachTabActive)}
+						onClick={() => setTab('debrief')}
+					>
+						After a race
+					</button>
+				)}
 			</div>
 			<DeferredData promise={page}>
 				{(data) => (
@@ -176,7 +186,8 @@ function CoachPanels({
 	const search = Route.useSearch();
 	const router = useRouter();
 	const weeks = search.weeks ?? ALL_TIME_WEEKS;
-	const tab = search.tab ?? 'debrief';
+	const authed = useAuthed();
+	const tab = visibleTab(search.tab, authed);
 	const slug = search.slug ?? '';
 
 	const [question, setQuestion] = useState(() => defaultQuestion(planWeekPhrase()));
@@ -190,14 +201,6 @@ function CoachPanels({
 	const [debriefJson, setDebriefJson] = useState('');
 	const [debriefMsg, setDebriefMsg] = useState('');
 	const [debriefCopied, setDebriefCopied] = useState(false);
-
-	const [feelWeeks, setFeelWeeks] = useState(1);
-	const [feelPrompt, setFeelPrompt] = useState('');
-	const [feelCount, setFeelCount] = useState<number | null>(null);
-	const [feelBusy, setFeelBusy] = useState(false);
-	const [feelCopied, setFeelCopied] = useState(false);
-	const [feelJson, setFeelJson] = useState('');
-	const [feelMsg, setFeelMsg] = useState('');
 
 	const [usual, setUsual] = useState<SlotRow[]>(() => rowsFrom(initialPattern));
 	const [savedPattern, setSavedPattern] = useState<WeekPattern>(initialPattern);
@@ -235,45 +238,6 @@ function CoachPanels({
 			cancelled = true;
 		};
 	}, [slug]);
-
-	async function generateFeelPrompt() {
-		setFeelBusy(true);
-		setFeelMsg('');
-		try {
-			const res = await getFeelingsPrompt({ data: { scope: 'window', weeks: feelWeeks } });
-			setFeelPrompt(res.prompt);
-			setFeelCount(res.count);
-		} catch (e) {
-			setFeelMsg(e instanceof Error ? e.message : 'Could not build the prompt.');
-		} finally {
-			setFeelBusy(false);
-		}
-	}
-
-	async function copyFeelPrompt() {
-		try {
-			await navigator.clipboard.writeText(feelPrompt);
-			setFeelCopied(true);
-			setTimeout(() => setFeelCopied(false), 1800);
-		} catch {
-			/* ignore */
-		}
-	}
-
-	async function saveFeel() {
-		setFeelMsg('Saving…');
-		try {
-			const res = await saveFeelings({ data: feelJson });
-			const miss = res.missing.length ? ` (${res.missing.length} slug(s) not found)` : '';
-			setFeelMsg(
-				`Saved feelings to ${res.updated} activit${res.updated === 1 ? 'y' : 'ies'}${miss}.`
-			);
-			setFeelJson('');
-			router.invalidate();
-		} catch (e) {
-			setFeelMsg(e instanceof Error ? e.message : 'Could not save feelings.');
-		}
-	}
 
 	async function savePlan() {
 		setPlanMsg('Saving…');
@@ -393,16 +357,18 @@ function CoachPanels({
 							Day and sport only — the AI chooses easy / quality / long / etc. plus distance.
 							Saved default is {formatPatternProse(savedPattern)}.
 						</span>
-						<WeekPatternEditor
-							rows={usual}
-							disabled={mixBusy}
-							onChange={(rows) => {
-								setUsual(rows);
-								setMixSaveMsg('');
-							}}
-						/>
+						{authed ? (
+							<WeekPatternEditor
+								rows={usual}
+								disabled={mixBusy}
+								onChange={(rows) => {
+									setUsual(rows);
+									setMixSaveMsg('');
+								}}
+							/>
+						) : null}
 					</div>
-					{(mixDirty || mixBusy || mixSaveMsg) && (
+					{authed && (mixDirty || mixBusy || mixSaveMsg) && (
 						<div className="mt-[0.35rem]">
 							{(mixDirty || mixBusy) && (
 								<div className={ui.actions}>
@@ -441,8 +407,8 @@ function CoachPanels({
 						<li className={run ? 'done' : 'current'}>
 							<strong>1. Import the GPX</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
-								Download from Strava, then drop it here. ChatGPT can wait — the prompt needs this
-								run in the app first.
+								Download from Strava, then drop it here. The race needs to be in the app before the
+								prompt.
 							</span>
 							{run && (
 								<p className="mt-[0.45rem] mb-0 font-semibold max-sm:[overflow-wrap:anywhere]">
@@ -456,19 +422,23 @@ function CoachPanels({
 								</p>
 							)}
 							<div className={cn(ui.panel, ui.form, 'mt-3')}>
-								<GpxImport
-									onImported={(ok) => {
-										const last = ok[ok.length - 1];
-										if (last?.slug) {
-											router.navigate({
-												to: '/coach',
-												search: { tab: 'debrief', slug: last.slug, weeks: search.weeks },
-												replace: true,
-												resetScroll: false
-											});
-										}
-									}}
-								/>
+								{authed ? (
+									<GpxImport
+										onImported={(ok) => {
+											const last = ok[ok.length - 1];
+											if (last?.slug) {
+												router.navigate({
+													to: '/coach',
+													search: { tab: 'debrief', slug: last.slug, weeks: search.weeks },
+													replace: true,
+													resetScroll: false
+												});
+											}
+										}}
+									/>
+								) : (
+									<p className={cn(ui.muted, 'm-0')}>Sign in to import a GPX.</p>
+								)}
 							</div>
 							<p className={cn(ui.muted, 'mt-2')}>
 								No GPS?{' '}
@@ -482,7 +452,7 @@ function CoachPanels({
 							<strong>2. Copy the prompt</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
 								In ChatGPT: attach the Strava general + pace screenshots, paste this, and say how
-								the run felt.
+								the race felt.
 							</span>
 							{debrief.error && !debriefPrompt && (
 								<p className={cn(ui.muted, 'mt-[0.4rem]')}>{debrief.error}</p>
@@ -508,8 +478,9 @@ function CoachPanels({
 						<li>
 							<strong>3. Paste ChatGPT’s JSON</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
-								Feelings for this run plus the updated rest of the week. Days can change.
+								Feelings for this race plus the updated rest of the week. Days can change.
 							</span>
+							{authed ? (
 							<div className={cn(ui.panel, ui.form, 'mt-3')}>
 								{debriefMsg && <div className={ui.flash}>{debriefMsg}</div>}
 								<label className={ui.field}>
@@ -532,6 +503,7 @@ function CoachPanels({
 									</button>
 								</div>
 							</div>
+							) : null}
 						</li>
 					</ol>
 				</>
@@ -544,6 +516,23 @@ function CoachPanels({
 					) : (
 						<p className={cn(ui.muted, 'mt-0 mb-4')}>No week plan saved yet.</p>
 					)}
+					{authed && (
+						<p className={cn(ui.muted, 'mt-3 mb-0')}>
+							<Link
+								className="text-accent font-semibold"
+								to="/coach"
+								search={{ tab: 'generate', weeks: search.weeks }}
+							>
+								Generate {weekPhrase}
+							</Link>
+							.
+						</p>
+					)}
+				</>
+			)}
+
+			{tab === 'generate' && authed && (
+				<>
 					<div className={cn(ui.panel, ui.form, 'mb-4')}>
 						<div className={ui.field}>
 							<span>History window</span>
@@ -554,7 +543,7 @@ function CoachPanels({
 								onChange={(value) =>
 									router.navigate({
 										to: '/coach',
-										search: { tab: 'plan', weeks: Number(value) },
+										search: { tab: 'generate', weeks: Number(value) },
 										replace: true,
 										resetScroll: false
 									})
@@ -715,91 +704,6 @@ function CoachPanels({
 								disabled={!planJson.trim()}
 							>
 								Add to plan
-							</button>
-						</div>
-					</div>
-				</>
-			)}
-
-			{tab === 'feelings' && (
-				<>
-					<div className={cn(ui.panel, ui.form, 'mb-4')}>
-						<p className={cn(ui.muted, 'mt-0')}>
-							End-of-week dump from a long ChatGPT thread. If you debriefed each run already, you
-							can skip this.
-						</p>
-						<div className={ui.field}>
-							<span>Duration</span>
-							<ChoiceChips
-								aria-label="Duration"
-								value={String(feelWeeks)}
-								options={[1, 2, 3, 4, 6, 8].map((w) => ({
-									value: String(w),
-									label: `${w} week${w === 1 ? '' : 's'}`
-								}))}
-								onChange={(value) => setFeelWeeks(Number(value))}
-							/>
-						</div>
-						<div className={ui.actions}>
-							<button
-								className={ui.btnPrimary}
-								type="button"
-								onClick={generateFeelPrompt}
-								disabled={feelBusy}
-							>
-								{feelBusy ? 'Building…' : 'Generate prompt'}
-							</button>
-							{feelPrompt && (
-								<button className={ui.btnGhost} type="button" onClick={copyFeelPrompt}>
-									{feelCopied ? 'Copied' : 'Copy prompt'}
-								</button>
-							)}
-							{feelCount != null && (
-								<span className={cn(ui.muted, 'self-center')}>
-									{feelCount} activit{feelCount === 1 ? 'y' : 'ies'}
-								</span>
-							)}
-						</div>
-					</div>
-
-					{feelPrompt && (
-						<div className={cn(ui.panel, ui.form)}>
-							<h3>Prompt (editable — tweak before you copy)</h3>
-							<label className={cn(ui.field, 'mt-2')}>
-								<textarea
-									className={ui.editor}
-									rows={14}
-									value={feelPrompt}
-									onChange={(e) => setFeelPrompt(e.target.value)}
-								/>
-							</label>
-						</div>
-					)}
-
-					<div className={cn(ui.panel, ui.form, 'mt-4')}>
-						<h3>Save the feelings</h3>
-						<p className={cn(ui.muted, 'mt-[0.3rem]')}>
-							Paste the JSON block — feelings are written onto each activity by slug. Device data is
-							never touched.
-						</p>
-						{feelMsg && <div className={ui.flash}>{feelMsg}</div>}
-						<label className={ui.field}>
-							<textarea
-								className={ui.editor}
-								rows={8}
-								placeholder='{ "activities": [ { "slug": "…", "shins": 3, "notes": "…" } ] }'
-								value={feelJson}
-								onChange={(e) => setFeelJson(e.target.value)}
-							/>
-						</label>
-						<div className={ui.actions}>
-							<button
-								className={ui.btnPrimary}
-								type="button"
-								onClick={saveFeel}
-								disabled={!feelJson.trim()}
-							>
-								Save feelings
 							</button>
 						</div>
 					</div>

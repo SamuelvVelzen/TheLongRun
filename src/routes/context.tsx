@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
+import { useAuthed } from '$lib/auth';
 import { getContextData, saveShoes, saveContextFile } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import { DeferredData } from '../components/DeferredData';
@@ -27,6 +28,7 @@ function Context() {
 
 function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>> }) {
 	const router = useRouter();
+	const authed = useAuthed();
 
 	const [copied, setCopied] = useState<string | null>(null);
 	const [copyError, setCopyError] = useState('');
@@ -104,6 +106,7 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 			{saveFlash && <div className={cn(ui.flash, ui.flashOk)}>Saved {saveFlash}</div>}
 			{message && <div className={ui.flash}>{message}</div>}
 
+			{authed ? (
 			<form className={cn(ui.panel, ui.form, 'mb-5')} method="POST" onSubmit={onSaveShoes}>
 				<h2>Current shoes</h2>
 				<div className={cn(ui.formGrid, 'mt-[0.8rem]')}>
@@ -124,6 +127,16 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 					Update shoes
 				</button>
 			</form>
+			) : (
+				<div className={cn(ui.panel, 'mb-5')}>
+					<h2>Current shoes</h2>
+					<p className="mt-[0.8rem] mb-0">
+						<strong>{data.shoes.active || '—'}</strong>
+						{data.shoes.rotation.length ? ` · ${data.shoes.rotation.join(', ')}` : ''}
+					</p>
+					{data.shoes.notes ? <p className={cn(ui.muted, 'mt-2 mb-0')}>{data.shoes.notes}</p> : null}
+				</div>
+			)}
 
 			<div className={ui.grid}>
 				{data.files.map((file) => (
@@ -150,7 +163,7 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 							>
 								{copied === file.name ? 'Copied' : 'Copy'}
 							</button>
-							{editing !== file.name && (
+							{authed && editing !== file.name && (
 								<button
 									className={ui.btnGhost}
 									type="button"

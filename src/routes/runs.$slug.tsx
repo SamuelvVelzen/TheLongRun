@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createFileRoute, notFound, useRouter } from '@tanstack/react-router';
+import { useAuthed } from '$lib/auth';
 import {
 	getRunDetail,
 	updateRun,
@@ -60,6 +61,7 @@ function InlineText({
 	numeric = false,
 	datalistId,
 	options,
+	editable = true,
 	onSave
 }: {
 	label: string;
@@ -69,6 +71,7 @@ function InlineText({
 	numeric?: boolean;
 	datalistId?: string;
 	options?: string[];
+	editable?: boolean;
 	onSave: (v: string) => Promise<void>;
 }) {
 	const [editing, setEditing] = useState(false);
@@ -89,6 +92,7 @@ function InlineText({
 		return (
 			<div className={cn('flex flex-col gap-[0.28rem] min-w-0', multiline && 'col-span-full')}>
 				<span className={cn(ui.muted, 'text-[0.72rem] uppercase tracking-[0.05em]')}>{label}</span>
+				{editable ? (
 				<button
 					type="button"
 					className="flex items-center justify-between gap-2 w-full min-h-11 text-left bg-white/[0.03] border border-line rounded-lg p-[0.5rem_0.65rem] text-inherit font-inherit cursor-pointer hover:border-accent hover:bg-[rgba(200,242,90,0.06)] active:border-accent group/qv"
@@ -110,6 +114,15 @@ function InlineText({
 						✎
 					</span>
 				</button>
+				) : (
+					<div className="w-full min-h-11 text-left bg-white/[0.03] border border-line rounded-lg p-[0.5rem_0.65rem]">
+						{value ? (
+							<span className="whitespace-pre-wrap break-words">{value}</span>
+						) : (
+							<span className={ui.muted}>—</span>
+						)}
+					</div>
+				)}
 			</div>
 		);
 	}
@@ -178,12 +191,14 @@ function FeelTile({
 	value,
 	min,
 	max,
+	editable = true,
 	onSave
 }: {
 	label: string;
 	value: number | null;
 	min: number;
 	max: number;
+	editable?: boolean;
 	onSave: (v: number | null) => void;
 }) {
 	const [editing, setEditing] = useState(false);
@@ -227,10 +242,14 @@ function FeelTile({
 			className={cn(
 				ui.metric,
 				ui.metricEmph,
-				'block w-full text-left font-inherit text-inherit cursor-pointer hover:border-accent hover:bg-[rgba(200,242,90,0.1)] active:border-accent active:bg-[rgba(200,242,90,0.1)]'
+				'block w-full text-left font-inherit text-inherit',
+				editable &&
+					'cursor-pointer hover:border-accent hover:bg-[rgba(200,242,90,0.1)] active:border-accent active:bg-[rgba(200,242,90,0.1)]'
 			)}
-			title="Click to edit"
+			title={editable ? 'Click to edit' : undefined}
+			disabled={!editable}
 			onClick={() => {
+				if (!editable) return;
 				setVal(value != null ? String(value) : '');
 				setEditing(true);
 			}}
@@ -245,6 +264,7 @@ function RunDetail() {
 	const { run: r, analytics, shoes, hrMaxManual, hrMaxAllTime, bestEfforts, plannedRoute } =
 		Route.useLoaderData();
 	const router = useRouter();
+	const authed = useAuthed();
 
 	async function onSaveHrMax(hrMax: number | null) {
 		await saveHrMax({ data: hrMax });
@@ -415,7 +435,7 @@ function RunDetail() {
 					)}
 				</div>
 				<div className={ui.actions}>
-					{!editing && (
+					{authed && !editing && (
 						<>
 							<button
 								className={cn(ui.btnGhost, ui.btnIcon)}
@@ -725,16 +745,16 @@ function RunDetail() {
 
 					<div className={cn(ui.metrics, 'mb-5')}>
 						{showsFeel(r.activity_type, 'effort') && (
-							<FeelTile label="effort" value={r.effort} min={1} max={10} onSave={(v) => patchRun({ effort: v })} />
+							<FeelTile editable={authed} label="effort" value={r.effort} min={1} max={10} onSave={(v) => patchRun({ effort: v })} />
 						)}
 						{showsFeel(r.activity_type, 'energy') && (
-							<FeelTile label="energy" value={r.energy} min={1} max={10} onSave={(v) => patchRun({ energy: v })} />
+							<FeelTile editable={authed} label="energy" value={r.energy} min={1} max={10} onSave={(v) => patchRun({ energy: v })} />
 						)}
 						{showsFeel(r.activity_type, 'shins') && (
-							<FeelTile label="shins" value={r.shins} min={0} max={10} onSave={(v) => patchRun({ shins: v })} />
+							<FeelTile editable={authed} label="shins" value={r.shins} min={0} max={10} onSave={(v) => patchRun({ shins: v })} />
 						)}
 						{showsFeel(r.activity_type, 'legs') && (
-							<FeelTile label="legs" value={r.legs} min={0} max={10} onSave={(v) => patchRun({ legs: v })} />
+							<FeelTile editable={authed} label="legs" value={r.legs} min={0} max={10} onSave={(v) => patchRun({ legs: v })} />
 						)}
 					</div>
 
@@ -798,14 +818,16 @@ function RunDetail() {
 							analytics={analytics}
 							hrMaxManual={hrMaxManual}
 							hrMaxAllTime={hrMaxAllTime}
-							onSaveHrMax={onSaveHrMax}
+							onSaveHrMax={authed ? onSaveHrMax : undefined}
 						/>
 					)}
 
 					<div className={cn(ui.panel, 'mb-4')}>
 						<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.9rem]">
 							<h3>Notes &amp; conditions</h3>
-							<p className={cn(ui.muted, 'text-[0.85rem]')}>Click any value to update it</p>
+							<p className={cn(ui.muted, 'text-[0.85rem]')}>
+								{authed ? 'Click any value to update it' : 'Conditions for this session'}
+							</p>
 						</div>
 						<div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-x-4 gap-y-3 mb-4">
 							{showsField(r.activity_type, 'weather') && (
@@ -813,6 +835,7 @@ function RunDetail() {
 									label="Weather"
 									value={r.weather || ''}
 									placeholder="14°C drizzle"
+									editable={authed}
 									onSave={(v) => patchRun({ weather: v })}
 								/>
 							)}
@@ -821,6 +844,7 @@ function RunDetail() {
 									label="Surface"
 									value={r.surface || ''}
 									placeholder="asphalt / trail"
+									editable={authed}
 									onSave={(v) => patchRun({ surface: v })}
 								/>
 							)}
@@ -831,6 +855,7 @@ function RunDetail() {
 									placeholder="Shoe"
 									datalistId="quick-shoes"
 									options={[shoes.active, ...shoes.rotation, r.shoes]}
+									editable={authed}
 									onSave={(v) => patchRun({ shoes: v })}
 								/>
 							)}
@@ -849,17 +874,20 @@ function RunDetail() {
 												<button
 													key={opt || 'none'}
 													type="button"
+													disabled={!authed}
 													className={cn(
-														'flex-1 min-h-11 border rounded-lg p-[0.5rem_0.4rem] font-inherit text-[0.85rem] cursor-pointer hover:border-accent active:border-accent',
+														'flex-1 min-h-11 border rounded-lg p-[0.5rem_0.4rem] font-inherit text-[0.85rem]',
+														authed && 'cursor-pointer hover:border-accent active:border-accent',
 														active
 															? 'border-accent bg-[rgba(200,242,90,0.12)] text-fg font-semibold'
 															: 'bg-white/[0.03] border-line text-muted'
 													)}
-													onClick={() =>
-														patchRun({
+													onClick={() => {
+														if (!authed) return;
+														void patchRun({
 															wanted_faster: opt === 'Y' ? true : opt === 'N' ? false : null
-														})
-													}
+														});
+													}}
 												>
 													{opt === 'Y' ? 'Yes' : opt === 'N' ? 'No' : '—'}
 												</button>
@@ -875,6 +903,7 @@ function RunDetail() {
 								value={r.notes || ''}
 								multiline
 								placeholder="Shins flared at 4 km, backed off. Legs opened up after the turnaround…"
+								editable={authed}
 								onSave={(v) => patchRun({ notes: v })}
 							/>
 						)}

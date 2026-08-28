@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
+import { AuthGate } from '$lib/auth';
 import { getTimelineRuns, deleteRun } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import { filterRunsByRange, parseDateRange, type RangeKind } from '$lib/date-range';
@@ -93,7 +94,7 @@ function Timeline() {
 					<Link className={ui.btnPrimary} to="/import">
 						Add activity
 					</Link>
-					<Link className={ui.btnGhost} to="/coach" search={{ tab: 'debrief' }}>
+					<Link className={ui.btnGhost} to="/coach">
 						Coach
 					</Link>
 				</div>
@@ -282,6 +283,7 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 													</p>
 												)}
 											</Link>
+											<AuthGate>
 											<form
 												className="absolute top-[0.65rem] right-[0.65rem] inline-flex items-center m-0 opacity-100 sm:opacity-55 hover:opacity-100 group-hover:opacity-100"
 												onSubmit={(e) => e.preventDefault()}
@@ -294,6 +296,7 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 													}}
 												/>
 											</form>
+											</AuthGate>
 										</div>
 									</div>
 								))}

@@ -1,3 +1,4 @@
+import { AuthGate, useAuthed } from '$lib/auth';
 import { deletePlannedRoute, getPlannedRoutesData, importPlannedRoute, updatePlannedRoute } from '$lib/server/functions';
 import type { PlannedRoute } from '$lib/types';
 import { cn, ui } from '$lib/ui';
@@ -16,6 +17,7 @@ export const Route = createFileRoute('/routes/')({
 function PlannedRoutes() {
 	const { page } = Route.useLoaderData();
 	const router = useRouter();
+	const authed = useAuthed();
 	const [dragOver, setDragOver] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [message, setMessage] = useState('');
@@ -52,6 +54,7 @@ function PlannedRoutes() {
 				</div>
 			</section>
 
+			{authed ? (
 			<label
 				className={cn(ui.dropzone, 'mb-5', dragOver && ui.dropzoneOver)}
 				onDragOver={(event) => {
@@ -78,6 +81,7 @@ function PlannedRoutes() {
 					You can also drop a GPX or GeoJSON file here
 				</span>
 			</label>
+			) : null}
 			{message && <div className={ui.flash}>{message}</div>}
 			<DeferredData promise={page}>
 				{(data) => <PlannedRoutesList data={data} onMessage={setMessage} />}
@@ -173,6 +177,7 @@ function PlannedRouteRow({
 	onMessage: (msg: string) => void;
 }) {
 	const router = useRouter();
+	const authed = useAuthed();
 	const [name, setName] = useState(route.name);
 	const [pendingDelete, setPendingDelete] = useState(false);
 
@@ -231,6 +236,7 @@ function PlannedRouteRow({
 				}}
 			>
 				<div>
+					{authed ? (
 					<input
 						className="block w-full max-w-full m-[-0.05rem_-0.35rem_0.15rem] px-[0.35rem] py-[0.05rem] border border-dashed border-transparent rounded-[10px] bg-transparent text-inherit font-inherit font-[650] cursor-text hover:border-line focus:border-solid focus:border-accent focus:outline-none"
 						value={name}
@@ -253,6 +259,9 @@ function PlannedRouteRow({
 						onChange={(event) => setName(event.target.value)}
 						onBlur={() => void persistName()}
 					/>
+					) : (
+						<div className="font-[650] mb-[0.15rem]">{route.name}</div>
+					)}
 					<div className={ui.muted}>{linkSummary(route)}</div>
 				</div>
 				<div>{route.distance_km ?? '—'} km</div>
@@ -261,11 +270,13 @@ function PlannedRouteRow({
 					{route.waypoints.length} waypoint{route.waypoints.length === 1 ? '' : 's'}
 				</div>
 			</div>
+			<AuthGate>
 			<DeleteButton
 				className="absolute top-0 bottom-0 right-[0.55rem] z-[2] my-auto opacity-100 sm:opacity-55 group-hover:opacity-100"
 				label={`Delete route ${route.name}`}
 				onClick={(event) => void onDeleteRoute(event)}
 			/>
+			</AuthGate>
 			<ConfirmDialog
 				open={pendingDelete}
 				title="Delete this route?"

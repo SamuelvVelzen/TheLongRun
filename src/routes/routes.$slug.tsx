@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
+import { useAuthed } from '$lib/auth';
 import { cn, ui } from '$lib/ui';
 import {
 	deletePlannedRoute,
@@ -29,6 +30,7 @@ export const Route = createFileRoute('/routes/$slug')({
 function PlannedRouteDetail() {
 	const route = Route.useLoaderData();
 	const router = useRouter();
+	const authed = useAuthed();
 	const [editing, setEditing] = useState(false);
 	const [name, setName] = useState(route.name);
 	const [notes, setNotes] = useState(route.notes);
@@ -101,6 +103,7 @@ function PlannedRouteDetail() {
 						{location ? ` · ${location}` : ''} · saved {route.saved_on}
 					</p>
 					<h1>
+						{authed ? (
 						<input
 							className="block w-full max-w-[min(28ch,100%)] m-0 px-[0.4rem] py-[0.1rem] border border-dashed border-line rounded-[10px] bg-transparent text-inherit font-inherit focus:border-solid focus:border-accent focus:outline-none"
 							value={name}
@@ -115,6 +118,9 @@ function PlannedRouteDetail() {
 								}
 							}}
 						/>
+						) : (
+							route.name
+						)}
 					</h1>
 					<p>{route.notes || 'Imported from GPX.'}</p>
 				</div>
@@ -141,6 +147,8 @@ function PlannedRouteDetail() {
 						>
 							Download GPX
 						</button>
+						{authed && (
+							<>
 						<button className={ui.btnGhost} type="button" onClick={() => setEditing(!editing)}>
 							{editing ? 'Cancel' : 'Edit notes'}
 						</button>
@@ -151,6 +159,8 @@ function PlannedRouteDetail() {
 						>
 							Delete
 						</button>
+							</>
+						)}
 					</div>
 					{appleMapsUrl && (
 						<p className={cn(ui.muted, 'mt-3 mb-0 max-w-[36ch] text-[0.92rem]')}>

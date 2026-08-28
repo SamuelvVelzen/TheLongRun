@@ -4,48 +4,88 @@ export type LeafletGlobal = any;
 declare global {
 	interface Window {
 		L?: LeafletGlobal;
+		maplibregl?: unknown;
 	}
 }
 
 let leafletPromise: Promise<LeafletGlobal> | null = null;
 
-/** Load Leaflet CSS + JS from CDN once (shared by RouteMap / RoutesHeatmap). */
-export function loadLeaflet(): Promise<LeafletGlobal> {
-	if (typeof window !== 'undefined' && window.L) return Promise.resolve(window.L);
-	if (leafletPromise) return leafletPromise;
+function ensureCss(id: string, href: string, integrity?: string) {
+	if (document.getElementById(id)) return;
+	const link = document.createElement('link');
+	link.id = id;
+	link.rel = 'stylesheet';
+	link.href = href;
+	if (integrity) {
+		link.integrity = integrity;
+		link.crossOrigin = '';
+	}
+	document.head.appendChild(link);
+}
 
-	leafletPromise = new Promise((resolve, reject) => {
-		const cssId = 'leaflet-cdn-css';
-		if (!document.getElementById(cssId)) {
-			const link = document.createElement('link');
-			link.id = cssId;
-			link.rel = 'stylesheet';
-			link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-			link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
-			link.crossOrigin = '';
-			document.head.appendChild(link);
-		}
-
-		const existing = document.getElementById('leaflet-cdn-js') as HTMLScriptElement | null;
-		const onReady = () => {
-			if (window.L) resolve(window.L);
-			else reject(new Error('Leaflet failed to load'));
-		};
-
+function ensureScript(id: string, src: string, integrity?: string): Promise<void> {
+	return new Promise((resolve, reject) => {
+		const existing = document.getElementById(id) as HTMLScriptElement | null;
 		if (existing) {
-			if (window.L) onReady();
-			else existing.addEventListener('load', onReady);
+			if (existing.dataset.ready === '1') {
+				resolve();
+				return;
+			}
+			existing.addEventListener('load', () => resolve(), { once: true });
+			existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), {
+				once: true
+			});
 			return;
 		}
 
 		const script = document.createElement('script');
-		script.id = 'leaflet-cdn-js';
-		script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-		script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
-		script.crossOrigin = '';
-		script.addEventListener('load', onReady);
-		script.addEventListener('error', () => reject(new Error('Leaflet failed to load')));
+		script.id = id;
+		script.src = src;
+		if (integrity) {
+			script.integrity = integrity;
+			script.crossOrigin = '';
+		}
+		script.addEventListener('load', () => {
+			script.dataset.ready = '1';
+			resolve();
+		});
+		script.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)));
 		document.head.appendChild(script);
+	});
+}
+
+/** Leaflet + MapLibre GL Leaflet (OpenFreeMap). Shared by RouteMap / heatmap / planned routes. */
+export function loadLeaflet(): Promise<LeafletGlobal> {
+	if (typeof window !== 'undefined' && window.L?.maplibreGL) return Promise.resolve(window.L);
+	if (leafletPromise) return leafletPromise;
+
+	leafletPromise = (async () => {
+		ensureCss(
+			'leaflet-cdn-css',
+			'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+			'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY='
+		);
+		ensureCss('maplibre-cdn-css', 'https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css');
+
+		await ensureScript(
+			'leaflet-cdn-js',
+			'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+			'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo='
+		);
+		await ensureScript(
+			'maplibre-cdn-js',
+			'https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js'
+		);
+		await ensureScript(
+			'maplibre-leaflet-cdn-js',
+			'https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js'
+		);
+
+		if (!window.L?.maplibreGL) throw new Error('MapLibre GL Leaflet failed to load');
+		return window.L;
+	})().catch((err) => {
+		leafletPromise = null;
+		throw err;
 	});
 
 	return leafletPromise;

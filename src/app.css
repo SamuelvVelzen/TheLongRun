@@ -393,6 +393,24 @@ body.map-fs-active .map-wrap.is-fullscreen:not(:fullscreen):not(:-webkit-full-sc
 	border: none !important;
 }
 
+.map-wrap .leaflet-container {
+	background: #0c0c0c;
+}
+
+/* MapLibre renders the basemap; Leaflet must keep pointer events for pan/zoom. */
+.map-wrap .leaflet-gl-layer,
+.map-wrap .maplibregl-map,
+.map-wrap .maplibregl-canvas {
+	pointer-events: none !important;
+}
+
+/* Leaflet already shows OpenFreeMap attribution; hide MapLibre's duplicate. */
+.map-wrap .maplibregl-ctrl-attrib,
+.map-wrap .maplibregl-ctrl-bottom-right,
+.map-wrap .maplibregl-ctrl-bottom-left {
+	display: none;
+}
+
 .leaflet-bottom.leaflet-left {
 	z-index: 400;
 }

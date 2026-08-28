@@ -25,20 +25,39 @@ export function leafletMapOptions() {
 		scrollWheelZoom: false as const,
 		zoomControl: false as const,
 		attributionControl: true as const,
-		dragging: !isCoarsePointer()
+		dragging: !isCoarsePointer(),
+		// MapLibre GL Leaflet desyncs at world zoom; keep a floor.
+		minZoom: 1 as const
 	};
 }
 
+const OPENFREEMAP_DARK = 'https://tiles.openfreemap.org/styles/dark';
+const OPENFREEMAP_ATTR =
+	'<a href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap</a> <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer">&copy; OpenMapTiles</a> <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">&copy; OpenStreetMap</a>';
+
 /**
- * Default OSM street map. No API key. Other styles:
- * https://leaflet-extras.github.io/leaflet-providers/preview/
+ * OpenFreeMap dark vector tiles via MapLibre GL Leaflet. No API key.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function addBasemap(L: LeafletGlobal, map: any) {
-	L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-		attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-		maxZoom: 19
+	if (typeof L.maplibreGL !== 'function') {
+		throw new Error('MapLibre GL Leaflet failed to load');
+	}
+	L.maplibreGL({
+		style: OPENFREEMAP_DARK,
+		attribution: OPENFREEMAP_ATTR
 	}).addTo(map);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resizeMaplibreLayers(map: any) {
+	try {
+		map.eachLayer?.((layer: { getMaplibreMap?: () => { resize?: () => void } }) => {
+			layer.getMaplibreMap?.()?.resize?.();
+		});
+	} catch {
+		/* ignore */
+	}
 }
 
 function iconBtn(label: string, title: string, svg: string): HTMLButtonElement {
@@ -320,6 +339,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 				/* ignore */
 			}
 		}
+		resizeMaplibreLayers(map);
 		if (refit) {
 			try {
 				onFit();

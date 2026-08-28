@@ -202,11 +202,10 @@ export function GpxImport({
 						<div className={cn(ui.actions, 'mt-3')}>
 							<Link
 								className={ui.btnPrimary}
-								to="/coach"
-								search={{ tab: 'debrief', slug: lastOk.slug }}
-								resetScroll={false}
+								to="/runs/$slug"
+								params={{ slug: lastOk.slug }}
 							>
-								Continue in Coach
+								Open activity
 							</Link>
 						</div>
 					)}

@@ -15,12 +15,10 @@ const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'rac
 
 export function LogForm({
 	week,
-	shoes,
-	afterSave = 'coach'
+	shoes
 }: {
 	week: PlanWeek | null;
 	shoes: { active: string; rotation: string[]; notes: string };
-	afterSave?: 'coach' | 'run';
 }) {
 	const router = useRouter();
 	const todayIso = new Date().toISOString().slice(0, 10);
@@ -84,15 +82,15 @@ export function LogForm({
 		};
 		try {
 			const res = await createRun({ data: input });
-			if (afterSave === 'run') {
-				router.navigate({ to: '/runs/$slug', params: { slug: res.slug } });
-			} else {
+			if (input.session === 'race') {
 				router.navigate({
 					to: '/coach',
 					search: { tab: 'debrief', slug: res.slug },
 					replace: true,
 					resetScroll: false
 				});
+			} else {
+				router.navigate({ to: '/runs/$slug', params: { slug: res.slug } });
 			}
 		} catch (err) {
 			setMessage(err instanceof Error ? err.message : 'Save failed');

@@ -30,11 +30,11 @@ export function leafletMapOptions() {
 }
 
 /**
- * Dark OSM raster tiles. CARTO's free `dark_all` tiles now stamp
- * "API KEY REQUIRED" on every request without a key.
+ * Default OSM street map. No API key. Other styles:
+ * https://leaflet-extras.github.io/leaflet-providers/preview/
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function addDarkBasemap(L: LeafletGlobal, map: any) {
+export function addBasemap(L: LeafletGlobal, map: any) {
 	L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 		attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 		maxZoom: 19

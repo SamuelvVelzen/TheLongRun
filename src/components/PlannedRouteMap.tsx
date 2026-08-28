@@ -3,7 +3,7 @@ import type { PlannedWaypoint } from '$lib/types';
 import type { KmMarker } from '$lib/splits';
 import { loadLeaflet } from '$lib/leaflet';
 import {
-	addDarkBasemap,
+	addBasemap,
 	attachMapChrome,
 	kmMarkerIcon,
 	leafletMapOptions,
@@ -40,7 +40,7 @@ export function PlannedRouteMap({
 				const coords = raw.map((c) => [Number(c[1]), Number(c[0])] as [number, number]);
 
 				map = L.map(containerRef.current, leafletMapOptions());
-				addDarkBasemap(L, map);
+				addBasemap(L, map);
 
 				L.polyline(coords, {
 					color: '#c8f25a',

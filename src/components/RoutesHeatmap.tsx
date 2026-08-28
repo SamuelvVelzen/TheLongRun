@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { loadLeaflet } from '$lib/leaflet';
 import {
-	addDarkBasemap,
+	addBasemap,
 	attachMapChrome,
 	leafletMapOptions,
 	type MapChromeHandle
@@ -59,7 +59,7 @@ export function RoutesHeatmap({
 				if (cancelled || !containerRef.current || !wrapRef.current) return;
 
 				map = L.map(containerRef.current, leafletMapOptions());
-				addDarkBasemap(L, map);
+				addBasemap(L, map);
 
 				const allBounds = L.latLngBounds([]);
 				const focusSet = new Set(focusIds);
@@ -70,7 +70,7 @@ export function RoutesHeatmap({
 					const line = L.polyline(track.coords, {
 						color: '#c8f25a',
 						weight: 2.5,
-						opacity: 0.38,
+						opacity: 0.45,
 						lineJoin: 'round',
 						lineCap: 'round'
 					}).addTo(map);
@@ -80,7 +80,7 @@ export function RoutesHeatmap({
 							opacity: 0.95
 						});
 						line.on('mouseover', () => line.setStyle({ weight: 5, opacity: 1 }));
-						line.on('mouseout', () => line.setStyle({ weight: 2.5, opacity: 0.38 }));
+						line.on('mouseout', () => line.setStyle({ weight: 2.5, opacity: 0.45 }));
 						line.on('click', () => {
 							const handler = onRouteClickRef.current;
 							if (handler) handler(info.slug);

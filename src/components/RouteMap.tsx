@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadLeaflet } from '$lib/leaflet';
 import {
-	addDarkBasemap,
+	addBasemap,
 	attachMapChrome,
 	kmMarkerIcon,
 	leafletMapOptions,
@@ -71,7 +71,7 @@ export function RouteMap({
 				const markers = kmMarkers?.length ? kmMarkers : (analytics?.kmMarkers ?? []);
 
 				map = L.map(containerRef.current, leafletMapOptions());
-				addDarkBasemap(L, map);
+				addBasemap(L, map);
 
 				const splits = analytics?.splits ?? [];
 				const kmSec = splits.map((s) => (s.distanceKm > 0 ? s.seconds / s.distanceKm : 0));

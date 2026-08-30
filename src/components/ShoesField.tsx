@@ -100,7 +100,6 @@ export function ShoesField({
 		<label className={ui.field}>
 			{label ? <span>{label}</span> : null}
 			<select
-				name={undefined}
 				value={selectValue}
 				aria-label={label || 'Shoes'}
 				aria-expanded={customOpen}

@@ -2,6 +2,7 @@ import { activityLabel, normalizeActivityType } from '$lib/activity';
 import { weekDayGroups, type WeekView } from '$lib/plan';
 import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
+import { RouteChip } from './RouteChip';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -76,16 +77,21 @@ function StatusBadge({
 	return null;
 }
 
-export function WeekPlanBoard({ view }: { view: WeekView }) {
+export function WeekPlanBoard({
+	view,
+	title
+}: {
+	view: WeekView;
+	title?: string;
+}) {
 	const days = weekDayGroups(view);
 
 	return (
 		<section className="mb-5" aria-labelledby="week-plan-heading">
 			<div className="mb-3 [&_h2]:text-[1.2rem] [&_h2]:font-bold [&_h2]:m-0 [&_p]:mt-1 [&_p]:mb-0 [&_p]:text-[0.92rem]">
-				<h2 id="week-plan-heading">This week</h2>
+				<h2 id="week-plan-heading">{title ?? `Week ${view.week.week}`}</h2>
 				<p className={ui.muted}>
-					Week {view.week.week} · {view.week.phase}
-					{view.week.focus ? ` · ${view.week.focus}` : ''}
+					{[view.week.dates, view.week.phase, view.week.focus].filter(Boolean).join(' · ')}
 				</p>
 			</div>
 			<div className="grid grid-cols-1 gap-3 min-[720px]:grid-cols-2">
@@ -126,7 +132,9 @@ export function WeekPlanBoard({ view }: { view: WeekView }) {
 											'flex flex-col gap-[0.2rem] min-w-0',
 											i > 0 && 'pt-3 border-t border-line',
 											session.done && 'opacity-80',
-											session.skipped && 'opacity-55'
+											session.skipped && 'opacity-55',
+											session.route &&
+												'rounded-[10px] -mx-1 px-1 pb-1 border border-[color-mix(in_srgb,var(--color-accent)_28%,transparent)]'
 										)}
 									>
 										<div className="flex items-center justify-between gap-2 min-w-0">
@@ -164,14 +172,11 @@ export function WeekPlanBoard({ view }: { view: WeekView }) {
 											</Link>
 										)}
 										{session.route && (
-											<Link
-												className="block pt-1 text-[0.8rem] font-[650] text-accent overflow-hidden text-ellipsis whitespace-nowrap hover:underline"
-												to="/routes/$slug"
-												params={{ slug: session.route.slug }}
-												title={session.route.name}
-											>
-												{session.route.name}
-											</Link>
+											<RouteChip
+												slug={session.route.slug}
+												name={session.route.name}
+												distanceKm={session.route.distance_km}
+											/>
 										)}
 									</div>
 								))}

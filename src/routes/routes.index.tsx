@@ -5,9 +5,11 @@ import { cn, ui } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { DeferredData } from '../components/DeferredData';
-import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
-import { ConfirmDialog } from '../components/Dialog';
 import { DeleteButton } from '../components/DeleteButton';
+import { ConfirmDialog } from '../components/Dialog';
+import { MapPinIcon } from '../components/RouteChip';
+import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
+import { errorMessage, useSnackbar } from '../components/Snackbar';
 
 export const Route = createFileRoute('/routes/')({
 	loader: () => ({ page: getPlannedRoutesData() }),
@@ -18,25 +20,25 @@ function PlannedRoutes() {
 	const { page } = Route.useLoaderData();
 	const router = useRouter();
 	const authed = useAuthed();
+	const snack = useSnackbar();
 	const [dragOver, setDragOver] = useState(false);
 	const [busy, setBusy] = useState(false);
-	const [message, setMessage] = useState('');
 
 	async function importFile(file: File | undefined) {
 		if (!file) return;
 		if (!/\.(gpx|geojson|json)$/i.test(file.name)) {
-			setMessage('Use GPX (recommended) or GeoJSON.');
+			snack.error('Use GPX (recommended) or GeoJSON.');
 			return;
 		}
 		setBusy(true);
-		setMessage('');
 		try {
 			const result = await importPlannedRoute({
 				data: { text: await file.text(), filename: file.name }
 			});
+			snack.success(`Saved ${result.name}`);
 			await router.navigate({ to: '/routes/$slug', params: { slug: result.slug } });
 		} catch (error) {
-			setMessage(error instanceof Error ? error.message : 'Import failed');
+			snack.error(errorMessage(error, 'Import failed'));
 			setBusy(false);
 		}
 	}
@@ -82,20 +84,17 @@ function PlannedRoutes() {
 				</span>
 			</label>
 			) : null}
-			{message && <div className={ui.flash}>{message}</div>}
 			<DeferredData promise={page}>
-				{(data) => <PlannedRoutesList data={data} onMessage={setMessage} />}
+				{(data) => <PlannedRoutesList data={data} />}
 			</DeferredData>
 		</>
 	);
 }
 
 function PlannedRoutesList({
-	data,
-	onMessage
+	data
 }: {
 	data: Awaited<ReturnType<typeof getPlannedRoutesData>>;
-	onMessage: (msg: string) => void;
 }) {
 	const meta = useMemo<RouteMeta>(() => {
 		const out: RouteMeta = {};
@@ -146,38 +145,56 @@ function PlannedRoutesList({
 			</div>
 			<div className={ui.grid}>
 				{data.routes.map((route) => (
-					<PlannedRouteRow key={route.slug} route={route} onMessage={onMessage} />
+					<PlannedRouteRow key={route.slug} route={route} />
 				))}
 			</div>
 		</>
 	);
 }
 
-function linkSummary(route: PlannedRoute): string {
-	const parts: string[] = [];
-	const location = [route.place, route.country].filter(Boolean).join(', ');
-	if (location) parts.push(location);
-	else parts.push(`Saved ${route.saved_on}`);
-	if (route.plan_link_count > 0) {
-		parts.push(`${route.plan_link_count} plan day${route.plan_link_count === 1 ? '' : 's'}`);
-	}
-	if (route.activity_link_count > 0) {
-		parts.push(
-			`${route.activity_link_count} activit${route.activity_link_count === 1 ? 'y' : 'ies'}`
-		);
-	}
-	return parts.join(' · ');
+function LinkedFlag({
+	count,
+	kind
+}: {
+	count: number;
+	kind: 'plan' | 'activity';
+}) {
+	if (count <= 0) return null;
+	const noun =
+		kind === 'activity'
+			? count === 1
+				? 'activity'
+				: 'activities'
+			: count === 1
+				? 'plan day'
+				: 'plan days';
+	return (
+		<span className="inline-flex items-center gap-1 text-accent font-bold">
+			<MapPinIcon size={13} />
+			{count} {noun}
+		</span>
+	);
+}
+
+function linkSummary(route: PlannedRoute) {
+	const location = [route.place, route.country].filter(Boolean).join(', ') || `Saved ${route.saved_on}`;
+	return (
+		<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+			<span>{location}</span>
+			<LinkedFlag count={route.plan_link_count} kind="plan" />
+			<LinkedFlag count={route.activity_link_count} kind="activity" />
+		</div>
+	);
 }
 
 function PlannedRouteRow({
-	route,
-	onMessage
+	route
 }: {
 	route: PlannedRoute;
-	onMessage: (msg: string) => void;
 }) {
 	const router = useRouter();
 	const authed = useAuthed();
+	const snack = useSnackbar();
 	const [name, setName] = useState(route.name);
 	const [pendingDelete, setPendingDelete] = useState(false);
 
@@ -197,7 +214,7 @@ function PlannedRouteRow({
 			await router.invalidate();
 		} catch (error) {
 			setName(route.name);
-			onMessage(error instanceof Error ? error.message : 'Save failed');
+			snack.error(errorMessage(error, 'Save failed'));
 		}
 	}
 
@@ -212,7 +229,7 @@ function PlannedRouteRow({
 			await deletePlannedRoute({ data: route.slug });
 			await router.invalidate();
 		} catch (error) {
-			onMessage(error instanceof Error ? error.message : 'Delete failed');
+			snack.error(errorMessage(error, 'Delete failed'));
 			throw error;
 		}
 	}
@@ -222,7 +239,9 @@ function PlannedRouteRow({
 			<div
 				className={cn(
 					ui.runRow,
-					'grid-cols-[1.35fr_0.55fr_0.65fr_0.65fr] pr-[3.25rem] cursor-pointer'
+					'grid-cols-[1.35fr_0.55fr_0.65fr_0.65fr] pr-[3.25rem] cursor-pointer',
+					(route.plan_link_count > 0 || route.activity_link_count > 0) &&
+						'border-[color-mix(in_srgb,var(--color-accent)_40%,var(--color-line))]'
 				)}
 				role="link"
 				tabIndex={0}

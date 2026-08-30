@@ -7,6 +7,7 @@ import {
     normalizeActivityType,
     showsField
 } from '$lib/activity';
+import { SignInLink, useAuthed } from '$lib/auth';
 import {
     filterRunsByRange,
     parseDateRange,
@@ -14,7 +15,6 @@ import {
     type RangeKind
 } from '$lib/date-range';
 import { buildDashboardStats, type DashboardStats } from '$lib/plan';
-import { SignInLink, useAuthed } from '$lib/auth';
 import { getDashboardData } from '$lib/server/functions';
 import { buildTrainingTrends } from '$lib/trends';
 import { cn, ui } from '$lib/ui';
@@ -29,6 +29,7 @@ import { RouteChip } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
+import { WeekPlanBoard } from '../components/WeekPlanBoard';
 
 type DashSearch = RangeSearch & { sport?: string; country?: string; province?: string; place?: string };
 const SPORTS = ['all', 'run', 'walk', 'ride', 'swim', 'strength'];
@@ -300,8 +301,25 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 						</Link>
 						.
 					</p>
+					{data.weekView.sessions.some((s) => s.route) && (
+						<div className="flex flex-wrap gap-2 mt-3">
+							{data.weekView.sessions
+								.filter((s) => s.route)
+								.map((s) => (
+									<RouteChip
+										key={`${s.day}-${s.route!.slug}`}
+										slug={s.route!.slug}
+										name={s.route!.name}
+										distanceKm={s.route!.distance_km}
+										prefix={s.day.slice(0, 3)}
+									/>
+								))}
+						</div>
+					)}
 				</section>
 			)}
+
+			{data.weekView && <WeekPlanBoard view={data.weekView} />}
 
 			<FilterSheet summary={filterSummary(sport, range, { country, province, place })}>
 				<SportFilter sport={sport} to="/" defaultSport="all" available={availableSports} />

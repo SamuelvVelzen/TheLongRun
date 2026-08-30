@@ -134,6 +134,7 @@ export function WeekPlanBoard({
 											session.done && 'opacity-80',
 											session.skipped && 'opacity-55',
 											session.route &&
+												!session.done &&
 												'rounded-[10px] -mx-1 px-1 pb-1 border border-[color-mix(in_srgb,var(--color-accent)_28%,transparent)]'
 										)}
 									>
@@ -171,7 +172,7 @@ export function WeekPlanBoard({
 												Log this
 											</Link>
 										)}
-										{session.route && (
+										{session.route && !session.done && (
 											<RouteChip
 												slug={session.route.slug}
 												name={session.route.name}

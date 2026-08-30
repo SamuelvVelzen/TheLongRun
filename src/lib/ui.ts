@@ -32,9 +32,6 @@ export const ui = {
 	hero: 'grid gap-5 mb-8 max-sm:gap-[0.95rem] max-sm:mb-[1.35rem] [&_h1]:text-[clamp(2.4rem,6vw,4.2rem)] [&_h1]:max-w-[12ch] max-sm:[&_h1]:text-[clamp(1.85rem,9.5vw,2.55rem)] max-sm:[&_h1]:max-w-none [&_p]:max-w-[68ch] [&_p]:text-muted [&_p]:text-[1.05rem] max-sm:[&_p]:text-[0.98rem] max-sm:[&_p]:max-w-none',
 	heroHome: 'max-sm:hidden',
 	heroRoute: '[&_h1]:max-w-none [&_a]:text-accent',
-	flash:
-		'p-[0.8rem_1rem] rounded-xl border border-[rgba(255,138,91,0.4)] bg-warn/10 text-[#ffd4c2] mb-4 max-sm:p-[0.75rem_0.9rem] max-sm:[overflow-wrap:anywhere]',
-	flashOk: 'border-[rgba(125,255,168,0.35)] bg-ok/10 text-[#d9ffe8]',
 	snackHost:
 		'fixed z-[60] inset-x-0 bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px))] flex flex-col-reverse items-center gap-[0.45rem] px-4 pointer-events-none max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:px-3',
 	snack:

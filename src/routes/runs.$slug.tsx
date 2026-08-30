@@ -417,14 +417,6 @@ function RunDetail() {
 							.filter(Boolean)
 							.join(' · ')}
 					</p>
-					{plannedRoute && (
-						<RouteChip
-							slug={plannedRoute.slug}
-							name={plannedRoute.name}
-							distanceKm={plannedRoute.distance_km}
-							prefix="Route"
-						/>
-					)}
 					<h1 className={ui.runTitle}>
 						{r.date}
 						{r.has_map && (
@@ -442,6 +434,14 @@ function RunDetail() {
 							</span>
 						)}
 					</h1>
+					{plannedRoute && (
+						<RouteChip
+							slug={plannedRoute.slug}
+							name={plannedRoute.name}
+							distanceKm={plannedRoute.distance_km}
+							prefix="Route"
+						/>
+					)}
 					{!editing && (
 						<p>{(strength ? strength.extra : r.notes) || 'No notes for this activity.'}</p>
 					)}

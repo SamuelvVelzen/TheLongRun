@@ -41,6 +41,12 @@ const WEEK_OPTIONS = [
 	{ value: ALL_TIME_WEEKS, label: 'All time' }
 ];
 
+function historyWindowLabel(weeks: number): string {
+	if (weeks >= ALL_TIME_WEEKS) return 'all time';
+	if (weeks === 26) return 'the last 6 months';
+	return `the last ${weeks} weeks`;
+}
+
 function defaultQuestion(): string {
 	return `What should this week look like? Keep my usual days and sports. You pick the session kind (easy / quality / long / etc.), distance and intent. If you shift a day, say why.`;
 }
@@ -143,11 +149,9 @@ export const Route = createFileRoute('/coach')({
 			planWeek: parsePlanWeek(s.planWeek)
 		};
 	},
-	// weeks only — slug changes must not remount DeferredData/Await (that felt like a full refresh).
-	loaderDeps: ({ search }) => ({
-		weeks: search.weeks ?? ALL_TIME_WEEKS
-	}),
-	loader: ({ deps, location }) => {
+	// Search (tab, weeks, slug) must not remount DeferredData/Await — that felt like a full refresh.
+	loaderDeps: () => ({}),
+	loader: ({ location }) => {
 		const slug = (location.search as CoachSearch).slug ?? '';
 		return {
 			page: Promise.all([
@@ -278,8 +282,6 @@ function CoachPanels({
 
 	const [usual, setUsual] = useState<SlotRow[]>(() => rowsFrom(initialPattern));
 	const [savedPattern, setSavedPattern] = useState<WeekPattern>(initialPattern);
-	const [thisWeek, setThisWeek] = useState<SlotRow[]>(() => rowsFrom(initialPattern));
-	const [linked, setLinked] = useState(true);
 	const [mixNote, setMixNote] = useState('');
 	const [mixBusy, setMixBusy] = useState(false);
 	const mixBusyRef = useRef(false);
@@ -347,14 +349,13 @@ function CoachPanels({
 	const weekPhrase = 'this week';
 	const defaultQ = defaultQuestion();
 	const usualPattern = toPattern(usual);
-	const thisPattern = toPattern(linked ? usual : thisWeek);
 	const mixDirty = !patternsEqual(usualPattern, savedPattern);
 
 	async function generateBrief() {
 		setBriefBusy(true);
 		try {
 			const next = await getCoachBrief({
-				data: { weeks, pattern: thisPattern, defaultPattern: usualPattern, note: mixNote }
+				data: { weeks, pattern: usualPattern, defaultPattern: savedPattern, note: mixNote }
 			});
 			setBriefText(`${next}\n## My question\n${question.trim() || defaultQ}\n`);
 		} catch (e) {
@@ -372,7 +373,6 @@ function CoachPanels({
 			const saved = await saveWeekPattern({ data: usualPattern });
 			setSavedPattern(saved);
 			setUsual(rowsFrom(saved));
-			if (linked) setThisWeek(rowsFrom(saved));
 			snack.success('Saved as your default week.');
 		} catch (e) {
 			snack.error(errorMessage(e, 'Could not save the default week.'));
@@ -423,6 +423,10 @@ function CoachPanels({
 						<span>Usual week</span>
 						<span className={cn(ui.muted, 'font-normal')}>
 							Day and sport only — the AI chooses easy / quality / long / etc. plus distance.
+							Change days for this week without saving; Generate will use them. Save only if this
+							should become your default.
+						</span>
+						<span className={cn(ui.muted, 'font-normal')}>
 							Saved default is {formatPatternProse(savedPattern)}.
 						</span>
 						{authed ? (
@@ -434,17 +438,43 @@ function CoachPanels({
 						) : null}
 					</div>
 					{authed && (mixDirty || mixBusy) && (
-						<div className={cn(ui.actions, 'mt-[0.35rem]')}>
-							<button
-								className={ui.btnPrimary}
-								type="button"
-								onClick={saveDefaultMix}
-								disabled={mixBusy}
-								aria-busy={mixBusy}
+						<>
+							<p className={cn(ui.muted, 'm-0')}>
+								Unsaved — Generate will plan this week with these days, not your saved usual week.
+							</p>
+							<div className={cn(ui.actions, 'mt-[0.35rem]')}>
+								<button
+									className={ui.btnPrimary}
+									type="button"
+									onClick={saveDefaultMix}
+									disabled={mixBusy}
+									aria-busy={mixBusy}
+								>
+									{mixBusy ? 'Saving…' : 'Save as my default week'}
+								</button>
+								<button
+									className={ui.btnGhost}
+									type="button"
+									onClick={() => setUsual(rowsFrom(savedPattern))}
+									disabled={mixBusy}
+								>
+									Revert to saved
+								</button>
+							</div>
+						</>
+					)}
+					{authed && (
+						<p className={cn(ui.muted, 'mb-0')}>
+							When this week’s days look right,{' '}
+							<Link
+								className="text-accent font-semibold"
+								to="/coach"
+								search={{ tab: 'generate', weeks: search.weeks, planWeek: search.planWeek }}
 							>
-								{mixBusy ? 'Saving…' : 'Save as my default week'}
-							</button>
-						</div>
+								generate the prompt
+							</Link>
+							.
+						</p>
 					)}
 				</div>
 			)}
@@ -577,19 +607,30 @@ function CoachPanels({
 								onChange={(value) =>
 									router.navigate({
 										to: '/coach',
-										search: { tab: 'generate', weeks: Number(value) },
+										search: {
+											tab: 'generate',
+											weeks: Number(value),
+											planWeek: search.planWeek
+										},
 										replace: true,
 										resetScroll: false
 									})
 								}
 							/>
 						</div>
-						<p className={cn(ui.muted, 'mt-[0.4rem]')}>
-							All time is the default. The detailed activity table still covers only the last ~12
-							weeks so the prompt stays short.
+						<p className={cn(ui.muted, 'mt-[0.4rem] mb-0')}>
+							Weekly volume and the activity table both cover {historyWindowLabel(weeks)}. Shorter
+							windows keep the prompt tighter.
 						</p>
 						<p className={cn(ui.muted, 'mt-2 mb-0')}>
-							Usual week: {formatPatternProse(savedPattern)}.{' '}
+							{mixDirty ? (
+								<>
+									This week: {formatPatternProse(usualPattern)} — not saved as your usual week
+									({formatPatternProse(savedPattern)}).
+								</>
+							) : (
+								<>This week uses your usual days: {formatPatternProse(savedPattern)}.</>
+							)}{' '}
 							<Link
 								className="text-accent font-semibold"
 								to="/coach"
@@ -599,63 +640,6 @@ function CoachPanels({
 							</Link>
 							.
 						</p>
-						{mixDirty && (
-							<div className={ui.actions}>
-								<button
-									className={ui.btnGhost}
-									type="button"
-									onClick={saveDefaultMix}
-									disabled={mixBusy}
-									aria-busy={mixBusy}
-								>
-									{mixBusy ? 'Saving…' : 'Save usual week'}
-								</button>
-							</div>
-						)}
-						<div className={ui.field}>
-							<span>{weekPhrase.charAt(0).toUpperCase() + weekPhrase.slice(1)}</span>
-							<span className={cn(ui.muted, 'font-normal')}>
-								{linked
-									? `Using usual days. Change ${weekPhrase} only if this one is different.`
-									: `One-off for ${weekPhrase} — the prompt uses these days, not your saved usual week.`}
-							</span>
-							<div className={cn(ui.actions, 'mt-[0.35rem]')}>
-								<button
-									className={ui.btnGhost}
-									type="button"
-									disabled={mixBusy}
-									onClick={() => {
-										if (linked) {
-											setThisWeek(rowsFrom(usualPattern));
-											setLinked(false);
-										} else {
-											setLinked(true);
-										}
-									}}
-								>
-									{linked ? `Change ${weekPhrase} only` : 'Use usual week'}
-								</button>
-								{!linked && !patternsEqual(thisPattern, usualPattern) && (
-									<button
-										className={ui.btnGhost}
-										type="button"
-										disabled={mixBusy}
-										onClick={() => {
-											setUsual(rowsFrom(thisPattern));
-										}}
-									>
-										Copy to usual week
-									</button>
-								)}
-							</div>
-							{!linked && (
-								<WeekPatternEditor
-									rows={thisWeek}
-									disabled={mixBusy}
-									onChange={setThisWeek}
-								/>
-							)}
-						</div>
 						<label className={ui.field}>
 							<span>Anything unusual {weekPhrase}? (optional)</span>
 							<textarea

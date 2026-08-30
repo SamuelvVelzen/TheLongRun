@@ -1,6 +1,6 @@
+import { normalizeActivityType } from '$lib/activity';
 import { formatDuration, formatPace } from '$lib/format';
 import { haversineMeters, type KmSplit, type TrackSample } from '$lib/splits';
-import { normalizeActivityType } from '$lib/activity';
 
 export type BestEffortKey = '400m' | '1k' | '1mi' | '5k' | '10k' | '15k' | 'half' | 'marathon';
 
@@ -145,10 +145,23 @@ function effortsFromPieces(pieces: CumPiece[]): BestEffort[] {
 	return out;
 }
 
+/** Same-spot freeze (trees, pause). Do not split the stream. */
+const STUCK_M = 0.5;
+/** Straight-line hops this long are not treated as running distance. */
+const TELEPORT_M = 200;
+/** Speed cap only applies to hops of this size, so 1 Hz GPS jitter is kept. */
+const SPIKE_M = 50;
+/** ~45 km/h — faster over SPIKE_M is a false acceleration. */
+const MAX_SPEED_MPS = 12.5;
+
 /**
  * Fastest rolling window for each standard distance, using GPS + timestamps.
  * Elapsed time (clock) is used, matching Strava: a pause in the window counts against it.
- * GPS teleports (>200 m) start a new contiguous piece so jumps cannot fake a PR.
+ *
+ * Bad GPS is ignored, not used as a wall:
+ * - stuck/duplicate points keep elapsed time and stay one stream (trees / standing pause)
+ * - isolated teleports are dropped so they cannot fake metres
+ * - signal loss then a new fix counts elapsed but not the straight-line jump
  */
 export function computeBestEffortsFromTrack(samples: TrackSample[]): BestEffort[] {
 	const pts = samples
@@ -165,30 +178,66 @@ export function computeBestEffortsFromTrack(samples: TrackSample[]): BestEffort[
 		.sort((a, b) => a.timeMs! - b.timeMs!);
 	if (pts.length < 2) return [];
 
-	const pieces: CumPiece[] = [];
-	let dist = [0];
-	let time = [0];
+	const dist = [0];
+	const time = [0];
+	let last = pts[0]!;
 
-	const flush = () => {
-		if (dist.length >= 2 && dist[dist.length - 1]! > 0) pieces.push({ dist, time });
-		dist = [0];
-		time = [0];
+	const pushTimeOnly = (dt: number, p: TrackSample) => {
+		time.push(time[time.length - 1]! + dt);
+		dist.push(dist[dist.length - 1]!);
+		last = p;
 	};
 
 	for (let i = 1; i < pts.length; i++) {
-		const a = pts[i - 1]!;
-		const b = pts[i]!;
-		const seg = haversineMeters(a.lat, a.lng, b.lat, b.lng);
-		const dt = (b.timeMs! - a.timeMs!) / 1000;
-		if (!Number.isFinite(seg) || seg <= 0 || dt <= 0 || seg > 200) {
-			flush();
+		const p = pts[i]!;
+		const dt = (p.timeMs! - last.timeMs!) / 1000;
+		if (!Number.isFinite(dt) || dt <= 0) continue;
+
+		const seg = haversineMeters(last.lat, last.lng, p.lat, p.lng);
+		if (!Number.isFinite(seg)) continue;
+
+		if (seg <= STUCK_M) {
+			pushTimeOnly(dt, p);
 			continue;
 		}
+
+		const tooFast = seg >= SPIKE_M && seg / dt > MAX_SPEED_MPS;
+		if (tooFast || seg > TELEPORT_M) {
+			const next = pts[i + 1];
+			if (next) {
+				const back = haversineMeters(last.lat, last.lng, next.lat, next.lng);
+				if (Number.isFinite(back) && back <= TELEPORT_M) continue;
+			}
+			pushTimeOnly(dt, p);
+			continue;
+		}
+
 		dist.push(dist[dist.length - 1]! + seg);
 		time.push(time[time.length - 1]! + dt);
+		last = p;
 	}
-	flush();
-	return effortsFromPieces(pieces);
+
+	return effortsFromPieces([{ dist, time }]);
+}
+
+/** Fill distance keys the GPS pass missed (e.g. older imports) without replacing GPS times. */
+export function mergeMissingBestEfforts(stored: BestEffort[], fallback: BestEffort[]): BestEffort[] {
+	if (!fallback.length) return stored;
+	const have = new Set(stored.map((e) => e.key));
+	const extra = fallback.filter((e) => !have.has(e.key));
+	if (!extra.length) return stored;
+	return [...stored, ...extra].sort((a, b) => a.meters - b.meters);
+}
+
+export function missingEffortKeys(distanceKm: number | null | undefined, efforts: BestEffort[]): BestEffortKey[] {
+	const meters = (Number(distanceKm) || 0) * 1000;
+	const have = new Set(efforts.map((e) => e.key));
+	return BEST_EFFORT_DISTANCES.filter((d) => meters >= d.meters && !have.has(d.key)).map((d) => d.key);
+}
+
+export function effortsEqual(a: BestEffort[], b: BestEffort[]): boolean {
+	if (a.length !== b.length) return false;
+	return a.every((e, i) => e.key === b[i]!.key && e.seconds === b[i]!.seconds && e.meters === b[i]!.meters);
 }
 
 /**

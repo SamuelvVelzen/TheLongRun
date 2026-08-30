@@ -1,4 +1,4 @@
-import { analyticsFromProperties, type RouteAnalytics } from '$lib/splits';
+import { analyticsFromProperties, type RouteAnalytics, type TrackSample } from '$lib/splits';
 import type { RunRecord } from '$lib/types';
 import { getSql, parseJsonColumn } from './db';
 import { polylineFromGeoJson, polylineJson } from './routes';
@@ -47,15 +47,43 @@ export async function loadRouteAnalytics(
 	return analyticsFromProperties(geo.properties ?? null);
 }
 
-/** Load km splits for every stored route (used to backfill best efforts). */
-export async function listRouteSplitsById(): Promise<Map<string, RouteAnalytics['splits']>> {
+/** Rebuild GPS samples from a stored Feature (coordinates + optional properties.times). */
+export function trackSamplesFromGeoJson(geo: unknown): TrackSample[] {
+	if (!geo || typeof geo !== 'object') return [];
+	const g = geo as { geometry?: { coordinates?: unknown }; properties?: { times?: unknown } };
+	const coords = g.geometry?.coordinates;
+	const times = g.properties?.times;
+	if (!Array.isArray(coords) || coords.length < 2) return [];
+	const hasTimes = Array.isArray(times) && times.length === coords.length;
+	if (!hasTimes) return [];
+	const out: TrackSample[] = [];
+	for (let i = 0; i < coords.length; i++) {
+		const c = coords[i];
+		if (!Array.isArray(c) || c.length < 2) continue;
+		const lng = Number(c[0]);
+		const lat = Number(c[1]);
+		const timeMs = Number(times[i]);
+		if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(timeMs)) continue;
+		out.push({ lat, lng, timeMs });
+	}
+	return out;
+}
+
+/** Load km splits + optional timed samples for every stored route (best-effort backfill). */
+export async function listRouteEffortSources(): Promise<
+	Map<string, { splits: RouteAnalytics['splits']; samples: TrackSample[] }>
+> {
 	const sql = getSql();
 	const rows = (await sql`SELECT id, geojson FROM routes`) as { id: string; geojson: unknown }[];
-	const out = new Map<string, RouteAnalytics['splits']>();
+	const out = new Map<string, { splits: RouteAnalytics['splits']; samples: TrackSample[] }>();
 	for (const row of rows) {
-		const geo = parseJsonColumn(row.geojson) as { properties?: unknown } | null;
-		const analytics = analyticsFromProperties(geo?.properties ?? null);
-		if (analytics?.splits?.length) out.set(String(row.id), analytics.splits);
+		const geo = parseJsonColumn(row.geojson);
+		const analytics = analyticsFromProperties(
+			geo && typeof geo === 'object' ? (geo as { properties?: unknown }).properties ?? null : null
+		);
+		const splits = analytics?.splits ?? [];
+		const samples = trackSamplesFromGeoJson(geo);
+		if (splits.length || samples.length >= 2) out.set(String(row.id), { splits, samples });
 	}
 	return out;
 }

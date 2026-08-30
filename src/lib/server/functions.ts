@@ -1,7 +1,11 @@
 import { ACTIVITY_TYPES, activityLabel, activityPlural, metricText, normalizeActivityType } from '$lib/activity';
 import {
     computeBestEffortsFromSplits,
+    computeBestEffortsFromTrack,
+    effortsEqual,
     highlightsForActivity,
+    mergeMissingBestEfforts,
+    missingEffortKeys,
     supportsBestEfforts,
     type EffortHighlight
 } from '$lib/best-efforts';
@@ -85,7 +89,7 @@ import {
 } from './planned-routes';
 import {
     getRouteGeoJson,
-    listRouteSplitsById,
+    listRouteEffortSources,
     loadRouteAnalytics,
     routeIdForRun,
     saveRouteGeoJson
@@ -127,19 +131,28 @@ function attachPlanRoutes(weekView: WeekView | null, planRefs: Awaited<ReturnTyp
 }
 
 async function hydrateBestEfforts(runs: RunRecord[]): Promise<RunRecord[]> {
-	const missing = runs.filter(
-		(r) => supportsBestEfforts(r.activity_type) && !(r.best_efforts?.length) && (r.route || r.strava_id)
+	const incomplete = runs.filter(
+		(r) =>
+			supportsBestEfforts(r.activity_type) &&
+			(r.route || r.strava_id) &&
+			missingEffortKeys(r.distance_km, r.best_efforts ?? []).length > 0
 	);
-	if (!missing.length) return runs;
-	const splitsById = await listRouteSplitsById();
-	for (const run of missing) {
+	if (!incomplete.length) return runs;
+	const sources = await listRouteEffortSources();
+	for (const run of incomplete) {
 		const id = routeIdForRun(run);
-		const splits = id ? splitsById.get(id) : undefined;
-		if (!splits?.length) continue;
-		const efforts = computeBestEffortsFromSplits(splits);
-		if (!efforts.length) continue;
-		await setRunBestEfforts(run.slug, efforts);
-		run.best_efforts = efforts;
+		const src = id ? sources.get(id) : undefined;
+		if (!src) continue;
+		const fromTrack =
+			src.samples.length >= 2 ? computeBestEffortsFromTrack(src.samples) : [];
+		const fromSplits = src.splits.length ? computeBestEffortsFromSplits(src.splits) : [];
+		const merged = mergeMissingBestEfforts(
+			fromTrack.length ? fromTrack : (run.best_efforts ?? []),
+			fromSplits
+		);
+		if (!merged.length || effortsEqual(merged, run.best_efforts ?? [])) continue;
+		await setRunBestEfforts(run.slug, merged);
+		run.best_efforts = merged;
 	}
 	return runs;
 }
@@ -153,7 +166,7 @@ async function highlightsAfterSave(
 	const all = await listRuns();
 	await hydrateBestEfforts(all);
 	const row = all.find((r) => r.slug === slug);
-	if (row) row.best_efforts = efforts;
+	if (row) row.best_efforts = mergeMissingBestEfforts(efforts, row.best_efforts ?? []);
 	return highlightsForActivity(slug, activityType, all);
 }
 
@@ -931,7 +944,10 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 					sport: activity_type,
 					distance_km: parsed.distanceKm,
 					point_count: parsed.points.length,
-					...(parsed.analytics ? analyticsToProperties(parsed.analytics) : {})
+					...(parsed.analytics ? analyticsToProperties(parsed.analytics) : {}),
+					...(parsed.points.some((p) => p.timeMs != null)
+						? { times: parsed.points.map((p) => p.timeMs ?? null) }
+						: {})
 				},
 				geometry: {
 					type: 'LineString',

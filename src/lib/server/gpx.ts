@@ -1,11 +1,11 @@
-import {
-	computeRouteAnalytics,
-	haversineMeters,
-	type RouteAnalytics,
-	type TrackSample
-} from '$lib/splits';
-import { formatDuration, formatPace } from '$lib/format';
 import { computeBestEffortsFromTrack, type BestEffort } from '$lib/best-efforts';
+import { formatDuration, formatPace } from '$lib/format';
+import {
+    computeRouteAnalytics,
+    haversineMeters,
+    type RouteAnalytics,
+    type TrackSample
+} from '$lib/splits';
 import { timezoneForCoord } from './geo';
 
 export interface ParsedGpx {
@@ -22,7 +22,7 @@ export interface ParsedGpx {
 	maxHr: number | null;
 	elevGain: number | null;
 	maxSpeed: number | null;
-	points: { lat: number; lng: number }[];
+	points: { lat: number; lng: number; timeMs?: number }[];
 	analytics: RouteAnalytics | null;
 	/** Sport hint from the GPX `<type>` element, if any. */
 	detectedType: string;
@@ -183,7 +183,7 @@ export function parseGpx(xml: string): ParsedGpx {
 		points:
 			distanceMeters > 50
 				? downsample(
-						track.map((p) => ({ lat: p.lat, lng: p.lng })),
+						track.map((p) => ({ lat: p.lat, lng: p.lng, timeMs: p.timeMs })),
 						2500
 					)
 				: [],

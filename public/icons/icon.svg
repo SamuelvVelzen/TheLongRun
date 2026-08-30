@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="The Long Run">
+	<rect width="512" height="512" fill="#10140f"/>
+	<path
+		d="M96 384C108 240 268 336 400 128"
+		fill="none"
+		stroke="#c8f25a"
+		stroke-width="46"
+		stroke-linecap="round"
+	/>
+	<circle cx="96" cy="384" r="42" fill="#c8f25a"/>
+	<circle cx="400" cy="128" r="42" fill="#c8f25a"/>
+	<circle cx="96" cy="384" r="16" fill="#14200a"/>
+	<circle cx="400" cy="128" r="16" fill="#14200a"/>
+</svg>

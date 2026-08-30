@@ -2,8 +2,9 @@ import { AuthProvider, SignInLink, useAuthed } from '$lib/auth';
 import { getAuthState } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import { createRootRoute, HeadContent, Link, Outlet, Scripts } from '@tanstack/react-router';
-import type { MouseEvent, ReactNode } from 'react';
+import { useEffect, type MouseEvent, type ReactNode } from 'react';
 import '../app.css';
+import { PwaInstall } from '../components/PwaInstall';
 import { SnackbarProvider } from '../components/Snackbar';
 
 export const Route = createRootRoute({
@@ -12,7 +13,19 @@ export const Route = createRootRoute({
 			{ charSet: 'utf-8' },
 			{ name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
 			{ title: 'The Long Run' },
-			{ name: 'description', content: 'Personal run log' }
+			{ name: 'description', content: 'Personal run log' },
+			{ name: 'theme-color', content: '#10140f' },
+			{ name: 'color-scheme', content: 'dark' },
+			{ name: 'mobile-web-app-capable', content: 'yes' },
+			{ name: 'apple-mobile-web-app-capable', content: 'yes' },
+			{ name: 'apple-mobile-web-app-title', content: 'Long Run' },
+			{ name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }
+		],
+		links: [
+			{ rel: 'manifest', href: '/manifest.webmanifest' },
+			{ rel: 'icon', href: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' },
+			{ rel: 'icon', href: '/icons/icon.svg', type: 'image/svg+xml' },
+			{ rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }
 		]
 	}),
 	loader: () => getAuthState(),
@@ -76,6 +89,11 @@ function RootShell() {
 	const authed = useAuthed();
 	const links = headerLinks.filter((l) => authed || l.href !== '/import');
 	const extra = moreLinks.filter((l) => authed || l.href !== '/import');
+	useEffect(() => {
+		if ('serviceWorker' in navigator) {
+			void navigator.serviceWorker.register('/sw.js');
+		}
+	}, []);
 	return (
 		<RootDocument>
 			<SnackbarProvider>
@@ -164,6 +182,7 @@ function RootShell() {
 							>
 								Plan route ↗
 							</a>
+							<PwaInstall className={tabMoreLink} />
 						</div>
 					</details>
 				</nav>

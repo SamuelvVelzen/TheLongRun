@@ -1,0 +1,81 @@
+{
+	"id": "/",
+	"name": "The Long Run",
+	"short_name": "Long Run",
+	"description": "Personal run log",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"display_override": ["standalone", "minimal-ui"],
+	"background_color": "#10140f",
+	"theme_color": "#10140f",
+	"lang": "en",
+	"dir": "ltr",
+	"orientation": "any",
+	"categories": ["health", "sports", "lifestyle"],
+	"launch_handler": {
+		"client_mode": ["navigate-existing", "auto"]
+	},
+	"icons": [
+		{
+			"src": "/icons/icon-192.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/icons/icon-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/icons/icon-192-maskable.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "maskable"
+		},
+		{
+			"src": "/icons/icon-512-maskable.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		},
+		{
+			"src": "/icons/icon.svg",
+			"sizes": "any",
+			"type": "image/svg+xml",
+			"purpose": "any"
+		}
+	],
+	"shortcuts": [
+		{
+			"name": "Add activity",
+			"short_name": "Add",
+			"description": "Import a GPX file or start a new activity",
+			"url": "/import",
+			"icons": [{ "src": "/icons/shortcut-add.png", "sizes": "192x192", "type": "image/png" }]
+		},
+		{
+			"name": "Log run",
+			"short_name": "Log",
+			"description": "Log an activity by hand",
+			"url": "/import?mode=manual",
+			"icons": [{ "src": "/icons/shortcut-log.png", "sizes": "192x192", "type": "image/png" }]
+		},
+		{
+			"name": "Coach",
+			"short_name": "Coach",
+			"description": "Open this week's training and plan",
+			"url": "/coach",
+			"icons": [{ "src": "/icons/shortcut-coach.png", "sizes": "192x192", "type": "image/png" }]
+		},
+		{
+			"name": "Timeline",
+			"short_name": "Timeline",
+			"description": "Browse logged activities",
+			"url": "/timeline",
+			"icons": [{ "src": "/icons/shortcut-timeline.png", "sizes": "192x192", "type": "image/png" }]
+		}
+	]
+}

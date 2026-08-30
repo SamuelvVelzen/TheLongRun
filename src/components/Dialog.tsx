@@ -1,5 +1,6 @@
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { OverlayPortal, useOverlayLock } from '$lib/overlay';
 import { cn, ui } from '$lib/ui';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 
 export function Dialog({
 	open,
@@ -15,17 +16,15 @@ export function Dialog({
 	actions?: ReactNode;
 }) {
 	const titleId = useId();
+	useOverlayLock(open);
 
 	useEffect(() => {
 		if (!open) return;
-		const prev = document.body.style.overflow;
-		document.body.style.overflow = 'hidden';
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') onClose();
 		};
 		window.addEventListener('keydown', onKey);
 		return () => {
-			document.body.style.overflow = prev;
 			window.removeEventListener('keydown', onKey);
 		};
 	}, [open, onClose]);
@@ -33,26 +32,28 @@ export function Dialog({
 	if (!open) return null;
 
 	return (
-		<div className={ui.dialogRoot} role="dialog" aria-modal="true" aria-labelledby={titleId}>
-			<div className={ui.dialogBackdrop} onClick={onClose} aria-hidden="true" />
-			<div className={ui.dialogPanel}>
-				<div className="flex items-start justify-between gap-3">
-					<strong id={titleId} className="font-display text-[1.2rem] tracking-[-0.03em]">
-						{title}
-					</strong>
-					<button
-						type="button"
-						className={cn(ui.btnGhost, ui.btnIcon, 'text-[1.25rem]')}
-						aria-label="Close"
-						onClick={onClose}
-					>
-						×
-					</button>
+		<OverlayPortal>
+			<div className={ui.dialogRoot} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+				<div className={ui.dialogBackdrop} onClick={onClose} aria-hidden="true" />
+				<div className={ui.dialogPanel}>
+					<div className="flex items-start justify-between gap-3">
+						<strong id={titleId} className="font-display text-[1.2rem] tracking-[-0.03em]">
+							{title}
+						</strong>
+						<button
+							type="button"
+							className={cn(ui.btnGhost, ui.btnIcon, 'text-[1.25rem]')}
+							aria-label="Close"
+							onClick={onClose}
+						>
+							×
+						</button>
+					</div>
+					{children}
+					{actions && <div className={ui.actions}>{actions}</div>}
 				</div>
-				{children}
-				{actions && <div className={ui.actions}>{actions}</div>}
 			</div>
-		</div>
+		</OverlayPortal>
 	);
 }
 

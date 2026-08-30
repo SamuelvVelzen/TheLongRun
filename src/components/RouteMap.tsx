@@ -1,14 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
 import { loadLeaflet } from '$lib/leaflet';
 import {
-	addBasemap,
-	attachMapChrome,
-	kmMarkerIcon,
-	leafletMapOptions,
-	type MapChromeHandle
+    addBasemap,
+    addRouteEndpoints,
+    attachMapChrome,
+    kmMarkerIcon,
+    leafletMapOptions,
+    type MapChromeHandle
 } from '$lib/map-chrome';
-import { analyticsFromProperties, haversineMeters, type KmMarker } from '$lib/splits';
 import { getRouteGeoJsonFn } from '$lib/server/functions';
+import { analyticsFromProperties, haversineMeters, type KmMarker } from '$lib/splits';
+import { useEffect, useRef, useState } from 'react';
 
 /** Seconds-per-km → `m:ss /km`. */
 function fmtPace(secPerKm: number): string {
@@ -136,26 +137,7 @@ export function RouteMap({
 					}).addTo(map);
 				}
 				const bounds = L.latLngBounds(coords);
-
-				L.circleMarker(coords[0], {
-					radius: 6,
-					color: '#7dffa8',
-					fillColor: '#7dffa8',
-					fillOpacity: 0.9,
-					weight: 1
-				})
-					.bindTooltip('Start')
-					.addTo(map);
-
-				L.circleMarker(coords[coords.length - 1], {
-					radius: 6,
-					color: '#ff8a5b',
-					fillColor: '#ff8a5b',
-					fillOpacity: 0.9,
-					weight: 1
-				})
-					.bindTooltip('Finish')
-					.addTo(map);
+				addRouteEndpoints(L, map, coords);
 
 				for (const m of markers) {
 					if (!Number.isFinite(m.lat) || !Number.isFinite(m.lng)) continue;

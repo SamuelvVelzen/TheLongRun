@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
 import { loadLeaflet } from '$lib/leaflet';
 import {
-	addBasemap,
-	attachMapChrome,
-	leafletMapOptions,
-	type MapChromeHandle
+    addBasemap,
+    addRouteEndpoints,
+    attachMapChrome,
+    leafletMapOptions,
+    type MapChromeHandle
 } from '$lib/map-chrome';
 import type { RouteTrack } from '$lib/types';
+import { useNavigate } from '@tanstack/react-router';
+import { useEffect, useRef, useState } from 'react';
 import { SegmentedToggle } from './SegmentedToggle';
 
 /** Per-track hover/click metadata, keyed by route id. */
@@ -19,6 +20,7 @@ export function RoutesHeatmap({
 	focusIds = [],
 	detailPath = '/runs/$slug',
 	emptyText = 'No GPS routes yet — import a GPX or attach a route.',
+	showEndpoints,
 	onRouteClick
 }: {
 	tracks: RouteTrack[];
@@ -27,6 +29,8 @@ export function RoutesHeatmap({
 	focusIds?: string[];
 	detailPath?: '/runs/$slug' | '/routes/$slug';
 	emptyText?: string;
+	/** Draw start/finish badges. Default on for planned-route maps. */
+	showEndpoints?: boolean;
 	/** When set, used instead of navigating to the detail path. */
 	onRouteClick?: (slug: string) => void;
 }) {
@@ -42,6 +46,7 @@ export function RoutesHeatmap({
 	const navigate = useNavigate();
 	const focusKey = focusIds.join(',');
 	const hasFocus = focusIds.length > 0;
+	const markEnds = showEndpoints ?? detailPath === '/routes/$slug';
 
 	useEffect(() => {
 		if (!tracks.length) {
@@ -89,6 +94,7 @@ export function RoutesHeatmap({
 						const el = line.getElement?.();
 						if (el) el.style.cursor = 'pointer';
 					}
+					if (markEnds) addRouteEndpoints(L, map, track.coords, { compact: true });
 					allBounds.extend(line.getBounds());
 					if (focusSet.has(track.id)) focusBounds.extend(line.getBounds());
 				}
@@ -119,7 +125,7 @@ export function RoutesHeatmap({
 			chrome?.destroy();
 			map?.remove?.();
 		};
-	}, [tracks, meta, navigate, focusKey, detailPath]);
+	}, [tracks, meta, navigate, focusKey, detailPath, markEnds]);
 
 	if (!tracks.length) {
 		return (

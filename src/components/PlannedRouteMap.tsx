@@ -1,14 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
-import type { PlannedWaypoint } from '$lib/types';
-import type { KmMarker } from '$lib/splits';
 import { loadLeaflet } from '$lib/leaflet';
 import {
-	addBasemap,
-	attachMapChrome,
-	kmMarkerIcon,
-	leafletMapOptions,
-	type MapChromeHandle
+    addBasemap,
+    addRouteEndpoints,
+    attachMapChrome,
+    kmMarkerIcon,
+    leafletMapOptions,
+    type MapChromeHandle
 } from '$lib/map-chrome';
+import type { KmMarker } from '$lib/splits';
+import type { PlannedWaypoint } from '$lib/types';
+import { useEffect, useRef, useState } from 'react';
 
 export function PlannedRouteMap({
 	geojson,
@@ -44,11 +45,13 @@ export function PlannedRouteMap({
 
 				L.polyline(coords, {
 					color: '#c8f25a',
-					weight: 4,
-					opacity: 0.94,
+					weight: 4.5,
+					opacity: 0.96,
 					lineJoin: 'round',
 					lineCap: 'round'
 				}).addTo(map);
+
+				addRouteEndpoints(L, map, coords);
 
 				for (const marker of kmMarkers) {
 					L.marker([marker.lat, marker.lng], {
@@ -60,20 +63,15 @@ export function PlannedRouteMap({
 				}
 
 				for (const [index, waypoint] of waypoints.entries()) {
-					const label =
-						waypoint.name === 'from'
-							? 'Start'
-							: waypoint.name === 'to'
-								? 'Finish'
-								: waypoint.name || `Waypoint ${index + 1}`;
+					if (waypoint.name === 'from' || waypoint.name === 'to') continue;
 					L.circleMarker([waypoint.lat, waypoint.lng], {
-						radius: waypoint.name === 'from' || waypoint.name === 'to' ? 6 : 4,
-						color: waypoint.name === 'to' ? '#ff8a5b' : '#7dffa8',
-						fillColor: waypoint.name === 'to' ? '#ff8a5b' : '#7dffa8',
+						radius: 5,
+						color: '#7dffa8',
+						fillColor: '#7dffa8',
 						fillOpacity: 0.92,
-						weight: 1
+						weight: 2
 					})
-						.bindTooltip(label)
+						.bindTooltip(waypoint.name || `Waypoint ${index + 1}`)
 						.addTo(map);
 				}
 

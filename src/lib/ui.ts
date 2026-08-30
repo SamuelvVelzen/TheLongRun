@@ -35,6 +35,16 @@ export const ui = {
 	flash:
 		'p-[0.8rem_1rem] rounded-xl border border-[rgba(255,138,91,0.4)] bg-warn/10 text-[#ffd4c2] mb-4 max-sm:p-[0.75rem_0.9rem] max-sm:[overflow-wrap:anywhere]',
 	flashOk: 'border-[rgba(125,255,168,0.35)] bg-ok/10 text-[#d9ffe8]',
+	snackHost:
+		'fixed z-[60] inset-x-0 bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px))] flex flex-col-reverse items-center gap-[0.45rem] px-4 pointer-events-none max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:px-3',
+	snack:
+		'pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.7rem] pr-[0.55rem] pl-[0.95rem] rounded-[14px] border border-line bg-surface shadow-lift animate-rise max-sm:py-[0.65rem] max-sm:pr-[0.4rem] max-sm:pl-[0.85rem]',
+	snackSuccess: 'border-[rgba(125,255,168,0.35)] bg-ok/10 text-[#d9ffe8]',
+	snackError: 'border-[rgba(255,138,91,0.4)] bg-warn/10 text-[#ffd4c2]',
+	snackAction:
+		'shrink-0 appearance-none min-h-11 px-[0.7rem] py-[0.35rem] border-0 rounded-full bg-transparent text-accent font-semibold cursor-pointer whitespace-nowrap hover:text-fg active:text-fg',
+	snackDismiss:
+		'shrink-0 inline-flex items-center justify-center box-border size-11 min-h-11 min-w-11 p-0 border-0 bg-transparent text-muted text-[1.25rem] leading-none cursor-pointer hover:text-fg active:text-fg',
 	tag: 'inline-flex px-[0.55rem] py-[0.2rem] rounded-full border border-line text-[0.78rem] text-muted',
 	tagAccent: 'border-[rgba(200,242,90,0.4)] text-accent',
 	grid: 'grid gap-4 max-sm:gap-3',
@@ -68,14 +78,14 @@ export const ui = {
 	choiceChips: 'flex flex-wrap gap-[0.4rem]',
 	choiceChip:
 		'appearance-none inline-flex items-center justify-center min-h-11 px-[0.95rem] py-2 rounded-full border border-solid border-line bg-transparent text-muted font-semibold cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:border-[rgba(200,242,90,0.35)] disabled:opacity-35 disabled:cursor-not-allowed aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent',
-	dialogRoot: 'fixed inset-0 z-[20000] flex items-end justify-center p-0 sm:items-center sm:p-4',
+	dialogRoot: 'overlay-root fixed inset-0 z-[20000] flex items-end justify-center p-0 sm:items-center sm:p-4',
 	dialogBackdrop: 'absolute inset-0 bg-black/55',
 	dialogPanel:
-		'relative z-[1] flex w-full max-h-[min(88vh,100%)] flex-col gap-4 overflow-y-auto [overscroll-behavior:contain] border border-line border-b-0 rounded-t-box bg-surface p-[1.15rem_1.2rem_calc(1.15rem+env(safe-area-inset-bottom,0px))] shadow-lift sm:max-w-[26rem] sm:border-b sm:rounded-box sm:p-[1.25rem_1.35rem]',
+		'relative z-[1] flex w-full max-h-[min(88dvh,100%)] flex-col gap-4 overflow-y-auto [overscroll-behavior:contain] border border-line border-b-0 rounded-t-box bg-surface p-[1.15rem_1.2rem_calc(1.15rem+env(safe-area-inset-bottom,0px))] shadow-lift sm:max-w-[26rem] sm:border-b sm:rounded-box sm:p-[1.25rem_1.35rem]',
 	statusPill:
 		'inline-flex items-center gap-1 shrink-0 px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] tracking-[0.06em] uppercase font-bold',
 	routeChip:
-		'inline-flex items-center gap-[0.3rem] max-w-full mt-2 px-[0.75rem] py-[0.28rem] rounded-full border border-[color-mix(in_srgb,var(--color-accent)_40%,var(--color-line))] bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] text-accent text-[0.85rem] font-[650] overflow-hidden text-ellipsis whitespace-nowrap hover:bg-[color-mix(in_srgb,var(--color-accent)_20%,transparent)]',
+		'inline-flex items-center gap-[0.4rem] max-w-full mt-2 px-[0.7rem] py-[0.38rem] rounded-full border border-[color-mix(in_srgb,var(--color-accent)_55%,var(--color-line))] bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] text-accent text-[0.88rem] font-bold overflow-hidden hover:bg-[color-mix(in_srgb,var(--color-accent)_24%,transparent)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_18%,transparent)]',
 	segToggle:
 		'inline-flex w-fit max-w-full overflow-x-auto overflow-y-hidden border border-line rounded-full bg-[rgba(16,20,15,0.85)] max-sm:w-full',
 	segItem:

@@ -375,22 +375,129 @@
 }
 
 html.map-fs-active,
-body.map-fs-active {
+body.map-fs-active,
+html.overlay-open,
+body.overlay-open {
 	overflow: hidden !important;
+	overscroll-behavior: none;
 }
 
-body.map-fs-active .map-wrap.is-fullscreen:not(:fullscreen):not(:-webkit-full-screen) {
+body.map-fs-active .tab-bar,
+body.overlay-open .tab-bar {
+	visibility: hidden !important;
+	pointer-events: none !important;
+}
+
+.map-fs-placeholder {
+	width: 100%;
+	visibility: hidden;
+	pointer-events: none;
+}
+
+body.map-fs-active .map-wrap.is-fullscreen,
+body > .map-wrap.is-fullscreen {
 	position: fixed !important;
-	inset: 0 !important;
 	z-index: 10000 !important;
+	margin: 0 !important;
 	width: 100vw !important;
 	height: 100vh !important;
 	height: 100dvh !important;
 }
 
-.km-marker {
+html.overlay-open .overlay-root {
+	top: var(--overlay-top, 0px);
+	height: var(--overlay-height, 100dvh);
+	left: 0;
+	right: 0;
+	bottom: auto;
+}
+
+.km-marker,
+.route-end-marker,
+.user-loc {
 	background: transparent !important;
 	border: none !important;
+}
+
+.route-end-pill {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	border-radius: 999px;
+	font-family: var(--font-display);
+	font-size: 0.72rem;
+	font-weight: 800;
+	letter-spacing: 0.02em;
+	line-height: 1;
+	box-shadow:
+		0 0 0 3px rgba(8, 10, 8, 0.75),
+		0 6px 16px rgba(0, 0, 0, 0.55);
+}
+
+.route-end-marker.is-compact .route-end-pill {
+	width: 20px;
+	height: 20px;
+	font-size: 0.62rem;
+}
+
+.route-end-marker-start .route-end-pill {
+	background: #c8f25a;
+	color: #10140f;
+}
+
+.route-end-marker-finish .route-end-pill {
+	background: #ff8a5b;
+	color: #1a0e08;
+}
+
+.route-end-marker-loop .route-end-pill {
+	width: auto;
+	min-width: 32px;
+	padding: 0 0.35rem;
+	background: linear-gradient(90deg, #c8f25a 50%, #ff8a5b 50%);
+	color: #10140f;
+}
+
+.user-loc-pulse,
+.user-loc-dot {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	border-radius: 999px;
+	transform: translate(-50%, -50%);
+}
+
+.user-loc-pulse {
+	width: 28px;
+	height: 28px;
+	background: rgba(77, 163, 255, 0.28);
+	animation: user-loc-pulse 1.8s ease-out infinite;
+}
+
+.user-loc-dot {
+	width: 14px;
+	height: 14px;
+	background: #4da3ff;
+	border: 2px solid #f4f8ff;
+	box-shadow: 0 0 0 2px rgba(8, 12, 20, 0.55);
+}
+
+@keyframes user-loc-pulse {
+	0% {
+		transform: translate(-50%, -50%) scale(0.55);
+		opacity: 0.85;
+	}
+	100% {
+		transform: translate(-50%, -50%) scale(1.45);
+		opacity: 0;
+	}
+}
+
+.map-chrome-btn-loc.is-active {
+	border-color: rgba(77, 163, 255, 0.65) !important;
+	color: #7ec8ff !important;
 }
 
 .map-wrap .leaflet-container {

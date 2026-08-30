@@ -1,4 +1,11 @@
 import { planWeekIndex } from '$lib/plan';
+import {
+	asShoeNameList,
+	emptyShoes,
+	normalizeShoeContext,
+	shoeKey,
+	type ShoeContext
+} from '$lib/shoes';
 import type { Goals, PlanWeek } from '$lib/types';
 import {
 	clonePattern,
@@ -165,13 +172,44 @@ export async function saveWeekPatternSetting(pattern: WeekPattern): Promise<Week
 	return next.weekPattern;
 }
 
-export async function loadShoes(): Promise<{ active: string; notes: string; rotation: string[] }> {
+export async function loadShoes(): Promise<ShoeContext> {
 	const raw = await readContextFile('shoes.md');
-	if (!raw) return { active: '', notes: '', rotation: [] };
+	if (!raw) return emptyShoes();
 	const { data, content } = matter(raw);
-	return {
+	return normalizeShoeContext({
 		active: String(data.active ?? ''),
-		rotation: Array.isArray(data.rotation) ? data.rotation.map(String) : [],
+		rotation: asShoeNameList(data.rotation),
+		retired: asShoeNameList(data.retired),
 		notes: content.trim()
-	};
+	});
+}
+
+export async function persistShoes(shoes: ShoeContext): Promise<ShoeContext> {
+	const next = normalizeShoeContext(shoes);
+	await writeContextFile(
+		'shoes.md',
+		matter.stringify(next.notes ? `${next.notes}\n` : '', {
+			active: next.active,
+			rotation: next.rotation,
+			retired: next.retired
+		})
+	);
+	return next;
+}
+
+/** Add a newly logged pair to rotation (or un-retire it). Does not change the daily trainer. */
+export async function rememberShoeName(name: string): Promise<void> {
+	const n = String(name ?? '')
+		.trim()
+		.replace(/\s+/g, ' ');
+	const k = shoeKey(n);
+	if (!k) return;
+	const shoes = await loadShoes();
+	if (shoeKey(shoes.active) === k) return;
+	if (shoes.rotation.some((s) => shoeKey(s) === k)) return;
+	await persistShoes({
+		...shoes,
+		rotation: [...shoes.rotation, n],
+		retired: shoes.retired.filter((s) => shoeKey(s) !== k)
+	});
 }

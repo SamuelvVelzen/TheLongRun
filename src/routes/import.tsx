@@ -68,7 +68,9 @@ function AddActivity() {
 						</div>
 					) : (
 						<DeferredData promise={page}>
-							{(data) => <LogForm week={data.week} shoes={data.shoes} />}
+							{(data) => (
+								<LogForm week={data.week} shoes={data.shoes} shoeWear={data.shoeWear} />
+							)}
 						</DeferredData>
 					)}
 				</>

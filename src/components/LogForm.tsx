@@ -2,6 +2,7 @@ import { ACTIVITY_TYPES, activityLabel, normalizeActivityType, paceFieldLabel, s
 import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
 import { createRun, type CreateRunInput } from '$lib/server/functions';
+import { shoePickerOptions, type ShoeContext, type ShoeWear } from '$lib/shoes';
 import type { PlanWeek } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
@@ -16,10 +17,12 @@ const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'rac
 
 export function LogForm({
 	week,
-	shoes
+	shoes,
+	shoeWear
 }: {
 	week: PlanWeek | null;
-	shoes: { active: string; rotation: string[]; notes: string };
+	shoes: ShoeContext;
+	shoeWear?: Record<string, ShoeWear>;
 }) {
 	const router = useRouter();
 	const snack = useSnackbar();
@@ -250,7 +253,8 @@ export function LogForm({
 							)}
 							{showsField(activityType, 'shoes') && (
 								<ShoesField
-									options={[shoes.active, ...shoes.rotation]}
+									options={shoePickerOptions(shoes)}
+									wear={shoeWear}
 									defaultValue={shoes.active}
 								/>
 							)}

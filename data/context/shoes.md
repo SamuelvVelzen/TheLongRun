@@ -2,6 +2,7 @@
 active: Reebok Floatride Energy 5
 rotation:
   - Reebok Floatride Energy 5
+retired: []
 ---
 
-Current daily trainer: **Reebok Floatride Energy 5** (used for logged sessions so far). Update `active` when the pair for key sessions changes.
+Daily trainer for logged sessions. Mileage is counted from activities in the app.

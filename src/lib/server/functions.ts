@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPES, activityLabel, activityPlural, metricText, normalizeActivityType } from '$lib/activity';
+import { ACTIVITY_TYPES, activityLabel, activityPlural, metricText, normalizeActivityType, showsField } from '$lib/activity';
 import {
     computeBestEffortsFromSplits,
     computeBestEffortsFromTrack,
@@ -35,6 +35,12 @@ import {
     withSessionRoutes,
     type WeekView
 } from '$lib/plan';
+import {
+    formatShoeKm,
+    shoeKey,
+    wearByShoe,
+    type ShoeContext
+} from '$lib/shoes';
 import { analyticsToProperties, type RouteAnalytics } from '$lib/splits';
 import { parseStrengthNotes, strengthSummary } from '$lib/strength';
 import type {
@@ -66,7 +72,9 @@ import {
     loadPlan,
     loadSettings,
     loadShoes,
+    persistShoes,
     readContextFile,
+    rememberShoeName,
     saveHrMaxSetting,
     saveWeekPatternSetting,
     writeContextFile
@@ -204,7 +212,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 		weekView: WeekView | null;
 		streak: number;
 		goals: Goals;
-		shoes: { active: string; notes: string; rotation: string[] };
+		shoes: { active: string; notes: string; rotation: string[]; retired: string[] };
 	};
 });
 
@@ -276,6 +284,7 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 			run: { ...current, has_map: runHasMap(current, routeIds) } as RunWithMap,
 			analytics: out,
 			shoes,
+			shoeWear: wearByShoe(allRuns),
 			hrMaxManual,
 			hrMaxAllTime: allTimeMaxHr,
 			bestEfforts: highlights,
@@ -291,8 +300,8 @@ export const saveHrMax = createServerFn({ method: 'POST' }).middleware([requireA
 	});
 
 export const getLogDefaults = createServerFn({ method: 'GET' }).handler(async () => {
-	const [week, shoes] = await Promise.all([currentPlanWeek(), loadShoes()]);
-	return { week, shoes };
+	const [week, shoes, runs] = await Promise.all([currentPlanWeek(), loadShoes(), listRuns()]);
+	return { week, shoes, shoeWear: wearByShoe(runs) };
 });
 
 export const getRouteGeoJsonFn = createServerFn({ method: 'GET' })
@@ -319,15 +328,19 @@ const CONTEXT_FILES: { name: string; title: string }[] = [
 
 export type ContextFile = { name: string; title: string; body: string; html: string };
 
-function shoesAsMarkdown(shoes: { active: string; rotation: string[]; notes: string }) {
+function shoesAsMarkdown(shoes: ShoeContext) {
 	return matter.stringify(shoes.notes ? `${shoes.notes}\n` : '', {
 		active: shoes.active,
-		rotation: shoes.rotation
+		rotation: shoes.rotation,
+		retired: shoes.retired
 	});
 }
 
-const BRIEF_DETAIL_WEEKS = 12;
-const BRIEF_DETAIL_CAP = 40;
+function historyWindowPhrase(weeks: number): string {
+	if (weeks >= 520) return 'all time';
+	if (weeks === 26) return 'last 6 months';
+	return `last ${weeks} weeks`;
+}
 
 function isImportNote(n: string): boolean {
 	return /^imported from/i.test(n.trim());
@@ -430,8 +443,28 @@ function shoesNotesForBrief(notes: string): string {
 	return t;
 }
 
+function shoesSectionForBrief(shoes: ShoeContext, runs: RunRecord[]): string {
+	const wear = wearByShoe(runs);
+	const line = (name: string) => {
+		const w = wear[shoeKey(name)];
+		if (!w || w.count <= 0) return name;
+		const runsLabel = w.count === 1 ? '1 run' : `${w.count} runs`;
+		return `${name} — ${formatShoeKm(w.km)} (${runsLabel})`;
+	};
+	const rotationRest = shoes.rotation.filter((n) => shoeKey(n) !== shoeKey(shoes.active));
+	const lines = [
+		`- Daily: ${shoes.active ? line(shoes.active) : '—'}`,
+		rotationRest.length ? `- Rotation: ${rotationRest.map(line).join('; ')}` : '',
+		shoes.retired.length ? `- Retired: ${shoes.retired.map(line).join('; ')}` : ''
+	].filter(Boolean);
+	const notes = shoesNotesForBrief(shoes.notes ?? '');
+	return `## Shoes
+Mileage is counted from logged activities. Strava GPX exports do not include gear.
+${lines.join('\n')}${notes ? `\n\n${notes}` : ''}`;
+}
+
 export const getContextData = createServerFn({ method: 'GET' }).handler(async () => {
-	const shoes = await loadShoes();
+	const [shoes, runs] = await Promise.all([loadShoes(), listRuns()]);
 	const raw = await Promise.all(
 		CONTEXT_FILES.map((f) =>
 			f.name === 'shoes.md' ? Promise.resolve('') : readContextFile(f.name)
@@ -443,7 +476,7 @@ export const getContextData = createServerFn({ method: 'GET' }).handler(async ()
 		return { name: f.name, title: f.title, body, html };
 	});
 	const allContext = files.map((f) => `# ===== ${f.name} =====\n\n${f.body.trim()}`).join('\n\n');
-	return { shoes, files, allContext };
+	return { shoes, shoeWear: wearByShoe(runs), files, allContext };
 });
 
 export const getCoachBrief = createServerFn({ method: 'GET' })
@@ -539,6 +572,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 			if (t !== 'strength') e.km[t] = (e.km[t] ?? 0) + (r.distance_km ?? 0);
 			weekMap.set(wk, e);
 		}
+		const windowPhrase = historyWindowPhrase(weeks);
 		const weekLines =
 			[...weekMap.entries()]
 				.sort((a, b) => (a[0] > b[0] ? -1 : a[0] < b[0] ? 1 : 0))
@@ -554,22 +588,9 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 				})
 				.join('\n') || '- (no activities in window)';
 
-		const detailCutoff = new Date(today);
-		detailCutoff.setDate(detailCutoff.getDate() - BRIEF_DETAIL_WEEKS * 7);
-		const detailCutoffIso = detailCutoff.toISOString().slice(0, 10);
-		let detailRuns = windowRuns;
-		let activityHeading = `last ${weeks} weeks, newest first`;
-		if (weeks > BRIEF_DETAIL_WEEKS) {
-			detailRuns = windowRuns.filter((r) => r.date >= detailCutoffIso);
-			activityHeading = `newest first — detailed log is last ${BRIEF_DETAIL_WEEKS} weeks; earlier weeks are in the volume list only`;
-		}
-		if (detailRuns.length > BRIEF_DETAIL_CAP) {
-			detailRuns = detailRuns.slice(0, BRIEF_DETAIL_CAP);
-			activityHeading = `${activityHeading}; table capped at ${BRIEF_DETAIL_CAP} most recent activities`;
-		}
-
+		const activityHeading = `${windowPhrase}, newest first`;
 		const rows =
-			detailRuns
+			windowRuns
 				.map((r) => {
 					const feel = [r.effort, r.shins, r.legs, r.energy]
 						.map((v) => (v == null ? '–' : v))
@@ -578,7 +599,6 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 				})
 				.join('\n') || '| – | – | – | – | – | – | – |';
 
-		const shoeNotes = shoesNotesForBrief(shoes.notes ?? '');
 		const mixSection = formatPatternPromptSection({
 			defaultPattern,
 			thisWeek: thisPattern,
@@ -626,7 +646,7 @@ ${goals.notes ? `\n${goals.notes}\n` : ''}
 - Longest run: ${longest ? `${longest.distance_km} km (${longest.avg_pace || '—'}/km) on ${longest.date}` : '—'}.
 - Shin trend (0–10, lower = better): last 4 runs avg ${shinsRecent ?? '—'} vs prior 4 ${shinsPrior ?? '—'}.
 
-## Weekly volume (last ${weeks} weeks)
+## Weekly volume (${windowPhrase})
 ${weekLines}
 
 ## Activity log (${activityHeading})
@@ -639,8 +659,7 @@ ${rows}
 ## Training plan
 ${plan.length ? formatTrainingPlanBrief(plan, targetWeek) : '(no plan set)'}
 
-## Shoes
-- Active: ${shoes.active || '—'}${shoes.rotation?.length ? `\n- Rotation: ${shoes.rotation.join(', ')}` : ''}${shoeNotes ? `\n\n${shoeNotes}` : ''}
+${shoesSectionForBrief(shoes, allRuns)}
 
 ## Runner profile
 ${profile.trim() || '(none)'}
@@ -887,6 +906,7 @@ export const createRun = createServerFn({ method: 'POST' }).middleware([requireA
 			strava_id: '',
 			notes: data.notes
 		});
+		await rememberShoeName(run.shoes);
 		return { slug: run.slug };
 	});
 
@@ -988,6 +1008,10 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 				? await reverseGeocode(parsed.startLat, parsed.startLng)
 				: { country: '', province: '', place: '' };
 
+		const importedShoes = showsField(activity_type, 'shoes')
+			? (await loadShoes()).active
+			: '';
+
 		const run = await saveRun({
 			date: parsed.date,
 			week,
@@ -1011,7 +1035,7 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 			elev_gain: parsed.elevGain,
 			max_speed: parsed.maxSpeed,
 			cadence: null,
-			shoes: '',
+			shoes: importedShoes,
 			summary_image: '',
 			splits_image: '',
 			strava_id: '',
@@ -1096,6 +1120,7 @@ export const updateRun = createServerFn({ method: 'POST' }).middleware([requireA
 			notes: data.notes
 		};
 		const run = await dbUpdateRun(data.slug, fields);
+		await rememberShoeName(run.shoes);
 		return { slug: run.slug };
 	});
 
@@ -1320,16 +1345,9 @@ export const saveFeelings = createServerFn({ method: 'POST' }).middleware([requi
 	});
 
 export const saveShoes = createServerFn({ method: 'POST' }).middleware([requireAuth])
-	.validator((d: { active: string; rotation: string[]; notes: string }) => d)
+	.validator((d: ShoeContext) => d)
 	.handler(async ({ data }) => {
-		if (!data.active.trim()) throw new Error('Active shoes required');
-		await writeContextFile(
-			'shoes.md',
-			matter.stringify(data.notes ? `${data.notes}\n` : '', {
-				active: data.active.trim(),
-				rotation: data.rotation
-			})
-		);
+		await persistShoes(data);
 		return { ok: true };
 	});
 

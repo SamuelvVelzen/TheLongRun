@@ -1,10 +1,11 @@
 import { useAuthed } from '$lib/auth';
-import { getContextData, saveContextFile, saveShoes } from '$lib/server/functions';
+import { getContextData, saveContextFile } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
+import { ShoesInventory } from '../components/ShoesInventory';
 
 export const Route = createFileRoute('/context')({
 	loader: () => ({ page: getContextData() }),
@@ -65,24 +66,6 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 		setOpenName(name);
 	}
 
-	async function onSaveShoes(e: React.FormEvent<HTMLFormElement>) {
-		e.preventDefault();
-		const fd = new FormData(e.currentTarget);
-		const active = String(fd.get('active') ?? '').trim();
-		const rotation = String(fd.get('rotation') ?? '')
-			.split('\n')
-			.map((s) => s.trim())
-			.filter(Boolean);
-		const notes = String(fd.get('notes') ?? '');
-		try {
-			await saveShoes({ data: { active, rotation, notes } });
-			snack.success('Saved shoes.md');
-			router.invalidate();
-		} catch (err) {
-			snack.error(errorMessage(err, 'Save failed'));
-		}
-	}
-
 	async function onSaveFile(e: React.FormEvent<HTMLFormElement>, name: string) {
 		e.preventDefault();
 		try {
@@ -99,37 +82,7 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 
 	return (
 		<>
-			{authed ? (
-			<form className={cn(ui.panel, ui.form, 'mb-5')} method="POST" onSubmit={onSaveShoes}>
-				<h2>Current shoes</h2>
-				<div className={cn(ui.formGrid, 'mt-[0.8rem]')}>
-					<label className={ui.field}>
-						<span>Active pair</span>
-						<input name="active" defaultValue={data.shoes.active} required />
-					</label>
-					<label className={ui.field}>
-						<span>Rotation (one per line)</span>
-						<textarea name="rotation" rows={3} defaultValue={data.shoes.rotation.join('\n')} />
-					</label>
-				</div>
-				<label className={ui.field}>
-					<span>Notes</span>
-					<textarea name="notes" rows={3} defaultValue={data.shoes.notes} />
-				</label>
-				<button className={ui.btnPrimary} type="submit">
-					Update shoes
-				</button>
-			</form>
-			) : (
-				<div className={cn(ui.panel, 'mb-5')}>
-					<h2>Current shoes</h2>
-					<p className="mt-[0.8rem] mb-0">
-						<strong>{data.shoes.active || '—'}</strong>
-						{data.shoes.rotation.length ? ` · ${data.shoes.rotation.join(', ')}` : ''}
-					</p>
-					{data.shoes.notes ? <p className={cn(ui.muted, 'mt-2 mb-0')}>{data.shoes.notes}</p> : null}
-				</div>
-			)}
+			<ShoesInventory initial={data.shoes} wear={data.shoeWear} authed={authed} />
 
 			<div className={ui.grid}>
 				{data.files.map((file) => (

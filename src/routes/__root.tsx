@@ -4,6 +4,7 @@ import { cn } from '$lib/ui';
 import { createRootRoute, HeadContent, Link, Outlet, Scripts } from '@tanstack/react-router';
 import type { MouseEvent, ReactNode } from 'react';
 import '../app.css';
+import { SnackbarProvider } from '../components/Snackbar';
 
 export const Route = createRootRoute({
 	head: () => ({
@@ -77,6 +78,7 @@ function RootShell() {
 	const extra = moreLinks.filter((l) => authed || l.href !== '/import');
 	return (
 		<RootDocument>
+			<SnackbarProvider>
 			<div className="relative z-1 flex flex-1 flex-col w-[min(1120px,calc(100%-2rem))] min-h-dvh mx-auto pt-5 pr-[env(safe-area-inset-right,0px)] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] max-sm:w-[min(1120px,calc(100%-1.25rem))] max-sm:pt-[0.85rem] max-sm:pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]">
 				<header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-8 pt-[calc(0.85rem+env(safe-area-inset-top,0px))] pb-[0.85rem] border-b border-line max-sm:mb-4 max-sm:pt-[max(0.45rem,env(safe-area-inset-top,0px))] max-sm:pb-[0.45rem]">
 					<Link
@@ -104,7 +106,7 @@ function RootShell() {
 				</header>
 				<Outlet />
 				<nav
-					className="hidden max-sm:flex items-stretch justify-around fixed inset-x-0 bottom-0 z-40 gap-[0.15rem] min-h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pt-[0.3rem] pl-[max(0.35rem,env(safe-area-inset-left,0px))] pr-[max(0.35rem,env(safe-area-inset-right,0px))] pb-[calc(0.3rem+env(safe-area-inset-bottom,0px))] border-t border-line bg-[rgba(16,20,15,0.96)] shadow-[0_-12px_32px_rgba(0,0,0,0.28)]"
+					className="tab-bar hidden max-sm:flex items-stretch justify-around fixed inset-x-0 bottom-0 z-40 gap-[0.15rem] min-h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pt-[0.3rem] pl-[max(0.35rem,env(safe-area-inset-left,0px))] pr-[max(0.35rem,env(safe-area-inset-right,0px))] pb-[calc(0.3rem+env(safe-area-inset-bottom,0px))] border-t border-line bg-[rgba(16,20,15,0.96)] shadow-[0_-12px_32px_rgba(0,0,0,0.28)]"
 					aria-label="Primary"
 				>
 					{tabs.map((tab) => (
@@ -166,6 +168,7 @@ function RootShell() {
 					</details>
 				</nav>
 			</div>
+			</SnackbarProvider>
 		</RootDocument>
 	);
 }

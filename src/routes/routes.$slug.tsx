@@ -1,22 +1,23 @@
-import { useEffect, useState } from 'react';
-import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
 import { useAuthed } from '$lib/auth';
-import { cn, ui } from '$lib/ui';
 import {
-	deletePlannedRoute,
-	getPlannedRouteDetail,
-	updatePlannedRoute
-} from '$lib/server/functions';
-import {
-	downloadPlannedRouteGpx,
-	openPlannedRouteInBrouter,
-	plannedRouteAppleMapsStartUrl,
-	preferredMapsApp,
-	type MapsPref
+    downloadPlannedRouteGpx,
+    openPlannedRouteInBrouter,
+    plannedRouteAppleMapsStartUrl,
+    preferredMapsApp,
+    type MapsPref
 } from '$lib/planned-route-export';
+import {
+    deletePlannedRoute,
+    getPlannedRouteDetail,
+    updatePlannedRoute
+} from '$lib/server/functions';
+import { cn, ui } from '$lib/ui';
+import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
+import { useEffect, useState } from 'react';
+import { ConfirmDialog } from '../components/Dialog';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 import { RouteAttach } from '../components/RouteAttach';
-import { ConfirmDialog } from '../components/Dialog';
+import { errorMessage, useSnackbar } from '../components/Snackbar';
 
 export const Route = createFileRoute('/routes/$slug')({
 	loader: async ({ params }) => {
@@ -31,10 +32,10 @@ function PlannedRouteDetail() {
 	const route = Route.useLoaderData();
 	const router = useRouter();
 	const authed = useAuthed();
+	const snack = useSnackbar();
 	const [editing, setEditing] = useState(false);
 	const [name, setName] = useState(route.name);
 	const [notes, setNotes] = useState(route.notes);
-	const [message, setMessage] = useState('');
 	const [pendingDelete, setPendingDelete] = useState(false);
 
 	async function save(event: React.FormEvent) {
@@ -44,7 +45,7 @@ function PlannedRouteDetail() {
 			setEditing(false);
 			await router.invalidate();
 		} catch (error) {
-			setMessage(error instanceof Error ? error.message : 'Save failed');
+			snack.error(errorMessage(error, 'Save failed'));
 		}
 	}
 
@@ -61,7 +62,7 @@ function PlannedRouteDetail() {
 
 	function openAppleMaps() {
 		if (!appleMapsUrl) {
-			setMessage('This route has no start point for Apple Maps.');
+			snack.info('This route has no start point for Apple Maps.');
 			return;
 		}
 		if (mapsPref === 'apple') window.location.assign(appleMapsUrl);
@@ -70,7 +71,7 @@ function PlannedRouteDetail() {
 
 	function openInBrouter() {
 		const opened = openPlannedRouteInBrouter(route.geojson, route.waypoints);
-		if (!opened) setMessage('This route has too few points for BRouter.');
+		if (!opened) snack.info('This route has too few points for BRouter.');
 	}
 
 	const location = [route.place, route.province, route.country].filter(Boolean).join(', ');
@@ -90,7 +91,7 @@ function PlannedRouteDetail() {
 			await updatePlannedRoute({ data: { slug: route.slug, name: trimmed, notes: route.notes } });
 			await router.invalidate();
 		} catch (error) {
-			setMessage(error instanceof Error ? error.message : 'Save failed');
+			snack.error(errorMessage(error, 'Save failed'));
 		}
 	}
 
@@ -170,7 +171,6 @@ function PlannedRouteDetail() {
 				</div>
 			</section>
 
-			{message && <div className={ui.flash}>{message}</div>}
 			{editing && (
 				<form className={cn(ui.panel, ui.form, 'mb-4')} onSubmit={save}>
 					<label className={ui.field}>

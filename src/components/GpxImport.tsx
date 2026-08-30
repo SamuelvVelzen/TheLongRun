@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { Link } from '@tanstack/react-router';
-import { importGpx } from '$lib/server/functions';
 import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
+import { importGpx } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { useState } from 'react';
 import { BestEffortBadges } from './BestEffortBadges';
-import { ConfirmDialog } from './Dialog';
 import { DeleteButton } from './DeleteButton';
+import { ConfirmDialog } from './Dialog';
+import { errorMessage, useSnackbar } from './Snackbar';
 
 export type GpxImportResult = {
 	name: string;
@@ -24,6 +25,8 @@ export function GpxImport({
 	onImported?: (ok: GpxImportResult[]) => void;
 	coachAfter?: boolean;
 }) {
+	const navigate = useNavigate();
+	const snack = useSnackbar();
 	const [files, setFiles] = useState<File[]>([]);
 	const [dragOver, setDragOver] = useState(false);
 	const [busy, setBusy] = useState(false);
@@ -68,7 +71,7 @@ export function GpxImport({
 				out.push({
 					name: f.name,
 					status: 'error',
-					message: err instanceof Error ? err.message : 'Import failed'
+					message: errorMessage(err, 'Import failed')
 				});
 			}
 			setResults([...out]);
@@ -77,6 +80,32 @@ export function GpxImport({
 		setBusy(false);
 		setFiles([]);
 		const ok = out.filter((r) => r.status === 'ok');
+		const fail = out.filter((r) => r.status === 'error');
+		const continueSlug = [...ok].reverse().find((r) => r.slug)?.slug;
+		const continueAction =
+			coachAfter && continueSlug
+				? {
+						label: 'Open activity',
+						onClick: () =>
+							navigate({
+								to: '/runs/$slug',
+								params: { slug: continueSlug }
+							})
+					}
+				: undefined;
+		if (ok.length && !fail.length) {
+			const one = ok[0]!;
+			snack.success(
+				ok.length === 1
+					? `Imported ${one.name}${one.duplicate ? ' — already logged, refreshed its map' : ''}`
+					: `Imported ${ok.length} files`,
+				{ action: continueAction }
+			);
+		} else if (ok.length) {
+			snack.info(`Imported ${ok.length} of ${out.length} files`, { action: continueAction });
+		} else {
+			snack.error(fail[0]?.message ?? 'Import failed');
+		}
 		if (ok.length) onImported?.(ok);
 	}
 

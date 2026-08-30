@@ -1,16 +1,17 @@
-import { useAuthed } from '$lib/auth';
 import { activityLabel } from '$lib/activity';
+import { useAuthed } from '$lib/auth';
 import { attachPlannedRoute, detachPlannedRoute } from '$lib/server/functions';
 import type {
-	ActivityAttachOption,
-	PlannedRouteActivityLink,
-	PlannedRoutePlanLink,
-	PlanAttachOption
+    ActivityAttachOption,
+    PlanAttachOption,
+    PlannedRouteActivityLink,
+    PlannedRoutePlanLink
 } from '$lib/types';
+import { cn, ui } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
-import { cn, ui } from '$lib/ui';
 import { ConfirmDialog } from './Dialog';
+import { errorMessage, useSnackbar } from './Snackbar';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -39,9 +40,9 @@ export function RouteAttach({
 }) {
 	const router = useRouter();
 	const authed = useAuthed();
+	const snack = useSnackbar();
 	const [query, setQuery] = useState('');
 	const [busy, setBusy] = useState(false);
-	const [message, setMessage] = useState('');
 	const [pending, setPending] = useState<
 		| { kind: 'plan'; id: number; label: string }
 		| { kind: 'activity'; id: number; label: string }
@@ -60,12 +61,11 @@ export function RouteAttach({
 
 	async function run(fn: () => Promise<unknown>) {
 		setBusy(true);
-		setMessage('');
 		try {
 			await fn();
 			await router.invalidate();
 		} catch (error) {
-			setMessage(error instanceof Error ? error.message : 'Could not update links');
+			snack.error(errorMessage(error, 'Could not update links'));
 		} finally {
 			setBusy(false);
 		}
@@ -234,7 +234,6 @@ export function RouteAttach({
 					)}
 				</section>
 			</div>
-			{message && <div className={cn(ui.flash, 'mt-[0.85rem]')}>{message}</div>}
 			<ConfirmDialog
 				open={pending != null}
 				title="Remove this link?"

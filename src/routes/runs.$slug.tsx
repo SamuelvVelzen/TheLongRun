@@ -1,42 +1,43 @@
-import { useState } from 'react';
-import { createFileRoute, notFound, useRouter } from '@tanstack/react-router';
-import { useAuthed } from '$lib/auth';
 import {
-	getRunDetail,
-	updateRun,
-	deleteRun,
-	saveHrMax,
-	type UpdateRunInput
-} from '$lib/server/functions';
+    ACTIVITY_TYPES,
+    activityLabel,
+    headlineMetric,
+    normalizeActivityType,
+    paceFieldLabel,
+    showsFeel,
+    showsField
+} from '$lib/activity';
+import { useAuthed } from '$lib/auth';
 import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
 import {
-	ACTIVITY_TYPES,
-	activityLabel,
-	headlineMetric,
-	normalizeActivityType,
-	paceFieldLabel,
-	showsFeel,
-	showsField
-} from '$lib/activity';
+    deleteRun,
+    getRunDetail,
+    saveHrMax,
+    updateRun,
+    type UpdateRunInput
+} from '$lib/server/functions';
 import {
-	exerciseTotalLabel,
-	formatSetDisplay,
-	formatSetTop,
-	parseStrengthNotes,
-	topSet
+    exerciseTotalLabel,
+    formatSetDisplay,
+    formatSetTop,
+    parseStrengthNotes,
+    topSet
 } from '$lib/strength';
+import { cn, ui } from '$lib/ui';
+import { createFileRoute, notFound, useRouter } from '@tanstack/react-router';
+import { useState } from 'react';
+import { BestEffortBadges } from '../components/BestEffortBadges';
+import { DeleteButton } from '../components/DeleteButton';
+import { ConfirmDialog } from '../components/Dialog';
+import { FeelChips, WantedFasterChips } from '../components/FeelChips';
+import { RouteChip } from '../components/RouteChip';
 import { RouteMap } from '../components/RouteMap';
+import { ShoesField } from '../components/ShoesField';
+import { errorMessage, useSnackbar } from '../components/Snackbar';
 import { SplitsPanel } from '../components/SplitsPanel';
 import { StrengthEditor } from '../components/StrengthEditor';
-import { ShoesField } from '../components/ShoesField';
 import { WeatherField } from '../components/WeatherField';
-import { FeelChips, WantedFasterChips } from '../components/FeelChips';
-import { BestEffortBadges } from '../components/BestEffortBadges';
-import { RouteChip } from '../components/RouteChip';
-import { ConfirmDialog } from '../components/Dialog';
-import { DeleteButton } from '../components/DeleteButton';
-import { cn, ui } from '$lib/ui';
 
 export const Route = createFileRoute('/runs/$slug')({
 	loader: async ({ params }) => {
@@ -271,6 +272,7 @@ function RunDetail() {
 		Route.useLoaderData();
 	const router = useRouter();
 	const authed = useAuthed();
+	const snack = useSnackbar();
 
 	async function onSaveHrMax(hrMax: number | null) {
 		await saveHrMax({ data: hrMax });
@@ -283,7 +285,6 @@ function RunDetail() {
 	const [editNotes, setEditNotes] = useState(r.notes);
 	const [editWeather, setEditWeather] = useState(r.weather || '');
 	const [editStart, setEditStart] = useState(r.start_time || '');
-	const [message, setMessage] = useState('');
 	const [pendingDelete, setPendingDelete] = useState(false);
 
 	const derivedDay = dayFromIsoDate(editDate || r.date);
@@ -359,7 +360,7 @@ function RunDetail() {
 				router.invalidate();
 			}
 		} catch (err) {
-			setMessage(err instanceof Error ? err.message : 'Update failed');
+			snack.error(errorMessage(err, 'Update failed'));
 		}
 	}
 
@@ -396,7 +397,7 @@ function RunDetail() {
 			await updateRun({ data: { ...runToInput(), ...partial } });
 			await router.invalidate();
 		} catch (err) {
-			setMessage(err instanceof Error ? err.message : 'Quick save failed');
+			snack.error(errorMessage(err, 'Quick save failed'));
 		}
 	}
 
@@ -470,8 +471,6 @@ function RunDetail() {
 					)}
 				</div>
 			</section>
-
-			{message && <div className={ui.flash}>{message}</div>}
 
 			{editing ? (
 				<form className={ui.form} method="POST" onSubmit={onUpdate}>

@@ -3,11 +3,12 @@ import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
 import { createRun, type CreateRunInput } from '$lib/server/functions';
 import type { PlanWeek } from '$lib/types';
+import { cn, ui } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
-import { cn, ui } from '$lib/ui';
 import { FeelChips, WantedFasterChips } from './FeelChips';
 import { ShoesField } from './ShoesField';
+import { errorMessage, useSnackbar } from './Snackbar';
 import { StrengthEditor } from './StrengthEditor';
 import { WeatherField } from './WeatherField';
 
@@ -21,6 +22,7 @@ export function LogForm({
 	shoes: { active: string; rotation: string[]; notes: string };
 }) {
 	const router = useRouter();
+	const snack = useSnackbar();
 	const todayIso = new Date().toISOString().slice(0, 10);
 	const [dateValue, setDateValue] = useState(todayIso);
 	const [startTimeValue, setStartTimeValue] = useState('');
@@ -28,7 +30,6 @@ export function LogForm({
 	const [weather, setWeather] = useState('');
 	const [activityType, setActivityType] = useState('run');
 	const [strengthNotes, setStrengthNotes] = useState('');
-	const [message, setMessage] = useState('');
 
 	const derivedDay = dayFromIsoDate(dateValue || todayIso);
 	const derivedWeek = weekNumberForDate(dateValue || todayIso);
@@ -93,13 +94,12 @@ export function LogForm({
 				router.navigate({ to: '/runs/$slug', params: { slug: res.slug } });
 			}
 		} catch (err) {
-			setMessage(err instanceof Error ? err.message : 'Save failed');
+			snack.error(errorMessage(err, 'Save failed'));
 		}
 	}
 
 	return (
 		<form className={ui.form} method="POST" onSubmit={onSubmit}>
-			{message && <div className={ui.flash}>{message}</div>}
 			<div className={ui.panel}>
 				<div className={ui.formSection}>
 					<h3 className={ui.formSectionTitle}>Activity</h3>

@@ -1,4 +1,5 @@
 import { useAuthed } from '$lib/auth';
+import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
 import { PLAN_WEEK_COUNT, planWeekDateRange, type WeekView } from '$lib/plan';
 import {
     getCoachBrief,
@@ -18,6 +19,7 @@ import {
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { ChoiceChips } from '../components/ChoiceChips';
+import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
@@ -30,21 +32,20 @@ import {
 import { WeekPlanBoard } from '../components/WeekPlanBoard';
 
 type CoachTab = 'training' | 'debrief' | 'plan' | 'generate';
-type CoachSearch = { weeks?: number; tab?: CoachTab; slug?: string; planWeek?: number };
+type CoachSearch = RangeSearch & { tab?: CoachTab; slug?: string; planWeek?: number };
 
-const ALL_TIME_WEEKS = 520;
-const WEEK_OPTIONS = [
-	{ value: 4, label: '4 weeks' },
-	{ value: 8, label: '8 weeks' },
-	{ value: 12, label: '12 weeks' },
-	{ value: 26, label: '6 months' },
-	{ value: ALL_TIME_WEEKS, label: 'All time' }
-];
+const RANGE_KINDS: RangeKind[] = ['7d', '30d', 'all', 'custom'];
 
-function historyWindowLabel(weeks: number): string {
-	if (weeks >= ALL_TIME_WEEKS) return 'all time';
-	if (weeks === 26) return 'the last 6 months';
-	return `the last ${weeks} weeks`;
+function withCoachSearch(search: CoachSearch, extra: Partial<CoachSearch> = {}): CoachSearch {
+	const slug = extra.slug !== undefined ? extra.slug : search.slug;
+	return {
+		tab: extra.tab ?? search.tab,
+		slug: slug || undefined,
+		planWeek: extra.planWeek !== undefined ? extra.planWeek : search.planWeek,
+		range: extra.range !== undefined ? extra.range : search.range,
+		from: extra.from !== undefined ? extra.from : search.from,
+		to: extra.to !== undefined ? extra.to : search.to
+	};
 }
 
 function defaultQuestion(): string {
@@ -95,11 +96,7 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 		const week = Math.min(PLAN_WEEK_COUNT, Math.max(1, n));
 		router.navigate({
 			to: '/coach',
-			search: {
-				tab: 'plan',
-				weeks: search.weeks,
-				planWeek: week
-			},
+			search: withCoachSearch(search, { tab: 'plan', planWeek: week }),
 			replace: true,
 			resetScroll: false
 		});
@@ -140,16 +137,15 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 }
 
 export const Route = createFileRoute('/coach')({
-	validateSearch: (s: Record<string, unknown>): CoachSearch => {
-		const n = Number(s.weeks);
-		return {
-			weeks: Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined,
-			tab: parseTab(s.tab),
-			slug: typeof s.slug === 'string' && s.slug ? s.slug : undefined,
-			planWeek: parsePlanWeek(s.planWeek)
-		};
-	},
-	// Search (tab, weeks, slug) must not remount DeferredData/Await — that felt like a full refresh.
+	validateSearch: (s: Record<string, unknown>): CoachSearch => ({
+		range: RANGE_KINDS.includes(s.range as RangeKind) ? (s.range as RangeKind) : undefined,
+		from: typeof s.from === 'string' ? s.from : undefined,
+		to: typeof s.to === 'string' ? s.to : undefined,
+		tab: parseTab(s.tab),
+		slug: typeof s.slug === 'string' && s.slug ? s.slug : undefined,
+		planWeek: parsePlanWeek(s.planWeek)
+	}),
+	// Search (tab, range, slug) must not remount DeferredData/Await — that felt like a full refresh.
 	loaderDeps: () => ({}),
 	loader: ({ location }) => {
 		const slug = (location.search as CoachSearch).slug ?? '';
@@ -174,12 +170,10 @@ function Coach() {
 	function setTab(next: CoachTab) {
 		router.navigate({
 			to: '/coach',
-			search: {
+			search: withCoachSearch(search, {
 				tab: next,
-				weeks: search.weeks,
-				slug: next === 'debrief' ? search.slug : undefined,
-				planWeek: search.planWeek
-			},
+				slug: next === 'debrief' ? search.slug : ''
+			}),
 			replace: true,
 			resetScroll: false
 		});
@@ -265,7 +259,7 @@ function CoachPanels({
 	const search = Route.useSearch();
 	const router = useRouter();
 	const snack = useSnackbar();
-	const weeks = search.weeks ?? ALL_TIME_WEEKS;
+	const range = dateRangeFromSearch(search);
 	const authed = useAuthed();
 	const tab = visibleTab(search.tab, authed);
 	const slug = search.slug ?? '';
@@ -287,7 +281,7 @@ function CoachPanels({
 	const mixBusyRef = useRef(false);
 	const [briefBusy, setBriefBusy] = useState(false);
 
-	// Loader remount (weeks change) brings fresh initial debrief.
+	// Fresh loader data (e.g. after save) replaces the debrief prompt.
 	useEffect(() => {
 		setDebrief(initialDebrief);
 		setDebriefPrompt(initialDebrief.prompt);
@@ -355,7 +349,14 @@ function CoachPanels({
 		setBriefBusy(true);
 		try {
 			const next = await getCoachBrief({
-				data: { weeks, pattern: usualPattern, defaultPattern: savedPattern, note: mixNote }
+				data: {
+					range: range.kind,
+					from: range.from,
+					to: range.to,
+					pattern: usualPattern,
+					defaultPattern: savedPattern,
+					note: mixNote
+				}
 			});
 			setBriefText(`${next}\n## My question\n${question.trim() || defaultQ}\n`);
 		} catch (e) {
@@ -469,7 +470,7 @@ function CoachPanels({
 							<Link
 								className="text-accent font-semibold"
 								to="/coach"
-								search={{ tab: 'generate', weeks: search.weeks, planWeek: search.planWeek }}
+								search={withCoachSearch(search, { tab: 'generate' })}
 							>
 								generate the prompt
 							</Link>
@@ -507,12 +508,10 @@ function CoachPanels({
 											if (last?.slug) {
 												router.navigate({
 													to: '/coach',
-													search: {
+													search: withCoachSearch(search, {
 														tab: 'debrief',
-														slug: last.slug,
-														weeks: search.weeks,
-														planWeek: search.planWeek
-													},
+														slug: last.slug
+													}),
 													replace: true,
 													resetScroll: false
 												});
@@ -600,26 +599,12 @@ function CoachPanels({
 					<div className={cn(ui.panel, ui.form, 'mb-4')}>
 						<div className={ui.field}>
 							<span>History window</span>
-							<ChoiceChips
-								aria-label="History window"
-								value={String(weeks)}
-								options={WEEK_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
-								onChange={(value) =>
-									router.navigate({
-										to: '/coach',
-										search: {
-											tab: 'generate',
-											weeks: Number(value),
-											planWeek: search.planWeek
-										},
-										replace: true,
-										resetScroll: false
-									})
-								}
-							/>
+							<div className="flex flex-wrap items-center gap-x-6 gap-y-[0.55rem]">
+								<DateRangeFilter range={range} to="/coach" />
+							</div>
 						</div>
 						<p className={cn(ui.muted, 'mt-[0.4rem] mb-0')}>
-							Weekly volume and the activity table both cover {historyWindowLabel(weeks)}. Shorter
+							Weekly volume and the activity table both cover {range.label.toLowerCase()}. Shorter
 							windows keep the prompt tighter.
 						</p>
 						<p className={cn(ui.muted, 'mt-2 mb-0')}>
@@ -634,7 +619,7 @@ function CoachPanels({
 							<Link
 								className="text-accent font-semibold"
 								to="/coach"
-								search={{ tab: 'training', weeks: search.weeks, planWeek: search.planWeek }}
+								search={withCoachSearch(search, { tab: 'training' })}
 							>
 								Edit in Training
 							</Link>

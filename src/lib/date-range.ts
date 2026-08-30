@@ -60,6 +60,18 @@ function labelFor(kind: RangeKind, from: string | null, to: string | null): stri
 	return 'Custom range';
 }
 
+/** Resolve `{ range, from, to }` search fields into a concrete inclusive date window. */
+export function dateRangeFromSearch(
+	search: { range?: string | null; from?: string | null; to?: string | null },
+	now = new Date()
+): DateRange {
+	const params = new URLSearchParams();
+	if (search.range) params.set('range', search.range);
+	if (search.from) params.set('from', search.from);
+	if (search.to) params.set('to', search.to);
+	return parseDateRange(params, now);
+}
+
 /** Resolve search params into a concrete inclusive date window. */
 export function parseDateRange(
 	searchParams: URLSearchParams,

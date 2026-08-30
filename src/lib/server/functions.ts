@@ -9,6 +9,7 @@ import {
     supportsBestEfforts,
     type EffortHighlight
 } from '$lib/best-efforts';
+import { dateRangeFromSearch, filterRunsByRange, type DateRange, type RangeKind } from '$lib/date-range';
 import {
     dayFromIsoDate,
     formatDuration,
@@ -336,10 +337,8 @@ function shoesAsMarkdown(shoes: ShoeContext) {
 	});
 }
 
-function historyWindowPhrase(weeks: number): string {
-	if (weeks >= 520) return 'all time';
-	if (weeks === 26) return 'last 6 months';
-	return `last ${weeks} weeks`;
+function historyWindowPhrase(range: DateRange): string {
+	return range.label.toLowerCase();
 }
 
 function isImportNote(n: string): boolean {
@@ -480,26 +479,28 @@ export const getContextData = createServerFn({ method: 'GET' }).handler(async ()
 });
 
 export const getCoachBrief = createServerFn({ method: 'GET' })
-	.validator((d: { weeks?: number; pattern?: WeekPattern; defaultPattern?: WeekPattern; note?: string } | number) => {
-		if (typeof d === 'number') {
-			return {
-				weeks: Number.isFinite(d) && d > 0 ? Math.floor(d) : 520,
-				pattern: undefined as WeekPattern | undefined,
-				defaultPattern: undefined as WeekPattern | undefined,
-				note: ''
-			};
-		}
-		const weeks =
-			Number.isFinite(d?.weeks) && (d.weeks as number) > 0 ? Math.floor(d.weeks as number) : 520;
+	.validator((d: {
+		range?: RangeKind;
+		from?: string | null;
+		to?: string | null;
+		pattern?: WeekPattern;
+		defaultPattern?: WeekPattern;
+		note?: string;
+	} = {}) => {
+		const range = dateRangeFromSearch({
+			range: d?.range,
+			from: d?.from ?? undefined,
+			to: d?.to ?? undefined
+		});
 		return {
-			weeks,
+			range,
 			pattern: d?.pattern != null ? normalizeWeekPattern(d.pattern) : undefined,
 			defaultPattern: d?.defaultPattern != null ? normalizeWeekPattern(d.defaultPattern) : undefined,
 			note: typeof d?.note === 'string' ? d.note : ''
 		};
 	})
 	.handler(async ({ data }) => {
-		const weeks = data.weeks;
+		const range = data.range;
 		const [allRuns, goals, plan, shoes, profile, injury, gear, raceStrategy, settings] =
 			await Promise.all([
 				listRuns(),
@@ -517,10 +518,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		const mixNote = data.note.trim();
 
 		const today = new Date();
-		const cutoff = new Date(today);
-		cutoff.setDate(cutoff.getDate() - weeks * 7);
-		const cutoffIso = cutoff.toISOString().slice(0, 10);
-		const windowRuns = allRuns.filter((r) => r.date >= cutoffIso).sort(byDateNewestFirst);
+		const windowRuns = filterRunsByRange(allRuns, range).sort(byDateNewestFirst);
 
 		const raceDate = new Date(`${goals.race_date}T00:00:00`);
 		const weeksToRace = Number.isNaN(raceDate.getTime())
@@ -572,7 +570,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 			if (t !== 'strength') e.km[t] = (e.km[t] ?? 0) + (r.distance_km ?? 0);
 			weekMap.set(wk, e);
 		}
-		const windowPhrase = historyWindowPhrase(weeks);
+		const windowPhrase = historyWindowPhrase(range);
 		const weekLines =
 			[...weekMap.entries()]
 				.sort((a, b) => (a[0] > b[0] ? -1 : a[0] < b[0] ? 1 : 0))

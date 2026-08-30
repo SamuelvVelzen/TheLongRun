@@ -123,10 +123,11 @@ export function SplitsPanel({
 						</div>
 						{onSaveHrMax &&
 							(editingMax ? (
-								<div className="flex items-center gap-[0.35rem] flex-wrap justify-end">
+								<div className="flex items-center gap-[0.35rem] flex-wrap justify-end max-sm:w-full">
 									<input
-										className="w-[5.5rem]"
+										className="w-[5.5rem] max-sm:flex-1 max-sm:w-auto"
 										type="number"
+										inputMode="numeric"
 										value={maxInput}
 										autoFocus
 										placeholder="e.g. 190"
@@ -136,7 +137,7 @@ export function SplitsPanel({
 											if (e.key === 'Escape') setEditingMax(false);
 										}}
 									/>
-									<button type="button" className={cn(ui.btnPrimary, ui.btnSm)} onClick={saveMax}>
+									<button type="button" className={cn(ui.btnPrimary, ui.btnSm, 'max-sm:flex-1')} onClick={saveMax}>
 										Save
 									</button>
 									{hrMaxManual != null && (

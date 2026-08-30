@@ -34,12 +34,14 @@ export function WeatherField({
 	return (
 		<label className={ui.field}>
 			<span>Weather</span>
-			<div className="flex gap-1.5 items-stretch">
+			<div className="flex gap-1.5 items-stretch min-w-0">
 				<input
 					className="flex-1 min-w-0"
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
 					placeholder="27°C humid / cloudy"
+					enterKeyHint="done"
+					autoComplete="off"
 				/>
 				<button
 					type="button"

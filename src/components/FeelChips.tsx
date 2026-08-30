@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { cn, ui } from '$lib/ui';
+import { useState } from 'react';
 
 function range(min: number, max: number): number[] {
 	const out: number[] = [];
@@ -8,7 +8,7 @@ function range(min: number, max: number): number[] {
 }
 
 const feelChip =
-	'flex-[1_1_2.5rem] min-w-11 min-h-11 inline-flex items-center justify-center p-0 border border-line rounded-[10px] bg-black/25 text-muted font-inherit tabular-nums cursor-pointer transition-[border-color,color,background-color] duration-150 ease-out hover:border-accent active:border-accent aria-[pressed=true]:border-accent! aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:font-semibold';
+	'min-w-0 min-h-11 inline-flex items-center justify-center p-0 border border-line rounded-[10px] bg-black/25 text-muted font-inherit tabular-nums cursor-pointer transition-[border-color,color,background-color] duration-150 ease-out hover:border-accent active:border-accent aria-[pressed=true]:border-accent! aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:font-semibold';
 
 /** Tappable 0–10 / 1–10 scores; posts the same hidden field name as the old number input. */
 export function FeelChips({
@@ -33,7 +33,11 @@ export function FeelChips({
 		<div className={cn(ui.field, 'col-span-full')}>
 			<span>{label}</span>
 			<input type="hidden" name={name} value={value} />
-			<div className="flex flex-wrap gap-[0.3rem]" role="group" aria-label={label}>
+			<div
+				className="grid grid-cols-[repeat(auto-fill,minmax(2.75rem,1fr))] gap-[0.3rem]"
+				role="group"
+				aria-label={label}
+			>
 				{range(min, max).map((n) => {
 					const active = selected === n;
 					return (
@@ -72,7 +76,11 @@ export function WantedFasterChips({
 		<div className={cn(ui.field, 'col-span-full')}>
 			<span>Wanted to go faster?</span>
 			<input type="hidden" name={name} value={value} />
-			<div className="flex flex-wrap gap-[0.3rem] [&_button]:flex-[1_1_4rem]" role="group" aria-label="Wanted to go faster?">
+			<div
+				className="grid grid-cols-3 gap-[0.3rem]"
+				role="group"
+				aria-label="Wanted to go faster?"
+			>
 				{opts.map((opt) => {
 					const active = value === opt.v;
 					return (

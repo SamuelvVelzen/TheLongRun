@@ -19,7 +19,7 @@ export const ui = {
 	btnIcon:
 		'size-11 min-h-11 min-w-11 p-0! px-0! py-0! rounded-full leading-none shrink-0 self-center box-border max-sm:!flex-none max-sm:!size-11 max-sm:!min-h-11 max-sm:!min-w-11 max-sm:!p-0',
 	btnSm: 'min-h-11 px-[0.85rem] py-2 text-[0.82rem]',
-	field: 'grid gap-[0.35rem] text-[0.9rem] text-muted',
+	field: 'grid gap-[0.35rem] text-[0.9rem] text-muted [&_input]:text-base [&_select]:text-base [&_textarea]:text-base',
 	req: "after:content-['_*'] after:text-accent",
 	fieldHint: 'block mt-[0.35rem] text-[0.78rem]',
 	form: 'grid gap-4',

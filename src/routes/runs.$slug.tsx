@@ -17,6 +17,7 @@ import {
     updateRun,
     type UpdateRunInput
 } from '$lib/server/functions';
+import { shoePickerOptions } from '$lib/shoes';
 import {
     exerciseTotalLabel,
     formatSetDisplay,
@@ -59,7 +60,11 @@ function routeIdFrom(route: string, stravaId: string): string {
 	return id || stravaId || '';
 }
 
-/** A single value you can click to edit in place, saved on its own (no full form). */
+const fieldLabel = cn(ui.muted, 'text-[0.72rem] uppercase tracking-[0.05em]');
+const fieldBox =
+	'w-full min-h-11 min-w-0 text-left bg-white/[0.03] border border-line rounded-lg p-[0.65rem_0.75rem] [overflow-wrap:anywhere]';
+
+/** A single value you can tap to edit in place, saved on its own (no full form). */
 function InlineText({
 	label,
 	value,
@@ -95,34 +100,39 @@ function InlineText({
 		}
 	}
 
+	const wrap = cn('flex flex-col gap-[0.28rem] min-w-0', (multiline || editing) && 'col-span-full');
+
 	if (!editing) {
 		return (
-			<div className={cn('flex flex-col gap-[0.28rem] min-w-0', multiline && 'col-span-full')}>
-				<span className={cn(ui.muted, 'text-[0.72rem] uppercase tracking-[0.05em]')}>{label}</span>
+			<div className={wrap}>
+				<span className={fieldLabel}>{label}</span>
 				{editable ? (
-				<button
-					type="button"
-					className="flex items-center justify-between gap-2 w-full min-h-11 text-left bg-white/[0.03] border border-line rounded-lg p-[0.5rem_0.65rem] text-inherit font-inherit cursor-pointer hover:border-accent hover:bg-[rgba(200,242,90,0.06)] active:border-accent group/qv"
-					onClick={() => {
-						setVal(value);
-						setEditing(true);
-					}}
-					title="Click to edit"
-				>
-					{value ? (
-						<span className="whitespace-pre-wrap break-words">{value}</span>
-					) : (
-						<span className={ui.muted}>— add</span>
-					)}
-					<span
-						className="shrink-0 opacity-100 text-accent text-[0.85rem] sm:opacity-0 group-hover/qv:opacity-100"
-						aria-hidden="true"
+					<button
+						type="button"
+						className={cn(
+							fieldBox,
+							'flex items-start justify-between gap-3 text-inherit font-inherit cursor-pointer hover:border-accent hover:bg-[rgba(200,242,90,0.06)] active:border-accent group/qv'
+						)}
+						onClick={() => {
+							setVal(value);
+							setEditing(true);
+						}}
+						title="Tap to edit"
 					>
-						✎
-					</span>
-				</button>
+						{value ? (
+							<span className="whitespace-pre-wrap break-words min-w-0 flex-1">{value}</span>
+						) : (
+							<span className={ui.muted}>— add</span>
+						)}
+						<span
+							className="shrink-0 mt-[0.15rem] text-accent text-[0.85rem] sm:opacity-0 group-hover/qv:opacity-100"
+							aria-hidden="true"
+						>
+							✎
+						</span>
+					</button>
 				) : (
-					<div className="w-full min-h-11 text-left bg-white/[0.03] border border-line rounded-lg p-[0.5rem_0.65rem]">
+					<div className={fieldBox}>
 						{value ? (
 							<span className="whitespace-pre-wrap break-words">{value}</span>
 						) : (
@@ -135,29 +145,36 @@ function InlineText({
 	}
 
 	return (
-		<div className={cn('flex flex-col gap-[0.28rem] min-w-0', multiline && 'col-span-full')}>
-			<span className={cn(ui.muted, 'text-[0.72rem] uppercase tracking-[0.05em]')}>{label}</span>
-			<div className={cn('flex gap-[0.4rem] items-center', multiline && 'flex-col items-stretch')}>
+		<div className={wrap}>
+			<span className={fieldLabel}>{label}</span>
+			<div className="flex flex-col gap-[0.45rem] sm:flex-row sm:items-start">
 				{multiline ? (
 					<textarea
-						className="flex-1 min-w-0"
+						className="flex-1 min-w-0 text-base"
 						value={val}
 						placeholder={placeholder}
-						rows={3}
-						autoFocus
-						onChange={(e) => setVal(e.target.value)}
-					/>
-				) : (
-					<input
-						className="flex-1 min-w-0"
-						value={val}
-						type={numeric ? 'number' : 'text'}
-						placeholder={placeholder}
-						list={datalistId}
+						rows={5}
 						autoFocus
 						onChange={(e) => setVal(e.target.value)}
 						onKeyDown={(e) => {
-							if (e.key === 'Enter') save();
+							if (e.key === 'Escape') setEditing(false);
+						}}
+					/>
+				) : (
+					<input
+						className="flex-1 min-w-0 text-base"
+						value={val}
+						type={numeric ? 'number' : 'text'}
+						inputMode={numeric ? 'decimal' : 'text'}
+						placeholder={placeholder}
+						list={datalistId}
+						enterKeyHint="done"
+						autoComplete="off"
+						autoCorrect="off"
+						autoFocus
+						onChange={(e) => setVal(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter') void save();
 							if (e.key === 'Escape') setEditing(false);
 						}}
 					/>
@@ -169,18 +186,18 @@ function InlineText({
 						))}
 					</datalist>
 				)}
-				<div className={cn('flex gap-[0.35rem] shrink-0', multiline && 'justify-end')}>
+				<div className="flex gap-[0.35rem] shrink-0 max-sm:w-full sm:justify-end">
 					<button
 						type="button"
-						className={cn(ui.btnPrimary, ui.btnSm)}
-						onClick={save}
+						className={cn(ui.btnPrimary, ui.btnSm, 'max-sm:flex-1')}
+						onClick={() => void save()}
 						disabled={busy}
 					>
 						{busy ? '…' : 'Save'}
 					</button>
 					<button
 						type="button"
-						className={cn(ui.btnGhost, ui.btnSm)}
+						className={cn(ui.btnGhost, ui.btnSm, 'max-sm:flex-1')}
 						onClick={() => setEditing(false)}
 						disabled={busy}
 					>
@@ -224,10 +241,11 @@ function FeelTile({
 
 	if (editing) {
 		return (
-			<div className={cn(ui.metric, ui.metricEmph, 'pt-2')}>
+			<div className={cn(ui.metric, ui.metricEmph, 'pt-2 max-sm:flex-[1_1_100%]')}>
 				<input
 					className="font-display text-[1.35rem] min-h-11 px-2 py-[0.35rem] rounded-lg w-full"
 					type="number"
+					inputMode="numeric"
 					min={min}
 					max={max}
 					value={val}
@@ -268,7 +286,7 @@ function FeelTile({
 }
 
 function RunDetail() {
-	const { run: r, analytics, shoes, hrMaxManual, hrMaxAllTime, bestEfforts, plannedRoute } =
+	const { run: r, analytics, shoes, shoeWear, hrMaxManual, hrMaxAllTime, bestEfforts, plannedRoute } =
 		Route.useLoaderData();
 	const router = useRouter();
 	const authed = useAuthed();
@@ -442,8 +460,8 @@ function RunDetail() {
 							prefix="Route"
 						/>
 					)}
-					{!editing && (
-						<p>{(strength ? strength.extra : r.notes) || 'No notes for this activity.'}</p>
+					{!editing && (strength ? strength.extra : r.notes) && (
+						<p className="max-sm:line-clamp-3">{strength ? strength.extra : r.notes}</p>
 					)}
 				</div>
 				<div className={ui.actions}>
@@ -646,7 +664,8 @@ function RunDetail() {
 						)}
 						{showsField(editActivity, 'shoes') && (
 							<ShoesField
-								options={[shoes.active, ...shoes.rotation, r.shoes]}
+								options={shoePickerOptions(shoes, [r.shoes])}
+								wear={shoeWear}
 								defaultValue={r.shoes || ''}
 							/>
 						)}
@@ -774,7 +793,7 @@ function RunDetail() {
 								<h3>Sets</h3>
 								<p className={cn(ui.muted, 'text-[0.85rem]')}>weight, reps, or time</p>
 							</div>
-							<div className="grid grid-cols-[minmax(6rem,1.4fr)_2fr_auto_auto] gap-x-[0.9rem] gap-y-1.5 items-center py-[0.32rem] border-b border-line text-[0.72rem] uppercase tracking-[0.06em] text-muted pb-1.5">
+							<div className="hidden sm:grid grid-cols-[minmax(6rem,1.4fr)_2fr_auto_auto] gap-x-[0.9rem] gap-y-1.5 items-center py-[0.32rem] border-b border-line text-[0.72rem] uppercase tracking-[0.06em] text-muted pb-1.5">
 								<span>Exercise</span>
 								<span>Sets</span>
 								<span>Top</span>
@@ -784,17 +803,25 @@ function RunDetail() {
 								const t = topSet(ex);
 								return (
 									<div
-										className="grid grid-cols-[minmax(6rem,1.4fr)_2fr_auto_auto] gap-x-[0.9rem] gap-y-1.5 items-center py-[0.32rem] border-b border-[rgba(232,240,226,0.06)] text-[0.9rem] last:border-b-0"
+										className="grid grid-cols-[minmax(6rem,1.4fr)_2fr_auto_auto] gap-x-[0.9rem] gap-y-1.5 items-center py-[0.32rem] border-b border-[rgba(232,240,226,0.06)] text-[0.9rem] last:border-b-0 max-sm:grid-cols-1 max-sm:gap-[0.2rem] max-sm:py-3"
 										key={i}
 									>
-										<span>{ex.name}</span>
-										<span className={ui.muted}>
+										<span className="min-w-0 break-words max-sm:font-semibold">{ex.name}</span>
+										<span className={cn(ui.muted, 'min-w-0 break-words')}>
 											{ex.sets.map((s) => formatSetDisplay(s, ex.kind)).join(', ')}
 										</span>
 										<span className="font-display font-bold text-accent">
+											<span className="sm:hidden font-sans font-normal text-muted text-[0.72rem] uppercase tracking-[0.05em] mr-1.5">
+												Top
+											</span>
 											{t ? formatSetTop(t, ex.kind) : '—'}
 										</span>
-										<span className={ui.muted}>{exerciseTotalLabel(ex)}</span>
+										<span className={ui.muted}>
+											<span className="sm:hidden font-sans text-[0.72rem] uppercase tracking-[0.05em] mr-1.5">
+												Total
+											</span>
+											{exerciseTotalLabel(ex)}
+										</span>
 									</div>
 								);
 							})}
@@ -833,10 +860,10 @@ function RunDetail() {
 						<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.9rem]">
 							<h3>Notes &amp; conditions</h3>
 							<p className={cn(ui.muted, 'text-[0.85rem]')}>
-								{authed ? 'Click any value to update it' : 'Conditions for this session'}
+								{authed ? 'Tap a field to update it' : 'Conditions for this session'}
 							</p>
 						</div>
-						<div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-x-4 gap-y-3 mb-4">
+						<div className="grid grid-cols-1 gap-3 mb-4 min-w-0 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3">
 							{showsField(r.activity_type, 'weather') && (
 								<InlineText
 									label="Weather"
@@ -855,23 +882,30 @@ function RunDetail() {
 									onSave={(v) => patchRun({ surface: v })}
 								/>
 							)}
-							{showsField(r.activity_type, 'shoes') && (
-								<InlineText
-									label="Shoes"
-									value={r.shoes || ''}
-									placeholder="Shoe"
-									datalistId="quick-shoes"
-									options={[shoes.active, ...shoes.rotation, r.shoes]}
-									editable={authed}
-									onSave={(v) => patchRun({ shoes: v })}
-								/>
-							)}
+							{showsField(r.activity_type, 'shoes') &&
+								(authed ? (
+									<ShoesField
+										options={shoePickerOptions(shoes, [r.shoes])}
+										wear={shoeWear}
+										defaultValue={r.shoes || ''}
+										immediate
+										onChange={(v) => {
+											void patchRun({ shoes: v });
+										}}
+									/>
+								) : (
+									<InlineText
+										label="Shoes"
+										value={r.shoes || ''}
+										placeholder="Shoe"
+										editable={false}
+										onSave={async () => {}}
+									/>
+								))}
 							{showsFeel(r.activity_type, 'wanted_faster') && (
 								<div className="flex flex-col gap-[0.28rem] min-w-0">
-									<span className={cn(ui.muted, 'text-[0.72rem] uppercase tracking-[0.05em]')}>
-										Wanted faster
-									</span>
-									<div className="flex gap-[0.3rem]">
+									<span className={fieldLabel}>Wanted faster</span>
+									<div className="flex w-full gap-[0.3rem]" role="group" aria-label="Wanted faster">
 										{(['Y', 'N', ''] as const).map((opt) => {
 											const active =
 												(opt === 'Y' && r.wanted_faster === true) ||
@@ -883,7 +917,7 @@ function RunDetail() {
 													type="button"
 													disabled={!authed}
 													className={cn(
-														'flex-1 min-h-11 border rounded-lg p-[0.5rem_0.4rem] font-inherit text-[0.85rem]',
+														'flex-1 min-h-11 min-w-0 border rounded-lg p-[0.5rem_0.4rem] font-inherit text-[0.9rem]',
 														authed && 'cursor-pointer hover:border-accent active:border-accent',
 														active
 															? 'border-accent bg-[rgba(200,242,90,0.12)] text-fg font-semibold'

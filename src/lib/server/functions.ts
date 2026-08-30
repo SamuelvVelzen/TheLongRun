@@ -25,6 +25,8 @@ import {
     isoDateLocal,
     PLAN_START_ISO,
     PLAN_WEEK_COUNT,
+    keepSoonestNext,
+    pickBannerWeekView,
     plannedSessionFor,
     planWeekDateRange,
     planWeekIndex,
@@ -197,7 +199,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 		loadShoes(),
 		listPlanRouteRefs()
 	]);
-	const weekView = attachPlanRoutes(week ? buildWeekView(week, runs) : null, planRefs);
+	const weekView = attachPlanRoutes(pickBannerWeekView(plan, runs), planRefs);
 	return {
 		runs: withMap(runs, routeIds),
 		tracks,
@@ -218,12 +220,12 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 });
 
 export const getCurrentWeekView = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, week, planRefs] = await Promise.all([
+	const [runs, plan, planRefs] = await Promise.all([
 		listRuns(),
-		currentPlanWeek(),
+		loadPlan(),
 		listPlanRouteRefs()
 	]);
-	return attachPlanRoutes(week ? buildWeekView(week, runs) : null, planRefs);
+	return attachPlanRoutes(pickBannerWeekView(plan, runs), planRefs);
 });
 
 export const getCoachPlan = createServerFn({ method: 'GET' }).handler(async () => {
@@ -232,11 +234,13 @@ export const getCoachPlan = createServerFn({ method: 'GET' }).handler(async () =
 		loadPlan(),
 		listPlanRouteRefs()
 	]);
-	const views = plan
-		.filter((w) => (w.sessions?.length ?? 0) > 0)
-		.sort((a, b) => a.week - b.week)
-		.map((w) => attachPlanRoutes(buildWeekView(w, runs), planRefs))
-		.filter((v): v is NonNullable<typeof v> => v != null);
+	const views = keepSoonestNext(
+		plan
+			.filter((w) => (w.sessions?.length ?? 0) > 0)
+			.sort((a, b) => a.week - b.week)
+			.map((w) => attachPlanRoutes(buildWeekView(w, runs), planRefs))
+			.filter((v): v is NonNullable<typeof v> => v != null)
+	);
 	return { views, currentWeek: weekToPlan() };
 });
 

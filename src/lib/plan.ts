@@ -175,13 +175,65 @@ export function buildWeekView(
 		};
 	});
 	// Only today / future incomplete sessions count as NEXT. Past unlogged / skipped
-	// must not steal the highlight after a later day is already logged.
+	// must not steal the highlight after a later day is already logged. Rest days stay
+	// on the board but never become the "next run".
 	const next =
 		sessions.find(
-			(s) => !s.done && !s.skipped && !s.unlogged && (s.date == null || s.date >= todayIso)
+			(s) =>
+				!s.done &&
+				!s.skipped &&
+				!s.unlogged &&
+				!isRestLike(s.label) &&
+				(s.date == null || s.date >= todayIso)
 		) ?? null;
 	if (next) next.isNext = true;
 	return { week, sessions, next };
+}
+
+function clearNext(view: WeekView): WeekView {
+	if (!view.next && !view.sessions.some((s) => s.isNext)) return view;
+	return {
+		...view,
+		next: null,
+		sessions: view.sessions.map((s) => (s.isNext ? { ...s, isNext: false } : s))
+	};
+}
+
+/**
+ * Each week view independently marks its first remaining session as next.
+ * Keep that badge only on the soonest remaining session across the plan.
+ */
+export function keepSoonestNext(views: WeekView[]): WeekView[] {
+	const soonestWeek = [...views]
+		.sort((a, b) => a.week.week - b.week.week)
+		.find((v) => v.next)?.week.week;
+	return views.map((v) => (soonestWeek != null && v.week.week === soonestWeek ? v : clearNext(v)));
+}
+
+/**
+ * Home banner: current week if it still has a next session, otherwise the soonest
+ * later week that already has a plan and a remaining session. Falls back to the
+ * current week so a "week complete" state can still render.
+ */
+export function pickBannerWeekView(
+	plan: PlanWeek[],
+	runs: Pick<RunRecord, 'date' | 'activity_type'>[],
+	today = new Date()
+): WeekView | null {
+	const currentNum = weekToPlan(today);
+	const weeks = [...plan]
+		.filter((w) => (w.sessions?.length ?? 0) > 0)
+		.sort((a, b) => a.week - b.week);
+	let currentView: WeekView | null = null;
+	for (const w of weeks) {
+		if (w.week < currentNum) continue;
+		const view = buildWeekView(w, runs, today);
+		if (w.week === currentNum) currentView = view;
+		if (view.next) return view;
+	}
+	if (currentView) return currentView;
+	const last = weeks[weeks.length - 1];
+	return last ? buildWeekView(last, runs, today) : null;
 }
 
 export type WeekDayGroup = {

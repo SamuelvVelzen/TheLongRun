@@ -14,7 +14,7 @@ import {
     routeIdsForRuns,
     type RangeKind
 } from '$lib/date-range';
-import { buildDashboardStats, type DashboardStats } from '$lib/plan';
+import { buildDashboardStats, weekToPlan, type DashboardStats } from '$lib/plan';
 import { getDashboardData } from '$lib/server/functions';
 import { buildTrainingTrends } from '$lib/trends';
 import { cn, ui } from '$lib/ui';
@@ -211,12 +211,20 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 			? [data.weekView.next]
 			: [];
 	const highlightHead = highlightSessions[0];
+	const laterWeek =
+		data.weekView != null && data.weekView.week.week > weekToPlan();
+	const coachPlanSearch = {
+		tab: 'plan' as const,
+		planWeek: data.weekView?.week.week
+	};
 
 	return (
 		<>
 			{highlightHead && data.weekView && (
 				<section className={nextUp} aria-labelledby="next-up-heading">
-					<p className={nextUpKicker}>{highlightHead.isToday ? 'Today' : 'Next up'}</p>
+					<p className={nextUpKicker}>
+						{highlightHead.isToday ? 'Today' : laterWeek ? 'Next week' : 'Next up'}
+					</p>
 					{highlightSessions.length === 1 ? (
 						<>
 							<h2 id="next-up-heading">
@@ -274,7 +282,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 						</>
 					)}
 					<p className={cn(ui.muted, 'mt-[0.4rem]')}>
-						<Link className="text-accent font-semibold" to="/coach" search={{ tab: 'plan' }}>
+						<Link className="text-accent font-semibold" to="/coach" search={coachPlanSearch}>
 							Full week in Coach
 						</Link>
 						<span aria-hidden="true"> · </span>
@@ -295,7 +303,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 					</h2>
 					<p className={cn(ui.muted, 'mt-[0.4rem]')}>
 						Week {data.weekView.week.week} · {data.weekView.week.phase}.{' '}
-						<Link className="text-accent font-semibold" to="/coach" search={{ tab: 'plan' }}>
+						<Link className="text-accent font-semibold" to="/coach" search={coachPlanSearch}>
 							See the week in Coach
 						</Link>
 						.

@@ -1,6 +1,6 @@
 import { useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
-import { PLAN_WEEK_COUNT, planWeekDateRange, type WeekView } from '$lib/plan';
+import { PLAN_WEEK_COUNT, planWeekDateRange } from '$lib/plan';
 import {
     getCoachBrief,
     getCoachPlan,
@@ -74,23 +74,14 @@ function visibleTab(tab: CoachTab | undefined, authed: boolean): CoachTab {
 type DebriefPrompt = Awaited<ReturnType<typeof getDebriefPrompt>>;
 type CoachPlanData = Awaited<ReturnType<typeof getCoachPlan>>;
 
-function withoutNextHighlight(view: WeekView): WeekView {
-	if (!view.next && !view.sessions.some((s) => s.isNext)) return view;
-	return {
-		...view,
-		next: null,
-		sessions: view.sessions.map((s) => (s.isNext ? { ...s, isNext: false } : s))
-	};
-}
-
 function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 	const search = Route.useSearch();
 	const router = useRouter();
 	const current = planData.currentWeek;
-	const selected = search.planWeek ?? current;
+	const upcomingWeek = planData.views.find((v) => v.next)?.week.week ?? current;
+	const selected = search.planWeek ?? upcomingWeek;
 	const byWeek = new Map(planData.views.map((v) => [v.week.week, v]));
-	const raw = byWeek.get(selected) ?? null;
-	const view = raw ? (selected === current ? raw : withoutNextHighlight(raw)) : null;
+	const view = byWeek.get(selected) ?? null;
 
 	function setWeek(n: number) {
 		const week = Math.min(PLAN_WEEK_COUNT, Math.max(1, n));
@@ -115,7 +106,14 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 							const planned = byWeek.has(n);
 							return {
 								value: String(n),
-								label: n === current ? `${n} · now` : planned ? String(n) : `${n} · —`
+								label:
+									n === current
+										? `${n} · now`
+										: n === upcomingWeek && n !== current
+											? `${n} · next`
+											: planned
+												? String(n)
+												: `${n} · —`
 							};
 						})}
 						onChange={(value) => setWeek(Number(value))}
@@ -125,7 +123,13 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 			{view ? (
 				<WeekPlanBoard
 					view={view}
-					title={selected === current ? 'This week' : `Week ${selected}`}
+					title={
+						selected === current
+							? 'This week'
+							: selected === upcomingWeek
+								? 'Next week'
+								: `Week ${selected}`
+					}
 				/>
 			) : (
 				<p className={cn(ui.muted, 'mt-0 mb-4')}>

@@ -53,9 +53,9 @@ import {
     normalizeWeekPattern,
     type WeekPattern
 } from '$lib/week-mix';
-import { requireAuth } from './auth';
 import { createServerFn } from '@tanstack/react-start';
 import matter from 'gray-matter';
+import { requireAuth } from './auth';
 import {
     currentPlanWeek,
     loadGoals,
@@ -74,14 +74,14 @@ import {
     attachRouteToPlan as dbAttachRouteToPlan,
     deletePlannedRoute as dbDeletePlannedRoute,
     detachRouteLink as dbDetachRouteLink,
+    updatePlannedRoute as dbUpdatePlannedRoute,
     getActivityRouteRef,
     getPlannedRoute,
-    listPlanRouteRefs,
     listPlannedRoutes,
     listPlannedRouteTracks,
+    listPlanRouteRefs,
     listRouteLinks,
-    savePlannedFromFile,
-    updatePlannedRoute as dbUpdatePlannedRoute
+    savePlannedFromFile
 } from './planned-routes';
 import {
     getRouteGeoJson,
@@ -204,6 +204,20 @@ export const getCurrentWeekView = createServerFn({ method: 'GET' }).handler(asyn
 	return attachPlanRoutes(week ? buildWeekView(week, runs) : null, planRefs);
 });
 
+export const getCoachPlan = createServerFn({ method: 'GET' }).handler(async () => {
+	const [runs, plan, planRefs] = await Promise.all([
+		listRuns(),
+		loadPlan(),
+		listPlanRouteRefs()
+	]);
+	const views = plan
+		.filter((w) => (w.sessions?.length ?? 0) > 0)
+		.sort((a, b) => a.week - b.week)
+		.map((w) => attachPlanRoutes(buildWeekView(w, runs), planRefs))
+		.filter((v): v is NonNullable<typeof v> => v != null);
+	return { views, currentWeek: weekToPlan() };
+});
+
 export const getTimelineRuns = createServerFn({ method: 'GET' }).handler(async () => {
 	const [runs, routeIds] = await Promise.all([listRuns(), listRouteIds()]);
 	await hydrateBestEfforts(runs);
@@ -287,7 +301,6 @@ const CONTEXT_FILES: { name: string; title: string }[] = [
 	{ name: 'injury.md', title: 'Injury rules' },
 	{ name: 'gear.md', title: 'Gear & fueling' },
 	{ name: 'training-plan.md', title: 'Training plan notes' },
-	{ name: 'plan.json', title: 'Plan sessions (JSON)' },
 	{ name: 'race-strategy.md', title: 'Race strategy' }
 ];
 
@@ -404,29 +417,6 @@ function shoesNotesForBrief(notes: string): string {
 	return t;
 }
 
-function renderPlanFileSummary(body: string): string {
-	try {
-		const parsed = JSON.parse(body) as unknown;
-		if (!Array.isArray(parsed)) return renderJsonPretty(body);
-		const lines = (parsed as PlanWeek[]).map((w) => {
-			const n = Array.isArray(w.sessions) ? w.sessions.length : 0;
-			const days = n
-				? ` (${w.sessions.map((s) => s.day).filter(Boolean).join(', ')})`
-				: '';
-			const sess = n === 0 ? 'not planned yet' : `${n} session${n === 1 ? '' : 's'}${days}`;
-			const phase = w.phase ? ` — ${w.phase}` : '';
-			return `- **Week ${w.week}** (${w.dates || '—'}): ${sess}${phase}`;
-		});
-		return renderMarkdown(
-			`Compact view — open **Edit** for the full JSON. Empty weeks are stubs, not a plan.\n\n${
-				lines.join('\n') || '_Empty plan._'
-			}`
-		);
-	} catch {
-		return renderJsonPretty(body);
-	}
-}
-
 export const getContextData = createServerFn({ method: 'GET' }).handler(async () => {
 	const shoes = await loadShoes();
 	const raw = await Promise.all(
@@ -436,12 +426,7 @@ export const getContextData = createServerFn({ method: 'GET' }).handler(async ()
 	);
 	const files: ContextFile[] = CONTEXT_FILES.map((f, i) => {
 		const body = f.name === 'shoes.md' ? shoesAsMarkdown(shoes) : raw[i]!;
-		const html =
-			f.name === 'plan.json'
-				? renderPlanFileSummary(body)
-				: f.name.endsWith('.json')
-					? renderJsonPretty(body)
-					: renderMarkdown(body);
+		const html = f.name.endsWith('.json') ? renderJsonPretty(body) : renderMarkdown(body);
 		return { name: f.name, title: f.title, body, html };
 	});
 	const allContext = files.map((f) => `# ===== ${f.name} =====\n\n${f.body.trim()}`).join('\n\n');
@@ -498,7 +483,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 
 		const curWeek = Math.min(PLAN_WEEK_COUNT, Math.max(1, planWeekIndex(today)));
 		const targetWeek = weekToPlan(today);
-		const weekPhrase = targetWeek > curWeek ? 'next week' : 'this week';
+		const weekPhrase = 'this week';
 		const todayIso = today.toISOString().slice(0, 10);
 		const weekRange = planWeekDateRange;
 

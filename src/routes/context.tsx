@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useAuthed } from '$lib/auth';
-import { getContextData, saveShoes, saveContextFile } from '$lib/server/functions';
+import { getContextData, saveContextFile, saveShoes } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
+import { createFileRoute, useRouter } from '@tanstack/react-router';
+import { useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
+import { errorMessage, useSnackbar } from '../components/Snackbar';
 
 export const Route = createFileRoute('/context')({
 	loader: () => ({ page: getContextData() }),
@@ -16,7 +17,7 @@ function Context() {
 		<>
 			<section className={ui.hero}>
 				<div>
-					<p className={ui.muted}>Profile, plan, gear, and race notes</p>
+					<p className={ui.muted}>Profile, gear, and race notes</p>
 					<h1>Context</h1>
 					<p>Read the formatted docs and edit markdown when something changes.</p>
 				</div>
@@ -29,20 +30,17 @@ function Context() {
 function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>> }) {
 	const router = useRouter();
 	const authed = useAuthed();
+	const snack = useSnackbar();
 
 	const [copied, setCopied] = useState<string | null>(null);
-	const [copyError, setCopyError] = useState('');
 	const [editing, setEditing] = useState<string | null>(null);
 	const [draft, setDraft] = useState('');
 	const [openName, setOpenName] = useState<string | null>(null);
-	const [saveFlash, setSaveFlash] = useState('');
-	const [message, setMessage] = useState('');
 
 	async function copyText(text: string, id: string) {
-		setCopyError('');
 		const value = (text ?? '').trim();
 		if (!value) {
-			setCopyError('Nothing to copy — this file looks empty.');
+			snack.error('Nothing to copy — this file looks empty.');
 			return;
 		}
 		try {
@@ -65,7 +63,6 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 		setEditing(name);
 		setDraft(body);
 		setOpenName(name);
-		setSaveFlash('');
 	}
 
 	async function onSaveShoes(e: React.FormEvent<HTMLFormElement>) {
@@ -79,10 +76,10 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 		const notes = String(fd.get('notes') ?? '');
 		try {
 			await saveShoes({ data: { active, rotation, notes } });
-			setSaveFlash('shoes.md');
+			snack.success('Saved shoes.md');
 			router.invalidate();
 		} catch (err) {
-			setMessage(err instanceof Error ? err.message : 'Save failed');
+			snack.error(errorMessage(err, 'Save failed'));
 		}
 	}
 
@@ -93,19 +90,15 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 			setEditing(null);
 			setDraft('');
 			setOpenName(name);
-			setSaveFlash(name);
+			snack.success(`Saved ${name}`);
 			router.invalidate();
 		} catch (err) {
-			setMessage(err instanceof Error ? err.message : 'Save failed');
+			snack.error(errorMessage(err, 'Save failed'));
 		}
 	}
 
 	return (
 		<>
-			{copyError && <div className={ui.flash}>{copyError}</div>}
-			{saveFlash && <div className={cn(ui.flash, ui.flashOk)}>Saved {saveFlash}</div>}
-			{message && <div className={ui.flash}>{message}</div>}
-
 			{authed ? (
 			<form className={cn(ui.panel, ui.form, 'mb-5')} method="POST" onSubmit={onSaveShoes}>
 				<h2>Current shoes</h2>
@@ -173,12 +166,6 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 								</button>
 							)}
 						</div>
-
-						{file.name === 'plan.json' && editing !== file.name && (
-							<p className={cn(ui.muted, 'mt-[0.6rem]')}>
-								Week headers only — Edit to see or change the full JSON.
-							</p>
-						)}
 
 						{editing === file.name ? (
 							<form

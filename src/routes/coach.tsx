@@ -1,35 +1,36 @@
 import { useAuthed } from '$lib/auth';
-import { PLAN_WEEK_COUNT, planWeekIndex, weekToPlan } from '$lib/plan';
+import { PLAN_WEEK_COUNT, planWeekDateRange, type WeekView } from '$lib/plan';
 import {
     getCoachBrief,
-    getCurrentWeekView,
+    getCoachPlan,
     getDebriefPrompt,
     getWeekPattern,
     saveDebrief,
     savePlanWeeks,
     saveWeekPattern
 } from '$lib/server/functions';
+import { cn, ui } from '$lib/ui';
 import {
     formatPatternProse,
     patternsEqual,
     type WeekPattern
 } from '$lib/week-mix';
-import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
+import { ChoiceChips } from '../components/ChoiceChips';
 import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
-import { ChoiceChips } from '../components/ChoiceChips';
-import { WeekPlanBoard } from '../components/WeekPlanBoard';
+import { errorMessage, useSnackbar } from '../components/Snackbar';
 import {
     rowsFrom,
     toPattern,
     WeekPatternEditor,
     type SlotRow
 } from '../components/WeekPatternEditor';
+import { WeekPlanBoard } from '../components/WeekPlanBoard';
 
 type CoachTab = 'training' | 'debrief' | 'plan' | 'generate';
-type CoachSearch = { weeks?: number; tab?: CoachTab; slug?: string };
+type CoachSearch = { weeks?: number; tab?: CoachTab; slug?: string; planWeek?: number };
 
 const ALL_TIME_WEEKS = 520;
 const WEEK_OPTIONS = [
@@ -40,18 +41,21 @@ const WEEK_OPTIONS = [
 	{ value: ALL_TIME_WEEKS, label: 'All time' }
 ];
 
-function planWeekPhrase(today = new Date()): 'this week' | 'next week' {
-	const cur = Math.min(PLAN_WEEK_COUNT, Math.max(1, planWeekIndex(today)));
-	return weekToPlan(today) > cur ? 'next week' : 'this week';
-}
-
-function defaultQuestion(phrase: 'this week' | 'next week'): string {
-	return `What should ${phrase} look like? Keep my usual days and sports. You pick the session kind (easy / quality / long / etc.), distance and intent. If you shift a day, say why.`;
+function defaultQuestion(): string {
+	return `What should this week look like? Keep my usual days and sports. You pick the session kind (easy / quality / long / etc.), distance and intent. If you shift a day, say why.`;
 }
 
 function parseTab(v: unknown): CoachTab {
 	if (v === 'training' || v === 'plan' || v === 'generate' || v === 'debrief') return v;
 	return 'training';
+}
+
+function parsePlanWeek(v: unknown): number | undefined {
+	const n = Number(v);
+	if (!Number.isFinite(n)) return undefined;
+	const week = Math.floor(n);
+	if (week < 1 || week > PLAN_WEEK_COUNT) return undefined;
+	return week;
 }
 
 function visibleTab(tab: CoachTab | undefined, authed: boolean): CoachTab {
@@ -61,7 +65,73 @@ function visibleTab(tab: CoachTab | undefined, authed: boolean): CoachTab {
 }
 
 type DebriefPrompt = Awaited<ReturnType<typeof getDebriefPrompt>>;
-type WeekViewData = Awaited<ReturnType<typeof getCurrentWeekView>>;
+type CoachPlanData = Awaited<ReturnType<typeof getCoachPlan>>;
+
+function withoutNextHighlight(view: WeekView): WeekView {
+	if (!view.next && !view.sessions.some((s) => s.isNext)) return view;
+	return {
+		...view,
+		next: null,
+		sessions: view.sessions.map((s) => (s.isNext ? { ...s, isNext: false } : s))
+	};
+}
+
+function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
+	const search = Route.useSearch();
+	const router = useRouter();
+	const current = planData.currentWeek;
+	const selected = search.planWeek ?? current;
+	const byWeek = new Map(planData.views.map((v) => [v.week.week, v]));
+	const raw = byWeek.get(selected) ?? null;
+	const view = raw ? (selected === current ? raw : withoutNextHighlight(raw)) : null;
+
+	function setWeek(n: number) {
+		const week = Math.min(PLAN_WEEK_COUNT, Math.max(1, n));
+		router.navigate({
+			to: '/coach',
+			search: {
+				tab: 'plan',
+				weeks: search.weeks,
+				planWeek: week
+			},
+			replace: true,
+			resetScroll: false
+		});
+	}
+
+	return (
+		<>
+			<div className={cn(ui.panel, ui.form, 'mb-4')}>
+				<div className={ui.field}>
+					<span>Week</span>
+					<ChoiceChips
+						aria-label="Plan week"
+						value={String(selected)}
+						options={Array.from({ length: PLAN_WEEK_COUNT }, (_, i) => {
+							const n = i + 1;
+							const planned = byWeek.has(n);
+							return {
+								value: String(n),
+								label: n === current ? `${n} · now` : planned ? String(n) : `${n} · —`
+							};
+						})}
+						onChange={(value) => setWeek(Number(value))}
+					/>
+				</div>
+			</div>
+			{view ? (
+				<WeekPlanBoard
+					view={view}
+					title={selected === current ? 'This week' : `Week ${selected}`}
+				/>
+			) : (
+				<p className={cn(ui.muted, 'mt-0 mb-4')}>
+					Week {selected} ({planWeekDateRange(selected)}) is not in the plan yet.
+				</p>
+			)}
+		</>
+	);
+}
 
 export const Route = createFileRoute('/coach')({
 	validateSearch: (s: Record<string, unknown>): CoachSearch => {
@@ -69,7 +139,8 @@ export const Route = createFileRoute('/coach')({
 		return {
 			weeks: Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined,
 			tab: parseTab(s.tab),
-			slug: typeof s.slug === 'string' && s.slug ? s.slug : undefined
+			slug: typeof s.slug === 'string' && s.slug ? s.slug : undefined,
+			planWeek: parsePlanWeek(s.planWeek)
 		};
 	},
 	// weeks only — slug changes must not remount DeferredData/Await (that felt like a full refresh).
@@ -82,8 +153,8 @@ export const Route = createFileRoute('/coach')({
 			page: Promise.all([
 				getDebriefPrompt({ data: slug }),
 				getWeekPattern(),
-				getCurrentWeekView()
-			]).then(([debrief, weekPattern, weekView]) => ({ debrief, weekPattern, weekView }))
+				getCoachPlan()
+			]).then(([debrief, weekPattern, planData]) => ({ debrief, weekPattern, planData }))
 		};
 	},
 	component: Coach
@@ -95,12 +166,16 @@ function Coach() {
 	const router = useRouter();
 	const authed = useAuthed();
 	const tab = visibleTab(search.tab, authed);
-	const weekPhrase = planWeekPhrase();
 
 	function setTab(next: CoachTab) {
 		router.navigate({
 			to: '/coach',
-			search: { tab: next, weeks: search.weeks, slug: next === 'debrief' ? search.slug : undefined },
+			search: {
+				tab: next,
+				weeks: search.weeks,
+				slug: next === 'debrief' ? search.slug : undefined,
+				planWeek: search.planWeek
+			},
 			replace: true,
 			resetScroll: false
 		});
@@ -110,7 +185,7 @@ function Coach() {
 		<>
 			<section className={ui.hero}>
 				<div>
-					<p className={ui.muted}>{weekPhrase.charAt(0).toUpperCase() + weekPhrase.slice(1)}</p>
+					<p className={ui.muted}>This week</p>
 					<h1>Coach</h1>
 					<p>
 						Usual week and the plan toward the race. After a race, debrief so the next sessions stay
@@ -129,15 +204,6 @@ function Coach() {
 				>
 					Training
 				</button>
-				<button
-					type="button"
-					role="tab"
-					aria-selected={tab === 'plan'}
-					className={cn(ui.coachTab, tab === 'plan' && ui.coachTabActive)}
-					onClick={() => setTab('plan')}
-				>
-					Plan
-				</button>
 				{authed && (
 					<button
 						type="button"
@@ -149,6 +215,15 @@ function Coach() {
 						Generate
 					</button>
 				)}
+				<button
+					type="button"
+					role="tab"
+					aria-selected={tab === 'plan'}
+					className={cn(ui.coachTab, tab === 'plan' && ui.coachTabActive)}
+					onClick={() => setTab('plan')}
+				>
+					Plan
+				</button>
 				{authed && (
 					<button
 						type="button"
@@ -166,7 +241,7 @@ function Coach() {
 					<CoachPanels
 						debrief={data.debrief}
 						initialPattern={data.weekPattern}
-						weekView={data.weekView}
+						planData={data.planData}
 					/>
 				)}
 			</DeferredData>
@@ -177,29 +252,28 @@ function Coach() {
 function CoachPanels({
 	debrief: initialDebrief,
 	initialPattern,
-	weekView
+	planData
 }: {
 	debrief: DebriefPrompt;
 	initialPattern: WeekPattern;
-	weekView: WeekViewData;
+	planData: CoachPlanData;
 }) {
 	const search = Route.useSearch();
 	const router = useRouter();
+	const snack = useSnackbar();
 	const weeks = search.weeks ?? ALL_TIME_WEEKS;
 	const authed = useAuthed();
 	const tab = visibleTab(search.tab, authed);
 	const slug = search.slug ?? '';
 
-	const [question, setQuestion] = useState(() => defaultQuestion(planWeekPhrase()));
+	const [question, setQuestion] = useState(() => defaultQuestion());
 	const [copied, setCopied] = useState(false);
 	const [briefText, setBriefText] = useState('');
 	const [planJson, setPlanJson] = useState('');
-	const [planMsg, setPlanMsg] = useState('');
 
 	const [debrief, setDebrief] = useState(initialDebrief);
 	const [debriefPrompt, setDebriefPrompt] = useState(initialDebrief.prompt);
 	const [debriefJson, setDebriefJson] = useState('');
-	const [debriefMsg, setDebriefMsg] = useState('');
 	const [debriefCopied, setDebriefCopied] = useState(false);
 
 	const [usual, setUsual] = useState<SlotRow[]>(() => rowsFrom(initialPattern));
@@ -207,8 +281,6 @@ function CoachPanels({
 	const [thisWeek, setThisWeek] = useState<SlotRow[]>(() => rowsFrom(initialPattern));
 	const [linked, setLinked] = useState(true);
 	const [mixNote, setMixNote] = useState('');
-	const [mixMsg, setMixMsg] = useState('');
-	const [mixSaveMsg, setMixSaveMsg] = useState('');
 	const [mixBusy, setMixBusy] = useState(false);
 	const mixBusyRef = useRef(false);
 	const [briefBusy, setBriefBusy] = useState(false);
@@ -240,19 +312,17 @@ function CoachPanels({
 	}, [slug]);
 
 	async function savePlan() {
-		setPlanMsg('Saving…');
 		try {
 			const res = await savePlanWeeks({ data: planJson });
-			setPlanMsg(`Saved — plan now has ${res.weeks} weeks (updated week ${res.updated.join(', ')}).`);
+			snack.success(`Saved — plan now has ${res.weeks} weeks (updated week ${res.updated.join(', ')}).`);
 			setPlanJson('');
 			router.invalidate();
 		} catch (e) {
-			setPlanMsg(e instanceof Error ? e.message : 'Could not save plan.');
+			snack.error(errorMessage(e, 'Could not save plan.'));
 		}
 	}
 
 	async function saveDebriefReply() {
-		setDebriefMsg('Saving…');
 		try {
 			const res = await saveDebrief({ data: debriefJson });
 			const bits: string[] = [];
@@ -265,31 +335,30 @@ function CoachPanels({
 			const miss = res.feelingsMissing.length
 				? ` (${res.feelingsMissing.length} slug(s) not found)`
 				: '';
-			setDebriefMsg(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
+			snack.success(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
 			setDebriefJson('');
 			router.invalidate();
 		} catch (e) {
-			setDebriefMsg(e instanceof Error ? e.message : 'Could not save debrief.');
+			snack.error(errorMessage(e, 'Could not save debrief.'));
 		}
 	}
 
 	const run = debrief.run;
-	const weekPhrase = planWeekPhrase();
-	const defaultQ = defaultQuestion(weekPhrase);
+	const weekPhrase = 'this week';
+	const defaultQ = defaultQuestion();
 	const usualPattern = toPattern(usual);
 	const thisPattern = toPattern(linked ? usual : thisWeek);
 	const mixDirty = !patternsEqual(usualPattern, savedPattern);
 
 	async function generateBrief() {
 		setBriefBusy(true);
-		setMixMsg('');
 		try {
 			const next = await getCoachBrief({
 				data: { weeks, pattern: thisPattern, defaultPattern: usualPattern, note: mixNote }
 			});
 			setBriefText(`${next}\n## My question\n${question.trim() || defaultQ}\n`);
 		} catch (e) {
-			setMixMsg(e instanceof Error ? e.message : 'Could not build the prompt.');
+			snack.error(errorMessage(e, 'Could not build the prompt.'));
 		} finally {
 			setBriefBusy(false);
 		}
@@ -299,15 +368,14 @@ function CoachPanels({
 		if (mixBusyRef.current) return;
 		mixBusyRef.current = true;
 		setMixBusy(true);
-		setMixSaveMsg('');
 		try {
 			const saved = await saveWeekPattern({ data: usualPattern });
 			setSavedPattern(saved);
 			setUsual(rowsFrom(saved));
 			if (linked) setThisWeek(rowsFrom(saved));
-			setMixSaveMsg('Saved as your default week.');
+			snack.success('Saved as your default week.');
 		} catch (e) {
-			setMixSaveMsg(e instanceof Error ? e.message : 'Could not save the default week.');
+			snack.error(errorMessage(e, 'Could not save the default week.'));
 		} finally {
 			mixBusyRef.current = false;
 			setMixBusy(false);
@@ -361,41 +429,21 @@ function CoachPanels({
 							<WeekPatternEditor
 								rows={usual}
 								disabled={mixBusy}
-								onChange={(rows) => {
-									setUsual(rows);
-									setMixSaveMsg('');
-								}}
+								onChange={setUsual}
 							/>
 						) : null}
 					</div>
-					{authed && (mixDirty || mixBusy || mixSaveMsg) && (
-						<div className="mt-[0.35rem]">
-							{(mixDirty || mixBusy) && (
-								<div className={ui.actions}>
-									<button
-										className={ui.btnPrimary}
-										type="button"
-										onClick={saveDefaultMix}
-										disabled={mixBusy}
-										aria-busy={mixBusy}
-									>
-										{mixBusy ? 'Saving…' : 'Save as my default week'}
-									</button>
-								</div>
-							)}
-							{mixSaveMsg && (
-								<div
-									className={cn(
-										ui.flash,
-										/saved/i.test(mixSaveMsg) && ui.flashOk,
-										mixDirty || mixBusy ? 'mt-2' : 'mt-0',
-										'mb-0'
-									)}
-									role="status"
-								>
-									{mixSaveMsg}
-								</div>
-							)}
+					{authed && (mixDirty || mixBusy) && (
+						<div className={cn(ui.actions, 'mt-[0.35rem]')}>
+							<button
+								className={ui.btnPrimary}
+								type="button"
+								onClick={saveDefaultMix}
+								disabled={mixBusy}
+								aria-busy={mixBusy}
+							>
+								{mixBusy ? 'Saving…' : 'Save as my default week'}
+							</button>
 						</div>
 					)}
 				</div>
@@ -429,7 +477,12 @@ function CoachPanels({
 											if (last?.slug) {
 												router.navigate({
 													to: '/coach',
-													search: { tab: 'debrief', slug: last.slug, weeks: search.weeks },
+													search: {
+														tab: 'debrief',
+														slug: last.slug,
+														weeks: search.weeks,
+														planWeek: search.planWeek
+													},
 													replace: true,
 													resetScroll: false
 												});
@@ -482,7 +535,6 @@ function CoachPanels({
 							</span>
 							{authed ? (
 							<div className={cn(ui.panel, ui.form, 'mt-3')}>
-								{debriefMsg && <div className={ui.flash}>{debriefMsg}</div>}
 								<label className={ui.field}>
 									<textarea
 										className={ui.editor}
@@ -510,25 +562,7 @@ function CoachPanels({
 			)}
 
 			{tab === 'plan' && (
-				<>
-					{weekView ? (
-						<WeekPlanBoard view={weekView} />
-					) : (
-						<p className={cn(ui.muted, 'mt-0 mb-4')}>No week plan saved yet.</p>
-					)}
-					{authed && (
-						<p className={cn(ui.muted, 'mt-3 mb-0')}>
-							<Link
-								className="text-accent font-semibold"
-								to="/coach"
-								search={{ tab: 'generate', weeks: search.weeks }}
-							>
-								Generate {weekPhrase}
-							</Link>
-							.
-						</p>
-					)}
-				</>
+				<PlanWeekPanel planData={planData} />
 			)}
 
 			{tab === 'generate' && authed && (
@@ -559,7 +593,7 @@ function CoachPanels({
 							<Link
 								className="text-accent font-semibold"
 								to="/coach"
-								search={{ tab: 'training', weeks: search.weeks }}
+								search={{ tab: 'training', weeks: search.weeks, planWeek: search.planWeek }}
 							>
 								Edit in Training
 							</Link>
@@ -608,7 +642,6 @@ function CoachPanels({
 										disabled={mixBusy}
 										onClick={() => {
 											setUsual(rowsFrom(thisPattern));
-											setMixSaveMsg('');
 										}}
 									>
 										Copy to usual week
@@ -632,7 +665,6 @@ function CoachPanels({
 								rows={2}
 							/>
 						</label>
-						{mixMsg && <div className={ui.flash}>{mixMsg}</div>}
 						<label className={ui.field}>
 							<span>Your question for the AI</span>
 							<textarea
@@ -686,7 +718,6 @@ function CoachPanels({
 							Paste the JSON block your AI returned — merged by week number. Keep your usual
 							days unless the reply explained a shift.
 						</p>
-						{planMsg && <div className={ui.flash}>{planMsg}</div>}
 						<label className={ui.field}>
 							<textarea
 								className={ui.editor}

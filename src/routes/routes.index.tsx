@@ -285,9 +285,11 @@ function PlannedRouteRow({
 				</div>
 				<div>{route.distance_km ?? '—'} km</div>
 				<div>{route.elev_gain != null ? `↑ ${route.elev_gain} m` : 'Elevation —'}</div>
-				<div>
-					{route.waypoints.length} waypoint{route.waypoints.length === 1 ? '' : 's'}
-				</div>
+				{route.waypoints.length > 0 ? (
+					<div>
+						{route.waypoints.length} waypoint{route.waypoints.length === 1 ? '' : 's'}
+					</div>
+				) : null}
 			</div>
 			<AuthGate>
 			<DeleteButton

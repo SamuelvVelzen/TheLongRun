@@ -78,7 +78,19 @@ function PlannedRouteDetail() {
 	const elevationRange =
 		route.elev_min != null && route.elev_max != null
 			? `${route.elev_min}–${route.elev_max} m`
-			: '—';
+			: null;
+	const elevationLabel =
+		route.elev_gain != null && route.elev_loss != null
+			? `↑${route.elev_gain} ↓${route.elev_loss}`
+			: route.elev_gain != null
+				? `↑ ${route.elev_gain} m`
+				: route.elev_loss != null
+					? `↓ ${route.elev_loss} m`
+					: elevationRange;
+	const viaWaypoints = route.waypoints.filter(
+		(point) => point.name !== 'from' && point.name !== 'to'
+	);
+	const waypointCount = viaWaypoints.length || route.waypoints.length;
 
 	async function persistName() {
 		const trimmed = name.trim();
@@ -209,22 +221,22 @@ function PlannedRouteDetail() {
 						<span>estimated time</span>
 					</div>
 				)}
-				<div className={ui.metric}>
-					<b>{route.elev_gain ?? '—'}</b>
-					<span>elev gain m</span>
-				</div>
-				<div className={ui.metric}>
-					<b>{route.elev_loss ?? '—'}</b>
-					<span>elev loss m</span>
-				</div>
-				<div className={ui.metric}>
-					<b>{elevationRange}</b>
-					<span>elevation range</span>
-				</div>
-				<div className={ui.metric}>
-					<b>{route.waypoints.length}</b>
-					<span>waypoints</span>
-				</div>
+				{elevationLabel && (
+					<div className={ui.metric}>
+						<b>{elevationLabel}</b>
+						<span>
+							{route.elev_gain != null || route.elev_loss != null
+								? elevationRange ?? 'elevation'
+								: 'elevation'}
+						</span>
+					</div>
+				)}
+				{waypointCount > 0 && (
+					<div className={ui.metric}>
+						<b>{waypointCount}</b>
+						<span>{waypointCount === 1 ? 'waypoint' : 'waypoints'}</span>
+					</div>
+				)}
 			</div>
 
 			<div className="max-sm:order-5">

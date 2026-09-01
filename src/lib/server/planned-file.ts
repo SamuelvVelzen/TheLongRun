@@ -177,11 +177,17 @@ function parseGpxPoints(
 	return points;
 }
 
-function parseGpxWaypoints(xml: string): PlannedWaypoint[] {
-	const blocks = xml.match(/<wpt\b[^>]*>[\s\S]*?<\/wpt>|<wpt\b[^>]*\/>/gi) ?? [];
+function parseNamedGpxPoints(xml: string, tag: 'wpt' | 'rtept'): PlannedWaypoint[] {
+	const blocks =
+		xml.match(
+			new RegExp(
+				`<(?:\\w+:)?${tag}\\b[^>]*>[\\s\\S]*?</(?:\\w+:)?${tag}>|<(?:\\w+:)?${tag}\\b[^>]*/>`,
+				'gi'
+			)
+		) ?? [];
 	const out: PlannedWaypoint[] = [];
 	for (const block of blocks) {
-		const openTag = block.match(/<wpt\b[^>]*?(?:\/?>)/i)?.[0] ?? block;
+		const openTag = block.match(new RegExp(`<(?:\\w+:)?${tag}\\b[^>]*?(?:/?>)`, 'i'))?.[0] ?? block;
 		const lat = attr(openTag, 'lat');
 		const lon = attr(openTag, 'lon');
 		if (lat == null || lon == null) continue;
@@ -190,6 +196,16 @@ function parseGpxWaypoints(xml: string): PlannedWaypoint[] {
 		out.push({ name: name ? decodeXml(name) : `Waypoint ${out.length + 1}`, lat, lng: lon });
 	}
 	return out;
+}
+
+function parseGpxWaypoints(xml: string, trackPointCount: number): PlannedWaypoint[] {
+	const named = parseNamedGpxPoints(xml, 'wpt');
+	if (named.length) return named;
+	// BRouter (and similar) often put via points in <rtept> and the dense line in <trkpt>.
+	const via = parseNamedGpxPoints(xml, 'rtept');
+	const cap = Math.min(40, Math.max(3, Math.floor(trackPointCount * 0.15)));
+	if (via.length > 0 && via.length <= cap && via.length < trackPointCount) return via;
+	return [];
 }
 
 function parsePlannedGpx(xml: string, filename: string): ParsedPlannedRoute {
@@ -201,7 +217,7 @@ function parsePlannedGpx(xml: string, filename: string): ParsedPlannedRoute {
 		);
 	}
 	points = downsample(points, MAX_POINTS);
-	const waypoints = parseGpxWaypoints(xml);
+	const waypoints = parseGpxWaypoints(xml, points.length);
 	const stats = statsFromPoints(points);
 	const brouter = parseBrouterComment(xml);
 	if (stats.distanceKm == null && brouter.lengthM != null && brouter.lengthM > 0) {

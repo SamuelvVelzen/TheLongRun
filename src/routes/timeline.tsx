@@ -91,13 +91,13 @@ function Timeline() {
 	const { page } = Route.useLoaderData();
 	return (
 		<>
-			<section className={ui.hero}>
+			<section className={cn(ui.hero, ui.heroQuiet)}>
 				<div>
 					<p className={ui.muted}>Every session in order</p>
 					<h1>Timeline</h1>
 					<p>Add a file, or open one for notes and full metrics.</p>
 				</div>
-				<div className={ui.actions}>
+				<div className={cn(ui.actions, 'max-sm:hidden')}>
 					<Link className={ui.btnPrimary} to="/import">
 						<Icon name="plus" size={16} />
 						Add activity

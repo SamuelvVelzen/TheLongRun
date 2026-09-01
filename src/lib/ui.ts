@@ -29,8 +29,9 @@ export const ui = {
 		'font-display text-[0.8rem] uppercase tracking-[0.08em] text-muted m-0 mb-[0.7rem] pb-1.5 border-b border-line',
 	actions:
 		'flex flex-wrap gap-3 max-sm:gap-[0.55rem] max-sm:w-full max-sm:[&>a]:flex-1 max-sm:[&>a]:min-w-[min(100%,9rem)] max-sm:[&>button]:flex-1 max-sm:[&>button]:min-w-[min(100%,9rem)]',
-	hero: 'grid gap-5 mb-8 max-sm:gap-[0.95rem] max-sm:mb-[1.35rem] [&_h1]:text-[clamp(2.4rem,6vw,4.2rem)] [&_h1]:max-w-[12ch] max-sm:[&_h1]:text-[clamp(1.85rem,9.5vw,2.55rem)] max-sm:[&_h1]:max-w-none [&_p]:max-w-[68ch] [&_p]:text-muted [&_p]:text-[1.05rem] max-sm:[&_p]:text-[0.98rem] max-sm:[&_p]:max-w-none',
+	hero: 'grid gap-5 mb-8 max-sm:gap-[0.95rem] max-sm:mb-[1.35rem] [&_h1]:text-[clamp(2.4rem,6vw,4.2rem)] [&_h1]:max-w-[12ch] max-sm:[&_h1]:text-[clamp(1.55rem,8vw,2.1rem)] max-sm:[&_h1]:max-w-none [&_p]:max-w-[68ch] [&_p]:text-muted [&_p]:text-[1.05rem] max-sm:[&_p]:text-[0.98rem] max-sm:[&_p]:max-w-none',
 	heroHome: 'max-sm:hidden',
+	heroQuiet: 'max-sm:mb-3 max-sm:gap-2 max-sm:[&>div:first-child>p]:hidden',
 	heroRoute: '[&_h1]:max-w-none [&_a]:text-accent',
 	snackHost:
 		'fixed z-[60] inset-x-0 bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px))] flex flex-col-reverse items-center gap-[0.45rem] px-4 pointer-events-none max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:px-3',
@@ -51,7 +52,7 @@ export const ui = {
 		'sticky z-20 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex flex-wrap items-center gap-3 p-3 px-4 border border-line rounded-2xl bg-[rgba(16,20,15,0.92)] backdrop-blur-[10px] shadow-lift max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:gap-[0.55rem] max-sm:[&>a]:w-auto max-sm:[&>button]:w-auto max-sm:[&>a]:flex-none max-sm:[&>button]:flex-none',
 	stickyPrimary: 'max-sm:!flex-1 max-sm:!min-w-[min(100%,9rem)]',
 	editor:
-		'block w-full max-w-full font-mono text-[0.9rem] leading-[1.45] min-h-[22rem] max-sm:min-h-64 max-sm:text-[0.86rem]',
+		'block w-full max-w-full font-mono text-[0.9rem] leading-[1.45] min-h-[22rem] max-sm:min-h-64 max-sm:text-base',
 	runRow:
 		'grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr] gap-3 items-center p-4 px-[1.1rem] border border-line rounded-[14px] bg-white/[0.02] transition-[border-color,background-color,transform] duration-150 ease-out animate-rise hover:border-[rgba(200,242,90,0.35)] hover:bg-[rgba(200,242,90,0.04)] hover:-translate-y-px active:border-[rgba(200,242,90,0.35)] active:bg-[rgba(200,242,90,0.04)] active:-translate-y-px max-[760px]:grid-cols-2 max-sm:grid-cols-1 max-sm:gap-[0.3rem] max-sm:p-[0.85rem_0.95rem]',
 	runRowCompact:
@@ -85,8 +86,8 @@ export const ui = {
 	routeChip:
 		'inline-flex items-center gap-[0.4rem] max-w-full mt-2 px-[0.7rem] py-[0.38rem] rounded-full border border-[color-mix(in_srgb,var(--color-accent)_55%,var(--color-line))] bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] text-accent text-[0.88rem] font-bold overflow-hidden hover:bg-[color-mix(in_srgb,var(--color-accent)_24%,transparent)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_18%,transparent)]',
 	segToggle:
-		'inline-flex w-fit max-w-full overflow-x-auto overflow-y-hidden border border-line rounded-full bg-[rgba(16,20,15,0.85)] max-sm:w-full',
+		'inline-flex w-fit max-w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border border-line rounded-full bg-[rgba(16,20,15,0.85)] max-sm:w-full',
 	segItem:
-		'appearance-none inline-flex items-center justify-center gap-1.5 relative w-auto min-h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted font-inherit no-underline cursor-pointer shrink-0 max-sm:flex-1 transition-[color,background-color,border-color] duration-150 ease-out aria-[pressed=false]:hover:text-fg aria-[pressed=false]:hover:bg-[color-mix(in_srgb,var(--color-accent)_18%,transparent)] active:text-fg aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold aria-[pressed=true]:active:text-accent-ink',
+		'appearance-none inline-flex items-center justify-center gap-1.5 relative w-auto min-h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted font-inherit no-underline cursor-pointer shrink-0 max-sm:grow max-sm:shrink-0 max-sm:basis-auto max-sm:px-[0.7rem] max-sm:text-[0.82rem] transition-[color,background-color,border-color] duration-150 ease-out aria-[pressed=false]:hover:text-fg aria-[pressed=false]:hover:bg-[color-mix(in_srgb,var(--color-accent)_18%,transparent)] active:text-fg aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold aria-[pressed=true]:active:text-accent-ink',
 	segItemActive: 'text-accent-ink bg-accent font-semibold'
 } as const;

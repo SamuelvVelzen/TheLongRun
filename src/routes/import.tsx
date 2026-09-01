@@ -24,7 +24,7 @@ function AddActivity() {
 
 	return (
 		<>
-			<section className={ui.hero}>
+			<section className={cn(ui.hero, ui.heroQuiet)}>
 				<div>
 					<p className={ui.muted}>GPX file or type it in</p>
 					<h1>Add activity</h1>

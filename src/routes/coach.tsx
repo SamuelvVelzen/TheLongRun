@@ -135,28 +135,75 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 			<div className={cn(ui.panel, ui.form, 'mb-4')}>
 				<div className={ui.field}>
 					<span>Week</span>
-					<ChoiceChips
-						aria-label="Plan week"
-						value={String(selected)}
-						options={Array.from({ length: weekCount }, (_, i) => {
-							const n = i + 1;
-							const planned = byWeek.has(n);
-							return {
-								value: String(n),
-								label:
+					<div className="hidden max-sm:flex items-stretch gap-2">
+						<button
+							type="button"
+							className={cn(ui.btnGhost, ui.btnIcon)}
+							aria-label="Previous week"
+							disabled={selected <= 1}
+							onClick={() => setWeek(selected - 1)}
+						>
+							<Icon name="arrow" size={18} className="rotate-180" />
+						</button>
+						<select
+							aria-label="Plan week"
+							className="flex-1"
+							value={selected}
+							onChange={(e) => setWeek(Number(e.target.value))}
+						>
+							{Array.from({ length: weekCount }, (_, i) => {
+								const n = i + 1;
+								const planned = byWeek.has(n);
+								const tag =
 									n === current
-										? `${n} · now`
+										? 'now'
 										: n === upcomingWeek && n !== current
-											? `${n} · next`
+											? 'next'
 											: planned
-												? String(n)
-												: `${n} · —`
-							};
-						})}
-						onChange={(value) => setWeek(Number(value))}
-					/>
+												? ''
+												: '—';
+								return (
+									<option key={n} value={n}>
+										Week {n}
+										{tag ? ` · ${tag}` : ''}
+									</option>
+								);
+							})}
+						</select>
+						<button
+							type="button"
+							className={cn(ui.btnGhost, ui.btnIcon)}
+							aria-label="Next week"
+							disabled={selected >= weekCount}
+							onClick={() => setWeek(selected + 1)}
+						>
+							<Icon name="arrow" size={18} />
+						</button>
+					</div>
+					<div className="max-sm:hidden">
+						<ChoiceChips
+							aria-label="Plan week"
+							value={String(selected)}
+							options={Array.from({ length: weekCount }, (_, i) => {
+								const n = i + 1;
+								const planned = byWeek.has(n);
+								return {
+									value: String(n),
+									label:
+										n === current
+											? `${n} · now`
+											: n === upcomingWeek && n !== current
+												? `${n} · next`
+												: planned
+													? String(n)
+													: `${n} · —`
+								};
+							})}
+							onChange={(value) => setWeek(Number(value))}
+						/>
+					</div>
 				</div>
-				<p className={cn(ui.muted, 'm-0')}>
+				<p className={cn(ui.muted, 'm-0 max-sm:hidden')}>
 					Copy this week (live status plus JSON) into a new chat, or every week that already
 					has sessions. Paste an updated JSON block back below.
 				</p>
@@ -177,7 +224,12 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 						onClick={() => copyText('all', formatAllWeeksClipboard(planData.views, todayIso))}
 					>
 						<Icon name={copied === 'all' ? 'check' : 'copy'} size={16} />
-						{copied === 'all' ? 'Copied' : 'Copy all planned weeks'}
+						{copied === 'all' ? 'Copied' : (
+							<>
+								<span className="max-sm:hidden">Copy all planned weeks</span>
+								<span className="hidden max-sm:inline">Copy all weeks</span>
+							</>
+						)}
 					</button>
 				</div>
 			</div>
@@ -275,7 +327,7 @@ function Coach() {
 
 	return (
 		<>
-			<section className={ui.hero}>
+			<section className={cn(ui.hero, ui.heroQuiet)}>
 				<div>
 					<p className={ui.muted}>This week</p>
 					<h1>Coach</h1>
@@ -328,7 +380,8 @@ function Coach() {
 						onClick={() => setTab('debrief')}
 					>
 						<Icon name="flag" size={15} />
-						After a race
+						<span className="max-sm:hidden">After a race</span>
+						<span className="hidden max-sm:inline">Race</span>
 					</button>
 				)}
 			</div>

@@ -489,7 +489,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 								{stats.runCount} {rangeActive ? `in ${range.label.toLowerCase()}` : 'total'}
 							</p>
 						</div>
-						<div className={ui.actions}>
+						<div className={cn(ui.actions, 'max-sm:hidden')}>
 							<Link
 								className={ui.btnGhost}
 								to="/timeline"

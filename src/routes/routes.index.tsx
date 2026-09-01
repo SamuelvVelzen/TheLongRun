@@ -46,7 +46,7 @@ function PlannedRoutes() {
 
 	return (
 		<>
-			<section className={ui.hero}>
+			<section className={cn(ui.hero, ui.heroQuiet)}>
 				<div>
 					<p className={ui.muted}>Keep planned routes separate from completed activities</p>
 					<h1>Routes</h1>
@@ -135,7 +135,7 @@ function PlannedRoutesList({
 					meta={meta}
 					focusIds={[]}
 					detailPath="/routes/$slug"
-					emptyText="No planned routes yet — drop a GPX route above."
+					emptyText="No planned routes yet — import a GPX to add one."
 				/>
 			</section>
 

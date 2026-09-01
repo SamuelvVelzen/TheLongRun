@@ -100,7 +100,7 @@ export function BestEffortBoard({
 									params={{ slug: entry.slug }}
 								>
 									<b className="tabular-nums">{formatEffortTime(entry.seconds)}</b>
-									<span className={ui.muted}>
+									<span className={cn(ui.muted, 'truncate')}>
 										{entry.date}
 										{entry.pace ? ` · ${entry.pace}/km` : ''}
 									</span>

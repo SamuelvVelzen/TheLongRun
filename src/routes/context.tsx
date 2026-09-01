@@ -17,7 +17,7 @@ function Context() {
 	const { page } = Route.useLoaderData();
 	return (
 		<>
-			<section className={ui.hero}>
+			<section className={cn(ui.hero, ui.heroQuiet)}>
 				<div>
 					<p className={ui.muted}>Profile, gear, and race notes</p>
 					<h1>Context</h1>

@@ -473,11 +473,14 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		applyCoarseGestures(false);
 	}
 
-	const hint = coarse ? document.createElement('p') : null;
+	const hint = coarse ? document.createElement('button') : null;
 	if (hint) {
+		hint.type = 'button';
 		hint.className =
-			'map-gesture-hint hidden [@media(pointer:coarse)]:block absolute z-[1100] left-1/2 bottom-[max(1.85rem,env(safe-area-inset-bottom,0px))] -translate-x-1/2 m-0 px-[0.7rem] py-[0.35rem] rounded-full bg-[rgba(16,20,15,0.88)] border border-line text-muted text-[0.72rem] font-semibold pointer-events-none whitespace-nowrap max-w-[calc(100%-5.5rem)] overflow-hidden text-ellipsis';
-		hint.textContent = 'Two fingers to pan · tap fullscreen';
+			'map-gesture-hint hidden [@media(pointer:coarse)]:block absolute z-[1100] left-1/2 bottom-[max(1.85rem,env(safe-area-inset-bottom,0px))] -translate-x-1/2 m-0 px-[0.7rem] py-[0.45rem] min-h-11 rounded-full appearance-none bg-[rgba(16,20,15,0.88)] border border-line text-muted text-[0.72rem] font-semibold font-inherit pointer-events-auto cursor-pointer whitespace-nowrap max-w-[calc(100%-5.5rem)] overflow-hidden text-ellipsis';
+		hint.textContent = 'Two fingers to pan · tap for fullscreen';
+		hint.title = 'Fullscreen';
+		hint.setAttribute('aria-label', 'Open map fullscreen');
 		wrap.appendChild(hint);
 	}
 
@@ -561,6 +564,11 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		e.preventDefault();
 		e.stopPropagation();
 		void applyFullscreen(!isOn());
+	});
+	hint?.addEventListener('click', (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		if (!isOn()) void applyFullscreen(true);
 	});
 
 	const onFsEvent = () => {
@@ -698,6 +706,10 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	try {
 		L?.DomEvent?.disableClickPropagation?.(bar);
 		L?.DomEvent?.disableScrollPropagation?.(bar);
+		if (hint) {
+			L?.DomEvent?.disableClickPropagation?.(hint);
+			L?.DomEvent?.disableScrollPropagation?.(hint);
+		}
 	} catch {
 		/* ignore */
 	}

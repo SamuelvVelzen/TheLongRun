@@ -3,6 +3,7 @@ import type { DateRange } from '$lib/date-range';
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
 import { cn, ui } from '$lib/ui';
 import { useEffect, useId, useState, type ReactNode } from 'react';
+import { Icon } from './Icon';
 
 /** Compact trigger text, e.g. "Run · 30 days" or "All · All time · NL". */
 export function filterSummary(
@@ -63,7 +64,10 @@ export function FilterSheet({ summary, children }: { summary: string; children: 
 				aria-controls={panelId}
 				onClick={() => setOpen(true)}
 			>
-				<span className="font-semibold shrink-0">Filters</span>
+				<span className="inline-flex items-center gap-1.5 font-semibold shrink-0">
+					<Icon name="filter" size={16} />
+					Filters
+				</span>
 				<span className="text-muted overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
 					{summary}
 				</span>
@@ -84,7 +88,8 @@ export function FilterSheet({ summary, children }: { summary: string; children: 
 								aria-hidden="true"
 							/>
 							<div className="flex items-center justify-between gap-3">
-								<strong id={titleId} className="font-display text-[1.15rem] tracking-[-0.03em]">
+								<strong id={titleId} className="inline-flex items-center gap-2 font-display text-[1.15rem] tracking-[-0.03em]">
+									<Icon name="filter" size={18} />
 									Filters
 								</strong>
 								<button

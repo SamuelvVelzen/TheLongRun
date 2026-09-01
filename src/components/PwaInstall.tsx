@@ -1,6 +1,7 @@
 import { cn } from '$lib/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { Dialog } from './Dialog';
+import { Icon } from './Icon';
 
 type BeforeInstallPromptEvent = Event & {
 	prompt: () => Promise<void>;
@@ -79,6 +80,7 @@ export function PwaInstall({ className }: { className?: string }) {
 					void install();
 				}}
 			>
+				<Icon name="install" size={18} />
 				Install app
 			</button>
 			<Dialog open={helpOpen} title="Install The Long Run" onClose={() => setHelpOpen(false)}>

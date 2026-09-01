@@ -1,6 +1,7 @@
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
 import { cn, ui } from '$lib/ui';
 import { useEffect, useId, useState, type ReactNode } from 'react';
+import { Icon } from './Icon';
 
 export function Dialog({
 	open,
@@ -46,7 +47,7 @@ export function Dialog({
 							aria-label="Close"
 							onClick={onClose}
 						>
-							×
+							<Icon name="close" size={16} />
 						</button>
 					</div>
 					{children}

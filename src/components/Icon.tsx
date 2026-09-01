@@ -356,6 +356,23 @@ export function ActivityTag({ type, className }: { type: string; className?: str
 	);
 }
 
+/** Icon-only mark for activity lists — label stays on title/aria for screen readers. */
+export function ActivityMark({ type, className }: { type: string; className?: string }) {
+	const label = activityLabel(type);
+	return (
+		<span
+			className={cn(
+				'inline-flex items-center justify-center size-9 rounded-[11px] bg-[rgba(200,242,90,0.1)] text-accent ring-1 ring-inset ring-[rgba(200,242,90,0.28)] shrink-0',
+				className
+			)}
+			title={label}
+			aria-label={label}
+		>
+			<ActivityIcon type={type} size={16} />
+		</span>
+	);
+}
+
 export function sportChipLabel(type: string, label: string): ReactNode {
 	return (
 		<>

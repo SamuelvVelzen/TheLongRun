@@ -24,7 +24,7 @@ import { DateRangeFilter, rangeToSearch, type RangeSearch } from '../components/
 import { DeferredData } from '../components/DeferredData';
 import { FeelBadge } from '../components/FeelBadge';
 import { FilterSheet, filterSummary } from '../components/FilterSheet';
-import { ActivityIcon, ActivityTag, Icon } from '../components/Icon';
+import { ActivityIcon, ActivityMark, Icon } from '../components/Icon';
 import { PlaceFilter } from '../components/PlaceFilter';
 import { RouteChip } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
@@ -483,37 +483,35 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 									params={{ slug: run.slug }}
 									style={{ animationDelay: `${i * 40}ms` }}
 								>
-									<strong className={ui.runTitle}>
-										{run.date}
-										{run.has_map && (
-											<span
-												className={ui.mapBadge}
-												title="Route map available"
-												aria-label="Has route map"
-											>
-												<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-													<path
-														fill="currentColor"
-														d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"
-													/>
-												</svg>
-											</span>
-										)}
-										{hasContext(run) && <FeelBadge />}
-									</strong>
-									<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.2rem] font-[650] tracking-[-0.02em] max-sm:text-[0.95rem]">
-										{sport === 'all' && (
-											<ActivityTag type={run.activity_type} />
-										)}
-										<span>
+									<ActivityMark type={run.activity_type} />
+									<span className="min-w-0 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-[0.1rem] items-baseline">
+										<strong className={ui.runTitle}>
+											{run.date}
+											{run.has_map && (
+												<span
+													className={ui.mapBadge}
+													title="Route map available"
+													aria-label="Has route map"
+												>
+													<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+														<path
+															fill="currentColor"
+															d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"
+														/>
+													</svg>
+												</span>
+											)}
+											{hasContext(run) && <FeelBadge />}
+										</strong>
+										<span className="font-[650] tracking-[-0.02em] justify-self-end text-right max-sm:text-[0.95rem]">
 											{showsField(run.activity_type, 'distance')
 												? `${run.distance_km ?? '—'} km · ${metricText(run)}`
 												: metricText(run)}
 										</span>
-									</div>
-									<div className={cn(ui.muted, 'text-[0.8rem] max-sm:text-[0.76rem]')}>
-										{compactRunSub(run)}
-									</div>
+										<span className={cn(ui.muted, 'text-[0.8rem] col-span-full max-sm:text-[0.76rem]')}>
+											{compactRunSub(run)}
+										</span>
+									</span>
 								</Link>
 							))
 						) : (

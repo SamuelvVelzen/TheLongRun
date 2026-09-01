@@ -55,7 +55,7 @@ export const ui = {
 	runRow:
 		'grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr] gap-3 items-center p-4 px-[1.1rem] border border-line rounded-[14px] bg-white/[0.02] transition-[border-color,background-color,transform] duration-150 ease-out animate-rise hover:border-[rgba(200,242,90,0.35)] hover:bg-[rgba(200,242,90,0.04)] hover:-translate-y-px active:border-[rgba(200,242,90,0.35)] active:bg-[rgba(200,242,90,0.04)] active:-translate-y-px max-[760px]:grid-cols-2 max-sm:grid-cols-1 max-sm:gap-[0.3rem] max-sm:p-[0.85rem_0.95rem]',
 	runRowCompact:
-		'grid-cols-1 gap-[0.18rem] p-[0.75rem_0.95rem] max-[760px]:grid-cols-1 max-sm:gap-[0.1rem] max-sm:p-[0.62rem_0.8rem] max-sm:text-[0.92rem]',
+		'grid-cols-[auto_minmax(0,1fr)]! gap-x-3! gap-y-0 items-center p-[0.7rem_0.9rem] max-sm:gap-x-[0.7rem]! max-sm:p-[0.58rem_0.75rem] max-sm:text-[0.92rem]',
 	runTitle: 'flex items-center gap-1.5',
 	mapBadge: 'inline-flex items-center justify-center text-accent opacity-90 shrink-0',
 	feelBadge: 'inline-flex items-center justify-center text-muted opacity-85 shrink-0 ml-[0.1rem]',

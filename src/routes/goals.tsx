@@ -75,6 +75,7 @@ function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
 						setEditingId(null);
 						await router.invalidate();
 					}}
+					onAdd={() => setEditingId('new')}
 					onClear={() =>
 						setPendingRemove({
 							id: data.activeGoal!.id,
@@ -109,15 +110,46 @@ function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
 				</section>
 			)}
 
+			{data.activeGoal && authed && editingId === 'new' && (
+				<section className={cn(ui.panel, 'mb-6 grid gap-3')}>
+					<div>
+						<p className="m-0 inline-flex items-center gap-1.5 text-accent font-bold text-[0.72rem] tracking-[0.08em] uppercase">
+							<Icon name="plus" size={14} />
+							Add race
+						</p>
+						<p className={cn(ui.muted, 'm-0 mt-1')}>
+							Later dates wait. A sooner date takes over as active and resets the plan.
+						</p>
+					</div>
+					<GoalForm
+						initial={null}
+						submitLabel="Add race"
+						onCancel={() => setEditingId(null)}
+						onSaved={async () => {
+							setEditingId(null);
+							await router.invalidate();
+						}}
+					/>
+				</section>
+			)}
+
 			{(data.activeGoal || data.upcoming.length > 0) && (
 				<>
 					<section className={ui.sectionTitle}>
-						<h2>Up next</h2>
-						<p>
-							{data.upcoming.length
-								? `${data.upcoming.length} later race${data.upcoming.length === 1 ? '' : 's'} — the soonest date becomes active when this one is done.`
-								: 'Add the races after this one. Closest date stays active.'}
-						</p>
+						<div>
+							<h2>Up next</h2>
+							<p>
+								{data.upcoming.length
+									? `${data.upcoming.length} later race${data.upcoming.length === 1 ? '' : 's'} — the soonest date becomes active when this one is done.`
+									: 'Add the races after this one. Closest date stays active.'}
+							</p>
+						</div>
+						{authed && data.activeGoal && editingId !== 'new' && (
+							<button className={ui.btnPrimary} type="button" onClick={() => setEditingId('new')}>
+								<Icon name="plus" size={16} />
+								Add race
+							</button>
+						)}
 					</section>
 					{data.upcoming.map((g) => (
 						<UpcomingGoalCard
@@ -134,25 +166,8 @@ function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
 							onRemove={() => setPendingRemove({ id: g.id, name: g.name, isActive: false })}
 						/>
 					))}
-					{authed && (
-						<section className={cn(ui.panel, 'mb-6')}>
-							{editingId === 'new' && data.activeGoal ? (
-								<GoalForm
-									initial={null}
-									submitLabel="Add race"
-									onCancel={() => setEditingId(null)}
-									onSaved={async () => {
-										setEditingId(null);
-										await router.invalidate();
-									}}
-								/>
-							) : (
-								<button className={ui.btnGhost} type="button" onClick={() => setEditingId('new')}>
-									<Icon name="plus" size={16} />
-									Add another race
-								</button>
-							)}
-						</section>
+					{!authed && data.activeGoal && (
+						<p className={cn(ui.muted, 'mb-6')}>Sign in to add another race.</p>
 					)}
 				</>
 			)}
@@ -276,6 +291,7 @@ function ActiveGoalCard({
 	authed,
 	editing,
 	onEdit,
+	onAdd,
 	onCancelEdit,
 	onSaved,
 	onClear
@@ -286,6 +302,7 @@ function ActiveGoalCard({
 	authed: boolean;
 	editing: boolean;
 	onEdit: () => void;
+	onAdd: () => void;
 	onCancelEdit: () => void;
 	onSaved: () => void | Promise<void>;
 	onClear: () => void;
@@ -362,6 +379,10 @@ function ActiveGoalCard({
 							Edit
 						</button>
 					)}
+					<button className={ui.btnGhost} type="button" onClick={onAdd}>
+						<Icon name="plus" size={16} />
+						Add race
+					</button>
 					<button className={cn(ui.btnGhost, ui.btnDanger)} type="button" onClick={onClear}>
 						Clear
 					</button>

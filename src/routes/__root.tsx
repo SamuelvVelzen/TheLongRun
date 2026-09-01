@@ -2,7 +2,7 @@ import { AuthProvider, SignInLink, useAuthed } from '$lib/auth';
 import { getAuthState } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import { createRootRoute, HeadContent, Link, Outlet, Scripts } from '@tanstack/react-router';
-import { useEffect, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, type MouseEvent, type MouseEventHandler, type ReactNode } from 'react';
 import '../app.css';
 import { Icon } from '../components/Icon';
 import { PwaInstall } from '../components/PwaInstall';
@@ -121,20 +121,22 @@ function RootShell() {
 								{l.label}
 							</Link>
 						))}
-						{authed ? (
-							<Link
-								to="/import"
-								className={navAdd}
-								aria-label="Add activity"
-								title="Add activity"
-								activeOptions={{ includeSearch: false }}
-							>
-								<Icon name="plus" size={20} />
-							</Link>
-						) : null}
 						<DesktopMore />
 					</nav>
-					<AuthNavIcon />
+					{authed ? (
+						<Link
+							to="/import"
+							className={cn(navAdd, 'max-sm:hidden')}
+							aria-label="Add activity"
+							title="Add activity"
+							activeOptions={{ includeSearch: false }}
+						>
+							<Icon name="plus" size={20} />
+						</Link>
+					) : (
+						<AuthNavIcon />
+					)}
+					{authed ? <MobileSignOut /> : null}
 				</header>
 				<Outlet />
 				<nav
@@ -210,6 +212,7 @@ function RootShell() {
 }
 
 function DesktopMore() {
+	const authed = useAuthed();
 	return (
 		<details className="relative z-50 group">
 			<summary
@@ -248,38 +251,69 @@ function DesktopMore() {
 					Plan route
 					<Icon name="external" size={13} className="ml-auto opacity-70" />
 				</a>
+				{authed ? (
+					<>
+						<div className="my-[0.15rem] border-t border-line" />
+						<SignOutLink className={tabMoreLink} onClick={closeDetails} />
+					</>
+				) : null}
 			</div>
 		</details>
 	);
 }
 
+function SignOutLink({
+	className,
+	onClick
+}: {
+	className: string;
+	onClick?: MouseEventHandler<HTMLAnchorElement>;
+}) {
+	return (
+		<a
+			href="/logout"
+			className={className}
+			onClick={(e) => {
+				onClick?.(e);
+				if (
+					e.defaultPrevented ||
+					e.button !== 0 ||
+					e.metaKey ||
+					e.ctrlKey ||
+					e.shiftKey ||
+					e.altKey
+				) {
+					return;
+				}
+				e.preventDefault();
+				window.location.assign('/logout');
+			}}
+		>
+			<Icon name="signOut" size={18} />
+			Sign out
+		</a>
+	);
+}
+
+function MobileSignOut() {
+	return (
+		<a
+			href="/logout"
+			className={cn(navAuth, 'hidden max-sm:inline-flex')}
+			aria-label="Sign out"
+			title="Sign out"
+			onClick={(e) => {
+				if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+				e.preventDefault();
+				window.location.assign('/logout');
+			}}
+		>
+			<Icon name="signOut" size={22} />
+		</a>
+	);
+}
+
 function AuthNavIcon() {
-	const authed = useAuthed();
-	if (authed) {
-		return (
-			<a
-				href="/logout"
-				className={navAuth}
-				aria-label="Sign out"
-				title="Sign out"
-				onClick={(e) => {
-					if (
-						e.button !== 0 ||
-						e.metaKey ||
-						e.ctrlKey ||
-						e.shiftKey ||
-						e.altKey
-					) {
-						return;
-					}
-					e.preventDefault();
-					window.location.assign('/logout');
-				}}
-			>
-				<Icon name="signOut" size={22} />
-			</a>
-		);
-	}
 	return (
 		<SignInLink className={navAuth} aria-label="Sign in">
 			<Icon name="signIn" size={22} />

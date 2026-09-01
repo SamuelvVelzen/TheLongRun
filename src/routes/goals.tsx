@@ -2,12 +2,7 @@ import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity'
 import { useAuthed } from '$lib/auth';
 import { activityLooksLikeRace, emptyGoalDraft, planStartHint } from '$lib/goals';
 import { calendarFromGoal, daysUntil, mondayIso } from '$lib/plan';
-import {
-    clearActiveGoal,
-    completeGoal,
-    getGoalsData,
-    saveActiveGoal
-} from '$lib/server/functions';
+import { clearGoal, completeGoal, getGoalsData, saveActiveGoal } from '$lib/server/functions';
 import type { Goal } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
@@ -36,13 +31,13 @@ function GoalsPage() {
 	const authed = useAuthed();
 	return (
 		<>
-			<section className={ui.hero}>
+			<section className={cn(ui.hero, ui.heroQuiet)}>
 				<div>
 					<p className={ui.muted}>Race on the calendar</p>
 					<h1>Goals</h1>
 					<p>
-						One active race drives the plan length and the generate prompt. When it’s done, it
-						becomes a medal with the time you ran.
+						The soonest race is active — it drives the plan length and the generate prompt. Later
+						races wait their turn. When one is done, it becomes a medal with the time you ran.
 					</p>
 				</div>
 			</section>
@@ -56,9 +51,14 @@ function GoalsPage() {
 function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
 	const router = useRouter();
 	const snack = useSnackbar();
-	const [editing, setEditing] = useState(!data.activeGoal);
-	const [pendingClear, setPendingClear] = useState(false);
+	const [editingId, setEditingId] = useState<string | 'new' | null>(data.activeGoal ? null : 'new');
+	const [pendingRemove, setPendingRemove] = useState<{
+		id: string;
+		name: string;
+		isActive: boolean;
+	} | null>(null);
 	const [openMedal, setOpenMedal] = useState<Goal | null>(null);
+	const nextAfterClear = pendingRemove?.isActive ? data.upcoming[0] : undefined;
 
 	return (
 		<>
@@ -68,40 +68,93 @@ function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
 					weekCount={data.calendar.weekCount}
 					candidates={data.candidates}
 					authed={authed}
-					editing={editing}
-					onEdit={() => setEditing(true)}
-					onCancelEdit={() => setEditing(false)}
+					editing={editingId === data.activeGoal.id}
+					onEdit={() => setEditingId(data.activeGoal!.id)}
+					onCancelEdit={() => setEditingId(null)}
 					onSaved={async () => {
-						setEditing(false);
+						setEditingId(null);
 						await router.invalidate();
 					}}
-					onClear={() => setPendingClear(true)}
+					onClear={() =>
+						setPendingRemove({
+							id: data.activeGoal!.id,
+							name: data.activeGoal!.name,
+							isActive: true
+						})
+					}
 				/>
 			) : (
 				<section className={cn(ui.panel, 'mb-6')}>
 					<p className={cn(ui.muted, 'mt-0')}>
 						No race on the calendar. Coach still plans this week as base training.
 					</p>
-					{authed && !editing && (
-						<button className={ui.btnPrimary} type="button" onClick={() => setEditing(true)}>
+					{authed && editingId !== 'new' && (
+						<button className={ui.btnPrimary} type="button" onClick={() => setEditingId('new')}>
 							<Icon name="flag" size={16} />
 							Set a goal
 						</button>
 					)}
-					{authed && editing && (
+					{authed && editingId === 'new' && (
 						<GoalForm
 							initial={null}
-							onCancel={() => setEditing(false)}
+							submitLabel="Set goal"
+							onCancel={() => setEditingId(null)}
 							onSaved={async () => {
-								setEditing(false);
+								setEditingId(null);
 								await router.invalidate();
 							}}
 						/>
 					)}
-					{!authed && (
-						<p className={cn(ui.muted, 'mb-0')}>Sign in to set a race.</p>
-					)}
+					{!authed && <p className={cn(ui.muted, 'mb-0')}>Sign in to set a race.</p>}
 				</section>
+			)}
+
+			{(data.activeGoal || data.upcoming.length > 0) && (
+				<>
+					<section className={ui.sectionTitle}>
+						<h2>Up next</h2>
+						<p>
+							{data.upcoming.length
+								? `${data.upcoming.length} later race${data.upcoming.length === 1 ? '' : 's'} — the soonest date becomes active when this one is done.`
+								: 'Add the races after this one. Closest date stays active.'}
+						</p>
+					</section>
+					{data.upcoming.map((g) => (
+						<UpcomingGoalCard
+							key={g.id}
+							goal={g}
+							authed={authed}
+							editing={editingId === g.id}
+							onEdit={() => setEditingId(g.id)}
+							onCancelEdit={() => setEditingId(null)}
+							onSaved={async () => {
+								setEditingId(null);
+								await router.invalidate();
+							}}
+							onRemove={() => setPendingRemove({ id: g.id, name: g.name, isActive: false })}
+						/>
+					))}
+					{authed && (
+						<section className={cn(ui.panel, 'mb-6')}>
+							{editingId === 'new' && data.activeGoal ? (
+								<GoalForm
+									initial={null}
+									submitLabel="Add race"
+									onCancel={() => setEditingId(null)}
+									onSaved={async () => {
+										setEditingId(null);
+										await router.invalidate();
+									}}
+								/>
+							) : (
+								<button className={ui.btnGhost} type="button" onClick={() => setEditingId('new')}>
+									<Icon name="plus" size={16} />
+									Add another race
+								</button>
+							)}
+						</section>
+					)}
+				</>
 			)}
 
 			<section className={ui.sectionTitle}>
@@ -157,9 +210,7 @@ function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
 								: ` · ${openMedal.distance_km} km`}
 							{openMedal.result?.pace ? ` · ${openMedal.result.pace}/km` : ''}
 						</p>
-						{openMedal.time_goal ? (
-							<p className="m-0">Time goal was {openMedal.time_goal}.</p>
-						) : null}
+						{openMedal.time_goal ? <p className="m-0">Time goal was {openMedal.time_goal}.</p> : null}
 						{openMedal.primary.length > 0 && (
 							<ul className="m-0 pl-[1.1rem]">
 								{openMedal.primary.map((p) => (
@@ -182,20 +233,35 @@ function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
 			</Dialog>
 
 			<ConfirmDialog
-				open={pendingClear}
-				title="Clear this goal?"
-				description="The race leaves the calendar. This week’s plan resets. Medals stay."
-				confirmLabel="Clear goal"
-				onClose={() => setPendingClear(false)}
+				open={pendingRemove != null}
+				title={pendingRemove?.isActive ? 'Clear this goal?' : `Remove ${pendingRemove?.name ?? 'this race'}?`}
+				description={
+					pendingRemove?.isActive
+						? nextAfterClear
+							? `The race leaves the calendar and this week’s plan resets. ${nextAfterClear.name} becomes the training target.`
+							: 'The race leaves the calendar. This week’s plan resets. Medals stay.'
+						: 'This race leaves the calendar. The current plan and active goal stay put.'
+				}
+				confirmLabel={pendingRemove?.isActive ? 'Clear goal' : 'Remove race'}
+				onClose={() => setPendingRemove(null)}
 				onConfirm={async () => {
+					if (!pendingRemove) return;
 					try {
-						await clearActiveGoal();
-						setPendingClear(false);
-						setEditing(true);
-						snack.success('Goal cleared — Coach will plan base weeks.');
+						await clearGoal({ data: pendingRemove.id });
+						setPendingRemove(null);
+						setEditingId(pendingRemove.isActive && !nextAfterClear ? 'new' : null);
+						if (pendingRemove.isActive) {
+							snack.success(
+								nextAfterClear
+									? `Cleared — ${nextAfterClear.name} is now the training target.`
+									: 'Goal cleared — Coach will plan base weeks.'
+							);
+						} else {
+							snack.success(`${pendingRemove.name} removed from the calendar.`);
+						}
 						await router.invalidate();
 					} catch (e) {
-						snack.error(errorMessage(e, 'Could not clear the goal.'));
+						snack.error(errorMessage(e, 'Could not remove that race.'));
 					}
 				}}
 			/>
@@ -306,7 +372,7 @@ function ActiveGoalCard({
 				</div>
 			)}
 			{authed && editing && (
-				<GoalForm initial={goal} onCancel={onCancelEdit} onSaved={onSaved} />
+				<GoalForm initial={goal} submitLabel="Save goal" onCancel={onCancelEdit} onSaved={onSaved} />
 			)}
 			{authed && (days == null || days <= 1) && (
 				<div className="grid gap-3 pt-3 border-t border-line">
@@ -317,10 +383,7 @@ function ActiveGoalCard({
 					{candidates.length ? (
 						<label className={ui.field}>
 							<span>Activity</span>
-							<select
-								value={pinSlug}
-								onChange={(e) => setPinSlug(e.target.value)}
-							>
+							<select value={pinSlug} onChange={(e) => setPinSlug(e.target.value)}>
 								{candidates.map((c) => (
 									<option key={c.slug} value={c.slug}>
 										{c.date}
@@ -356,12 +419,75 @@ function ActiveGoalCard({
 	);
 }
 
+function UpcomingGoalCard({
+	goal,
+	authed,
+	editing,
+	onEdit,
+	onCancelEdit,
+	onSaved,
+	onRemove
+}: {
+	goal: Goal;
+	authed: boolean;
+	editing: boolean;
+	onEdit: () => void;
+	onCancelEdit: () => void;
+	onSaved: () => void | Promise<void>;
+	onRemove: () => void;
+}) {
+	const days = daysUntil(goal.date);
+	return (
+		<section className={cn(ui.panel, 'mb-3 grid gap-3')}>
+			<div className="flex flex-wrap items-start justify-between gap-3">
+				<div>
+					<p className="m-0 inline-flex items-center gap-1.5 text-muted font-bold text-[0.72rem] tracking-[0.08em] uppercase">
+						<Icon name="calendar" size={14} />
+						Upcoming
+					</p>
+					<h3 className="font-display text-[1.35rem] tracking-[-0.03em] m-0 mt-1">{goal.name}</h3>
+					<p className={cn(ui.muted, 'm-0 mt-1')}>
+						{formatRaceDate(goal.date)} · {goal.distance_km} km · {activityLabel(goal.sport)}
+						{goal.time_goal ? ` · goal ${goal.time_goal}` : ''}
+					</p>
+				</div>
+				<div className="text-right">
+					<span className={cn('block text-[0.78rem]', ui.muted)}>
+						{days == null ? 'Race day' : days > 0 ? 'Days to go' : days === 0 ? 'Race day' : 'Days since'}
+					</span>
+					<strong className="font-display text-[1.7rem] tracking-[-0.04em] leading-none">
+						{days == null ? '—' : days === 0 ? 'Today' : Math.abs(days)}
+					</strong>
+				</div>
+			</div>
+			{authed && (
+				<div className={ui.actions}>
+					{!editing && (
+						<button className={ui.btnGhost} type="button" onClick={onEdit}>
+							<Icon name="pencil" size={16} />
+							Edit
+						</button>
+					)}
+					<button className={cn(ui.btnGhost, ui.btnDanger)} type="button" onClick={onRemove}>
+						Remove
+					</button>
+				</div>
+			)}
+			{authed && editing && (
+				<GoalForm initial={goal} submitLabel="Save race" onCancel={onCancelEdit} onSaved={onSaved} />
+			)}
+		</section>
+	);
+}
+
 function GoalForm({
 	initial,
+	submitLabel,
 	onCancel,
 	onSaved
 }: {
 	initial: Goal | null;
+	submitLabel: string;
 	onCancel: () => void;
 	onSaved: () => void | Promise<void>;
 }) {
@@ -405,9 +531,12 @@ function GoalForm({
 					plan_start: mondayIso(planStart)
 				}
 			});
-			snack.success(`Saved — ${weeks} week plan through race day.`);
+			if (res.isActive) {
+				snack.success(`Saved — ${weeks} week plan through race day.`);
+			} else {
+				snack.success(`Saved — later on the calendar. Training stays on ${res.activeName}.`);
+			}
 			await onSaved();
-			void res;
 		} catch (err) {
 			snack.error(errorMessage(err, 'Could not save the goal.'));
 		} finally {
@@ -416,7 +545,7 @@ function GoalForm({
 	}
 
 	return (
-		<form className={cn(ui.form, 'pt-3 border-t border-line')} onSubmit={onSubmit}>
+		<form className={cn(ui.form, initial ? 'pt-3 border-t border-line' : '')} onSubmit={onSubmit}>
 			<label className={ui.field}>
 				<span className={ui.req}>Race name</span>
 				<input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Amersfoort 10K" />
@@ -476,7 +605,7 @@ function GoalForm({
 			<div className={ui.actions}>
 				<button className={ui.btnPrimary} type="submit" disabled={busy}>
 					<Icon name="check" size={16} />
-					{busy ? 'Saving…' : initial ? 'Save goal' : 'Set goal'}
+					{busy ? 'Saving…' : submitLabel}
 				</button>
 				<button className={ui.btnGhost} type="button" onClick={onCancel} disabled={busy}>
 					Cancel

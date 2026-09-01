@@ -5,7 +5,7 @@ import {
 	rollingCalendar,
 	type PlanCalendar
 } from '$lib/plan';
-import { goalIdFrom } from '$lib/goals';
+import { goalIdFrom, pickSoonestOpenGoal, stampGoalsByDate } from '$lib/goals';
 import {
 	asShoeNameList,
 	emptyShoes,
@@ -99,7 +99,7 @@ function normalizeStoredGoal(item: unknown): Goal | null {
 	const primary = Array.isArray(o.primary)
 		? o.primary.map(String).map((s) => s.trim()).filter(Boolean)
 		: [];
-	const status: Goal['status'] = o.status === 'done' ? 'done' : 'active';
+	const status: Goal['status'] = o.status === 'done' ? 'done' : o.status === 'upcoming' ? 'upcoming' : 'active';
 	const result =
 		o.result && typeof o.result === 'object'
 			? {
@@ -174,14 +174,12 @@ export async function loadGoalStore(): Promise<GoalStore> {
 }
 
 export async function saveGoalStore(store: GoalStore): Promise<void> {
-	const active = store.goals.filter((g) => g.status === 'active');
-	const rest = store.goals.filter((g) => g.status !== 'active');
-	const goals = active.length ? [active[0]!, ...active.slice(1).map((g) => ({ ...g, status: 'done' as const })), ...rest] : rest;
+	const goals = stampGoalsByDate(store.goals);
 	await writeContextFile('goals.json', `${JSON.stringify({ goals }, null, 2)}\n`);
 }
 
 export function activeGoalOf(store: GoalStore): Goal | null {
-	return store.goals.find((g) => g.status === 'active') ?? null;
+	return pickSoonestOpenGoal(store.goals);
 }
 
 export type TrainingContext = {
@@ -194,13 +192,15 @@ export type TrainingContext = {
 
 export async function loadTrainingContext(): Promise<TrainingContext> {
 	const [store, rawPlan] = await Promise.all([loadGoalStore(), loadPlan()]);
-	const activeGoal = activeGoalOf(store);
-	const medals = store.goals
+	const goals = stampGoalsByDate(store.goals);
+	const stamped = { goals };
+	const activeGoal = pickSoonestOpenGoal(goals);
+	const medals = goals
 		.filter((g) => g.status === 'done')
 		.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 	const calendar = activeGoal ? calendarFromGoal(activeGoal) : rollingCalendar();
 	return {
-		store,
+		store: stamped,
 		activeGoal,
 		medals,
 		calendar,

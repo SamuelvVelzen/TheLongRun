@@ -51,7 +51,7 @@ export interface RunRecord {
 	filepath?: string;
 }
 
-export type GoalStatus = 'active' | 'done';
+export type GoalStatus = 'active' | 'upcoming' | 'done';
 
 export type GoalResult = {
 	activity_slug: string;

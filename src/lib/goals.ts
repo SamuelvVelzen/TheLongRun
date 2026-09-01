@@ -1,8 +1,9 @@
 /**
- * Goal helpers (active race vs medals). Safe for client and server.
+ * Goal helpers (soonest open race is active; later races wait; medals are done).
+ * Safe for client and server.
  */
 import { normalizeActivityType } from '$lib/activity';
-import { mondayIso, weeksThrough } from '$lib/plan';
+import { isoDateLocal, mondayIso, weeksThrough } from '$lib/plan';
 import type { Goal, GoalResult, RunRecord } from '$lib/types';
 
 export function goalIdFrom(name: string, date: string): string {
@@ -56,10 +57,30 @@ export function normalizeGoalInput(input: GoalInput, existing?: Goal | null): Go
 		primary: input.primary.map((p) => p.trim()).filter(Boolean),
 		notes: input.notes.trim(),
 		plan_start,
-		status: existing?.status === 'done' ? 'done' : 'active',
+		status: existing?.status === 'done' ? 'done' : 'upcoming',
 		result: existing?.result ?? null,
 		plan: existing?.plan ?? null
 	};
+}
+
+/** Soonest open race: next date on/after today, else the most recent unpinned past race. */
+export function pickSoonestOpenGoal(goals: Goal[], today = new Date()): Goal | null {
+	const todayIso = isoDateLocal(today);
+	const open = goals.filter((g) => g.status !== 'done');
+	if (!open.length) return null;
+	const upcoming = open
+		.filter((g) => g.date >= todayIso)
+		.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+	if (upcoming[0]) return upcoming[0];
+	return [...open].sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name))[0] ?? null;
+}
+
+export function stampGoalsByDate(goals: Goal[], today = new Date()): Goal[] {
+	const active = pickSoonestOpenGoal(goals, today);
+	return goals.map((g) => {
+		if (g.status === 'done') return g;
+		return { ...g, status: g.id === active?.id ? 'active' : 'upcoming' };
+	});
 }
 
 export function resultFromActivity(run: Pick<RunRecord, 'slug' | 'date' | 'time' | 'distance_km' | 'avg_pace'>): GoalResult {

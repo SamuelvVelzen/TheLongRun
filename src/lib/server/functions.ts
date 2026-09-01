@@ -17,7 +17,7 @@ import {
     normalizeStartTime,
     parseDurationSeconds
 } from '$lib/format';
-import { activityLooksLikeRace, normalizeGoalInput, resultFromActivity, type GoalInput } from '$lib/goals';
+import { activityLooksLikeRace, normalizeGoalInput, pickSoonestOpenGoal, resultFromActivity, type GoalInput } from '$lib/goals';
 import { buildHrZoneSummary } from '$lib/hr-zones';
 import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import {
@@ -535,7 +535,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 				readContextFile('race-strategy.md'),
 				loadSettings()
 			]);
-		const { plan, calendar, activeGoal, medals } = training;
+		const { plan, calendar, activeGoal, medals, store } = training;
 		const defaultPattern = data.defaultPattern ?? settings.weekPattern;
 		const thisPattern = data.pattern != null ? data.pattern : defaultPattern;
 		const mixNote = data.note.trim();
@@ -667,13 +667,19 @@ ${formatUnplannedBrief(targetView.unplanned)}
 			? `Start from the saved week JSON — do not replace it with the usual-week skeleton. Keep completed sessions as they were. Revise what's still ahead. You may add a session for an extra I declared in the notes. If you move a day, say why.`
 			: `Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride, Gym, …), \`"distance_km"\` (null for strength), and \`"detail"\`. The example labels below are yours to replace with a real kind, not values to copy from my skeleton. If you move a day, say why.`;
 
+		const laterRaces = store.goals
+			.filter((g) => g.status !== 'done' && g.id !== activeGoal?.id)
+			.sort((a, b) => a.date.localeCompare(b.date));
+		const laterLines = laterRaces
+			.map((g) => `- Later: ${g.name} — ${g.distance_km} km on ${g.date} (not the current training target)`)
+			.join('\n');
 		const goalSection = activeGoal
 			? `## Goal
 - Race: ${activeGoal.name} — ${activeGoal.distance_km} km on ${activeGoal.date}${weeksToRace != null ? ` (~${weeksToRace} weeks to go)` : ''}
 - Sport: ${activityLabel(activeGoal.sport)}
 - Time goal: ${activeGoal.time_goal || '—'}
 ${(activeGoal.primary ?? []).map((p) => `- Priority: ${p}`).join('\n')}
-${activeGoal.notes ? `\n${activeGoal.notes}\n` : ''}`
+${laterLines ? `${laterLines}\n` : ''}${activeGoal.notes ? `\n${activeGoal.notes}\n` : ''}`
 			: `## Goal
 - No active race. This is a base week.
 ${lastMedalLine}
@@ -1468,7 +1474,10 @@ export const saveContextFile = createServerFn({ method: 'POST' }).middleware([re
 
 export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () => {
 	const [training, runs] = await Promise.all([loadTrainingContext(), listRuns()]);
-	const { activeGoal, medals, calendar } = training;
+	const { activeGoal, medals, calendar, store } = training;
+	const upcoming = store.goals
+		.filter((g) => g.status !== 'done' && g.id !== activeGoal?.id)
+		.sort((a, b) => a.date.localeCompare(b.date));
 	const candidates = activeGoal
 		? [...runs]
 				.filter((r) => activityLooksLikeRace(activeGoal, r) || r.date === activeGoal.date)
@@ -1491,6 +1500,7 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 		: [];
 	return {
 		activeGoal,
+		upcoming,
 		medals,
 		calendar,
 		candidates
@@ -1505,21 +1515,33 @@ export const saveActiveGoal = createServerFn({ method: 'POST' }).middleware([req
 		if (!name) throw new Error('Give the race a name.');
 		if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Race date must be YYYY-MM-DD.');
 		const store = await loadGoalStore();
-		const existing = store.goals.find((g) => g.status === 'active') ?? null;
+		const existing = data.id ? (store.goals.find((g) => g.id === data.id) ?? null) : null;
 		const next = normalizeGoalInput(data, existing);
 		if (next.date < next.plan_start) {
 			throw new Error('Race day needs to be on or after the plan start.');
 		}
-		const others = store.goals.filter((g) => g.id !== next.id && g.status !== 'active');
-		await saveGoalStore({ goals: [next, ...others] });
-		return { id: next.id, weekCount: calendarFromGoal(next).weekCount };
+		if (store.goals.some((g) => g.id === next.id && g.id !== existing?.id)) {
+			throw new Error('A race with that name and date is already on the calendar.');
+		}
+		const beforeId = pickSoonestOpenGoal(store.goals)?.id ?? null;
+		const others = store.goals.filter((g) => g.id !== next.id);
+		const merged = [next, ...others];
+		await saveGoalStore({ goals: merged });
+		const active = pickSoonestOpenGoal(merged);
+		if (beforeId !== (active?.id ?? null)) await savePlan([]);
+		return {
+			id: next.id,
+			weekCount: calendarFromGoal(next).weekCount,
+			isActive: active?.id === next.id,
+			activeName: active?.name ?? next.name
+		};
 	});
 
 export const completeGoal = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((d: { activitySlug: string }) => d)
 	.handler(async ({ data }) => {
 		const store = await loadGoalStore();
-		const active = store.goals.find((g) => g.status === 'active');
+		const active = pickSoonestOpenGoal(store.goals);
 		if (!active) throw new Error('No active goal to complete.');
 		const run = await getRun(data.activitySlug);
 		if (!run) throw new Error('That activity was not found.');
@@ -1537,13 +1559,15 @@ export const completeGoal = createServerFn({ method: 'POST' }).middleware([requi
 		return { id: done.id };
 	});
 
-export const clearActiveGoal = createServerFn({ method: 'POST' }).middleware([requireAuth])
-	.handler(async () => {
+export const clearGoal = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((id: string) => id)
+	.handler(async ({ data: id }) => {
 		const store = await loadGoalStore();
-		const active = store.goals.find((g) => g.status === 'active');
-		if (!active) return { ok: true as const };
-		await saveGoalStore({ goals: store.goals.filter((g) => g.id !== active.id) });
-		await savePlan([]);
+		const target = store.goals.find((g) => g.id === id);
+		if (!target) return { ok: true as const };
+		const wasActive = pickSoonestOpenGoal(store.goals)?.id === id;
+		await saveGoalStore({ goals: store.goals.filter((g) => g.id !== id) });
+		if (wasActive) await savePlan([]);
 		return { ok: true as const };
 	});
 

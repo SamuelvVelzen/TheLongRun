@@ -3,6 +3,7 @@ import { getLogDefaults } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { DeferredData } from '../components/DeferredData';
+import { PageHero } from '../components/PageHero';
 import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
 import { LogForm } from '../components/LogForm';
@@ -24,10 +25,11 @@ function AddActivity() {
 
 	return (
 		<>
-			<section className={cn(ui.hero, ui.heroQuiet)}>
-				<div>
-					<p className={ui.muted}>GPX file or type it in</p>
-					<h1>Add activity</h1>
+			<PageHero
+				variant="quiet"
+				kicker="GPX file or type it in"
+				title="Add activity"
+				lead={
 					<p>
 						Import a <code>.gpx</code> from Strava, or log numbers by hand. After a race, debrief in{' '}
 						<Link to="/coach" search={{ tab: 'debrief' }}>
@@ -36,8 +38,8 @@ function AddActivity() {
 						and pin the time on{' '}
 						<Link to="/goals">Goals</Link>.
 					</p>
-				</div>
-			</section>
+				}
+			/>
 
 			{!authed ? (
 				<SignInPanel title="Sign in to add an activity" />

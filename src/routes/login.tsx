@@ -1,6 +1,7 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
 import { SignInLink } from '$lib/auth';
 import { ui } from '$lib/ui';
+import { createFileRoute, Link } from '@tanstack/react-router';
+import { PageHero } from '../components/PageHero';
 
 export const Route = createFileRoute('/login')({
 	validateSearch: (s: Record<string, unknown>): { next?: string } => ({
@@ -24,21 +25,18 @@ export const Route = createFileRoute('/login')({
 
 function LoginFailed() {
 	return (
-		<section className={ui.hero}>
-			<div>
-				<p className={ui.muted}>Editor sign-in</p>
-				<h1>Couldn’t sign in</h1>
-				<p>
-					Viewing is open. Editing needs a Cloudflare Access sign-in; after that this page sets a
-					30-day session so you are not asked every day.
-				</p>
-			</div>
-			<div className={ui.actions}>
-				<SignInLink className={ui.btnPrimary}>Try again</SignInLink>
-				<Link className={ui.btnGhost} to="/">
-					Back to dashboard
-				</Link>
-			</div>
-		</section>
+		<PageHero
+			kicker="Editor sign-in"
+			title="Couldn’t sign in"
+			lead="Viewing is open. Editing needs a Cloudflare Access sign-in; after that this page sets a 30-day session so you are not asked every day."
+			actions={
+				<>
+					<SignInLink className={ui.btnPrimary}>Try again</SignInLink>
+					<Link className={ui.btnGhost} to="/">
+						Back to dashboard
+					</Link>
+				</>
+			}
+		/>
 	);
 }

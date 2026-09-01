@@ -5,6 +5,7 @@ import { cn, ui } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { DeferredData } from '../components/DeferredData';
+import { PageHero } from '../components/PageHero';
 import { DeleteButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
@@ -46,16 +47,17 @@ function PlannedRoutes() {
 
 	return (
 		<>
-			<section className={cn(ui.hero, ui.heroQuiet)}>
-				<div>
-					<p className={ui.muted}>Keep planned routes separate from completed activities</p>
-					<h1>Routes</h1>
+			<PageHero
+				variant="quiet"
+				kicker="Keep planned routes separate from completed activities"
+				title="Routes"
+				lead={
 					<p>
 						Import a <strong>GPX route</strong>, then open it to attach the loop to upcoming plan
 						days or a logged activity. The same route can cover more than one day.
 					</p>
-				</div>
-			</section>
+				}
+			/>
 
 			{authed ? (
 			<label
@@ -171,7 +173,7 @@ function LinkedFlag({
 				? 'plan day'
 				: 'plan days';
 	return (
-		<span className="inline-flex items-center gap-1 text-accent font-bold">
+		<span className="inline-flex items-center gap-1 text-accent-fg font-bold">
 			<MapPinIcon size={13} />
 			{count} {noun}
 		</span>

@@ -8,6 +8,7 @@ import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { ChoiceChips } from '../components/ChoiceChips';
+import { PageHero } from '../components/PageHero';
 import { DeferredData } from '../components/DeferredData';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { Icon, sportChipLabel } from '../components/Icon';
@@ -31,16 +32,12 @@ function GoalsPage() {
 	const authed = useAuthed();
 	return (
 		<>
-			<section className={cn(ui.hero, ui.heroQuiet)}>
-				<div>
-					<p className={ui.muted}>Race on the calendar</p>
-					<h1>Goals</h1>
-					<p>
-						The soonest race is active — it drives the plan length and the generate prompt. Later
-						races wait their turn. When one is done, it becomes a medal with the time you ran.
-					</p>
-				</div>
-			</section>
+			<PageHero
+				variant="quiet"
+				kicker="Race on the calendar"
+				title="Goals"
+				lead="The soonest race is active — it drives the plan length and the generate prompt. Later races wait their turn. When one is done, it becomes a medal with the time you ran."
+			/>
 			<DeferredData promise={page}>
 				{(data) => <GoalsBody data={data} authed={authed} />}
 			</DeferredData>
@@ -113,7 +110,7 @@ function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
 			{data.activeGoal && authed && editingId === 'new' && (
 				<section className={cn(ui.panel, 'mb-6 grid gap-3')}>
 					<div>
-						<p className="m-0 inline-flex items-center gap-1.5 text-accent font-bold text-[0.72rem] tracking-[0.08em] uppercase">
+						<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
 							<Icon name="plus" size={14} />
 							Add race
 						</p>
@@ -184,16 +181,16 @@ function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
 							type="button"
 							className={cn(
 								ui.panel,
-								'text-left cursor-pointer transition-[border-color,transform] duration-150 hover:border-[rgba(200,242,90,0.4)] hover:-translate-y-px'
+								'text-left cursor-pointer transition-[border-color,transform] duration-150 hover:border-accent/40 hover:-translate-y-px'
 							)}
 							onClick={() => setOpenMedal(g)}
 						>
-							<p className="m-0 inline-flex items-center gap-1.5 text-accent font-bold text-[0.72rem] tracking-[0.08em] uppercase">
+							<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
 								<Icon name="trophy" size={14} />
 								Medal
 							</p>
 							<h3 className="font-display text-[1.35rem] tracking-[-0.03em] m-0 mt-1">{g.name}</h3>
-							<p className="font-display font-bold text-[2.1rem] tracking-[-0.04em] text-accent m-0 mt-2 leading-none">
+							<p className="font-display font-bold text-[2.1rem] tracking-[-0.04em] text-accent-fg m-0 mt-2 leading-none">
 								{g.result?.time || '—'}
 							</p>
 							<p className={cn(ui.muted, 'm-0 mt-2')}>
@@ -215,7 +212,7 @@ function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
 			>
 				{openMedal && (
 					<div className="grid gap-3">
-						<p className="font-display font-bold text-[2.4rem] tracking-[-0.04em] text-accent m-0 leading-none">
+						<p className="font-display font-bold text-[2.4rem] tracking-[-0.04em] text-accent-fg m-0 leading-none">
 							{openMedal.result?.time || '—'}
 						</p>
 						<p className={cn(ui.muted, 'm-0')}>
@@ -335,7 +332,7 @@ function ActiveGoalCard({
 	return (
 		<section className={cn(ui.panel, 'mb-6 grid gap-4')}>
 			<div>
-				<p className="m-0 inline-flex items-center gap-1.5 text-accent font-bold text-[0.72rem] tracking-[0.08em] uppercase">
+				<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
 					<Icon name="flag" size={14} />
 					Active
 				</p>
@@ -350,7 +347,7 @@ function ActiveGoalCard({
 					<span className={cn('block text-[0.78rem]', ui.muted)}>
 						{days == null ? 'Race day' : days > 0 ? 'Days to go' : days === 0 ? 'Race day' : 'Days since'}
 					</span>
-					<strong className="font-display text-[2.1rem] tracking-[-0.04em] text-accent leading-none">
+					<strong className="font-display text-[2.1rem] tracking-[-0.04em] text-accent-fg leading-none">
 						{days == null ? '—' : days === 0 ? 'Today' : Math.abs(days)}
 					</strong>
 				</div>
@@ -417,7 +414,7 @@ function ActiveGoalCard({
 					) : (
 						<p className={cn(ui.muted, 'm-0')}>
 							No matching activity yet.{' '}
-							<Link className="text-accent font-semibold" to="/import">
+							<Link className="text-accent-fg font-semibold" to="/import">
 								Import the GPX
 							</Link>
 							.

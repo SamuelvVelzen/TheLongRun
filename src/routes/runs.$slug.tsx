@@ -32,6 +32,7 @@ import { BestEffortBadges } from '../components/BestEffortBadges';
 import { DeleteButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
 import { FeelChips, WantedFasterChips } from '../components/FeelChips';
+import { PageHero } from '../components/PageHero';
 import { ActivityIcon, Icon } from '../components/Icon';
 import { RouteChip } from '../components/RouteChip';
 import { RouteMap } from '../components/RouteMap';
@@ -112,7 +113,7 @@ function InlineText({
 						type="button"
 						className={cn(
 							fieldBox,
-							'flex items-start justify-between gap-3 text-inherit font-inherit cursor-pointer hover:border-accent hover:bg-[rgba(200,242,90,0.06)] active:border-accent group/qv'
+							'flex items-start justify-between gap-3 text-inherit font-inherit cursor-pointer hover:border-accent hover:bg-accent/6 active:border-accent group/qv'
 						)}
 						onClick={() => {
 							setVal(value);
@@ -126,7 +127,7 @@ function InlineText({
 							<span className={ui.muted}>— add</span>
 						)}
 						<span
-							className="shrink-0 mt-[0.15rem] text-accent text-[0.85rem] sm:opacity-0 group-hover/qv:opacity-100"
+							className="shrink-0 mt-[0.15rem] text-accent-fg text-[0.85rem] sm:opacity-0 group-hover/qv:opacity-100"
 							aria-hidden="true"
 						>
 							✎
@@ -270,7 +271,7 @@ function FeelTile({
 				ui.metricEmph,
 				'block w-full text-left font-inherit text-inherit',
 				editable &&
-					'cursor-pointer hover:border-accent hover:bg-[rgba(200,242,90,0.1)] active:border-accent active:bg-[rgba(200,242,90,0.1)]'
+					'cursor-pointer hover:border-accent hover:bg-accent/10 active:border-accent active:bg-accent/10'
 			)}
 			title={editable ? 'Click to edit' : undefined}
 			disabled={!editable}
@@ -431,9 +432,9 @@ function RunDetail() {
 
 	return (
 		<>
-			<section className={ui.hero}>
-				<div>
-					<p className={cn(ui.muted, 'inline-flex items-center gap-1.5 flex-wrap')}>
+			<PageHero
+				kicker={
+					<>
 						<ActivityIcon type={r.activity_type} size={14} />
 						{[
 							activityLabel(r.activity_type),
@@ -445,8 +446,11 @@ function RunDetail() {
 						]
 							.filter(Boolean)
 							.join(' · ')}
-					</p>
-					<h1 className={ui.runTitle}>
+					</>
+				}
+				kickerClassName="inline-flex items-center gap-1.5 flex-wrap"
+				title={
+					<>
 						{r.date}
 						{r.has_map && (
 							<span
@@ -462,39 +466,43 @@ function RunDetail() {
 								</svg>
 							</span>
 						)}
-					</h1>
-					{plannedRoute && (
-						<RouteChip
-							slug={plannedRoute.slug}
-							name={plannedRoute.name}
-							distanceKm={plannedRoute.distance_km}
-							prefix="Route"
-						/>
-					)}
-					{!editing && (strength ? strength.extra : r.notes) && (
-						<p className="max-sm:line-clamp-3">{strength ? strength.extra : r.notes}</p>
-					)}
-				</div>
-				<div className={ui.actions}>
-					{authed && !editing && (
-						<>
-							<button
-								className={cn(ui.btnGhost, ui.btnIcon)}
-								type="button"
-								aria-label="Edit activity"
-								title="Edit activity"
-								onClick={startEditing}
-							>
-								<Icon name="pencil" size={16} />
-							</button>
-							<DeleteButton
-								label={`Delete ${activityLabel(r.activity_type).toLowerCase()} ${r.date}`}
-								onClick={onDelete}
-							/>
-						</>
-					)}
-				</div>
-			</section>
+					</>
+				}
+				titleClassName={ui.runTitle}
+				actions={
+					<>
+						{authed && !editing && (
+							<>
+								<button
+									className={cn(ui.btnGhost, ui.btnIcon)}
+									type="button"
+									aria-label="Edit activity"
+									title="Edit activity"
+									onClick={startEditing}
+								>
+									<Icon name="pencil" size={16} />
+								</button>
+								<DeleteButton
+									label={`Delete ${activityLabel(r.activity_type).toLowerCase()} ${r.date}`}
+									onClick={onDelete}
+								/>
+							</>
+						)}
+					</>
+				}
+			>
+				{plannedRoute && (
+					<RouteChip
+						slug={plannedRoute.slug}
+						name={plannedRoute.name}
+						distanceKm={plannedRoute.distance_km}
+						prefix="Route"
+					/>
+				)}
+				{!editing && (strength ? strength.extra : r.notes) && (
+					<p className="max-sm:line-clamp-3">{strength ? strength.extra : r.notes}</p>
+				)}
+			</PageHero>
 
 			{editing ? (
 				<form className={ui.form} method="POST" onSubmit={onUpdate}>
@@ -816,7 +824,7 @@ function RunDetail() {
 										<span className={cn(ui.muted, 'min-w-0 break-words')}>
 											{ex.sets.map((s) => formatSetDisplay(s, ex.kind)).join(', ')}
 										</span>
-										<span className="font-display font-bold text-accent">
+										<span className="font-display font-bold text-accent-fg">
 											<span className="sm:hidden font-sans font-normal text-muted text-[0.72rem] uppercase tracking-[0.05em] mr-1.5">
 												Top
 											</span>
@@ -926,7 +934,7 @@ function RunDetail() {
 														'flex-1 min-h-11 min-w-0 border rounded-lg p-[0.5rem_0.4rem] font-inherit text-[0.9rem]',
 														authed && 'cursor-pointer hover:border-accent active:border-accent',
 														active
-															? 'border-accent bg-[rgba(200,242,90,0.12)] text-fg font-semibold'
+															? 'border-accent bg-accent/12 text-fg font-semibold'
 															: 'bg-white/[0.03] border-line text-muted'
 													)}
 													onClick={() => {

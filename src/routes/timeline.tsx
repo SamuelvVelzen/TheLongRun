@@ -20,20 +20,19 @@ import type { RunWithMap } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
+import { ActivityFilters } from '../components/ActivityFilters';
 import { BestEffortBadges, BestEffortBoard } from '../components/BestEffortBadges';
-import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
+import { type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
 import { DeleteButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
 import { FeelBadge } from '../components/FeelBadge';
-import { FilterSheet, filterSummary } from '../components/FilterSheet';
 import { ActivityTag, Icon } from '../components/Icon';
-import { PlaceFilter } from '../components/PlaceFilter';
+import { PageHero } from '../components/PageHero';
 import {
     matchesSportFilter,
     parseSportSearch,
     selectedSports,
-    SportFilter,
     sportIsAll
 } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
@@ -91,23 +90,25 @@ function Timeline() {
 	const { page } = Route.useLoaderData();
 	return (
 		<>
-			<section className={cn(ui.hero, ui.heroQuiet)}>
-				<div>
-					<p className={ui.muted}>Every session in order</p>
-					<h1>Timeline</h1>
-					<p>Add a file, or open one for notes and full metrics.</p>
-				</div>
-				<div className={cn(ui.actions, 'max-sm:hidden')}>
-					<Link className={ui.btnPrimary} to="/import">
-						<Icon name="plus" size={16} />
-						Add activity
-					</Link>
-					<Link className={ui.btnGhost} to="/coach">
-						<Icon name="coach" size={16} />
-						Coach
-					</Link>
-				</div>
-			</section>
+			<PageHero
+				variant="quiet"
+				kicker="Every session in order"
+				title="Timeline"
+				lead="Add a file, or open one for notes and full metrics."
+				hideActionsOnMobile
+				actions={
+					<>
+						<Link className={ui.btnPrimary} to="/import">
+							<Icon name="plus" size={16} />
+							Add activity
+						</Link>
+						<Link className={ui.btnGhost} to="/coach">
+							<Icon name="coach" size={16} />
+							Coach
+						</Link>
+					</>
+				}
+			/>
 			<DeferredData promise={page}>{(allRuns) => <TimelineBody allRuns={allRuns} />}</DeferredData>
 		</>
 	);
@@ -153,17 +154,16 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 
 	return (
 		<>
-			<FilterSheet summary={filterSummary(sport, range, { country, province, place })}>
-				<SportFilter sport={sport} to="/timeline" defaultSport="all" available={availableSports} />
-				<DateRangeFilter range={range} to="/timeline" />
-				<PlaceFilter
-					to="/timeline"
-					runs={allRuns}
-					country={country}
-					province={province}
-					place={place}
-				/>
-			</FilterSheet>
+			<ActivityFilters
+				to="/timeline"
+				sport={sport}
+				range={range}
+				runs={allRuns}
+				country={country}
+				province={province}
+				place={place}
+				availableSports={availableSports}
+			/>
 
 			{neverLogged ? (
 				<div className={cn(ui.panel, ui.muted)}>No activities yet.</div>
@@ -215,12 +215,12 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 										style={{ animationDelay: `${i * 35}ms` }}
 									>
 										<div
-											className="relative flex justify-center before:content-[''] before:absolute before:top-0 before:-bottom-[0.35rem] before:w-0.5 before:bg-[rgba(200,242,90,0.22)] group-last:before:bottom-1/2"
+											className="relative flex justify-center before:content-[''] before:absolute before:top-0 before:-bottom-[0.35rem] before:w-0.5 before:bg-accent/22 group-last:before:bottom-1/2"
 											aria-hidden="true"
 										>
-											<span className="relative z-[1] size-[0.7rem] mt-5 rounded-full bg-accent shadow-[0_0_0_4px_rgba(200,242,90,0.12)]"></span>
+											<span className="relative z-[1] size-[0.7rem] mt-5 rounded-full bg-accent shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent)_12%,transparent)]"></span>
 										</div>
-										<div className="relative p-4 px-[1.1rem] border border-line rounded-[14px] bg-white/[0.02] transition-[border-color,background-color,transform] duration-150 group-hover:border-[rgba(200,242,90,0.35)] group-hover:bg-[rgba(200,242,90,0.04)] group-hover:-translate-y-px group-active:border-[rgba(200,242,90,0.35)] group-active:bg-[rgba(200,242,90,0.04)] group-active:-translate-y-px max-sm:p-[0.85rem_0.95rem]">
+										<div className="relative p-4 px-[1.1rem] border border-line rounded-[14px] bg-white/[0.02] transition-[border-color,background-color,transform] duration-150 group-hover:border-accent/35 group-hover:bg-accent/4 group-hover:-translate-y-px group-active:border-accent/35 group-active:bg-accent/4 group-active:-translate-y-px max-sm:p-[0.85rem_0.95rem]">
 											<Link
 												className="block text-inherit pr-[2.4rem]"
 												to="/runs/$slug"

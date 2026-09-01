@@ -25,6 +25,7 @@ import {
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { ChoiceChips } from '../components/ChoiceChips';
+import { PageHero } from '../components/PageHero';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
@@ -327,16 +328,12 @@ function Coach() {
 
 	return (
 		<>
-			<section className={cn(ui.hero, ui.heroQuiet)}>
-				<div>
-					<p className={ui.muted}>This week</p>
-					<h1>Coach</h1>
-					<p>
-						Usual week and the plan. With a race on Goals, the block runs through race week. Without
-						one, generate this week as base training.
-					</p>
-				</div>
-			</section>
+			<PageHero
+				variant="quiet"
+				kicker="This week"
+				title="Coach"
+				lead="Usual week and the plan. With a race on Goals, the block runs through race week. Without one, generate this week as base training."
+			/>
 
 			<div className={ui.coachTabs} role="tablist">
 				<button
@@ -627,7 +624,7 @@ function CoachPanels({
 						<p className={cn(ui.muted, 'mb-0')}>
 							When this week’s days look right,{' '}
 							<Link
-								className="text-accent font-semibold"
+								className="text-accent-fg font-semibold"
 								to="/coach"
 								search={withCoachSearch(search, { tab: 'generate' })}
 							>
@@ -641,7 +638,7 @@ function CoachPanels({
 
 			{tab === 'debrief' && (
 				<>
-					<ol className="list-none m-0 p-0 flex flex-col gap-6 max-sm:gap-[1.15rem] [&>li>strong]:block [&>li>strong]:text-[1.05rem] [&_li.done>strong]:text-accent">
+					<ol className="list-none m-0 p-0 flex flex-col gap-6 max-sm:gap-[1.15rem] [&>li>strong]:block [&>li>strong]:text-[1.05rem] [&_li.done>strong]:text-accent-fg">
 						<li className={run ? 'done' : 'current'}>
 							<strong>1. Import the GPX</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
@@ -782,7 +779,7 @@ function CoachPanels({
 							{planData.activeGoal
 								? ` Generating week ${planData.currentWeek} of ${planData.calendar.weekCount} toward ${planData.activeGoal.name}.`
 								: ' No race on the calendar — this prompt is a base week.'}{' '}
-							<Link className="text-accent font-semibold" to="/goals">
+							<Link className="text-accent-fg font-semibold" to="/goals">
 								Goals
 							</Link>
 							.
@@ -797,7 +794,7 @@ function CoachPanels({
 								<>This week uses your usual days: {formatPatternProse(savedPattern)}.</>
 							)}{' '}
 							<Link
-								className="text-accent font-semibold"
+								className="text-accent-fg font-semibold"
 								to="/coach"
 								search={withCoachSearch(search, { tab: 'training' })}
 							>

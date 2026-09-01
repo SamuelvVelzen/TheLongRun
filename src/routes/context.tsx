@@ -4,6 +4,7 @@ import { cn, ui } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
+import { PageHero } from '../components/PageHero';
 import { Icon } from '../components/Icon';
 import { ShoesInventory } from '../components/ShoesInventory';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
@@ -17,13 +18,12 @@ function Context() {
 	const { page } = Route.useLoaderData();
 	return (
 		<>
-			<section className={cn(ui.hero, ui.heroQuiet)}>
-				<div>
-					<p className={ui.muted}>Profile, gear, and race notes</p>
-					<h1>Context</h1>
-					<p>Read the formatted docs and edit markdown when something changes. Races live on Goals.</p>
-				</div>
-			</section>
+			<PageHero
+				variant="quiet"
+				kicker="Profile, gear, and race notes"
+				title="Context"
+				lead="Read the formatted docs and edit markdown when something changes. Races live on Goals."
+			/>
 			<DeferredData promise={page}>{(data) => <ContextBody data={data} />}</DeferredData>
 		</>
 	);

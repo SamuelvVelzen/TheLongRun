@@ -15,6 +15,7 @@ import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { ConfirmDialog } from '../components/Dialog';
+import { PageHero } from '../components/PageHero';
 import { Icon } from '../components/Icon';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 import { RouteAttach } from '../components/RouteAttach';
@@ -111,14 +112,18 @@ function PlannedRouteDetail() {
 	return (
 		<>
 			<div className="max-sm:flex max-sm:flex-col">
-			<section className={cn(ui.hero, ui.heroRoute, 'max-sm:contents max-sm:mb-0')}>
-				<div className="max-sm:mb-3">
-					<p className={ui.muted}>
+			<PageHero
+				variant="route"
+				className="max-sm:contents max-sm:mb-0"
+				copyClassName="max-sm:mb-3"
+				kicker={
+					<>
 						<Link to="/routes">Routes</Link>
 						{location ? ` · ${location}` : ''} · saved {route.saved_on}
-					</p>
-					<h1>
-						{authed ? (
+					</>
+				}
+				title={
+					authed ? (
 						<input
 							className="block w-full max-w-[min(28ch,100%)] m-0 px-[0.4rem] py-[0.1rem] border border-dashed border-line rounded-[10px] bg-transparent text-inherit font-inherit focus:border-solid focus:border-accent focus:outline-none"
 							value={name}
@@ -133,14 +138,14 @@ function PlannedRouteDetail() {
 								}
 							}}
 						/>
-						) : (
-							route.name
-						)}
-					</h1>
-					<p>{route.notes || 'Imported from GPX.'}</p>
-				</div>
-				<div className="max-sm:order-3 max-sm:mt-1 max-sm:mb-4">
-					<div className={ui.actions}>
+					) : (
+						route.name
+					)
+				}
+				lead={<p>{route.notes || 'Imported from GPX.'}</p>}
+				actionsClassName="max-sm:order-3 max-sm:mt-1 max-sm:mb-4"
+				actions={
+					<>
 						<button
 							className={mapsPref === 'apple' ? ui.btnPrimary : ui.btnGhost}
 							type="button"
@@ -169,27 +174,27 @@ function PlannedRouteDetail() {
 						</button>
 						{authed && (
 							<>
-						<button className={ui.btnGhost} type="button" onClick={() => setEditing(!editing)}>
-							<Icon name={editing ? 'close' : 'pencil'} size={16} />
-							{editing ? 'Cancel' : 'Edit notes'}
-						</button>
-						<button
-							className={cn(ui.btnGhost, ui.btnDanger)}
-							type="button"
-							onClick={remove}
-						>
-							Delete
-						</button>
+								<button className={ui.btnGhost} type="button" onClick={() => setEditing(!editing)}>
+									<Icon name={editing ? 'close' : 'pencil'} size={16} />
+									{editing ? 'Cancel' : 'Edit notes'}
+								</button>
+								<button
+									className={cn(ui.btnGhost, ui.btnDanger)}
+									type="button"
+									onClick={remove}
+								>
+									Delete
+								</button>
 							</>
 						)}
-					</div>
-					{appleMapsUrl && (
-						<p className={cn(ui.muted, 'mt-3 mb-0 max-w-[36ch] text-[0.92rem]')}>
-							Opens a pin at the start. Tap it, then Create a Custom Route, and tap along the trail.
-						</p>
-					)}
-				</div>
-			</section>
+						{appleMapsUrl && (
+							<p className={cn(ui.muted, 'mt-3 mb-0 max-w-[36ch] text-[0.92rem] basis-full')}>
+								Opens a pin at the start. Tap it, then Create a Custom Route, and tap along the trail.
+							</p>
+						)}
+					</>
+				}
+			/>
 
 			{editing && (
 				<form className={cn(ui.panel, ui.form, 'mb-4 max-sm:order-4')} onSubmit={save}>

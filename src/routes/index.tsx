@@ -20,19 +20,18 @@ import { buildTrainingTrends } from '$lib/trends';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
-import { DateRangeFilter, rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
+import { ActivityFilters } from '../components/ActivityFilters';
+import { rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
 import { FeelBadge } from '../components/FeelBadge';
-import { FilterSheet, filterSummary } from '../components/FilterSheet';
 import { ActivityIcon, ActivityMark, Icon } from '../components/Icon';
-import { PlaceFilter } from '../components/PlaceFilter';
+import { PageHero } from '../components/PageHero';
 import { RouteChip } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 import {
     matchesSportFilter,
     parseSportSearch,
     selectedSports,
-    SportFilter,
     sportIsAll
 } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
@@ -46,7 +45,7 @@ const nextUp = cn(
 	'bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))]'
 );
 const nextUpDone = cn(nextUpBase, 'bg-panel');
-const nextUpKicker = 'text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent m-0 mb-1';
+const nextUpKicker = 'text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent-fg m-0 mb-1';
 const statsItem =
 	'py-[0.15rem] pr-[0.85rem] border-r border-line min-w-0 last:border-r-0 last:pr-0 not-first:pl-[0.85rem] max-sm:[&:nth-child(3n)]:border-r-0 max-sm:[&:nth-child(3n)]:pr-0 max-sm:[&:nth-child(3n+1)]:pl-0 max-sm:[&:nth-child(n+4)]:border-t max-sm:[&:nth-child(n+4)]:pt-3';
 const statsLabel = 'block text-[0.78rem] tracking-[0.02em]';
@@ -105,36 +104,39 @@ function Dashboard() {
 	const authed = useAuthed();
 	return (
 		<>
-			<section className={cn(ui.hero, ui.heroHome)}>
-				<div>
-					<p className={ui.muted}>Personal training desk</p>
-					<h1>The Long Run</h1>
+			<PageHero
+				variant="home"
+				kicker="Personal training desk"
+				title="The Long Run"
+				lead={
 					<p>
 						Stats, maps, and this week’s plan live here.{' '}
-						<Link className="text-accent font-semibold" to="/goals">
+						<Link className="text-accent-fg font-semibold" to="/goals">
 							Goals
 						</Link>{' '}
 						hold the race — and the medals after.
 					</p>
-				</div>
-				<div className={ui.actions}>
-					<Link className={ui.btnPrimary} to="/coach">
-						<Icon name="coach" size={16} />
-						Coach
-					</Link>
-					{authed ? (
-						<Link className={ui.btnGhost} to="/import">
-							<Icon name="plus" size={16} />
-							Add activity
+				}
+				actions={
+					<>
+						<Link className={ui.btnPrimary} to="/coach">
+							<Icon name="coach" size={16} />
+							Coach
 						</Link>
-					) : (
-						<SignInLink className={ui.btnGhost}>
-							<Icon name="signIn" size={16} />
-							Sign in to edit
-						</SignInLink>
-					)}
-				</div>
-			</section>
+						{authed ? (
+							<Link className={ui.btnGhost} to="/import">
+								<Icon name="plus" size={16} />
+								Add activity
+							</Link>
+						) : (
+							<SignInLink className={ui.btnGhost}>
+								<Icon name="signIn" size={16} />
+								Sign in to edit
+							</SignInLink>
+						)}
+					</>
+				}
+			/>
 			<DeferredData promise={page}>{(data) => <DashboardBody data={data} />}</DeferredData>
 		</>
 	);
@@ -302,7 +304,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 						</>
 					)}
 					<p className={cn(ui.muted, 'mt-[0.4rem]')}>
-						<Link className="text-accent font-semibold" to="/coach" search={coachPlanSearch}>
+						<Link className="text-accent-fg font-semibold" to="/coach" search={coachPlanSearch}>
 							Full week in Coach
 						</Link>
 						<span aria-hidden="true"> · </span>
@@ -333,7 +335,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 							? ` · ${data.weekView.unplanned.length} unplanned logged`
 							: ''}
 						.{' '}
-						<Link className="text-accent font-semibold" to="/coach" search={coachPlanSearch}>
+						<Link className="text-accent-fg font-semibold" to="/coach" search={coachPlanSearch}>
 							See the week in Coach
 						</Link>
 						.
@@ -341,11 +343,16 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 				</section>
 			)}
 
-			<FilterSheet summary={filterSummary(sport, range, { country, province, place })}>
-				<SportFilter sport={sport} to="/" defaultSport="all" available={availableSports} />
-				<DateRangeFilter range={range} to="/" />
-				<PlaceFilter to="/" runs={allRuns} country={country} province={province} place={place} />
-			</FilterSheet>
+			<ActivityFilters
+				to="/"
+				sport={sport}
+				range={range}
+				runs={allRuns}
+				country={country}
+				province={province}
+				place={place}
+				availableSports={availableSports}
+			/>
 
 			{filteredEmpty ? (
 				<div className={cn(ui.panel, ui.muted, 'grid gap-[0.85rem] justify-items-start')}>
@@ -363,7 +370,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 						aria-label="Training stats"
 					>
 						<div className={statsItem}>
-							<span className={cn(statsLabel, 'text-accent font-semibold')}>
+							<span className={cn(statsLabel, 'text-accent-fg font-semibold')}>
 								{data.activeGoal
 									? raceDays != null && raceDays < 0
 										? `Since ${data.activeGoal.name}`
@@ -372,7 +379,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 										? data.lastMedal.name
 										: 'Next race'}
 							</span>
-							<strong className={cn(statsValue, 'text-accent text-[2.1rem] max-sm:text-[1.7rem]')}>
+							<strong className={cn(statsValue, 'text-accent-fg text-[2.1rem] max-sm:text-[1.7rem]')}>
 								{data.activeGoal ? (
 									raceDays == null ? (
 										'—'
@@ -384,13 +391,13 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 								) : data.lastMedal?.result?.time ? (
 									data.lastMedal.result.time
 								) : (
-									<Link className="text-accent" to="/goals">
+									<Link className="text-accent-fg" to="/goals">
 										Set
 									</Link>
 								)}
 							</strong>
 							{data.activeGoal || data.lastMedal ? (
-								<Link className="text-[0.78rem] text-accent font-semibold" to="/goals">
+								<Link className="text-[0.78rem] text-accent-fg font-semibold" to="/goals">
 									{data.activeGoal && raceDays != null && raceDays < 0 ? 'Pin result' : 'Goals'}
 								</Link>
 							) : null}

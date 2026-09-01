@@ -15,6 +15,7 @@ import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { ConfirmDialog } from '../components/Dialog';
+import { Icon } from '../components/Icon';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 import { RouteAttach } from '../components/RouteAttach';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
@@ -145,25 +146,31 @@ function PlannedRouteDetail() {
 							type="button"
 							onClick={openAppleMaps}
 						>
-							Apple Maps ↗
+							<Icon name="map" size={16} />
+							Apple Maps
+							<Icon name="external" size={13} />
 						</button>
 						<button
 							className={mapsPref === 'desktop' ? ui.btnPrimary : ui.btnGhost}
 							type="button"
 							onClick={openInBrouter}
 						>
-							Open in BRouter ↗
+							<Icon name="routes" size={16} />
+							Open in BRouter
+							<Icon name="external" size={13} />
 						</button>
 						<button
 							className={ui.btnGhost}
 							type="button"
 							onClick={() => downloadPlannedRouteGpx(route.name, route.geojson, route.waypoints)}
 						>
+							<Icon name="download" size={16} />
 							Download GPX
 						</button>
 						{authed && (
 							<>
 						<button className={ui.btnGhost} type="button" onClick={() => setEditing(!editing)}>
+							<Icon name={editing ? 'close' : 'pencil'} size={16} />
 							{editing ? 'Cancel' : 'Edit notes'}
 						</button>
 						<button

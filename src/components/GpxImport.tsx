@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { BestEffortBadges } from './BestEffortBadges';
 import { DeleteButton } from './DeleteButton';
 import { ConfirmDialog } from './Dialog';
+import { Icon } from './Icon';
 import { errorMessage, useSnackbar } from './Snackbar';
 
 export type GpxImportResult = {
@@ -134,12 +135,7 @@ export function GpxImport({
 					hidden
 					onChange={(e) => addFiles(e.target.files)}
 				/>
-				<svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true">
-					<path
-						fill="currentColor"
-						d="M19 13v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4h2v4h10v-4h2zM12 3l4 4h-3v6h-2V7H8l4-4z"
-					/>
-				</svg>
+				<Icon name="upload" size={34} />
 				<strong>Choose a GPX</strong>
 				<span className={ui.muted}>or tap to browse — multiple files supported</span>
 				<span className={cn(ui.muted, 'hidden [@media(hover:hover)_and_(pointer:fine)]:block')}>
@@ -193,7 +189,12 @@ export function GpxImport({
 				>
 					{busy
 						? progress || 'Importing…'
-						: `Import ${files.length || ''} ${files.length === 1 ? 'file' : 'files'}`.trim()}
+						: (
+							<>
+								<Icon name="upload" size={16} />
+								{`Import ${files.length || ''} ${files.length === 1 ? 'file' : 'files'}`.trim()}
+							</>
+						)}
 				</button>
 			</div>
 
@@ -208,7 +209,10 @@ export function GpxImport({
 								key={r.name}
 								className="flex flex-wrap items-center gap-[0.45rem] py-2 border-b border-line last:border-b-0"
 							>
-								<span className={cn(ui.tag, r.status === 'ok' && ui.tagAccent)}>{r.status}</span>
+								<span className={cn(ui.tag, r.status === 'ok' && ui.tagAccent)}>
+									<Icon name={r.status === 'ok' ? 'check' : 'close'} size={12} />
+									{r.status}
+								</span>
 								<code>{r.name}</code>
 								{r.slug && (
 									<>

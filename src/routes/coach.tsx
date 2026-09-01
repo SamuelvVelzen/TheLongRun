@@ -1,10 +1,10 @@
 import { useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
 import {
-    PLAN_WEEK_COUNT,
     formatAllWeeksClipboard,
     formatWeekPlanClipboard,
     isoDateLocal,
+    PLAN_WEEK_COUNT,
     planWeekDateRange
 } from '$lib/plan';
 import {
@@ -28,6 +28,7 @@ import { ChoiceChips } from '../components/ChoiceChips';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
+import { Icon } from '../components/Icon';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 import {
     rowsFrom,
@@ -165,6 +166,7 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 						disabled={!view}
 						onClick={() => view && copyText('week', formatWeekPlanClipboard(view, todayIso))}
 					>
+						<Icon name={copied === 'week' ? 'check' : 'copy'} size={16} />
 						{copied === 'week' ? 'Copied' : 'Copy this week'}
 					</button>
 					<button
@@ -173,6 +175,7 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 						disabled={!planData.views.length}
 						onClick={() => copyText('all', formatAllWeeksClipboard(planData.views, todayIso))}
 					>
+						<Icon name={copied === 'all' ? 'check' : 'copy'} size={16} />
 						{copied === 'all' ? 'Copied' : 'Copy all planned weeks'}
 					</button>
 				</div>
@@ -216,6 +219,7 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 							onClick={savePastedPlan}
 							disabled={!planJson.trim()}
 						>
+							<Icon name="plus" size={16} />
 							Add to plan
 						</button>
 					</div>
@@ -289,6 +293,7 @@ function Coach() {
 					className={cn(ui.coachTab, tab === 'training' && ui.coachTabActive)}
 					onClick={() => setTab('training')}
 				>
+					<Icon name="calendar" size={15} />
 					Training
 				</button>
 				{authed && (
@@ -299,6 +304,7 @@ function Coach() {
 						className={cn(ui.coachTab, tab === 'generate' && ui.coachTabActive)}
 						onClick={() => setTab('generate')}
 					>
+						<Icon name="sparkle" size={15} />
 						Generate
 					</button>
 				)}
@@ -309,6 +315,7 @@ function Coach() {
 					className={cn(ui.coachTab, tab === 'plan' && ui.coachTabActive)}
 					onClick={() => setTab('plan')}
 				>
+					<Icon name="board" size={15} />
 					Plan
 				</button>
 				{authed && (
@@ -319,6 +326,7 @@ function Coach() {
 						className={cn(ui.coachTab, tab === 'debrief' && ui.coachTabActive)}
 						onClick={() => setTab('debrief')}
 					>
+						<Icon name="flag" size={15} />
 						After a race
 					</button>
 				)}
@@ -540,6 +548,7 @@ function CoachPanels({
 									disabled={mixBusy}
 									aria-busy={mixBusy}
 								>
+									<Icon name={mixBusy ? 'calendar' : 'check'} size={16} />
 									{mixBusy ? 'Saving…' : 'Save as my default week'}
 								</button>
 								<button
@@ -640,6 +649,7 @@ function CoachPanels({
 									</label>
 									<div className={ui.actions}>
 										<button className={ui.btnPrimary} type="button" onClick={copyDebrief}>
+											<Icon name={debriefCopied ? 'check' : 'copy'} size={16} />
 											{debriefCopied ? 'Copied' : 'Copy prompt'}
 										</button>
 									</div>
@@ -669,6 +679,7 @@ function CoachPanels({
 										onClick={saveDebriefReply}
 										disabled={!debriefJson.trim()}
 									>
+										<Icon name="check" size={16} />
 										Save debrief
 									</button>
 								</div>
@@ -743,6 +754,7 @@ function CoachPanels({
 								onClick={generateBrief}
 								disabled={briefBusy}
 							>
+								<Icon name="sparkle" size={16} />
 								{briefBusy
 									? 'Building…'
 									: briefText
@@ -765,9 +777,11 @@ function CoachPanels({
 							</label>
 							<div className={ui.actions}>
 								<button className={ui.btnPrimary} type="button" onClick={download}>
+									<Icon name="download" size={16} />
 									Download .md
 								</button>
 								<button className={ui.btnGhost} type="button" onClick={copy}>
+									<Icon name={copied ? 'check' : 'copy'} size={16} />
 									{copied ? 'Copied' : 'Copy'}
 								</button>
 							</div>
@@ -796,6 +810,7 @@ function CoachPanels({
 								onClick={savePlan}
 								disabled={!planJson.trim()}
 							>
+								<Icon name="plus" size={16} />
 								Add to plan
 							</button>
 						</div>

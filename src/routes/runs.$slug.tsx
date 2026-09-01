@@ -32,6 +32,7 @@ import { BestEffortBadges } from '../components/BestEffortBadges';
 import { DeleteButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
 import { FeelChips, WantedFasterChips } from '../components/FeelChips';
+import { ActivityIcon, Icon } from '../components/Icon';
 import { RouteChip } from '../components/RouteChip';
 import { RouteMap } from '../components/RouteMap';
 import { ShoesField } from '../components/ShoesField';
@@ -423,7 +424,8 @@ function RunDetail() {
 		<>
 			<section className={ui.hero}>
 				<div>
-					<p className={ui.muted}>
+					<p className={cn(ui.muted, 'inline-flex items-center gap-1.5 flex-wrap')}>
+						<ActivityIcon type={r.activity_type} size={14} />
 						{[
 							activityLabel(r.activity_type),
 							r.day || null,
@@ -474,12 +476,7 @@ function RunDetail() {
 								title="Edit activity"
 								onClick={startEditing}
 							>
-								<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-									<path
-										fill="currentColor"
-										d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"
-									/>
-								</svg>
+								<Icon name="pencil" size={16} />
 							</button>
 							<DeleteButton
 								label={`Delete ${activityLabel(r.activity_type).toLowerCase()} ${r.date}`}

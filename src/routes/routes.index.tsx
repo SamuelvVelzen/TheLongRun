@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { DeferredData } from '../components/DeferredData';
 import { DeleteButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
+import { Icon } from '../components/Icon';
 import { MapPinIcon } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
@@ -77,6 +78,7 @@ function PlannedRoutes() {
 					disabled={busy}
 					onChange={(event) => void importFile(event.target.files?.[0])}
 				/>
+				<Icon name="upload" size={34} />
 				<strong>{busy ? 'Saving route…' : 'Choose a GPX'}</strong>
 				<span className={ui.muted}>or tap to browse · waypoints are imported when available</span>
 				<span className={cn(ui.muted, 'hidden [@media(hover:hover)_and_(pointer:fine)]:block')}>

@@ -4,8 +4,9 @@ import { cn, ui } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
-import { errorMessage, useSnackbar } from '../components/Snackbar';
+import { Icon } from '../components/Icon';
 import { ShoesInventory } from '../components/ShoesInventory';
+import { errorMessage, useSnackbar } from '../components/Snackbar';
 
 export const Route = createFileRoute('/context')({
 	loader: () => ({ page: getContextData() }),
@@ -107,6 +108,7 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 								type="button"
 								onClick={() => copyText(file.body, file.name)}
 							>
+								<Icon name={copied === file.name ? 'check' : 'copy'} size={16} />
 								{copied === file.name ? 'Copied' : 'Copy'}
 							</button>
 							{authed && editing !== file.name && (
@@ -115,6 +117,7 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 									type="button"
 									onClick={() => startEdit(file.name, file.body)}
 								>
+									<Icon name="pencil" size={16} />
 									Edit
 								</button>
 							)}
@@ -138,9 +141,11 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 								</label>
 								<div className={ui.actions}>
 									<button className={ui.btnPrimary} type="submit">
+										<Icon name="check" size={16} />
 										Save
 									</button>
 									<button className={ui.btnGhost} type="button" onClick={() => setEditing(null)}>
+										<Icon name="close" size={16} />
 										Cancel
 									</button>
 								</div>

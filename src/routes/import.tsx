@@ -3,6 +3,7 @@ import { SignInPanel, useAuthed } from '$lib/auth';
 import { getLogDefaults } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import { GpxImport } from '../components/GpxImport';
+import { Icon } from '../components/Icon';
 import { LogForm } from '../components/LogForm';
 import { DeferredData } from '../components/DeferredData';
 
@@ -49,6 +50,7 @@ function AddActivity() {
 							aria-selected={mode === 'gpx'}
 							className={cn(ui.coachTab, mode === 'gpx' && ui.coachTabActive)}
 						>
+							<Icon name="upload" size={15} />
 							GPX file
 						</Link>
 						<Link
@@ -58,6 +60,7 @@ function AddActivity() {
 							aria-selected={mode === 'manual'}
 							className={cn(ui.coachTab, mode === 'manual' && ui.coachTabActive)}
 						>
+							<Icon name="pencil" size={15} />
 							Log manually
 						</Link>
 					</div>

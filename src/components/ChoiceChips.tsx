@@ -1,8 +1,9 @@
 import { ui } from '$lib/ui';
+import type { ReactNode } from 'react';
 
 export type ChoiceOption<T extends string> = {
 	value: T;
-	label: string;
+	label: ReactNode;
 };
 
 export function ChoiceChips<T extends string>({

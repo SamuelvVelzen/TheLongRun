@@ -42,7 +42,7 @@ export const ui = {
 		'shrink-0 appearance-none min-h-11 px-[0.7rem] py-[0.35rem] border-0 rounded-full bg-transparent text-accent font-semibold cursor-pointer whitespace-nowrap hover:text-fg active:text-fg',
 	snackDismiss:
 		'shrink-0 inline-flex items-center justify-center box-border size-11 min-h-11 min-w-11 p-0 border-0 bg-transparent text-muted text-[1.25rem] leading-none cursor-pointer hover:text-fg active:text-fg',
-	tag: 'inline-flex px-[0.55rem] py-[0.2rem] rounded-full border border-line text-[0.78rem] text-muted',
+	tag: 'inline-flex items-center gap-1 px-[0.55rem] py-[0.2rem] rounded-full border border-line text-[0.78rem] text-muted',
 	tagAccent: 'border-[rgba(200,242,90,0.4)] text-accent',
 	grid: 'grid gap-4 max-sm:gap-3',
 	sectionTitle:
@@ -71,11 +71,11 @@ export const ui = {
 	// Selected styles use aria-* variants (not a second class): cn() does not merge
 	// conflicting utilities, so text-muted/border-transparent would otherwise win.
 	coachTab:
-		'appearance-none bg-transparent border-0 border-b-2 border-transparent -mb-px min-h-11 px-[0.9rem] py-[0.55rem] font-semibold text-muted cursor-pointer hover:text-fg active:text-fg max-sm:flex-1 max-sm:min-w-0 max-sm:px-1 max-sm:py-2 max-sm:h-auto max-sm:text-[0.78rem] max-sm:text-center max-sm:leading-[1.25] max-sm:whitespace-normal aria-[selected=true]:text-fg! aria-[selected=true]:border-b-accent! data-[status=active]:text-fg! data-[status=active]:border-b-accent!',
+		'appearance-none inline-flex items-center justify-center gap-1.5 bg-transparent border-0 border-b-2 border-transparent -mb-px min-h-11 px-[0.9rem] py-[0.55rem] font-semibold text-muted cursor-pointer hover:text-fg active:text-fg max-sm:flex-1 max-sm:min-w-0 max-sm:px-1 max-sm:py-2 max-sm:h-auto max-sm:text-[0.78rem] max-sm:text-center max-sm:leading-[1.25] max-sm:whitespace-normal aria-[selected=true]:text-fg! aria-[selected=true]:border-b-accent! data-[status=active]:text-fg! data-[status=active]:border-b-accent!',
 	coachTabActive: 'text-fg border-b-accent',
 	choiceChips: 'flex flex-wrap gap-[0.4rem]',
 	choiceChip:
-		'appearance-none inline-flex items-center justify-center min-h-11 px-[0.95rem] py-2 rounded-full border border-solid border-line bg-transparent text-muted font-semibold cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:border-[rgba(200,242,90,0.35)] disabled:opacity-35 disabled:cursor-not-allowed aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent',
+		'appearance-none inline-flex items-center justify-center gap-1.5 min-h-11 px-[0.95rem] py-2 rounded-full border border-solid border-line bg-transparent text-muted font-semibold cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:border-[rgba(200,242,90,0.35)] disabled:opacity-35 disabled:cursor-not-allowed aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent',
 	dialogRoot: 'overlay-root fixed inset-0 z-[20000] flex items-end justify-center p-0 sm:items-center sm:p-4',
 	dialogBackdrop: 'absolute inset-0 bg-black/55',
 	dialogPanel:
@@ -87,6 +87,6 @@ export const ui = {
 	segToggle:
 		'inline-flex w-fit max-w-full overflow-x-auto overflow-y-hidden border border-line rounded-full bg-[rgba(16,20,15,0.85)] max-sm:w-full',
 	segItem:
-		'appearance-none inline-flex items-center justify-center relative w-auto min-h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted font-inherit no-underline cursor-pointer shrink-0 max-sm:flex-1 transition-[color,background-color,border-color] duration-150 ease-out aria-[pressed=false]:hover:text-fg aria-[pressed=false]:hover:bg-[color-mix(in_srgb,var(--color-accent)_18%,transparent)] active:text-fg aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold aria-[pressed=true]:active:text-accent-ink',
+		'appearance-none inline-flex items-center justify-center gap-1.5 relative w-auto min-h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted font-inherit no-underline cursor-pointer shrink-0 max-sm:flex-1 transition-[color,background-color,border-color] duration-150 ease-out aria-[pressed=false]:hover:text-fg aria-[pressed=false]:hover:bg-[color-mix(in_srgb,var(--color-accent)_18%,transparent)] active:text-fg aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold aria-[pressed=true]:active:text-accent-ink',
 	segItemActive: 'text-accent-ink bg-accent font-semibold'
 } as const;

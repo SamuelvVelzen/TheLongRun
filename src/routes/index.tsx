@@ -288,6 +288,9 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 						<span aria-hidden="true"> · </span>
 						Week {data.weekView.week.week} · {data.weekView.week.phase}
 						{data.weekView.week.focus ? ` · ${data.weekView.week.focus}` : ''}
+						{data.weekView.unplanned.length
+							? ` · ${data.weekView.unplanned.length} unplanned logged`
+							: ''}
 					</p>
 				</section>
 			)}
@@ -302,7 +305,11 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 								: 'All planned sessions logged'}
 					</h2>
 					<p className={cn(ui.muted, 'mt-[0.4rem]')}>
-						Week {data.weekView.week.week} · {data.weekView.week.phase}.{' '}
+						Week {data.weekView.week.week} · {data.weekView.week.phase}
+						{data.weekView.unplanned.length
+							? ` · ${data.weekView.unplanned.length} unplanned logged`
+							: ''}
+						.{' '}
 						<Link className="text-accent font-semibold" to="/coach" search={coachPlanSearch}>
 							See the week in Coach
 						</Link>

@@ -1,8 +1,8 @@
 /**
  * Training plan helpers + dashboard stats.
  */
-import { normalizeActivityType } from '$lib/activity';
-import { formatDuration, parseDurationSeconds } from '$lib/format';
+import { activityLabel, normalizeActivityType } from '$lib/activity';
+import { dayFromIsoDate, formatDuration, parseDurationSeconds } from '$lib/format';
 import type { PlanSession, PlanWeek, RunRecord, SessionRouteRef } from '$lib/types';
 import { sessionActivityType } from '$lib/week-mix';
 
@@ -48,6 +48,12 @@ export function weekToPlan(today = new Date()): number {
 export function planWeekStartIso(week: number): string {
 	const start = new Date(`${PLAN_START_ISO}T12:00:00`);
 	start.setDate(start.getDate() + (week - 1) * 7);
+	return isoDateLocal(start);
+}
+
+export function planWeekEndIso(week: number): string {
+	const start = new Date(`${planWeekStartIso(week)}T12:00:00`);
+	start.setDate(start.getDate() + 6);
 	return isoDateLocal(start);
 }
 
@@ -105,11 +111,27 @@ export type WeekSessionView = PlanSession & {
 	route: SessionRouteRef | null;
 };
 
+/** Logged activity in this week that did not consume a planned session (date + sport). */
+export type UnplannedActivity = {
+	slug: string;
+	date: string;
+	day: string;
+	activity_type: string;
+	distance_km: number | null;
+	isToday: boolean;
+};
+
 export type WeekView = {
 	week: PlanWeek;
 	sessions: WeekSessionView[];
 	next: WeekSessionView | null;
+	unplanned: UnplannedActivity[];
 };
+
+export type WeekViewRun = Pick<
+	RunRecord,
+	'date' | 'activity_type' | 'slug' | 'distance_km' | 'start_time'
+>;
 
 const SKIP_LANG_RE = /\bskip(?:ped|ping|s)?\b/i;
 /** Rest / off days — not recovery workouts like "Recovery easy". */
@@ -142,26 +164,42 @@ export function isSessionUnlogged(
 	return !isRestLike(label);
 }
 
+function logMatchKey(date: string, activityType: string): string {
+	return `${date}|${normalizeActivityType(activityType)}`;
+}
+
+function sortLogsForMatch(a: WeekViewRun, b: WeekViewRun): number {
+	const at = a.start_time || '99:99';
+	const bt = b.start_time || '99:99';
+	if (at !== bt) return at < bt ? -1 : 1;
+	return (a.slug ?? '').localeCompare(b.slug ?? '');
+}
+
 export function buildWeekView(
 	week: PlanWeek,
-	runs: Pick<RunRecord, 'date' | 'activity_type'>[],
+	runs: WeekViewRun[],
 	today = new Date()
 ): WeekView {
 	const todayIso = isoDateLocal(today);
 	const start = planWeekStartIso(week.week);
-	const remaining = new Map<string, number>();
+	const end = planWeekEndIso(week.week);
+	const buckets = new Map<string, WeekViewRun[]>();
 	for (const r of runs) {
-		const key = `${r.date}|${normalizeActivityType(r.activity_type)}`;
-		remaining.set(key, (remaining.get(key) ?? 0) + 1);
+		const key = logMatchKey(r.date, r.activity_type);
+		const list = buckets.get(key) ?? [];
+		list.push(r);
+		buckets.set(key, list);
 	}
+	for (const list of buckets.values()) list.sort(sortLogsForMatch);
+
 	const sessions: WeekSessionView[] = week.sessions.map((s) => {
 		const date = dateForSessionDay(start, s.day);
 		const isRest = isRestLike(s.label);
 		const type = sessionActivityType(s);
-		const key = date ? `${date}|${type}` : '';
-		const left = !isRest && key ? remaining.get(key) ?? 0 : 0;
-		const done = left > 0;
-		if (done && key) remaining.set(key, left - 1);
+		const key = date ? logMatchKey(date, type) : '';
+		const list = !isRest && key ? buckets.get(key) : undefined;
+		const matched = list?.length ? list.shift() : null;
+		const done = matched != null;
 		const skipped = isSessionSkipped(s, date, done, todayIso);
 		return {
 			...s,
@@ -173,6 +211,26 @@ export function buildWeekView(
 			isNext: false,
 			route: null
 		};
+	});
+	const unplanned: UnplannedActivity[] = [];
+	for (const list of buckets.values()) {
+		for (const r of list) {
+			if (r.date < start || r.date > end) continue;
+			const day = dayFromIsoDate(r.date);
+			if (!day) continue;
+			unplanned.push({
+				slug: r.slug,
+				date: r.date,
+				day,
+				activity_type: normalizeActivityType(r.activity_type),
+				distance_km: r.distance_km ?? null,
+				isToday: r.date === todayIso
+			});
+		}
+	}
+	unplanned.sort((a, b) => {
+		if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+		return a.slug.localeCompare(b.slug);
 	});
 	// Only today / future incomplete sessions count as NEXT. Past unlogged / skipped
 	// must not steal the highlight after a later day is already logged. Rest days stay
@@ -187,7 +245,7 @@ export function buildWeekView(
 				(s.date == null || s.date >= todayIso)
 		) ?? null;
 	if (next) next.isNext = true;
-	return { week, sessions, next };
+	return { week, sessions, next, unplanned };
 }
 
 function clearNext(view: WeekView): WeekView {
@@ -217,7 +275,7 @@ export function keepSoonestNext(views: WeekView[]): WeekView[] {
  */
 export function pickBannerWeekView(
 	plan: PlanWeek[],
-	runs: Pick<RunRecord, 'date' | 'activity_type'>[],
+	runs: WeekViewRun[],
 	today = new Date()
 ): WeekView | null {
 	const currentNum = weekToPlan(today);
@@ -241,27 +299,47 @@ export type WeekDayGroup = {
 	date: string | null;
 	isToday: boolean;
 	sessions: WeekSessionView[];
+	unplanned: UnplannedActivity[];
 };
 
-/** Sessions grouped by weekday, only days that have at least one session. */
+function canonicalWeekday(day: string): string {
+	return WEEKDAYS.find((d) => d.toLowerCase() === day.trim().toLowerCase()) ?? day.trim();
+}
+
+/** Sessions and leftover logs grouped by weekday. Days with only unplanned logs still appear. */
 export function weekDayGroups(view: WeekView): WeekDayGroup[] {
-	const byDay = new Map<string, WeekSessionView[]>();
-	for (const s of view.sessions) {
-		const key =
-			WEEKDAYS.find((d) => d.toLowerCase() === s.day.trim().toLowerCase()) ?? s.day.trim();
-		const list = byDay.get(key) ?? [];
-		list.push(s);
-		byDay.set(key, list);
-	}
+	const byDay = new Map<string, { sessions: WeekSessionView[]; unplanned: UnplannedActivity[] }>();
+	const bucket = (day: string) => {
+		const key = canonicalWeekday(day);
+		let g = byDay.get(key);
+		if (!g) {
+			g = { sessions: [], unplanned: [] };
+			byDay.set(key, g);
+		}
+		return g;
+	};
+	for (const s of view.sessions) bucket(s.day).sessions.push(s);
+	for (const u of view.unplanned) bucket(u.day).unplanned.push(u);
 	return WEEKDAYS.filter((d) => byDay.has(d)).map((day) => {
-		const sessions = byDay.get(day)!;
+		const g = byDay.get(day)!;
 		return {
 			day,
-			date: sessions[0]?.date ?? null,
-			isToday: sessions.some((s) => s.isToday),
-			sessions
+			date: g.sessions[0]?.date ?? g.unplanned[0]?.date ?? null,
+			isToday: g.sessions.some((s) => s.isToday) || g.unplanned.some((u) => u.isToday),
+			sessions: g.sessions,
+			unplanned: g.unplanned
 		};
 	});
+}
+
+export function formatUnplannedBrief(items: UnplannedActivity[]): string {
+	if (!items.length) return '- (none)';
+	return items
+		.map((u) => {
+			const km = u.distance_km != null ? ` · ${u.distance_km} km` : '';
+			return `- ${u.day} (${u.date}): ${activityLabel(u.activity_type)}${km} · slug \`${u.slug}\``;
+		})
+		.join('\n');
 }
 
 /** Attach planned-route refs to a week view. Key is lowercase weekday. */

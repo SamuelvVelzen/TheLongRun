@@ -22,11 +22,12 @@ import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import {
     buildWeekView,
     dateForSessionDay,
+    formatUnplannedBrief,
     isoDateLocal,
-    PLAN_START_ISO,
-    PLAN_WEEK_COUNT,
     keepSoonestNext,
     pickBannerWeekView,
+    PLAN_START_ISO,
+    PLAN_WEEK_COUNT,
     plannedSessionFor,
     planWeekDateRange,
     planWeekIndex,
@@ -601,6 +602,17 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 				})
 				.join('\n') || '| – | – | – | – | – | – | – |';
 
+		const savedTarget = plan.find((w) => w.week === targetWeek);
+		const revising = weekHasSessions(savedTarget);
+		const targetView = savedTarget ? buildWeekView(savedTarget, allRuns, today) : null;
+		const unplannedSection =
+			targetView?.unplanned.length
+				? `## Unplanned activities (${weekPhrase})
+These logs fall in week ${targetWeek} but did not match a planned session (extra session, rest/empty day, or different sport). They are **already done extra load** — do not add a plan row just to file them. Account for that load when ${revising ? 'revising remaining sessions' : 'planning the week'}.
+
+${formatUnplannedBrief(targetView.unplanned)}
+`
+				: '';
 		const mixSection = formatPatternPromptSection({
 			defaultPattern,
 			thisWeek: thisPattern,
@@ -608,16 +620,30 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 			note: mixNote
 		});
 		const exampleJson = JSON.stringify(
-			{
-				week: targetWeek,
-				dates: weekRange(targetWeek),
-				phase: 'base | build | peak | taper',
-				focus: 'one-line focus for the week',
-				sessions: exampleSessionsForPattern(thisPattern)
-			},
+			revising && savedTarget
+				? {
+						week: savedTarget.week,
+						dates: savedTarget.dates || weekRange(targetWeek),
+						phase: savedTarget.phase,
+						focus: savedTarget.focus,
+						sessions: savedTarget.sessions
+					}
+				: {
+						week: targetWeek,
+						dates: weekRange(targetWeek),
+						phase: 'base | build | peak | taper',
+						focus: 'one-line focus for the week',
+						sessions: exampleSessionsForPattern(thisPattern)
+					},
 			null,
 			2
 		);
+		const briefAsk = revising
+			? `Week ${targetWeek} already has a saved plan (see Training plan). **Revise remaining sessions** given what is already logged, including any unplanned extras. Keep completed planned sessions in the JSON as they were. Usual-week skeleton still applies for what's ahead, unless notes or recovery require a shift. You may add sessions for extras I propose in the notes — say why. Flag any red flags (injury risk, overtraining, under-recovery).`
+			: `Please assess how my training is going and give me a concrete plan for **${weekPhrase}** covering **every session in my usual-week skeleton** (runs, rides, walks, swims, strength — whatever I pinned), keeping those days and sports. Invent \`label\`, distance or duration, and intent from how I've been recovering and laddering toward the race. Flag any red flags (injury risk, overtraining, under-recovery). If you move a day, say why.`;
+		const replyRules = revising
+			? `Start from the saved week JSON — do not replace it with the usual-week skeleton. Keep completed sessions as they were. Revise what's still ahead. You may add a session for an extra I declared in the notes. If you move a day, say why.`
+			: `Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride, Gym, …), \`"distance_km"\` (null for strength), and \`"detail"\`. The example labels below are yours to replace with a real kind, not values to copy from my skeleton. If you move a day, say why.`;
 
 		return `# The Long Run — training context
 
@@ -626,7 +652,7 @@ You are my coach for the sports I actually do — not a running-only coach. I'm 
 			weeksToRace != null ? ` — about **${weeksToRace} weeks** away` : ''
 		}. Keep my usual weekdays and sports unless this week's notes or recovery require a shift. You choose the session kind (easy / quality / long / tempo / easy spin / …), distance, and intent. Below is my plan, my recent training with how each session felt (effort / shins / legs / energy, each 0–10), weekly volume across sports, and my constraints.
 
-Please assess how my training is going and give me a concrete plan for **${weekPhrase}** covering **every session in my usual-week skeleton** (runs, rides, walks, swims, strength — whatever I pinned), keeping those days and sports. Invent \`label\`, distance or duration, and intent from how I've been recovering and laddering toward the race. Flag any red flags (injury risk, overtraining, under-recovery). If you move a day, say why.
+${briefAsk}
 
 ## How to read this brief
 Goal, Timing, All-time summary, weekly volume, and the Activity log are auto-computed from logged activities and are **current**. Runner profile, injury, gear, and race strategy are hand-written and may lag. If they disagree on numbers (longest run, weekly rhythm, dates), **prefer the computed sections**.
@@ -661,7 +687,7 @@ ${rows}
 ## Training plan
 ${plan.length ? formatTrainingPlanBrief(plan, targetWeek) : '(no plan set)'}
 
-${shoesSectionForBrief(shoes, allRuns)}
+${unplannedSection}${unplannedSection ? '\n' : ''}${shoesSectionForBrief(shoes, allRuns)}
 
 ## Runner profile
 ${profile.trim() || '(none)'}
@@ -678,7 +704,7 @@ ${raceStrategy.trim() || '(none)'}
 ${mixSection}
 
 ## When you reply
-Give your assessment and ${weekPhrase}'s sessions in prose. Then, so I can save it straight back into my app, also output **${weekPhrase} as one JSON object** in exactly this shape (real values, same keys). Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride, Gym, …), \`"distance_km"\` (null for strength), and \`"detail"\`. The example labels below are yours to replace with a real kind, not values to copy from my skeleton. If you move a day, say why.
+Give your assessment and ${weekPhrase}'s sessions in prose. Then, so I can save it straight back into my app, also output **${weekPhrase} as one JSON object** in exactly this shape (real values, same keys). ${replyRules}
 
 \`\`\`json
 ${exampleJson}
@@ -768,6 +794,9 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 					return `- ${s.day}${s.date ? ` (${s.date})` : ''}: ${activityLabel(s.activity_type ?? 'run')} · ${s.label}${s.distance_km != null ? ` · ${s.distance_km} km` : ''} — ${s.detail} [${state}]`;
 				})
 				.join('\n') ?? '- (no plan week)';
+		const unplannedLines = weekView?.unplanned.length
+			? formatUnplannedBrief(weekView.unplanned)
+			: '';
 
 		const prompt = `# The Long Run — debrief this session
 
@@ -788,7 +817,7 @@ ${otherThisWeek.length ? otherThisWeek.map(formatRunBriefLine).join('\n') : '- (
 ## Current week plan${week ? ` — week ${week.week} (${week.dates}) · ${week.phase} · ${week.focus}` : ''}
 ${sessionLines}
 
-## Injury rules
+${unplannedLines ? `## Unplanned activities this week\nThese logs did not match a planned session — extra load, already done. Do not add a plan row just to file them.\n${unplannedLines}\n` : ''}## Injury rules
 ${injury.trim() || '(none)'}
 
 ## Plan adjustment notes

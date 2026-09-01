@@ -242,6 +242,9 @@ export function formatPatternPromptSection(opts: {
 			? `**Keep these days and sports.** You choose the session kind (\`label\`: Easy, Quality, Long, tempo, easy spin, endurance ride, Gym, …), plus distance or duration and intent. The skeleton has no kinds — do not copy placeholder labels. Do not invent a different weekday pattern (do not move a Tuesday run to Wednesday just because a template prefers other days). Only shift a session if recovery, heat, life, or the notes below require it — and if you move a day, say why in prose.`
 			: `I did not pin a usual week — plan whatever the week needs across the sports I do (run, ride, walk, swim, strength). Do not default to a 3-run template.`
 	];
+	lines.push(
+		'Logged extras that did not match a plan session appear under **Unplanned activities** when there are any. They are already done — extra load, not slots to tidy into the JSON. Notes below are for extras that have not happened yet (or that I am considering). You may add sessions for those proposed extras if you recommend them — say why. Do not invent bonus days otherwise.'
+	);
 	if (opts.note?.trim()) {
 		lines.push(`Extra for ${opts.weekPhrase}: ${opts.note.trim()}`);
 	}

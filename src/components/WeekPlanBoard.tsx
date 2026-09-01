@@ -1,5 +1,5 @@
 import { activityLabel, normalizeActivityType } from '$lib/activity';
-import { weekDayGroups, type WeekView } from '$lib/plan';
+import { weekDayGroups, type UnplannedActivity, type WeekView } from '$lib/plan';
 import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 import { RouteChip } from './RouteChip';
@@ -77,6 +77,52 @@ function StatusBadge({
 	return null;
 }
 
+function UnplannedBadge() {
+	return (
+		<span
+			className={cn(
+				ui.statusPill,
+				'text-accent border border-dashed border-[rgba(200,242,90,0.45)] bg-[rgba(200,242,90,0.06)]'
+			)}
+		>
+			Unplanned
+		</span>
+	);
+}
+
+function UnplannedRow({
+	item,
+	divided
+}: {
+	item: UnplannedActivity;
+	divided: boolean;
+}) {
+	return (
+		<Link
+			to="/runs/$slug"
+			params={{ slug: item.slug }}
+			className={cn(
+				'flex flex-col gap-[0.2rem] min-w-0 text-inherit no-underline rounded-[10px] -mx-1 px-1 py-1 hover:bg-[rgba(200,242,90,0.06)]',
+				divided && 'pt-3 mt-0 border-t border-dashed border-line'
+			)}
+		>
+			<div className="flex items-center justify-between gap-2 min-w-0">
+				<span className="text-[0.78rem] font-semibold text-muted min-w-0 [overflow-wrap:anywhere]">
+					{activityLabel(item.activity_type)}
+					{item.distance_km != null ? ` · ${item.distance_km} km` : ''}
+				</span>
+				<UnplannedBadge />
+			</div>
+			<strong className="font-display text-[1.02rem] font-bold tracking-[-0.02em] leading-[1.25] [overflow-wrap:anywhere]">
+				Unplanned {activityLabel(item.activity_type).toLowerCase()}
+			</strong>
+			<p className="m-0 text-[0.9rem] leading-[1.45] text-fg/90 [overflow-wrap:anywhere]">
+				Logged extra — not a planned session.
+			</p>
+		</Link>
+	);
+}
+
 export function WeekPlanBoard({
 	view,
 	title
@@ -92,21 +138,27 @@ export function WeekPlanBoard({
 				<h2 id="week-plan-heading">{title ?? `Week ${view.week.week}`}</h2>
 				<p className={ui.muted}>
 					{[view.week.dates, view.week.phase, view.week.focus].filter(Boolean).join(' · ')}
+					{view.unplanned.length
+						? ` · ${view.unplanned.length} unplanned logged`
+						: ''}
 				</p>
 			</div>
 			<div className="grid grid-cols-1 gap-3 min-[720px]:grid-cols-2">
 				{days.map((group) => {
-					const nextHere = group.sessions.some((s) => s.isNext);
-					return (
-						<article
-							key={group.day}
-							className={cn(
-								'flex flex-col gap-3 min-w-0 p-[0.85rem_0.95rem] rounded-[14px] border',
-								nextHere
-									? 'border-[color-mix(in_srgb,var(--color-accent)_40%,var(--color-line))] bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))]'
-									: 'border-line bg-[color-mix(in_srgb,var(--color-panel)_55%,transparent)]'
-							)}
-						>
+								const onlyUnplanned = group.sessions.length === 0 && group.unplanned.length > 0;
+								const nextHere = group.sessions.some((s) => s.isNext);
+								return (
+									<article
+										key={group.day}
+										className={cn(
+											'flex flex-col gap-3 min-w-0 p-[0.85rem_0.95rem] rounded-[14px] border',
+											nextHere
+												? 'border-[color-mix(in_srgb,var(--color-accent)_40%,var(--color-line))] bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))]'
+												: onlyUnplanned
+													? 'border-dashed border-[rgba(200,242,90,0.35)] bg-[color-mix(in_srgb,var(--color-panel)_55%,transparent)]'
+													: 'border-line bg-[color-mix(in_srgb,var(--color-panel)_55%,transparent)]'
+										)}
+									>
 							<header className="flex items-baseline justify-between gap-2">
 								<div>
 									<p className="m-0 text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent">
@@ -118,9 +170,9 @@ export function WeekPlanBoard({
 										</p>
 									)}
 								</div>
-								{group.sessions.length > 1 && (
+								{group.sessions.length + group.unplanned.length > 1 && (
 									<span className={cn(ui.muted, 'text-[0.78rem]')}>
-										{group.sessions.length} sessions
+										{group.sessions.length + group.unplanned.length} sessions
 									</span>
 								)}
 							</header>
@@ -180,6 +232,13 @@ export function WeekPlanBoard({
 											/>
 										)}
 									</div>
+								))}
+								{group.unplanned.map((item, i) => (
+									<UnplannedRow
+										key={item.slug}
+										item={item}
+										divided={group.sessions.length > 0 || i > 0}
+									/>
 								))}
 							</div>
 						</article>

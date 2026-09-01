@@ -49,7 +49,7 @@ function withCoachSearch(search: CoachSearch, extra: Partial<CoachSearch> = {}):
 }
 
 function defaultQuestion(): string {
-	return `What should this week look like? Keep my usual days and sports. You pick the session kind (easy / quality / long / etc.), distance and intent. If you shift a day, say why.`;
+	return `What should this week look like? Keep my usual days and sports. Account for any unplanned logs already listed. You pick the session kind (easy / quality / long / etc.), distance and intent. If I noted extras I'm considering, say whether to add them. If you shift a day, say why.`;
 }
 
 function parseTab(v: unknown): CoachTab {
@@ -631,8 +631,12 @@ function CoachPanels({
 						</p>
 						<label className={ui.field}>
 							<span>Anything unusual {weekPhrase}? (optional)</span>
+							<span className={cn(ui.muted, 'font-normal')}>
+								Logged extras that did not match the plan are included automatically. Use this
+								for extras that have not happened yet.
+							</span>
 							<textarea
-								placeholder="e.g. motorcycle training Thursday, skip gym, extra long ride"
+								placeholder="e.g. extra walk Wednesday, considering a Saturday bike instead of the hike-prep walk"
 								value={mixNote}
 								onChange={(e) => setMixNote(e.target.value)}
 								rows={2}

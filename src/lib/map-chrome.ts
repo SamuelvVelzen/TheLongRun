@@ -35,18 +35,105 @@ const OPENFREEMAP_DARK = 'https://tiles.openfreemap.org/styles/dark';
 const OPENFREEMAP_ATTR =
 	'<a href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap</a> <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer">&copy; OpenMapTiles</a> <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">&copy; OpenStreetMap</a>';
 
+/** OpenFreeMap “dark” is near-black at street zoom — lift paint so roads and names stay readable. */
+const NAV_PAINT: Record<string, Record<string, unknown>> = {
+	background: { 'background-color': '#2a322a' },
+	water: { 'fill-color': '#2c4048' },
+	waterway: { 'line-color': '#2c4048' },
+	water_name: { 'text-color': '#b7cdd4', 'text-halo-color': 'rgba(16,20,15,0.85)' },
+	landuse_residential: { 'fill-color': '#323a32', 'fill-opacity': 0.7 },
+	landuse_park: { 'fill-color': '#3a4a3c' },
+	landcover_wood: { 'fill-color': '#344338' },
+	landcover_ice_shelf: { 'fill-color': '#2a322a' },
+	landcover_glacier: { 'fill-color': '#3a4242' },
+	building: { 'fill-color': '#3e463e', 'fill-outline-color': '#5a6458' },
+	highway_path: { 'line-color': '#b4c49a', 'line-opacity': 1 },
+	highway_minor: { 'line-color': '#9aa494', 'line-opacity': 1 },
+	highway_major_casing: { 'line-color': '#4e564e' },
+	highway_major_inner: { 'line-color': '#b0b8ac' },
+	highway_major_subtle: { 'line-color': '#8a9488' },
+	highway_motorway_casing: { 'line-color': '#5a6258' },
+	highway_motorway_inner: { 'line-color': '#c0c6ba' },
+	highway_motorway_subtle: { 'line-color': '#8a9488' },
+	highway_name_other: {
+		'text-color': '#f4f6f0',
+		'text-halo-color': 'rgba(16,20,15,0.92)',
+		'text-halo-width': 1.6
+	},
+	highway_name_motorway: { 'text-color': '#e8ece2' },
+	place_other: { 'text-color': '#e0e4da', 'text-halo-color': 'rgba(16,20,15,0.85)' },
+	place_suburb: { 'text-color': '#e0e4da', 'text-halo-color': 'rgba(16,20,15,0.85)' },
+	place_village: { 'text-color': '#e0e4da', 'text-halo-color': 'rgba(16,20,15,0.85)' },
+	place_town: { 'text-color': '#e8ece2', 'text-halo-color': 'rgba(16,20,15,0.85)' },
+	place_city: { 'text-color': '#f4f6f0', 'text-halo-color': 'rgba(16,20,15,0.85)' },
+	place_city_large: { 'text-color': '#f4f6f0', 'text-halo-color': 'rgba(16,20,15,0.85)' },
+	place_state: { 'text-color': '#e0e4da', 'text-halo-color': 'rgba(16,20,15,0.85)' },
+	place_country_other: { 'text-color': '#e0e4da' },
+	place_country_minor: { 'text-color': '#e0e4da' },
+	place_country_major: { 'text-color': '#e8ece2' },
+	railway: { 'line-color': '#6a7468' },
+	railway_transit: { 'line-color': '#6a7468' },
+	railway_minor: { 'line-color': '#6a7468' }
+};
+
+const NAV_LAYOUT: Record<string, Record<string, unknown>> = {
+	highway_name_other: { 'text-size': 13 }
+};
+
 /**
  * OpenFreeMap dark vector tiles via MapLibre GL Leaflet. No API key.
+ * Street-level paint is lifted so roads and names stay readable on a phone.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function glFromLayer(layer: any) {
+	return layer?.getMaplibreMap?.() ?? layer?._glMap ?? null;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function addBasemap(L: LeafletGlobal, map: any) {
 	if (typeof L.maplibreGL !== 'function') {
 		throw new Error('MapLibre GL Leaflet failed to load');
 	}
-	L.maplibreGL({
+	const layer = L.maplibreGL({
 		style: OPENFREEMAP_DARK,
 		attribution: OPENFREEMAP_ATTR
 	}).addTo(map);
+
+	const paintWhenReady = (attempt = 0) => {
+		const gl = glFromLayer(layer);
+		if (gl?.getLayer?.('highway_name_other')) {
+			applyNavigablePaint(gl);
+			return;
+		}
+		if (attempt < 80) setTimeout(() => paintWhenReady(attempt + 1), 50);
+	};
+	paintWhenReady();
+	glFromLayer(layer)?.on?.('style.load', () => applyNavigablePaint(glFromLayer(layer)));
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyNavigablePaint(gl: any) {
+	if (!gl?.getLayer) return;
+	for (const [id, paint] of Object.entries(NAV_PAINT)) {
+		if (!gl.getLayer(id)) continue;
+		for (const [prop, value] of Object.entries(paint)) {
+			try {
+				gl.setPaintProperty(id, prop, value);
+			} catch {
+				/* layer or property not in this style */
+			}
+		}
+	}
+	for (const [id, layout] of Object.entries(NAV_LAYOUT)) {
+		if (!gl.getLayer(id)) continue;
+		for (const [prop, value] of Object.entries(layout)) {
+			try {
+				gl.setLayoutProperty(id, prop, value);
+			} catch {
+				/* ignore */
+			}
+		}
+	}
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

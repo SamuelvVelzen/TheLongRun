@@ -37,7 +37,7 @@ function StatusBadge({
 	}
 	if (skipped) {
 		return (
-			<span className={cn(ui.statusPill, 'text-muted border border-line bg-black/20')}>
+			<span className={cn(ui.statusPill, 'text-muted border border-line bg-inset')}>
 				<Icon name="skip" size={11} />
 				Skipped
 			</span>
@@ -48,7 +48,7 @@ function StatusBadge({
 			<span
 				className={cn(
 					ui.statusPill,
-					'text-muted border border-dashed border-line bg-black/10'
+					'text-muted border border-dashed border-line bg-inset'
 				)}
 			>
 				<Icon name="circle" size={11} />
@@ -74,7 +74,7 @@ function StatusBadge({
 			<span
 				className={cn(
 					ui.statusPill,
-					'text-accent border border-[rgba(200,242,90,0.4)] bg-[rgba(200,242,90,0.08)]'
+					'text-accent-fg border border-accent/40 bg-accent/8'
 				)}
 			>
 				<Icon name="sun" size={11} />
@@ -90,7 +90,7 @@ function UnplannedBadge() {
 		<span
 			className={cn(
 				ui.statusPill,
-				'text-accent border border-dashed border-[rgba(200,242,90,0.45)] bg-[rgba(200,242,90,0.06)]'
+				'text-accent-fg border border-dashed border-accent/45 bg-accent/6'
 			)}
 		>
 			<Icon name="unplanned" size={11} />
@@ -111,7 +111,7 @@ function UnplannedRow({
 			to="/runs/$slug"
 			params={{ slug: item.slug }}
 			className={cn(
-				'flex flex-col gap-[0.2rem] min-w-0 text-inherit no-underline rounded-[10px] -mx-1 px-1 py-1 hover:bg-[rgba(200,242,90,0.06)]',
+				'flex flex-col gap-[0.2rem] min-w-0 text-inherit no-underline rounded-[10px] -mx-1 px-1 py-1 hover:bg-accent/6',
 				divided && 'pt-3 mt-0 border-t border-dashed border-line'
 			)}
 		>
@@ -171,7 +171,7 @@ export function WeekPlanBoard({
 									>
 							<header className="flex items-baseline justify-between gap-2">
 								<div>
-									<p className="m-0 text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent">
+									<p className="m-0 text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent-fg">
 										{group.day}
 									</p>
 									{group.date && (
@@ -222,7 +222,7 @@ export function WeekPlanBoard({
 										</p>
 										{session.unlogged && (
 											<Link
-												className="inline-flex items-center gap-1 pt-1 text-[0.8rem] font-[650] text-accent hover:underline"
+												className="inline-flex items-center gap-1 pt-1 text-[0.8rem] font-[650] text-accent-fg hover:underline"
 												to="/import"
 												search={{
 													mode:

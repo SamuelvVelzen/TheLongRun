@@ -44,7 +44,7 @@ function PairRow({
 			<div className="flex-1 min-w-40">
 				<div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
 					<strong className="font-display text-[1.02rem] tracking-[-0.02em]">{name}</strong>
-					{role === 'active' && <span className={cn(ui.statusPill, 'bg-accent/15 text-accent')}>Daily</span>}
+					{role === 'active' && <span className={cn(ui.statusPill, 'bg-accent/15 text-accent-fg')}>Daily</span>}
 					{role === 'retired' && <span className={cn(ui.statusPill, 'text-muted border border-line')}>Retired</span>}
 				</div>
 				<p className={cn(ui.muted, 'm-0 mt-1 text-[0.82rem]')}>{sub || 'No km logged yet'}</p>

@@ -20,7 +20,7 @@ export const ui = {
 		'size-11 min-h-11 min-w-11 p-0! px-0! py-0! rounded-full leading-none shrink-0 self-center box-border max-sm:!flex-none max-sm:!size-11 max-sm:!min-h-11 max-sm:!min-w-11 max-sm:!p-0',
 	btnSm: 'min-h-11 px-[0.85rem] py-2 text-[0.82rem]',
 	field: 'grid gap-[0.35rem] text-[0.9rem] text-muted [&_input]:text-base [&_select]:text-base [&_textarea]:text-base',
-	req: "after:content-['_*'] after:text-accent",
+	req: "after:content-['_*'] after:text-accent-fg",
 	fieldHint: 'block mt-[0.35rem] text-[0.78rem]',
 	form: 'grid gap-4',
 	formGrid: 'grid grid-cols-1 gap-[0.9rem] items-start min-[721px]:grid-cols-2',
@@ -32,41 +32,41 @@ export const ui = {
 	hero: 'grid gap-5 mb-8 max-sm:gap-[0.95rem] max-sm:mb-[1.35rem] [&_h1]:text-[clamp(2.4rem,6vw,4.2rem)] [&_h1]:max-w-[12ch] max-sm:[&_h1]:text-[clamp(1.55rem,8vw,2.1rem)] max-sm:[&_h1]:max-w-none [&_p]:max-w-[68ch] [&_p]:text-muted [&_p]:text-[1.05rem] max-sm:[&_p]:text-[0.98rem] max-sm:[&_p]:max-w-none',
 	heroHome: 'max-sm:hidden',
 	heroQuiet: 'max-sm:mb-3 max-sm:gap-2 max-sm:[&>div:first-child>p]:hidden',
-	heroRoute: '[&_h1]:max-w-none [&_a]:text-accent',
+	heroRoute: '[&_h1]:max-w-none [&_a]:text-accent-fg',
 	snackHost:
 		'fixed z-[60] inset-x-0 bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px))] flex flex-col-reverse items-center gap-[0.45rem] px-4 pointer-events-none max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:px-3',
 	snack:
 		'pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.7rem] pr-[0.55rem] pl-[0.95rem] rounded-[14px] border border-line bg-surface shadow-lift animate-rise max-sm:py-[0.65rem] max-sm:pr-[0.4rem] max-sm:pl-[0.85rem]',
-	snackSuccess: 'border-[rgba(125,255,168,0.35)] bg-ok/10 text-[#d9ffe8]',
-	snackError: 'border-[rgba(255,138,91,0.4)] bg-warn/10 text-[#ffd4c2]',
+	snackSuccess: 'border-ok/35 bg-ok/10 text-ok',
+	snackError: 'border-warn/40 bg-warn/10 text-warn',
 	snackAction:
-		'shrink-0 appearance-none min-h-11 px-[0.7rem] py-[0.35rem] border-0 rounded-full bg-transparent text-accent font-semibold cursor-pointer whitespace-nowrap hover:text-fg active:text-fg',
+		'shrink-0 appearance-none min-h-11 px-[0.7rem] py-[0.35rem] border-0 rounded-full bg-transparent text-accent-fg font-semibold cursor-pointer whitespace-nowrap hover:text-fg active:text-fg',
 	snackDismiss:
 		'shrink-0 inline-flex items-center justify-center box-border size-11 min-h-11 min-w-11 p-0 border-0 bg-transparent text-muted text-[1.25rem] leading-none cursor-pointer hover:text-fg active:text-fg',
 	tag: 'inline-flex items-center gap-1 px-[0.55rem] py-[0.2rem] rounded-full border border-line text-[0.78rem] text-muted',
-	tagAccent: 'border-[rgba(200,242,90,0.4)] text-accent',
+	tagAccent: 'border-accent/40 text-accent-fg',
 	grid: 'grid gap-4 max-sm:gap-3',
 	sectionTitle:
 		'flex items-end justify-between gap-4 mt-8 mb-[0.85rem] max-sm:flex-col max-sm:items-start max-sm:gap-[0.55rem] max-sm:mt-[1.45rem] max-sm:mb-[0.7rem] [&_h2]:text-[1.45rem] max-sm:[&_h2]:text-[1.28rem] [&_p]:text-muted',
 	stickyActions:
-		'sticky z-20 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex flex-wrap items-center gap-3 p-3 px-4 border border-line rounded-2xl bg-[rgba(16,20,15,0.92)] backdrop-blur-[10px] shadow-lift max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:gap-[0.55rem] max-sm:[&>a]:w-auto max-sm:[&>button]:w-auto max-sm:[&>a]:flex-none max-sm:[&>button]:flex-none',
+		'sticky z-20 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex flex-wrap items-center gap-3 p-3 px-4 border border-line rounded-2xl bg-canvas/92 backdrop-blur-[10px] shadow-lift max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:gap-[0.55rem] max-sm:[&>a]:w-auto max-sm:[&>button]:w-auto max-sm:[&>a]:flex-none max-sm:[&>button]:flex-none',
 	stickyPrimary: 'max-sm:!flex-1 max-sm:!min-w-[min(100%,9rem)]',
 	editor:
 		'block w-full max-w-full font-mono text-[0.9rem] leading-[1.45] min-h-[22rem] max-sm:min-h-64 max-sm:text-base',
 	runRow:
-		'grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr] gap-3 items-center p-4 px-[1.1rem] border border-line rounded-[14px] bg-white/[0.02] transition-[border-color,background-color,transform] duration-150 ease-out animate-rise hover:border-[rgba(200,242,90,0.35)] hover:bg-[rgba(200,242,90,0.04)] hover:-translate-y-px active:border-[rgba(200,242,90,0.35)] active:bg-[rgba(200,242,90,0.04)] active:-translate-y-px max-[760px]:grid-cols-2 max-sm:grid-cols-1 max-sm:gap-[0.3rem] max-sm:p-[0.85rem_0.95rem]',
+		'grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr] gap-3 items-center p-4 px-[1.1rem] border border-line rounded-[14px] bg-fg/[0.02] transition-[border-color,background-color,transform] duration-150 ease-out animate-rise hover:border-accent/35 hover:bg-accent/4 hover:-translate-y-px active:border-accent/35 active:bg-accent/4 active:-translate-y-px max-[760px]:grid-cols-2 max-sm:grid-cols-1 max-sm:gap-[0.3rem] max-sm:p-[0.85rem_0.95rem]',
 	runRowCompact:
 		'grid-cols-[auto_minmax(0,1fr)]! gap-x-3! gap-y-0 items-center p-[0.7rem_0.9rem] max-sm:gap-x-[0.7rem]! max-sm:p-[0.58rem_0.75rem] max-sm:text-[0.92rem]',
 	runTitle: 'flex items-center gap-1.5',
-	mapBadge: 'inline-flex items-center justify-center text-accent opacity-90 shrink-0',
+	mapBadge: 'inline-flex items-center justify-center text-accent-fg opacity-90 shrink-0',
 	feelBadge: 'inline-flex items-center justify-center text-muted opacity-85 shrink-0 ml-[0.1rem]',
 	metric:
-		'flex-[1_1_6.5rem] min-w-0 p-[0.65rem_0.8rem] rounded-xl bg-white/[0.03] border border-line max-sm:flex-[1_1_calc(50%-0.45rem)] max-sm:p-[0.55rem_0.7rem] [&_b]:block [&_b]:font-display [&_b]:text-[1.15rem] max-sm:[&_b]:text-[1.05rem] max-sm:[&_b]:[overflow-wrap:anywhere] [&_span]:text-muted [&_span]:text-[0.8rem]',
-	metricEmph: 'border-[rgba(200,242,90,0.22)] bg-[rgba(200,242,90,0.05)] [&_b]:text-[1.35rem]',
+		'flex-[1_1_6.5rem] min-w-0 p-[0.65rem_0.8rem] rounded-xl bg-fg/[0.03] border border-line max-sm:flex-[1_1_calc(50%-0.45rem)] max-sm:p-[0.55rem_0.7rem] [&_b]:block [&_b]:font-display [&_b]:text-[1.15rem] max-sm:[&_b]:text-[1.05rem] max-sm:[&_b]:[overflow-wrap:anywhere] [&_span]:text-muted [&_span]:text-[0.8rem]',
+	metricEmph: 'border-accent/22 bg-accent/5 [&_b]:text-[1.35rem]',
 	metrics: 'flex flex-wrap gap-2 max-sm:gap-[0.45rem]',
 	dropzone:
-		'flex flex-col items-center justify-center gap-[0.35rem] p-[2.25rem_1.2rem] border-2 border-dashed border-line rounded-box bg-black/18 text-muted cursor-pointer text-center transition-[border-color,background-color,color] duration-150 ease-out hover:border-accent hover:text-fg active:border-accent active:text-fg max-sm:p-[1.5rem_0.85rem] [&_strong]:font-display [&_strong]:text-[1.02rem] [&_strong]:text-fg',
-	dropzoneOver: 'border-accent bg-[rgba(200,242,90,0.08)] text-fg',
+		'flex flex-col items-center justify-center gap-[0.35rem] p-[2.25rem_1.2rem] border-2 border-dashed border-line rounded-box bg-inset text-muted cursor-pointer text-center transition-[border-color,background-color,color] duration-150 ease-out hover:border-accent hover:text-fg active:border-accent active:text-fg max-sm:p-[1.5rem_0.85rem] [&_strong]:font-display [&_strong]:text-[1.02rem] [&_strong]:text-fg',
+	dropzoneOver: 'border-accent bg-accent/8 text-fg',
 	coachTabs:
 		'flex gap-[0.3rem] mb-4 border-b border-line max-sm:gap-0 max-sm:overflow-x-auto max-sm:overflow-y-hidden',
 	// Selected styles use aria-* variants (not a second class): cn() does not merge
@@ -76,7 +76,7 @@ export const ui = {
 	coachTabActive: 'text-fg border-b-accent',
 	choiceChips: 'flex flex-wrap gap-[0.4rem]',
 	choiceChip:
-		'appearance-none inline-flex items-center justify-center gap-1.5 min-h-11 px-[0.95rem] py-2 rounded-full border border-solid border-line bg-transparent text-muted font-semibold cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:border-[rgba(200,242,90,0.35)] disabled:opacity-35 disabled:cursor-not-allowed aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent',
+		'appearance-none inline-flex items-center justify-center gap-1.5 min-h-11 px-[0.95rem] py-2 rounded-full border border-solid border-line bg-transparent text-muted font-semibold cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:border-accent/35 disabled:opacity-35 disabled:cursor-not-allowed aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent',
 	dialogRoot: 'overlay-root fixed inset-0 z-[20000] flex items-end justify-center p-0 sm:items-center sm:p-4',
 	dialogBackdrop: 'absolute inset-0 bg-black/55',
 	dialogPanel:
@@ -84,10 +84,10 @@ export const ui = {
 	statusPill:
 		'inline-flex items-center gap-1 shrink-0 px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] tracking-[0.06em] uppercase font-bold',
 	routeChip:
-		'inline-flex items-center gap-[0.4rem] max-w-full mt-2 px-[0.7rem] py-[0.38rem] rounded-full border border-[color-mix(in_srgb,var(--color-accent)_55%,var(--color-line))] bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] text-accent text-[0.88rem] font-bold overflow-hidden hover:bg-[color-mix(in_srgb,var(--color-accent)_24%,transparent)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_18%,transparent)]',
+		'inline-flex items-center gap-[0.4rem] max-w-full mt-2 px-[0.7rem] py-[0.38rem] rounded-full border border-[color-mix(in_srgb,var(--accent)_55%,var(--line))] bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] text-accent-fg text-[0.88rem] font-bold overflow-hidden hover:bg-[color-mix(in_srgb,var(--accent)_24%,transparent)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent)_18%,transparent)]',
 	segToggle:
-		'inline-flex w-fit max-w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border border-line rounded-full bg-[rgba(16,20,15,0.85)] max-sm:w-full',
+		'inline-flex w-fit max-w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border border-line rounded-full bg-canvas/85 max-sm:w-full',
 	segItem:
-		'appearance-none inline-flex items-center justify-center gap-1.5 relative w-auto min-h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted font-inherit no-underline cursor-pointer shrink-0 max-sm:grow max-sm:shrink-0 max-sm:basis-auto max-sm:px-[0.7rem] max-sm:text-[0.82rem] transition-[color,background-color,border-color] duration-150 ease-out aria-[pressed=false]:hover:text-fg aria-[pressed=false]:hover:bg-[color-mix(in_srgb,var(--color-accent)_18%,transparent)] active:text-fg aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold aria-[pressed=true]:active:text-accent-ink',
+		'appearance-none inline-flex items-center justify-center gap-1.5 relative w-auto min-h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted font-inherit no-underline cursor-pointer shrink-0 max-sm:grow max-sm:shrink-0 max-sm:basis-auto max-sm:px-[0.7rem] max-sm:text-[0.82rem] transition-[color,background-color,border-color] duration-150 ease-out aria-[pressed=false]:hover:text-fg aria-[pressed=false]:hover:bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] active:text-fg aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold aria-[pressed=true]:active:text-accent-ink',
 	segItemActive: 'text-accent-ink bg-accent font-semibold'
 } as const;

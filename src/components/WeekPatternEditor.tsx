@@ -1,16 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
 import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
-import {
-	MAX_WEEK_SLOTS,
-	WEEKDAYS,
-	weekdayIndex,
-	type Weekday,
-	type WeekSlot
-} from '$lib/week-mix';
 import { cn, ui } from '$lib/ui';
+import {
+    MAX_WEEK_SLOTS,
+    weekdayIndex,
+    WEEKDAYS,
+    type Weekday,
+    type WeekSlot
+} from '$lib/week-mix';
+import { useEffect, useRef, useState } from 'react';
 import { ChoiceChips } from './ChoiceChips';
-import { ConfirmDialog, Dialog } from './Dialog';
 import { DeleteButton } from './DeleteButton';
+import { ConfirmDialog, Dialog } from './Dialog';
 import { ActivityIcon, Icon, sportChipLabel } from './Icon';
 
 export type SlotRow = WeekSlot & { id: string };
@@ -107,10 +107,10 @@ export function WeekPatternEditor({
 			)}
 			{grouped.map((group) => (
 				<div key={group.day} className="grid gap-[0.4rem]">
-					<p className="m-0 text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent">
+					<p className="m-0 text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent-fg">
 						{group.day}
 					</p>
-					<div className="border border-line rounded-xl bg-black/18 overflow-hidden">
+					<div className="border border-line rounded-xl bg-inset overflow-hidden">
 						{group.rows.map((row, i) => (
 							<div
 								key={row.id}
@@ -118,7 +118,7 @@ export function WeekPatternEditor({
 								className={cn(
 									'grid grid-cols-[minmax(0,1fr)_auto] items-center min-h-11 pl-[0.35rem] pr-[0.4rem] transition-[background-color,box-shadow] duration-300',
 									i > 0 && 'border-t border-line',
-									row.id === flashId && 'bg-[rgba(200,242,90,0.12)] shadow-[inset_0_0_0_1px_rgba(200,242,90,0.35)]'
+									row.id === flashId && 'bg-accent/12 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)]'
 								)}
 							>
 								<button

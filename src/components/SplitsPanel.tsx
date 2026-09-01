@@ -1,18 +1,18 @@
-import { useState } from 'react';
 import { formatDuration } from '$lib/format';
 import type { KmSplit, RouteAnalytics } from '$lib/splits';
 import { cn, ui } from '$lib/ui';
+import { useState } from 'react';
 
 const zoneColors: Record<number, string> = {
-	1: '#7dffa8',
-	2: '#c8f25a',
+	1: 'var(--ok)',
+	2: 'var(--accent)',
 	3: '#e8d45a',
-	4: '#ff8a5b',
+	4: 'var(--warn)',
 	5: '#ff5b5b'
 };
 
 const splitsRow =
-	'grid grid-cols-[2.6rem_3.4rem_3.2rem_2.6rem_minmax(4rem,1fr)] gap-x-[0.65rem] gap-y-[0.45rem] items-center py-[0.28rem] text-[0.92rem] border-b border-[rgba(232,240,226,0.06)] max-[520px]:grid-cols-[2.4rem_3.1rem_2.8rem_2.2rem_minmax(2.5rem,1fr)] max-[520px]:gap-x-1.5 max-[520px]:gap-y-[0.3rem] max-[520px]:text-[0.85rem]';
+	'grid grid-cols-[2.6rem_3.4rem_3.2rem_2.6rem_minmax(4rem,1fr)] gap-x-[0.65rem] gap-y-[0.45rem] items-center py-[0.28rem] text-[0.92rem] border-b border-line/50 max-[520px]:grid-cols-[2.4rem_3.1rem_2.8rem_2.2rem_minmax(2.5rem,1fr)] max-[520px]:gap-x-1.5 max-[520px]:gap-y-[0.3rem] max-[520px]:text-[0.85rem]';
 
 export function SplitsPanel({
 	analytics,
@@ -84,7 +84,7 @@ export function SplitsPanel({
 									{split.isPartial ? `${split.distanceKm.toFixed(2)}` : split.km}
 									<span className="text-[0.75rem] text-muted">{split.isPartial ? ' km' : ''}</span>
 								</span>
-								<span role="cell" className="font-display font-bold text-accent">
+								<span role="cell" className="font-display font-bold text-accent-fg">
 									{split.pace || '—'}
 								</span>
 								<span role="cell" className={ui.muted}>
@@ -95,7 +95,7 @@ export function SplitsPanel({
 								</span>
 								<span className="flex items-center min-h-[0.55rem]" role="presentation">
 									<span
-										className="block h-[0.45rem] rounded-full bg-[linear-gradient(90deg,rgba(200,242,90,0.35),var(--color-accent))] min-w-[0.4rem]"
+										className="block h-[0.45rem] rounded-full bg-[linear-gradient(90deg,color-mix(in_srgb,var(--accent)_35%,transparent),var(--accent))] min-w-[0.4rem]"
 										style={{ width: `${barWidth(split)}%` }}
 										title={split.pace ? `${split.pace}/km` : ''}
 									></span>
@@ -191,7 +191,7 @@ export function SplitsPanel({
 									<div
 										key={z.zone}
 										className={cn(
-											'p-[0.55rem_0.65rem] rounded-xl border border-line bg-black/18',
+											'p-[0.55rem_0.65rem] rounded-xl border border-line bg-inset',
 											z.seconds <= 0 && 'opacity-45'
 										)}
 									>

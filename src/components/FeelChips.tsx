@@ -8,7 +8,7 @@ function range(min: number, max: number): number[] {
 }
 
 const feelChip =
-	'min-w-0 min-h-11 inline-flex items-center justify-center p-0 border border-line rounded-[10px] bg-black/25 text-muted font-inherit tabular-nums cursor-pointer transition-[border-color,color,background-color] duration-150 ease-out hover:border-accent active:border-accent aria-[pressed=true]:border-accent! aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:font-semibold';
+	'min-w-0 min-h-11 inline-flex items-center justify-center p-0 border border-line rounded-[10px] bg-inset text-muted font-inherit tabular-nums cursor-pointer transition-[border-color,color,background-color] duration-150 ease-out hover:border-accent active:border-accent aria-[pressed=true]:border-accent! aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:font-semibold';
 
 /** Tappable 0–10 / 1–10 scores; posts the same hidden field name as the old number input. */
 export function FeelChips({

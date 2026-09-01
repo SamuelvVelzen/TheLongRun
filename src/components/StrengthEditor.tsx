@@ -93,7 +93,7 @@ export function StrengthEditor({
 			{exercises.map((ex, i) => {
 				const kind = inferExerciseKind(ex);
 				return (
-					<div className="border border-line rounded-xl p-3 bg-black/15" key={i}>
+					<div className="border border-line rounded-xl p-3 bg-inset" key={i}>
 						<div className="flex gap-2 items-center">
 							<input
 								className="flex-1 min-w-0"
@@ -116,7 +116,7 @@ export function StrengthEditor({
 						<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-3">
 							{ex.sets.map((s, si) => (
 								<div
-									className="flex flex-col gap-2.5 border border-line rounded-xl p-3 bg-black/20"
+									className="flex flex-col gap-2.5 border border-line rounded-xl p-3 bg-inset"
 									key={si}
 								>
 									<div className="flex items-center justify-between gap-2">

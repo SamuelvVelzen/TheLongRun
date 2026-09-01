@@ -148,7 +148,7 @@ export function GpxImport({
 					{files.map((f) => (
 						<li
 							key={f.name}
-							className="flex items-center gap-[0.6rem] p-[0.5rem_0.7rem] border border-line rounded-[10px] bg-black/18 text-[0.9rem]"
+							className="flex items-center gap-[0.6rem] p-[0.5rem_0.7rem] border border-line rounded-[10px] bg-inset text-[0.9rem]"
 						>
 							<code className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
 								{f.name}

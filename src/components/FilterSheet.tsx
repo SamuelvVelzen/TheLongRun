@@ -58,7 +58,7 @@ export function FilterSheet({ summary, children }: { summary: string; children: 
 		<div className="flex flex-wrap items-center gap-x-6 gap-y-[0.55rem] mt-4 mb-2 pt-[0.85rem] pb-[0.35rem] border-t border-line">
 			<button
 				type="button"
-				className="hidden w-full justify-between max-sm:inline-flex items-center gap-[0.55rem] max-w-full min-h-11 px-[0.95rem] py-[0.45rem] border border-line rounded-full bg-[rgba(16,20,15,0.85)] text-fg cursor-pointer aria-[expanded=true]:border-accent"
+				className="hidden w-full justify-between max-sm:inline-flex items-center gap-[0.55rem] max-w-full min-h-11 px-[0.95rem] py-[0.45rem] border border-line rounded-full bg-canvas/85 text-fg cursor-pointer aria-[expanded=true]:border-accent"
 				aria-haspopup="dialog"
 				aria-expanded={open}
 				aria-controls={panelId}

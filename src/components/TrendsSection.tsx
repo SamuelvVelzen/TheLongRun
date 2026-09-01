@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-import { Sparkline } from './Sparkline';
 import type { TrainingTrends, TrendSeries } from '$lib/trends';
 import { cn, ui } from '$lib/ui';
+import { useNavigate } from '@tanstack/react-router';
+import { useEffect, useRef, useState } from 'react';
+import { Sparkline } from './Sparkline';
 
 type Props = {
 	trends: TrainingTrends;
@@ -136,7 +136,7 @@ export function TrendsSection({
 											<div className="flex-1 w-full flex items-end justify-center">
 												<span
 													className={cn(
-														'block w-full max-w-[1.35rem] rounded-[3px_3px_1px_1px] bg-[linear-gradient(180deg,var(--color-accent)_0%,rgba(200,242,90,0.45)_100%)] min-h-[3px] transition-[filter,opacity] duration-100 group-hover/bar:brightness-[1.08] group-active/bar:brightness-[1.08]',
+														'block w-full max-w-[1.35rem] rounded-[3px_3px_1px_1px] bg-[linear-gradient(180deg,var(--accent)_0%,color-mix(in_srgb,var(--accent)_45%,transparent)_100%)] min-h-[3px] transition-[filter,opacity] duration-100 group-hover/bar:brightness-[1.08] group-active/bar:brightness-[1.08]',
 														point.value <= 0
 															? 'opacity-[0.22] bg-line min-h-[2px] !h-[4%] group-hover/bar:brightness-100 group-active/bar:brightness-100'
 															: activeBar === i
@@ -151,7 +151,7 @@ export function TrendsSection({
 											</span>
 											{activeBar === i && (
 												<span className="absolute z-[3] bottom-[calc(100%-0.1rem)] left-1/2 -translate-x-1/2 flex flex-col items-center gap-[0.05rem] px-[0.45rem] py-[0.28rem] rounded-lg border border-line bg-[#1a2218] shadow-[0_8px_22px_rgba(0,0,0,0.4)] pointer-events-none whitespace-nowrap after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-[5px] after:border-transparent after:border-t-[#1a2218]" role="tooltip">
-													<span className="font-display font-bold text-[0.78rem] tracking-[-0.02em] text-accent leading-[1.15]">
+													<span className="font-display font-bold text-[0.78rem] tracking-[-0.02em] text-accent-fg leading-[1.15]">
 														{point.display}
 													</span>
 													<span className="text-[0.68rem] text-muted leading-[1.15]">

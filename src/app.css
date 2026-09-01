@@ -1,20 +1,24 @@
 @import 'tailwindcss';
 
-@theme {
-	--color-canvas: #10140f;
-	--color-surface: #171c16;
-	--color-panel: rgba(232, 240, 226, 0.04);
-	--color-line: rgba(232, 240, 226, 0.12);
-	--color-fg: #e8f0e2;
-	--color-muted: #9aab97;
-	--color-accent: #c8f25a;
-	--color-accent-ink: #14200a;
-	--color-warn: #ff8a5b;
-	--color-ok: #7dffa8;
+/* Utilities read these; palette values live on :root / [data-theme]. */
+@theme inline {
+	--color-canvas: var(--canvas);
+	--color-surface: var(--surface);
+	--color-panel: var(--panel);
+	--color-line: var(--line);
+	--color-fg: var(--fg);
+	--color-muted: var(--muted);
+	--color-accent: var(--accent);
+	--color-accent-ink: var(--accent-ink);
+	--color-accent-fg: var(--accent-fg);
+	--color-warn: var(--warn);
+	--color-ok: var(--ok);
+	--color-inset: var(--inset);
+	--color-loc: var(--loc);
 	--font-sans: 'IBM Plex Sans', system-ui, sans-serif;
 	--font-display: 'Syne', sans-serif;
 	--radius-box: 1.125rem;
-	--shadow-lift: 0 24px 60px rgba(0, 0, 0, 0.35);
+	--shadow-lift: var(--shadow);
 	--animate-rise: rise 500ms ease both;
 }
 
@@ -35,23 +39,65 @@
 	}
 }
 
+:root,
+[data-theme='dark'] {
+	--canvas: #10140f;
+	--canvas-top: #141a13;
+	--canvas-bottom: #0c100c;
+	--surface: #171c16;
+	--panel: rgba(232, 240, 226, 0.04);
+	--line: rgba(232, 240, 226, 0.12);
+	--fg: #e8f0e2;
+	--muted: #9aab97;
+	--accent: #c8f25a;
+	--accent-ink: #14200a;
+	--accent-fg: #c8f25a;
+	--warn: #ff8a5b;
+	--ok: #7dffa8;
+	--inset: rgba(0, 0, 0, 0.22);
+	--loc: #4da3ff;
+	--loc-soft: #7ec8ff;
+	--wash: rgba(200, 242, 90, 0.12);
+	--wash-ok: rgba(125, 255, 168, 0.08);
+	--shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+	--shadow-tab: 0 -12px 32px rgba(0, 0, 0, 0.28);
+	--map-bg: #2a322a;
+	color-scheme: dark;
+}
+
+[data-theme='light'] {
+	--canvas: #f3f6ef;
+	--canvas-top: #f7faf3;
+	--canvas-bottom: #e8eee2;
+	--surface: #ffffff;
+	--panel: rgba(20, 32, 10, 0.04);
+	--line: rgba(20, 32, 10, 0.14);
+	--fg: #14200a;
+	--muted: #5c6b58;
+	--accent: #c8f25a;
+	--accent-ink: #14200a;
+	--accent-fg: #4a6b12;
+	--warn: #d65a32;
+	--ok: #148a4a;
+	--inset: rgba(20, 32, 10, 0.06);
+	--loc: #2b7fd9;
+	--loc-soft: #1a6fc4;
+	--wash: rgba(200, 242, 90, 0.22);
+	--wash-ok: rgba(20, 138, 74, 0.08);
+	--shadow: 0 18px 48px rgba(20, 32, 10, 0.12);
+	--shadow-tab: 0 -8px 24px rgba(20, 32, 10, 0.08);
+	--map-bg: #d5ddd0;
+	color-scheme: light;
+}
+
 /* Aliases used by JS (Leaflet markers, sparkline default color). */
 :root {
-	--bg: var(--color-canvas);
-	--bg-2: var(--color-surface);
-	--panel: var(--color-panel);
-	--line: var(--color-line);
-	--text: var(--color-fg);
-	--muted: var(--color-muted);
-	--accent: var(--color-accent);
-	--accent-ink: var(--color-accent-ink);
-	--warn: var(--color-warn);
-	--ok: var(--color-ok);
-	--shadow: var(--shadow-lift);
+	--bg: var(--canvas);
+	--bg-2: var(--surface);
+	--text: var(--fg);
 	--radius: var(--radius-box);
 	--font-display: 'Syne', sans-serif;
 	--font-body: 'IBM Plex Sans', system-ui, sans-serif;
-	color-scheme: dark;
 	--app-header-inner: 3.65rem;
 	--app-header-height: calc(var(--app-header-inner) + env(safe-area-inset-top, 0px));
 	--app-content-inset: 1.25rem;
@@ -60,7 +106,7 @@
 
 @layer base {
 	html {
-		background-color: var(--color-canvas);
+		background-color: var(--canvas);
 	}
 
 	html,
@@ -75,7 +121,7 @@
 		-webkit-text-size-adjust: 100%;
 		text-size-adjust: 100%;
 		-webkit-tap-highlight-color: transparent;
-		color: var(--color-fg);
+		color: var(--fg);
 		font-family: var(--font-sans);
 		font-size: 16px;
 		line-height: 1.5;
@@ -85,9 +131,9 @@
 		display: flex;
 		flex-direction: column;
 		background:
-			radial-gradient(1200px 600px at 80% -10%, rgba(200, 242, 90, 0.12), transparent 55%),
-			radial-gradient(900px 500px at -10% 20%, rgba(125, 255, 168, 0.08), transparent 50%),
-			linear-gradient(180deg, #141a13 0%, var(--color-canvas) 40%, #0c100c 100%);
+			radial-gradient(1200px 600px at 80% -10%, var(--wash), transparent 55%),
+			radial-gradient(900px 500px at -10% 20%, var(--wash-ok), transparent 50%),
+			linear-gradient(180deg, var(--canvas-top) 0%, var(--canvas) 40%, var(--canvas-bottom) 100%);
 	}
 
 	body::before {
@@ -98,6 +144,10 @@
 		opacity: 0.035;
 		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 		z-index: 0;
+	}
+
+	[data-theme='light'] body::before {
+		opacity: 0.05;
 	}
 
 	a {
@@ -151,8 +201,8 @@
 		width: 100%;
 		max-width: 100%;
 		min-width: 0;
-		border: 1px solid var(--color-line);
-		background: rgba(0, 0, 0, 0.25);
+		border: 1px solid var(--line);
+		background: var(--inset);
 		border-radius: 12px;
 		padding: 0.7rem 0.8rem;
 		outline: none;
@@ -172,8 +222,8 @@
 	input:focus,
 	select:focus,
 	textarea:focus {
-		border-color: rgba(200, 242, 90, 0.55);
-		box-shadow: 0 0 0 3px rgba(200, 242, 90, 0.12);
+		border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
 	}
 
 	textarea {
@@ -183,7 +233,7 @@
 
 	input[type='date'],
 	input[type='time'] {
-		color-scheme: dark;
+		color-scheme: inherit;
 	}
 }
 
@@ -212,8 +262,8 @@
 		padding-right: max(0.625rem, env(safe-area-inset-right, 0px));
 		padding-bottom: 0.45rem;
 		padding-left: max(0.625rem, env(safe-area-inset-left, 0px));
-		background: var(--color-canvas);
-		border-bottom: 1px solid var(--color-line);
+		background: var(--canvas);
+		border-bottom: 1px solid var(--line);
 	}
 }
 
@@ -226,7 +276,7 @@
 /* Markdown rendered from marked() — generated HTML, not JSX. */
 .md {
 	margin-top: 1rem;
-	color: var(--color-fg);
+	color: var(--fg);
 	overflow-x: auto;
 }
 
@@ -267,7 +317,7 @@
 .md ul,
 .md ol {
 	padding-left: 1.25rem;
-	color: var(--color-muted);
+	color: var(--muted);
 }
 
 .md li + li {
@@ -275,37 +325,37 @@
 }
 
 .md li {
-	color: var(--color-fg);
+	color: var(--fg);
 }
 
 .md strong {
-	color: #f2f7ec;
+	color: var(--fg);
 }
 
 .md a {
-	color: var(--color-accent);
+	color: var(--accent-fg);
 	text-decoration: underline;
 	text-underline-offset: 2px;
 }
 
 .md blockquote {
-	border-left: 3px solid rgba(200, 242, 90, 0.45);
+	border-left: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
 	padding: 0.15rem 0 0.15rem 0.9rem;
-	color: var(--color-muted);
+	color: var(--muted);
 }
 
 .md code {
 	font-family: ui-monospace, 'Cascadia Code', 'Segoe UI Mono', monospace;
 	font-size: 0.88em;
-	background: rgba(0, 0, 0, 0.28);
-	border: 1px solid var(--color-line);
+	background: var(--inset);
+	border: 1px solid var(--line);
 	border-radius: 6px;
 	padding: 0.1rem 0.35rem;
 }
 
 .md pre {
-	background: rgba(0, 0, 0, 0.32);
-	border: 1px solid var(--color-line);
+	background: var(--inset);
+	border: 1px solid var(--line);
 	border-radius: 12px;
 	padding: 0.9rem 1rem;
 	overflow-x: auto;
@@ -316,7 +366,7 @@
 	border: 0;
 	padding: 0;
 	font-size: 0.86rem;
-	color: #d7e6cf;
+	color: var(--muted);
 }
 
 .md table {
@@ -329,30 +379,30 @@
 }
 
 .md thead {
-	background: rgba(200, 242, 90, 0.08);
+	background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .md th,
 .md td {
-	border: 1px solid var(--color-line);
+	border: 1px solid var(--line);
 	padding: 0.55rem 0.7rem;
 	text-align: left;
 	vertical-align: top;
 }
 
 .md th {
-	color: var(--color-accent);
+	color: var(--accent-fg);
 	font-weight: 600;
 	white-space: nowrap;
 }
 
 .md tr:nth-child(even) td {
-	background: rgba(255, 255, 255, 0.02);
+	background: color-mix(in srgb, var(--fg) 3%, transparent);
 }
 
 .md hr {
 	border: 0;
-	border-top: 1px solid var(--color-line);
+	border-top: 1px solid var(--line);
 	margin: 1.25rem 0;
 }
 
@@ -400,7 +450,7 @@
 	height: 100dvh !important;
 	max-width: none !important;
 	max-height: none !important;
-	background: #0c100c !important;
+	background: var(--map-bg) !important;
 	overflow: hidden !important;
 }
 
@@ -439,7 +489,8 @@ body.overlay-open {
 	user-select: none;
 	-webkit-user-select: none;
 	-webkit-touch-callout: none;
-	background: var(--color-canvas);
+	background: var(--canvas);
+	box-shadow: var(--shadow-tab);
 }
 
 body.map-fs-active .tab-bar,
@@ -508,21 +559,21 @@ html.overlay-open .overlay-root {
 }
 
 .route-end-marker-start .route-end-pill {
-	background: #c8f25a;
-	color: #10140f;
+	background: var(--accent);
+	color: var(--accent-ink);
 }
 
 .route-end-marker-finish .route-end-pill {
-	background: #ff8a5b;
-	color: #1a0e08;
+	background: var(--warn);
+	color: var(--accent-ink);
 }
 
 .route-end-marker-loop .route-end-pill {
 	width: auto;
 	min-width: 32px;
 	padding: 0 0.35rem;
-	background: linear-gradient(90deg, #c8f25a 50%, #ff8a5b 50%);
-	color: #10140f;
+	background: linear-gradient(90deg, var(--accent) 50%, var(--warn) 50%);
+	color: var(--accent-ink);
 }
 
 .user-loc-pulse,
@@ -537,16 +588,16 @@ html.overlay-open .overlay-root {
 .user-loc-pulse {
 	width: 28px;
 	height: 28px;
-	background: rgba(77, 163, 255, 0.28);
+	background: color-mix(in srgb, var(--loc) 28%, transparent);
 	animation: user-loc-pulse 1.8s ease-out infinite;
 }
 
 .user-loc-dot {
 	width: 14px;
 	height: 14px;
-	background: #4da3ff;
+	background: var(--loc);
 	border: 2px solid #f4f8ff;
-	box-shadow: 0 0 0 2px rgba(8, 12, 20, 0.55);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--canvas) 55%, transparent);
 }
 
 @keyframes user-loc-pulse {
@@ -561,12 +612,12 @@ html.overlay-open .overlay-root {
 }
 
 .map-chrome-btn-loc.is-active {
-	border-color: rgba(77, 163, 255, 0.65) !important;
-	color: #7ec8ff !important;
+	border-color: color-mix(in srgb, var(--loc) 65%, transparent) !important;
+	color: var(--loc-soft) !important;
 }
 
 .map-wrap .leaflet-container {
-	background: #2a322a;
+	background: var(--map-bg);
 }
 
 /* MapLibre renders the basemap; Leaflet must keep pointer events for pan/zoom. */
@@ -652,8 +703,8 @@ html.overlay-open .overlay-root {
 .route-map .leaflet-control-attribution,
 .heatmap-map .leaflet-control-attribution,
 .map-wrap .leaflet-control-attribution {
-	background: rgba(16, 20, 15, 0.72) !important;
-	color: var(--color-muted) !important;
+	background: color-mix(in srgb, var(--canvas) 72%, transparent) !important;
+	color: var(--muted) !important;
 	font-size: 0.65rem !important;
 	max-width: min(52vw, 14rem);
 	line-height: 1.25;
@@ -664,7 +715,7 @@ html.overlay-open .overlay-root {
 .route-map .leaflet-control-attribution a,
 .heatmap-map .leaflet-control-attribution a,
 .map-wrap .leaflet-control-attribution a {
-	color: var(--color-accent) !important;
+	color: var(--accent-fg) !important;
 }
 
 .route-map-wrap.is-fullscreen .route-map,

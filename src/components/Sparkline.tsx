@@ -146,7 +146,7 @@ export function Sparkline({
 
 			{activeCoord && (
 				<div
-					className="absolute z-[1] size-[7px] mt-[-3.5px] ml-[-3.5px] rounded-full shadow-[0_0_0_2px_rgba(16,20,15,0.9),0_0_8px_rgba(200,242,90,0.45)] pointer-events-none"
+					className="absolute z-[1] size-[7px] mt-[-3.5px] ml-[-3.5px] rounded-full shadow-[0_0_0_2px_var(--canvas),0_0_8px_color-mix(in_srgb,var(--accent)_45%,transparent)] pointer-events-none"
 					style={{
 						left: `${(activeCoord.x / width) * 100}%`,
 						top: `${(activeCoord.y / height) * 100}%`,
@@ -165,14 +165,14 @@ export function Sparkline({
 					}}
 					role="tooltip"
 				>
-					<span className="font-display font-bold text-[0.78rem] tracking-[-0.02em] text-accent leading-[1.15]">
+					<span className="font-display font-bold text-[0.78rem] tracking-[-0.02em] text-accent-fg leading-[1.15]">
 						{activeTip.display}
 					</span>
 					<span className="text-[0.68rem] text-muted leading-[1.15] overflow-hidden text-ellipsis max-w-full">
 						{activeTip.label}
 					</span>
 					{onPick && (
-						<span className="text-[0.62rem] font-semibold tracking-[0.04em] text-accent leading-[1.3]">
+						<span className="text-[0.62rem] font-semibold tracking-[0.04em] text-accent-fg leading-[1.3]">
 							open →
 						</span>
 					)}

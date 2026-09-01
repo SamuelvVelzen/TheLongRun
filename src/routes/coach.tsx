@@ -1,6 +1,12 @@
 import { useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
-import { PLAN_WEEK_COUNT, planWeekDateRange } from '$lib/plan';
+import {
+    PLAN_WEEK_COUNT,
+    formatAllWeeksClipboard,
+    formatWeekPlanClipboard,
+    isoDateLocal,
+    planWeekDateRange
+} from '$lib/plan';
 import {
     getCoachBrief,
     getCoachPlan,
@@ -77,11 +83,15 @@ type CoachPlanData = Awaited<ReturnType<typeof getCoachPlan>>;
 function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 	const search = Route.useSearch();
 	const router = useRouter();
+	const authed = useAuthed();
+	const snack = useSnackbar();
 	const current = planData.currentWeek;
 	const upcomingWeek = planData.views.find((v) => v.next)?.week.week ?? current;
 	const selected = search.planWeek ?? upcomingWeek;
 	const byWeek = new Map(planData.views.map((v) => [v.week.week, v]));
 	const view = byWeek.get(selected) ?? null;
+	const [copied, setCopied] = useState<'week' | 'all' | null>(null);
+	const [planJson, setPlanJson] = useState('');
 
 	function setWeek(n: number) {
 		const week = Math.min(PLAN_WEEK_COUNT, Math.max(1, n));
@@ -92,6 +102,31 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 			resetScroll: false
 		});
 	}
+
+	async function copyText(kind: 'week' | 'all', text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+			setCopied(kind);
+			setTimeout(() => setCopied((prev) => (prev === kind ? null : prev)), 1800);
+		} catch {
+			snack.error('Could not copy — select and copy the text instead.');
+		}
+	}
+
+	async function savePastedPlan() {
+		try {
+			const res = await savePlanWeeks({ data: planJson });
+			snack.success(
+				`Saved — plan now has ${res.weeks} weeks (updated week ${res.updated.join(', ')}).`
+			);
+			setPlanJson('');
+			router.invalidate();
+		} catch (e) {
+			snack.error(errorMessage(e, 'Could not save plan.'));
+		}
+	}
+
+	const todayIso = isoDateLocal(new Date());
 
 	return (
 		<>
@@ -119,6 +154,28 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 						onChange={(value) => setWeek(Number(value))}
 					/>
 				</div>
+				<p className={cn(ui.muted, 'm-0')}>
+					Copy this week (live status plus JSON) into a new chat, or every week that already
+					has sessions. Paste an updated JSON block back below.
+				</p>
+				<div className={ui.actions}>
+					<button
+						className={ui.btnGhost}
+						type="button"
+						disabled={!view}
+						onClick={() => view && copyText('week', formatWeekPlanClipboard(view, todayIso))}
+					>
+						{copied === 'week' ? 'Copied' : 'Copy this week'}
+					</button>
+					<button
+						className={ui.btnGhost}
+						type="button"
+						disabled={!planData.views.length}
+						onClick={() => copyText('all', formatAllWeeksClipboard(planData.views, todayIso))}
+					>
+						{copied === 'all' ? 'Copied' : 'Copy all planned weeks'}
+					</button>
+				</div>
 			</div>
 			{view ? (
 				<WeekPlanBoard
@@ -135,6 +192,34 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 				<p className={cn(ui.muted, 'mt-0 mb-4')}>
 					Week {selected} ({planWeekDateRange(selected)}) is not in the plan yet.
 				</p>
+			)}
+			{authed && (
+				<div className={cn(ui.panel, ui.form, 'mt-4')}>
+					<h3>Paste updated JSON</h3>
+					<p className={cn(ui.muted, 'mt-[0.3rem]')}>
+						Same shape as Generate — one week object or an array of weeks. Merged by week
+						number.
+					</p>
+					<label className={ui.field}>
+						<textarea
+							className={ui.editor}
+							rows={8}
+							placeholder='{ "week": 5, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'
+							value={planJson}
+							onChange={(e) => setPlanJson(e.target.value)}
+						/>
+					</label>
+					<div className={ui.actions}>
+						<button
+							className={ui.btnPrimary}
+							type="button"
+							onClick={savePastedPlan}
+							disabled={!planJson.trim()}
+						>
+							Add to plan
+						</button>
+					</div>
+				</div>
 			)}
 		</>
 	);

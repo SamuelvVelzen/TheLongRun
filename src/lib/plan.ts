@@ -342,6 +342,90 @@ export function formatUnplannedBrief(items: UnplannedActivity[]): string {
 		.join('\n');
 }
 
+function sessionCopyState(s: WeekSessionView): string {
+	if (s.done) return 'done';
+	if (s.skipped) return 'skipped';
+	if (s.unlogged) return 'unlogged — no activity logged yet, do not assume skipped';
+	if (s.isNext) return s.isToday ? 'next (today)' : 'next';
+	if (s.isToday) return 'today';
+	return 'upcoming';
+}
+
+export function formatWeekPlanMarkdown(view: WeekView): string {
+	const w = view.week;
+	const lines = [
+		`## Week ${w.week} — ${[w.dates, w.phase, w.focus].filter(Boolean).join(' · ')}`
+	];
+	const groups = weekDayGroups(view);
+	if (!groups.length) {
+		lines.push('- (no sessions)');
+		return lines.join('\n');
+	}
+	for (const g of groups) {
+		const date = g.date ? ` (${g.date})` : '';
+		for (const s of g.sessions) {
+			const type = activityLabel(s.activity_type ?? 'run');
+			const km = s.distance_km != null ? ` · ${s.distance_km} km` : '';
+			lines.push(
+				`- ${s.day}${date}: ${type}${km} · ${s.label} — ${s.detail} [${sessionCopyState(s)}]`
+			);
+		}
+		for (const u of g.unplanned) {
+			const km = u.distance_km != null ? ` · ${u.distance_km} km` : '';
+			lines.push(
+				`- ${u.day} (${u.date}): ${activityLabel(u.activity_type)}${km} [unplanned] · slug \`${u.slug}\``
+			);
+		}
+	}
+	return lines.join('\n');
+}
+
+export function weekToPlanJson(week: PlanWeek): unknown {
+	return {
+		week: week.week,
+		dates: week.dates,
+		phase: week.phase,
+		focus: week.focus,
+		sessions: week.sessions.map((s) => ({
+			day: s.day,
+			activity_type: s.activity_type ?? 'run',
+			label: s.label,
+			distance_km: s.distance_km,
+			detail: s.detail
+		}))
+	};
+}
+
+const COPY_STATUS_HINT =
+	'Session states: done / skipped / unlogged / next / upcoming / unplanned. Unplanned logs are extra load, already done — do not add a plan row just to file them. If I ask you to revise remaining sessions, keep completed ones and return one JSON object I can paste back.';
+
+export function formatWeekPlanClipboard(view: WeekView, todayIso: string): string {
+	return `# The Long Run — week ${view.week.week} snapshot
+Today: ${todayIso}. Use this as the current week if we are switching chats. ${COPY_STATUS_HINT}
+
+${formatWeekPlanMarkdown(view)}
+
+\`\`\`json
+${JSON.stringify(weekToPlanJson(view.week), null, 2)}
+\`\`\`
+`;
+}
+
+export function formatAllWeeksClipboard(views: WeekView[], todayIso: string): string {
+	const ordered = [...views].sort((a, b) => a.week.week - b.week.week);
+	const markdown = ordered.map((v) => formatWeekPlanMarkdown(v)).join('\n\n');
+	const json = ordered.map((v) => weekToPlanJson(v.week));
+	return `# The Long Run — plan snapshot
+Today: ${todayIso}. Weeks below already have sessions. ${COPY_STATUS_HINT}
+
+${markdown || '- (no planned weeks yet)'}
+
+\`\`\`json
+${JSON.stringify(json, null, 2)}
+\`\`\`
+`;
+}
+
 /** Attach planned-route refs to a week view. Key is lowercase weekday. */
 export function withSessionRoutes(
 	view: WeekView,

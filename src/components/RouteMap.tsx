@@ -1,3 +1,4 @@
+import { cssColor } from '$lib/theme';
 import { loadLeaflet } from '$lib/leaflet';
 import {
     addBasemap,
@@ -129,7 +130,7 @@ export function RouteMap({
 					setColored(true);
 				} else {
 					L.polyline(coords, {
-						color: '#c8f25a',
+						color: cssColor('--accent', '#c8f25a'),
 						weight: 3.5,
 						opacity: 0.92,
 						lineJoin: 'round',
@@ -169,7 +170,7 @@ export function RouteMap({
 	}, [routeId, kmMarkers]);
 
 	return (
-		<div className="route-map-wrap map-wrap relative rounded-box overflow-hidden border border-line bg-black/35" ref={wrapRef}>
+		<div className="route-map-wrap map-wrap relative rounded-box overflow-hidden border border-line bg-inset" ref={wrapRef}>
 			{status && (
 				<p
 					className={`route-map-status absolute z-[2] left-[0.85rem] top-[0.85rem] m-0 px-[0.65rem] py-[0.35rem] rounded-full bg-[rgba(16,20,15,0.85)] border border-line text-[0.85rem] ${failed ? 'text-[#ffd4c2] border-[rgba(255,138,91,0.4)]' : 'text-muted'}`}

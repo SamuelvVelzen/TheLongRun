@@ -1,5 +1,6 @@
 import { AuthProvider, SignInLink, useAuthed } from '$lib/auth';
 import { getAuthState } from '$lib/server/functions';
+import { applyTheme, getTheme, themeInitScript } from '$lib/theme';
 import { cn } from '$lib/ui';
 import { createRootRoute, HeadContent, Link, Outlet, Scripts } from '@tanstack/react-router';
 import { useEffect, type MouseEvent, type MouseEventHandler, type ReactNode } from 'react';
@@ -7,6 +8,7 @@ import '../app.css';
 import { Icon } from '../components/Icon';
 import { PwaInstall } from '../components/PwaInstall';
 import { SnackbarProvider } from '../components/Snackbar';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 export const Route = createRootRoute({
 	head: () => ({
@@ -69,10 +71,10 @@ const navCoach =
 const navAuth =
 	'inline-flex items-center justify-center size-11 shrink-0 rounded-full text-muted transition-colors duration-150 hover:text-fg hover:bg-panel';
 const navAdd =
-	'inline-flex items-center justify-center size-11 shrink-0 rounded-full bg-accent text-accent-ink transition-[opacity,box-shadow] duration-150 hover:opacity-90 data-[status=active]:shadow-[0_0_0_3px_rgba(200,242,90,0.28)]';
+	'inline-flex items-center justify-center size-11 shrink-0 rounded-full bg-accent text-accent-ink transition-[opacity,box-shadow] duration-150 hover:opacity-90 data-[status=active]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_28%,transparent)]';
 const tabItem =
-	'group flex-1 flex flex-col items-center justify-center gap-[0.12rem] min-w-0 min-h-11 p-[0.2rem_0.15rem] rounded-xl text-muted bg-transparent cursor-pointer transition-colors duration-150 hover:text-fg active:text-fg data-[status=active]:text-accent! data-[status=active]:hover:text-accent';
-const tabItemPrimary = cn(tabItem, 'text-accent');
+	'group flex-1 flex flex-col items-center justify-center gap-[0.12rem] min-w-0 min-h-11 p-[0.2rem_0.15rem] rounded-xl text-muted bg-transparent cursor-pointer transition-colors duration-150 hover:text-fg active:text-fg data-[status=active]:text-accent-fg! data-[status=active]:hover:text-accent-fg';
+const tabItemPrimary = cn(tabItem, 'text-accent-fg');
 const tabMoreLink =
 	'flex items-center gap-[0.65rem] min-h-11 px-[0.9rem] py-[0.55rem] rounded-xl text-muted transition-colors duration-150 hover:text-fg hover:bg-panel data-[status=active]:text-fg! data-[status=active]:bg-panel! active:text-fg active:bg-panel';
 
@@ -98,6 +100,7 @@ function RootShell() {
 	const authed = useAuthed();
 	const extra = moreLinks.filter((l) => authed || l.href !== '/import');
 	useEffect(() => {
+		applyTheme(getTheme());
 		if ('serviceWorker' in navigator) {
 			void navigator.serviceWorker.register('/sw.js');
 		}
@@ -109,7 +112,7 @@ function RootShell() {
 				<header className="app-header flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-8 pt-[calc(0.85rem+env(safe-area-inset-top,0px))] pb-[0.85rem] border-b border-line max-sm:mb-0">
 					<Link
 						to="/"
-						className="shrink-0 font-display font-extrabold text-[1.35rem] tracking-[-0.04em] max-sm:text-[1.15rem] max-sm:py-[0.15rem] [&_span]:text-accent"
+						className="shrink-0 font-display font-extrabold text-[1.35rem] tracking-[-0.04em] max-sm:text-[1.15rem] max-sm:py-[0.15rem] [&_span]:text-accent-fg"
 					>
 						The Long <span>Run</span>
 					</Link>
@@ -127,6 +130,7 @@ function RootShell() {
 						))}
 						<DesktopMore />
 					</nav>
+					<ThemeToggle className={cn(navAuth, 'max-sm:hidden')} />
 					{authed ? (
 						<Link
 							to="/import"
@@ -143,7 +147,7 @@ function RootShell() {
 				</header>
 				<Outlet />
 				<nav
-					className="tab-bar hidden max-sm:flex items-stretch justify-around fixed inset-x-0 bottom-0 z-40 gap-[0.15rem] min-h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pt-[0.3rem] pl-[max(0.35rem,env(safe-area-inset-left,0px))] pr-[max(0.35rem,env(safe-area-inset-right,0px))] pb-[calc(0.3rem+env(safe-area-inset-bottom,0px))] border-t border-line shadow-[0_-12px_32px_rgba(0,0,0,0.28)]"
+					className="tab-bar hidden max-sm:flex items-stretch justify-around fixed inset-x-0 bottom-0 z-40 gap-[0.15rem] min-h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pt-[0.3rem] pl-[max(0.35rem,env(safe-area-inset-left,0px))] pr-[max(0.35rem,env(safe-area-inset-right,0px))] pb-[calc(0.3rem+env(safe-area-inset-bottom,0px))] border-t border-line"
 					aria-label="Primary"
 				>
 					{tabs.map((tab) => (
@@ -157,7 +161,7 @@ function RootShell() {
 								className={cn(
 									'flex items-center justify-center size-6 leading-[0]',
 									tab.primary &&
-									'size-11 -mt-[1.15rem] rounded-full bg-accent text-accent-ink shadow-[0_8px_18px_rgba(0,0,0,0.35)] group-data-[status=active]:shadow-[0_0_0_3px_rgba(200,242,90,0.22),0_8px_18px_rgba(0,0,0,0.35)]'
+									'size-11 -mt-[1.15rem] rounded-full bg-accent text-accent-ink shadow-[0_8px_18px_rgba(0,0,0,0.35)] group-data-[status=active]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_22%,transparent),0_8px_18px_rgba(0,0,0,0.35)]'
 								)}
 							>
 								<Icon name={tab.icon} size={22} />
@@ -168,7 +172,7 @@ function RootShell() {
 						</Link>
 					))}
 					<details className="relative flex-1 min-w-0 group">
-						<summary className={cn(tabItem, 'list-none w-full [&::-webkit-details-marker]:hidden group-has-[a[data-status=active]]:text-accent')}>
+						<summary className={cn(tabItem, 'list-none w-full [&::-webkit-details-marker]:hidden group-has-[a[data-status=active]]:text-accent-fg')}>
 							<span className="flex items-center justify-center size-6 leading-[0]">
 								<Icon name="more" size={22} />
 							</span>
@@ -205,6 +209,7 @@ function RootShell() {
 								<Icon name="external" size={13} className="ml-auto opacity-70" />
 							</a>
 							<PwaInstall className={tabMoreLink} />
+							<ThemeToggle className={tabMoreLink} showLabel onClick={closeDetails} />
 							{authed ? (
 								<>
 									<div className="my-[0.15rem] border-t border-line" />
@@ -260,6 +265,7 @@ function DesktopMore() {
 					Plan route
 					<Icon name="external" size={13} className="ml-auto opacity-70" />
 				</a>
+				<ThemeToggle className={tabMoreLink} showLabel onClick={closeDetails} />
 				{authed ? (
 					<>
 						<div className="my-[0.15rem] border-t border-line" />
@@ -314,8 +320,9 @@ function AuthNavIcon() {
 
 function RootDocument({ children }: { children: ReactNode }) {
 	return (
-		<html lang="en">
+		<html lang="en" suppressHydrationWarning>
 			<head>
+				<script dangerouslySetInnerHTML={{ __html: themeInitScript() }} />
 				<HeadContent />
 			</head>
 			<body>

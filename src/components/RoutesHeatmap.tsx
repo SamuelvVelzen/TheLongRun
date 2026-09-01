@@ -1,3 +1,4 @@
+import { cssColor } from '$lib/theme';
 import { loadLeaflet } from '$lib/leaflet';
 import {
     addBasemap,
@@ -73,7 +74,7 @@ export function RoutesHeatmap({
 					if (track.coords.length < 2) continue;
 					const info = meta[track.id];
 					const line = L.polyline(track.coords, {
-						color: '#c8f25a',
+						color: cssColor('--accent', '#c8f25a'),
 						weight: 2.5,
 						opacity: 0.45,
 						lineJoin: 'round',
@@ -129,14 +130,14 @@ export function RoutesHeatmap({
 
 	if (!tracks.length) {
 		return (
-			<div className="p-[2rem_1.2rem] text-center border border-dashed border-line rounded-box bg-black/20 text-muted">
+			<div className="p-[2rem_1.2rem] text-center border border-dashed border-line rounded-box bg-inset text-muted">
 				{emptyText}
 			</div>
 		);
 	}
 
 	return (
-		<div className="heatmap-wrap map-wrap relative rounded-box overflow-hidden border border-line bg-black/35" ref={wrapRef}>
+		<div className="heatmap-wrap map-wrap relative rounded-box overflow-hidden border border-line bg-inset" ref={wrapRef}>
 			{status && (
 				<p
 					className={`heatmap-status absolute z-[2] left-[0.85rem] top-[0.85rem] m-0 px-[0.65rem] py-[0.35rem] rounded-full bg-[rgba(16,20,15,0.85)] border border-line text-[0.85rem] ${failed ? 'text-[#ffd4c2] border-[rgba(255,138,91,0.4)]' : 'text-muted'}`}

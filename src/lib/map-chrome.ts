@@ -1,5 +1,6 @@
 /** Shared Leaflet map chrome: zoom, fit, fullscreen, scroll/touch polish. */
 import type { LeafletGlobal } from '$lib/leaflet';
+import { cssColor, getTheme, THEME_EVENT } from '$lib/theme';
 
 export type MapChromeHandle = {
 	destroy: () => void;
@@ -32,6 +33,7 @@ export function leafletMapOptions() {
 }
 
 const OPENFREEMAP_DARK = 'https://tiles.openfreemap.org/styles/dark';
+const OPENFREEMAP_LIGHT = 'https://tiles.openfreemap.org/styles/liberty';
 const OPENFREEMAP_ATTR =
 	'<a href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap</a> <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer">&copy; OpenMapTiles</a> <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">&copy; OpenStreetMap</a>';
 
@@ -80,9 +82,13 @@ const NAV_LAYOUT: Record<string, Record<string, unknown>> = {
 	highway_name_other: { 'text-size': 13 }
 };
 
+function basemapStyle(): string {
+	return getTheme() === 'light' ? OPENFREEMAP_LIGHT : OPENFREEMAP_DARK;
+}
+
 /**
- * OpenFreeMap dark vector tiles via MapLibre GL Leaflet. No API key.
- * Street-level paint is lifted so roads and names stay readable on a phone.
+ * OpenFreeMap vector tiles via MapLibre GL Leaflet. No API key.
+ * Street-level paint is lifted on the dark style so roads stay readable on a phone.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function glFromLayer(layer: any) {
@@ -95,11 +101,12 @@ export function addBasemap(L: LeafletGlobal, map: any) {
 		throw new Error('MapLibre GL Leaflet failed to load');
 	}
 	const layer = L.maplibreGL({
-		style: OPENFREEMAP_DARK,
+		style: basemapStyle(),
 		attribution: OPENFREEMAP_ATTR
 	}).addTo(map);
 
 	const paintWhenReady = (attempt = 0) => {
+		if (getTheme() === 'light') return;
 		const gl = glFromLayer(layer);
 		if (gl?.getLayer?.('highway_name_other')) {
 			applyNavigablePaint(gl);
@@ -108,7 +115,26 @@ export function addBasemap(L: LeafletGlobal, map: any) {
 		if (attempt < 80) setTimeout(() => paintWhenReady(attempt + 1), 50);
 	};
 	paintWhenReady();
-	glFromLayer(layer)?.on?.('style.load', () => applyNavigablePaint(glFromLayer(layer)));
+	glFromLayer(layer)?.on?.('style.load', () => {
+		if (getTheme() === 'light') return;
+		applyNavigablePaint(glFromLayer(layer));
+	});
+
+	const onTheme = () => {
+		const gl = glFromLayer(layer);
+		if (!gl?.setStyle) return;
+		gl.setStyle(basemapStyle());
+		gl.once?.('style.load', () => {
+			if (getTheme() !== 'light') applyNavigablePaint(gl);
+			try {
+				layer.bringToBack?.();
+			} catch {
+				/* ignore */
+			}
+		});
+	};
+	window.addEventListener(THEME_EVENT, onTheme);
+	map.on?.('unload', () => window.removeEventListener(THEME_EVENT, onTheme));
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -151,7 +177,7 @@ function iconBtn(label: string, title: string, svg: string): HTMLButtonElement {
 	const btn = document.createElement('button');
 	btn.type = 'button';
 	btn.className =
-		'map-chrome-btn inline-flex items-center justify-center size-11 min-w-11 min-h-11 p-0 rounded-[10px] border border-line bg-[rgba(16,20,15,0.88)] text-fg cursor-pointer shadow-[0_8px_20px_rgba(0,0,0,0.35)] transition-colors duration-150 hover:border-[rgba(200,242,90,0.45)] hover:text-accent active:border-[rgba(200,242,90,0.45)] active:text-accent focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2';
+		'map-chrome-btn inline-flex items-center justify-center size-11 min-w-11 min-h-11 p-0 rounded-[10px] border border-line bg-surface/90 text-fg cursor-pointer shadow-lift transition-colors duration-150 hover:border-accent/45 hover:text-accent-fg active:border-accent/45 active:text-accent-fg focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2';
 	btn.title = title;
 	btn.setAttribute('aria-label', title);
 	btn.style.touchAction = 'manipulation';
@@ -294,7 +320,7 @@ function applyFsBox(wrap: HTMLElement, mapEl: HTMLElement, on: boolean, nativeFs
 		wrap.style.setProperty('border-radius', '0', 'important');
 		wrap.style.setProperty('border', 'none', 'important');
 		wrap.style.setProperty('box-sizing', 'border-box', 'important');
-		wrap.style.setProperty('background', '#0c100c', 'important');
+		wrap.style.setProperty('background', cssColor('--map-bg', '#0c100c'), 'important');
 		wrap.style.setProperty('overflow', 'hidden', 'important');
 
 		mapEl.style.setProperty('display', 'block', 'important');
@@ -663,9 +689,9 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 					}).addTo(map);
 					locAccuracy = L.circle(latlng, {
 						radius: Math.max(12, acc),
-						color: '#4da3ff',
+						color: cssColor('--loc', '#4da3ff'),
 						weight: 1,
-						fillColor: '#4da3ff',
+						fillColor: cssColor('--loc', '#4da3ff'),
 						fillOpacity: 0.14,
 						interactive: false
 					}).addTo(map);
@@ -756,7 +782,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 export function kmMarkerIcon(L: LeafletGlobal, km: number) {
 	return L.divIcon({
 		className: 'km-marker',
-		html: `<span class="km-marker-pill inline-flex items-center justify-center min-w-[1.35rem] h-[1.35rem] px-1 rounded-full bg-[rgba(16,20,15,0.88)] border border-[rgba(200,242,90,0.55)] text-accent font-display text-[0.68rem] font-bold leading-none shadow-[0_4px_12px_rgba(0,0,0,0.4)]">${km}</span>`,
+		html: `<span class="km-marker-pill inline-flex items-center justify-center min-w-[1.35rem] h-[1.35rem] px-1 rounded-full bg-surface/90 border border-accent/55 text-accent-fg font-display text-[0.68rem] font-bold leading-none shadow-[0_4px_12px_rgba(0,0,0,0.4)]">${km}</span>`,
 		iconSize: [22, 22],
 		iconAnchor: [11, 11]
 	});

@@ -33,6 +33,7 @@ export type IconName =
 	| 'circle'
 	| 'arrow'
 	| 'sun'
+	| 'moon'
 	| 'unplanned'
 	| 'trophy'
 	| 'install'
@@ -255,6 +256,8 @@ function Paths({ name }: { name: IconName }) {
 					<path d="M12 4.2v2M12 17.8v2M4.2 12h2M17.8 12h2M6.5 6.5l1.4 1.4M16.1 16.1l1.4 1.4M6.5 17.5l1.4-1.4M16.1 7.9l1.4-1.4" />
 				</>
 			);
+		case 'moon':
+			return <path d="M16.2 3.8A8.2 8.2 0 1 0 20.2 15 6.6 6.6 0 0 1 16.2 3.8z" />;
 		case 'unplanned':
 			return (
 				<>
@@ -362,7 +365,7 @@ export function ActivityMark({ type, className }: { type: string; className?: st
 	return (
 		<span
 			className={cn(
-				'inline-flex items-center justify-center size-9 rounded-[11px] bg-[rgba(200,242,90,0.1)] text-accent ring-1 ring-inset ring-[rgba(200,242,90,0.28)] shrink-0',
+				'inline-flex items-center justify-center size-9 rounded-[11px] bg-accent/10 text-accent-fg ring-1 ring-inset ring-accent/28 shrink-0',
 				className
 			)}
 			title={label}

@@ -1,9 +1,9 @@
-import { activityLabel } from '$lib/activity';
 import type { DateRange } from '$lib/date-range';
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
 import { cn, ui } from '$lib/ui';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { Icon } from './Icon';
+import { sportSummaryLabel } from './SportFilter';
 
 /** Compact trigger text, e.g. "Run · 30 days" or "All · All time · NL". */
 export function filterSummary(
@@ -11,7 +11,7 @@ export function filterSummary(
 	range: DateRange,
 	location?: { country?: string; province?: string; place?: string }
 ): string {
-	const sportPart = sport === 'all' ? 'All activities' : activityLabel(sport);
+	const sportPart = sportSummaryLabel(sport);
 	const rangePart =
 		range.kind === '7d'
 			? '7 days'

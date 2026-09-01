@@ -28,11 +28,16 @@ import { ActivityIcon, ActivityMark, Icon } from '../components/Icon';
 import { PlaceFilter } from '../components/PlaceFilter';
 import { RouteChip } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
-import { SportFilter } from '../components/SportFilter';
+import {
+    matchesSportFilter,
+    parseSportSearch,
+    selectedSports,
+    SportFilter,
+    sportIsAll
+} from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 
 type DashSearch = RangeSearch & { sport?: string; country?: string; province?: string; place?: string };
-const SPORTS = ['all', 'run', 'walk', 'ride', 'swim', 'strength'];
 
 const nextUpBase =
 	'mt-5 p-[1rem_1.1rem_1.05rem] border border-line rounded-xl max-sm:p-[0.85rem_0.9rem_0.9rem] [&_h2]:text-[1.45rem] [&_h2]:font-[750] [&_h2]:tracking-[-0.03em] [&_h2]:m-0 [&_h2]:mb-[0.35rem] [&_h2]:[overflow-wrap:anywhere] [&_p]:m-0 [&_p]:leading-[1.45] max-sm:[&_h2]:text-[1.2rem]';
@@ -54,7 +59,7 @@ export const Route = createFileRoute('/')({
 			: undefined,
 		from: typeof s.from === 'string' ? s.from : undefined,
 		to: typeof s.to === 'string' ? s.to : undefined,
-		sport: SPORTS.includes(s.sport as string) ? (s.sport as string) : undefined,
+		sport: parseSportSearch(s.sport),
 		country: typeof s.country === 'string' ? s.country : undefined,
 		province: typeof s.province === 'string' ? s.province : undefined,
 		place: typeof s.place === 'string' ? s.place : undefined
@@ -151,15 +156,16 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 	const allRuns = data.runs;
 	const availableSports = new Set(allRuns.map((r) => normalizeActivityType(r.activity_type)));
 	const scoped = allRuns
-		.filter((r) => sport === 'all' || normalizeActivityType(r.activity_type) === sport)
+		.filter((r) => matchesSportFilter(r.activity_type, sport))
 		.filter((r) => country === 'all' || r.country === country)
 		.filter((r) => province === 'all' || r.province === province)
 		.filter((r) => place === 'all' || r.place === place);
 	const runs = filterRunsByRange(scoped, range);
 	const trackIds = routeIdsForRuns(runs);
 	const locationActive = country !== 'all' || province !== 'all' || place !== 'all';
+	const sportFilterActive = !sportIsAll(sport);
 	const tracks =
-		range.kind === 'all' && sport === 'all' && !locationActive
+		range.kind === 'all' && !sportFilterActive && !locationActive
 			? data.tracks
 			: data.tracks.filter((t) => trackIds.has(t.id));
 	const recent = runs.slice(0, 8);
@@ -433,7 +439,8 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 						)}
 					</section>
 					<p className={cn('mb-7 text-[0.88rem]', ui.muted)}>
-						{(sport === 'all' || sport === 'run' || sport === 'walk') && (
+						{(sportIsAll(sport) ||
+							selectedSports(sport).some((s) => s === 'run' || s === 'walk')) && (
 							<>
 								Shins {shinLabel(stats)}
 								<span aria-hidden="true"> · </span>
@@ -459,14 +466,14 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 						<div className={cn(ui.sectionTitle, 'mt-2')}>
 							<div>
 								<h2 id="routes-heading">
-									{rangeActive || sport !== 'all' || locationActive
+									{rangeActive || sportFilterActive || locationActive
 										? 'Routes in view'
 										: 'All routes'}
 								</h2>
 								<p>
 									{tracks.length
 										? `${tracks.length} tracks overlaid · overlaps glow brighter`
-										: rangeActive || sport !== 'all' || locationActive
+										: rangeActive || sportFilterActive || locationActive
 											? 'No GPS routes in this view'
 											: 'Heatmap appears when GPS routes are imported'}
 								</p>
@@ -488,7 +495,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 								to="/timeline"
 								search={{
 									...timelineSearch,
-									sport: sport === 'all' ? undefined : sport,
+									sport: sportFilterActive ? sport : undefined,
 									country: country === 'all' ? undefined : country,
 									province: province === 'all' ? undefined : province,
 									place: place === 'all' ? undefined : place

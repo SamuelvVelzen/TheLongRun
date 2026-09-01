@@ -1,36 +1,42 @@
+import {
+    activityLabel,
+    activityPlural,
+    activityTally,
+    hasContext,
+    metricText,
+    normalizeActivityType,
+    showsField
+} from '$lib/activity';
+import { AuthGate } from '$lib/auth';
+import {
+    buildBestEffortBoard,
+    highlightsForActivity,
+    supportsBestEfforts
+} from '$lib/best-efforts';
+import { filterRunsByRange, parseDateRange, type RangeKind } from '$lib/date-range';
+import { deleteRun, getTimelineRuns } from '$lib/server/functions';
+import { buildTrainingTrends } from '$lib/trends';
+import type { RunWithMap } from '$lib/types';
+import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
-import { AuthGate } from '$lib/auth';
-import { getTimelineRuns, deleteRun } from '$lib/server/functions';
-import { cn, ui } from '$lib/ui';
-import { filterRunsByRange, parseDateRange, type RangeKind } from '$lib/date-range';
-import { buildTrainingTrends } from '$lib/trends';
-import {
-	activityLabel,
-	activityPlural,
-	activityTally,
-	hasContext,
-	metricText,
-	normalizeActivityType,
-	showsField
-} from '$lib/activity';
-import { FeelBadge } from '../components/FeelBadge';
-import type { RunWithMap } from '$lib/types';
+import { BestEffortBadges, BestEffortBoard } from '../components/BestEffortBadges';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
+import { DeferredData } from '../components/DeferredData';
+import { DeleteButton } from '../components/DeleteButton';
+import { ConfirmDialog } from '../components/Dialog';
+import { FeelBadge } from '../components/FeelBadge';
 import { FilterSheet, filterSummary } from '../components/FilterSheet';
 import { ActivityTag, Icon } from '../components/Icon';
 import { PlaceFilter } from '../components/PlaceFilter';
-import { SportFilter } from '../components/SportFilter';
-import { TrendsSection } from '../components/TrendsSection';
-import { DeferredData } from '../components/DeferredData';
-import { BestEffortBadges, BestEffortBoard } from '../components/BestEffortBadges';
-import { ConfirmDialog } from '../components/Dialog';
-import { DeleteButton } from '../components/DeleteButton';
 import {
-	buildBestEffortBoard,
-	highlightsForActivity,
-	supportsBestEfforts
-} from '$lib/best-efforts';
+    matchesSportFilter,
+    parseSportSearch,
+    selectedSports,
+    SportFilter,
+    sportIsAll
+} from '../components/SportFilter';
+import { TrendsSection } from '../components/TrendsSection';
 
 type TimelineSearch = RangeSearch & {
 	sport?: string;
@@ -38,7 +44,6 @@ type TimelineSearch = RangeSearch & {
 	province?: string;
 	place?: string;
 };
-const SPORTS = ['all', 'run', 'walk', 'ride', 'swim', 'strength'];
 
 export const Route = createFileRoute('/timeline')({
 	validateSearch: (s: Record<string, unknown>): TimelineSearch => ({
@@ -47,7 +52,7 @@ export const Route = createFileRoute('/timeline')({
 			: undefined,
 		from: typeof s.from === 'string' ? s.from : undefined,
 		to: typeof s.to === 'string' ? s.to : undefined,
-		sport: SPORTS.includes(s.sport as string) ? (s.sport as string) : undefined,
+		sport: parseSportSearch(s.sport),
 		country: typeof s.country === 'string' ? s.country : undefined,
 		province: typeof s.province === 'string' ? s.province : undefined,
 		place: typeof s.place === 'string' ? s.place : undefined
@@ -124,15 +129,16 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 	const availableSports = new Set(allRuns.map((r) => normalizeActivityType(r.activity_type)));
 
 	const scoped = allRuns
-		.filter((r) => sport === 'all' || normalizeActivityType(r.activity_type) === sport)
+		.filter((r) => matchesSportFilter(r.activity_type, sport))
 		.filter((r) => country === 'all' || r.country === country)
 		.filter((r) => province === 'all' || r.province === province)
 		.filter((r) => place === 'all' || r.place === place);
 	const runs = filterRunsByRange(scoped, range);
 	const groups = groupRuns(runs);
 	const trends = buildTrainingTrends(runs, { endDate: range.to, fromDate: range.from });
-	const boardSport = sport === 'walk' ? 'walk' : 'run';
-	const showBoard = sport === 'all' || sport === 'run' || sport === 'walk';
+	const selected = selectedSports(sport);
+	const boardSport = !selected.includes('run') && selected.includes('walk') ? 'walk' : 'run';
+	const showBoard = sportIsAll(sport) || selected.includes('run') || selected.includes('walk');
 	const board = showBoard ? buildBestEffortBoard(allRuns, boardSport) : [];
 	const highlightsBySlug = new Map(
 		allRuns

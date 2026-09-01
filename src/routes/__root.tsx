@@ -36,11 +36,9 @@ export const Route = createRootRoute({
 const headerLinks = [
 	{ href: '/', label: 'Dashboard', icon: 'home' },
 	{ href: '/timeline', label: 'Timeline', icon: 'timeline' },
-	{ href: '/routes', label: 'Routes', icon: 'routes' },
 	{ href: '/coach', label: 'Coach', icon: 'coach' },
-	{ href: '/goals', label: 'Goals', icon: 'trophy' },
-	{ href: '/import', label: 'Add activity', icon: 'plus' },
-	{ href: '/context', label: 'Context', icon: 'context' }
+	{ href: '/routes', label: 'Routes', icon: 'routes' },
+	{ href: '/goals', label: 'Goals', icon: 'trophy' }
 ] as const;
 
 const moreLinks = [
@@ -48,6 +46,8 @@ const moreLinks = [
 	{ href: '/import', label: 'Add activity', icon: 'plus' },
 	{ href: '/context', label: 'Context', icon: 'context' }
 ] as const;
+
+const desktopMoreLinks = [{ href: '/context', label: 'Context', icon: 'context' }] as const;
 
 const PLAN_ROUTE_HREF = 'https://brouter.de/brouter-web/';
 
@@ -64,6 +64,8 @@ const navCoach =
 	'inline-flex items-center gap-1.5 min-h-11 px-3 py-[0.45rem] rounded-full text-muted whitespace-nowrap transition-colors duration-150 hover:text-fg hover:bg-panel data-[status=active]:text-accent-ink! data-[status=active]:bg-accent!';
 const navAuth =
 	'inline-flex items-center justify-center size-11 shrink-0 rounded-full text-muted transition-colors duration-150 hover:text-fg hover:bg-panel';
+const navAdd =
+	'inline-flex items-center justify-center size-11 shrink-0 rounded-full bg-accent text-accent-ink transition-[opacity,box-shadow] duration-150 hover:opacity-90 data-[status=active]:shadow-[0_0_0_3px_rgba(200,242,90,0.28)]';
 const tabItem =
 	'group flex-1 flex flex-col items-center justify-center gap-[0.12rem] min-w-0 min-h-11 p-[0.2rem_0.15rem] rounded-xl text-muted bg-transparent cursor-pointer transition-colors duration-150 hover:text-fg active:text-fg data-[status=active]:text-accent! data-[status=active]:hover:text-accent';
 const tabItemPrimary = cn(tabItem, 'text-accent');
@@ -90,7 +92,6 @@ function RootComponent() {
 
 function RootShell() {
 	const authed = useAuthed();
-	const links = headerLinks.filter((l) => authed || l.href !== '/import');
 	const extra = moreLinks.filter((l) => authed || l.href !== '/import');
 	useEffect(() => {
 		if ('serviceWorker' in navigator) {
@@ -109,7 +110,7 @@ function RootShell() {
 						The Long <span>Run</span>
 					</Link>
 					<nav className="flex flex-1 flex-wrap items-center justify-end gap-[0.35rem] max-sm:hidden" aria-label="Primary">
-						{links.map((l) => (
+						{headerLinks.map((l) => (
 							<Link
 								key={l.href}
 								to={l.href}
@@ -120,11 +121,18 @@ function RootShell() {
 								{l.label}
 							</Link>
 						))}
-						<a href={PLAN_ROUTE_HREF} target="_blank" rel="noreferrer noopener" className={navLink}>
-							<Icon name="map" size={15} />
-							Plan route
-							<Icon name="external" size={12} />
-						</a>
+						{authed ? (
+							<Link
+								to="/import"
+								className={navAdd}
+								aria-label="Add activity"
+								title="Add activity"
+								activeOptions={{ includeSearch: false }}
+							>
+								<Icon name="plus" size={20} />
+							</Link>
+						) : null}
+						<DesktopMore />
 					</nav>
 					<AuthNavIcon />
 				</header>
@@ -198,6 +206,50 @@ function RootShell() {
 			</div>
 			</SnackbarProvider>
 		</RootDocument>
+	);
+}
+
+function DesktopMore() {
+	return (
+		<details className="relative z-50 group">
+			<summary
+				className={cn(
+					navLink,
+					'relative z-[42] list-none cursor-pointer [&::-webkit-details-marker]:hidden',
+					'group-open:text-fg group-open:bg-panel',
+					'group-has-[a[data-status=active]]:text-fg group-has-[a[data-status=active]]:bg-panel'
+				)}
+			>
+				<Icon name="more" size={15} />
+				More
+			</summary>
+			<div className="fixed inset-0 z-40 cursor-pointer" onClick={closeDetails} aria-hidden="true" />
+			<div className="absolute right-0 top-[calc(100%+0.35rem)] z-[41] grid min-w-[13rem] gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">
+				{desktopMoreLinks.map((l) => (
+					<Link
+						key={l.href}
+						to={l.href}
+						className={tabMoreLink}
+						activeOptions={{ includeSearch: false }}
+						onClick={closeDetails}
+					>
+						<Icon name={l.icon} size={18} />
+						{l.label}
+					</Link>
+				))}
+				<a
+					href={PLAN_ROUTE_HREF}
+					target="_blank"
+					rel="noreferrer noopener"
+					className={tabMoreLink}
+					onClick={closeDetails}
+				>
+					<Icon name="map" size={18} />
+					Plan route
+					<Icon name="external" size={13} className="ml-auto opacity-70" />
+				</a>
+			</div>
+		</details>
 	);
 }
 

@@ -4,10 +4,10 @@ import {
     formatAllWeeksClipboard,
     formatWeekPlanClipboard,
     isoDateLocal,
-    PLAN_WEEK_COUNT,
     planWeekDateRange
 } from '$lib/plan';
 import {
+    completeGoal,
     getCoachBrief,
     getCoachPlan,
     getDebriefPrompt,
@@ -68,7 +68,7 @@ function parsePlanWeek(v: unknown): number | undefined {
 	const n = Number(v);
 	if (!Number.isFinite(n)) return undefined;
 	const week = Math.floor(n);
-	if (week < 1 || week > PLAN_WEEK_COUNT) return undefined;
+	if (week < 1 || week > 52) return undefined;
 	return week;
 }
 
@@ -87,15 +87,16 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 	const authed = useAuthed();
 	const snack = useSnackbar();
 	const current = planData.currentWeek;
+	const weekCount = planData.calendar.weekCount;
 	const upcomingWeek = planData.views.find((v) => v.next)?.week.week ?? current;
-	const selected = search.planWeek ?? upcomingWeek;
+	const selected = Math.min(weekCount, search.planWeek ?? upcomingWeek);
 	const byWeek = new Map(planData.views.map((v) => [v.week.week, v]));
 	const view = byWeek.get(selected) ?? null;
 	const [copied, setCopied] = useState<'week' | 'all' | null>(null);
 	const [planJson, setPlanJson] = useState('');
 
 	function setWeek(n: number) {
-		const week = Math.min(PLAN_WEEK_COUNT, Math.max(1, n));
+		const week = Math.min(weekCount, Math.max(1, n));
 		router.navigate({
 			to: '/coach',
 			search: withCoachSearch(search, { tab: 'plan', planWeek: week }),
@@ -137,7 +138,7 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 					<ChoiceChips
 						aria-label="Plan week"
 						value={String(selected)}
-						options={Array.from({ length: PLAN_WEEK_COUNT }, (_, i) => {
+						options={Array.from({ length: weekCount }, (_, i) => {
 							const n = i + 1;
 							const planned = byWeek.has(n);
 							return {
@@ -193,7 +194,7 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 				/>
 			) : (
 				<p className={cn(ui.muted, 'mt-0 mb-4')}>
-					Week {selected} ({planWeekDateRange(selected)}) is not in the plan yet.
+					Week {selected} ({planWeekDateRange(selected, planData.calendar)}) is not in the plan yet.
 				</p>
 			)}
 			{authed && (
@@ -279,8 +280,8 @@ function Coach() {
 					<p className={ui.muted}>This week</p>
 					<h1>Coach</h1>
 					<p>
-						Usual week and the plan toward the race. After a race, debrief so the next sessions stay
-						current.
+						Usual week and the plan. With a race on Goals, the block runs through race week. Without
+						one, generate this week as base training.
 					</p>
 				</div>
 			</section>
@@ -370,6 +371,7 @@ function CoachPanels({
 	const [debriefPrompt, setDebriefPrompt] = useState(initialDebrief.prompt);
 	const [debriefJson, setDebriefJson] = useState('');
 	const [debriefCopied, setDebriefCopied] = useState(false);
+	const [completeAsRace, setCompleteAsRace] = useState(Boolean(initialDebrief.raceCandidate));
 
 	const [usual, setUsual] = useState<SlotRow[]>(() => rowsFrom(initialPattern));
 	const [savedPattern, setSavedPattern] = useState<WeekPattern>(initialPattern);
@@ -382,6 +384,7 @@ function CoachPanels({
 	useEffect(() => {
 		setDebrief(initialDebrief);
 		setDebriefPrompt(initialDebrief.prompt);
+		setCompleteAsRace(Boolean(initialDebrief.raceCandidate));
 	}, [initialDebrief]);
 
 	// Soft slug updates (e.g. after GPX import) refresh the prompt without remounting the page.
@@ -398,6 +401,7 @@ function CoachPanels({
 			if (cancelled) return;
 			setDebrief(next);
 			setDebriefPrompt(next.prompt);
+			setCompleteAsRace(Boolean(next.raceCandidate));
 		});
 		return () => {
 			cancelled = true;
@@ -430,6 +434,10 @@ function CoachPanels({
 				: '';
 			snack.success(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
 			setDebriefJson('');
+			if (completeAsRace && run?.slug && debrief.activeGoal) {
+				await completeGoal({ data: { activitySlug: run.slug } });
+				snack.success(`${debrief.activeGoal.name} is on the medal wall.`);
+			}
 			router.invalidate();
 		} catch (e) {
 			snack.error(errorMessage(e, 'Could not save debrief.'));
@@ -672,6 +680,18 @@ function CoachPanels({
 										onChange={(e) => setDebriefJson(e.target.value)}
 									/>
 								</label>
+								{debrief.activeGoal && run && (
+									<label className="flex items-center gap-3 min-h-11 cursor-pointer">
+										<input
+											type="checkbox"
+											checked={completeAsRace}
+											onChange={(e) => setCompleteAsRace(e.target.checked)}
+										/>
+										<span>
+											This was {debrief.activeGoal.name} — pin the time as a medal
+										</span>
+									</label>
+								)}
 								<div className={ui.actions}>
 									<button
 										className={ui.btnPrimary}
@@ -706,6 +726,13 @@ function CoachPanels({
 						<p className={cn(ui.muted, 'mt-[0.4rem] mb-0')}>
 							Weekly volume and the activity table both cover {range.label.toLowerCase()}. Shorter
 							windows keep the prompt tighter.
+							{planData.activeGoal
+								? ` Generating week ${planData.currentWeek} of ${planData.calendar.weekCount} toward ${planData.activeGoal.name}.`
+								: ' No race on the calendar — this prompt is a base week.'}{' '}
+							<Link className="text-accent font-semibold" to="/goals">
+								Goals
+							</Link>
+							.
 						</p>
 						<p className={cn(ui.muted, 'mt-2 mb-0')}>
 							{mixDirty ? (

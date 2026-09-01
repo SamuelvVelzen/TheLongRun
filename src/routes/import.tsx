@@ -1,11 +1,11 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
 import { SignInPanel, useAuthed } from '$lib/auth';
 import { getLogDefaults } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
+import { createFileRoute, Link } from '@tanstack/react-router';
+import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
 import { LogForm } from '../components/LogForm';
-import { DeferredData } from '../components/DeferredData';
 
 type AddSearch = { mode?: 'gpx' | 'manual' };
 
@@ -29,11 +29,12 @@ function AddActivity() {
 					<p className={ui.muted}>GPX file or type it in</p>
 					<h1>Add activity</h1>
 					<p>
-						Import a <code>.gpx</code> from Strava, or log numbers by hand. After a race, open{' '}
+						Import a <code>.gpx</code> from Strava, or log numbers by hand. After a race, debrief in{' '}
 						<Link to="/coach" search={{ tab: 'debrief' }}>
 							Coach
 						</Link>{' '}
-						to debrief.
+						and pin the time on{' '}
+						<Link to="/goals">Goals</Link>.
 					</p>
 				</div>
 			</section>
@@ -72,7 +73,12 @@ function AddActivity() {
 					) : (
 						<DeferredData promise={page}>
 							{(data) => (
-								<LogForm week={data.week} shoes={data.shoes} shoeWear={data.shoeWear} />
+								<LogForm
+									week={data.week}
+									shoes={data.shoes}
+									shoeWear={data.shoeWear}
+									calendar={data.calendar}
+								/>
 							)}
 						</DeferredData>
 					)}

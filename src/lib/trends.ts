@@ -1,9 +1,9 @@
 /**
  * Training trend series for dashboard / timeline sparklines.
  */
-import { formatDuration, parseDurationSeconds } from '$lib/format';
-import { avg, sumDistance, weekNumberForDate } from '$lib/plan';
 import { isoDateLocal } from '$lib/date-range';
+import { formatDuration, parseDurationSeconds } from '$lib/format';
+import { avg, sumDistance, weekNumberForDate, type PlanCalendar } from '$lib/plan';
 import type { RunRecord } from '$lib/types';
 
 export type TrendPoint = {
@@ -90,7 +90,7 @@ function chronological(runs: RunRecord[]): RunRecord[] {
 /** Weekly distance buckets ending at `endIso`, optionally clipped by `fromDate`. */
 export function buildWeeklyDistance(
 	runs: RunRecord[],
-	opts?: { weekCount?: number; endDate?: string | null; fromDate?: string | null }
+	opts?: { weekCount?: number; endDate?: string | null; fromDate?: string | null; calendar?: PlanCalendar }
 ): TrendPoint[] {
 	const weekCount = opts?.weekCount ?? WEEK_COUNT;
 	const dated = chronological(runs);
@@ -125,9 +125,8 @@ export function buildWeeklyDistance(
 	return entries.map(([iso, raw], i) => {
 		const value = round1(raw);
 		const weeksAgo = lastIdx - i;
-		// Axis reads in weeks, not calendar dates: "now", "-1w", "-2w"…
 		const label = weeksAgo === 0 ? 'now' : `-${weeksAgo}w`;
-		const wk = weekNumberForDate(iso);
+		const wk = opts?.calendar ? weekNumberForDate(iso, opts.calendar) : null;
 		const wkNote = wk != null ? ` · plan wk ${wk}` : '';
 		return { label, value, display: `${value} km · wk of ${shortWeekLabel(iso)}${wkNote}` };
 	});
@@ -239,7 +238,7 @@ function buildHrSeries(runs: RunRecord[]): TrendSeries | null {
 
 function buildDistanceSeries(
 	runs: RunRecord[],
-	opts?: { endDate?: string | null; fromDate?: string | null }
+	opts?: { endDate?: string | null; fromDate?: string | null; calendar?: PlanCalendar }
 ): TrendSeries | null {
 	const points = buildWeeklyDistance(runs, opts);
 	const withData = points.filter((p) => p.value > 0);
@@ -266,7 +265,7 @@ function buildDistanceSeries(
 /** Build the coherent trend set used on Dashboard / Timeline. */
 export function buildTrainingTrends(
 	runs: RunRecord[],
-	opts?: { endDate?: string | null; fromDate?: string | null }
+	opts?: { endDate?: string | null; fromDate?: string | null; calendar?: PlanCalendar }
 ): TrainingTrends {
 	const series: TrendSeries[] = [];
 	const distance = buildDistanceSeries(runs, opts);

@@ -1,6 +1,6 @@
 import { ACTIVITY_TYPES, activityLabel, normalizeActivityType, paceFieldLabel, showsFeel, showsField, type ActivityType } from '$lib/activity';
 import { dayFromIsoDate } from '$lib/format';
-import { weekNumberForDate } from '$lib/plan';
+import { weekNumberForDate, type PlanCalendar } from '$lib/plan';
 import { createRun, type CreateRunInput } from '$lib/server/functions';
 import { shoePickerOptions, type ShoeContext, type ShoeWear } from '$lib/shoes';
 import type { PlanWeek } from '$lib/types';
@@ -20,11 +20,13 @@ const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'rac
 export function LogForm({
 	week,
 	shoes,
-	shoeWear
+	shoeWear,
+	calendar
 }: {
 	week: PlanWeek | null;
 	shoes: ShoeContext;
 	shoeWear?: Record<string, ShoeWear>;
+	calendar: PlanCalendar;
 }) {
 	const router = useRouter();
 	const snack = useSnackbar();
@@ -37,7 +39,7 @@ export function LogForm({
 	const [strengthNotes, setStrengthNotes] = useState('');
 
 	const derivedDay = dayFromIsoDate(dateValue || todayIso);
-	const derivedWeek = weekNumberForDate(dateValue || todayIso);
+	const derivedWeek = weekNumberForDate(dateValue || todayIso, calendar);
 
 	const planSession =
 		week?.sessions.find(

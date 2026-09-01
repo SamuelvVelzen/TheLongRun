@@ -38,11 +38,13 @@ const headerLinks = [
 	{ href: '/timeline', label: 'Timeline', icon: 'timeline' },
 	{ href: '/routes', label: 'Routes', icon: 'routes' },
 	{ href: '/coach', label: 'Coach', icon: 'coach' },
+	{ href: '/goals', label: 'Goals', icon: 'trophy' },
 	{ href: '/import', label: 'Add activity', icon: 'plus' },
 	{ href: '/context', label: 'Context', icon: 'context' }
 ] as const;
 
 const moreLinks = [
+	{ href: '/goals', label: 'Goals', icon: 'trophy' },
 	{ href: '/import', label: 'Add activity', icon: 'plus' },
 	{ href: '/context', label: 'Context', icon: 'context' }
 ] as const;

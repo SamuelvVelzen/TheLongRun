@@ -51,13 +51,31 @@ export interface RunRecord {
 	filepath?: string;
 }
 
-export interface Goals {
-	race_name: string;
-	race_date: string;
-	race_distance_km: number;
-	primary: string[];
+export type GoalStatus = 'active' | 'done';
+
+export type GoalResult = {
+	activity_slug: string;
+	date: string;
+	time: string;
+	distance_km: number | null;
+	pace: string;
+};
+
+export interface Goal {
+	id: string;
+	name: string;
+	date: string;
+	distance_km: number;
+	sport: string;
 	time_goal: string;
+	primary: string[];
 	notes: string;
+	/** Monday of week 1. */
+	plan_start: string;
+	status: GoalStatus;
+	result: GoalResult | null;
+	/** Snapshot of plan.json when the goal was completed. */
+	plan: PlanWeek[] | null;
 }
 
 export interface PlanSession {
@@ -72,6 +90,8 @@ export interface PlanSession {
 export interface PlanWeek {
 	week: number;
 	dates: string;
+	/** ISO Monday of this week; used to drop a stale rolling week. */
+	start?: string;
 	phase: string;
 	focus: string;
 	sessions: PlanSession[];

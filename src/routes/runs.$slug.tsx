@@ -287,8 +287,17 @@ function FeelTile({
 }
 
 function RunDetail() {
-	const { run: r, analytics, shoes, shoeWear, hrMaxManual, hrMaxAllTime, bestEfforts, plannedRoute } =
-		Route.useLoaderData();
+	const {
+		run: r,
+		analytics,
+		shoes,
+		shoeWear,
+		hrMaxManual,
+		hrMaxAllTime,
+		bestEfforts,
+		plannedRoute,
+		calendar
+	} = Route.useLoaderData();
 	const router = useRouter();
 	const authed = useAuthed();
 	const snack = useSnackbar();
@@ -307,7 +316,7 @@ function RunDetail() {
 	const [pendingDelete, setPendingDelete] = useState(false);
 
 	const derivedDay = dayFromIsoDate(editDate || r.date);
-	const derivedWeek = weekNumberForDate(editDate || r.date);
+	const derivedWeek = weekNumberForDate(editDate || r.date, calendar);
 
 	const hrFill =
 		r.avg_hr != null && r.max_hr != null && r.max_hr > 0

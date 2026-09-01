@@ -6,8 +6,14 @@ import { dayFromIsoDate, formatDuration, parseDurationSeconds } from '$lib/forma
 import type { PlanSession, PlanWeek, RunRecord, SessionRouteRef } from '$lib/types';
 import { sessionActivityType } from '$lib/week-mix';
 
-export const PLAN_START_ISO = '2026-08-03';
-export const PLAN_WEEK_COUNT = 8;
+/** Monday-start training block. Derived from the active goal, or a 1-week rolling window. */
+export type PlanCalendar = {
+	startIso: string;
+	weekCount: number;
+	rolling: boolean;
+};
+
+const MAX_PLAN_WEEKS = 52;
 
 const WEEKDAYS = [
 	'Monday',
@@ -21,48 +27,105 @@ const WEEKDAYS = [
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-export function weekNumberForDate(dateStr: string): number | null {
-	const start = new Date(`${PLAN_START_ISO}T00:00:00`);
+export function mondayIso(isoOrDate: string | Date): string {
+	const d =
+		typeof isoOrDate === 'string'
+			? new Date(`${isoOrDate.slice(0, 10)}T12:00:00`)
+			: new Date(isoOrDate.getFullYear(), isoOrDate.getMonth(), isoOrDate.getDate(), 12, 0, 0);
+	if (Number.isNaN(d.getTime())) return isoDateLocal(new Date());
+	const off = (d.getDay() + 6) % 7;
+	d.setDate(d.getDate() - off);
+	return isoDateLocal(d);
+}
+
+/** Weeks from start Monday through the week that contains `endIso` (race day). */
+export function weeksThrough(startIso: string, endIso: string): number {
+	const start = new Date(`${mondayIso(startIso)}T00:00:00`);
+	const end = new Date(`${endIso.slice(0, 10)}T00:00:00`);
+	if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 1;
+	const idx = Math.floor((end.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+	return Math.max(1, Math.min(MAX_PLAN_WEEKS, idx));
+}
+
+export function rollingCalendar(today = new Date()): PlanCalendar {
+	return { startIso: mondayIso(today), weekCount: 1, rolling: true };
+}
+
+export function calendarFromGoal(goal: { plan_start: string; date: string }): PlanCalendar {
+	const startIso = mondayIso(goal.plan_start);
+	return { startIso, weekCount: weeksThrough(startIso, goal.date), rolling: false };
+}
+
+export function daysUntil(iso: string, today = new Date()): number | null {
+	const target = new Date(`${iso.slice(0, 10)}T00:00:00`);
+	if (Number.isNaN(target.getTime())) return null;
+	const start = new Date(`${isoDateLocal(today)}T00:00:00`);
+	return Math.round((target.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+export function weekNumberForDate(dateStr: string, cal: PlanCalendar): number | null {
+	const start = new Date(`${cal.startIso}T00:00:00`);
 	const d = new Date(`${dateStr}T00:00:00`);
-	if (Number.isNaN(d.getTime())) return null;
+	if (Number.isNaN(d.getTime()) || Number.isNaN(start.getTime())) return null;
 	const idx = Math.floor((d.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
-	if (idx < 1 || idx > PLAN_WEEK_COUNT) return null;
+	if (idx < 1 || idx > cal.weekCount) return null;
 	return idx;
 }
 
-export function planWeekIndex(today = new Date()): number {
-	const start = new Date(`${PLAN_START_ISO}T00:00:00`);
-	return Math.floor((today.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+export function planWeekIndex(cal: PlanCalendar, today = new Date()): number {
+	const start = new Date(`${cal.startIso}T00:00:00`);
+	const d = new Date(`${isoDateLocal(today)}T00:00:00`);
+	return Math.floor((d.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
 }
 
 /**
  * Week the Coach generate prompt should target: always the current plan week.
- * Never past PLAN_WEEK_COUNT; before week 1 → week 1.
+ * Never past weekCount; before week 1 → week 1.
  */
-export function weekToPlan(today = new Date()): number {
-	const idx = planWeekIndex(today);
+export function weekToPlan(cal: PlanCalendar, today = new Date()): number {
+	const idx = planWeekIndex(cal, today);
 	if (idx < 1) return 1;
-	return Math.min(PLAN_WEEK_COUNT, idx);
+	return Math.min(cal.weekCount, idx);
 }
 
-export function planWeekStartIso(week: number): string {
-	const start = new Date(`${PLAN_START_ISO}T12:00:00`);
+export function planWeekStartIso(week: number, cal: PlanCalendar): string {
+	const start = new Date(`${cal.startIso}T12:00:00`);
 	start.setDate(start.getDate() + (week - 1) * 7);
 	return isoDateLocal(start);
 }
 
-export function planWeekEndIso(week: number): string {
-	const start = new Date(`${planWeekStartIso(week)}T12:00:00`);
+export function planWeekEndIso(week: number, cal: PlanCalendar): string {
+	const start = new Date(`${planWeekStartIso(week, cal)}T12:00:00`);
 	start.setDate(start.getDate() + 6);
 	return isoDateLocal(start);
 }
 
-export function planWeekDateRange(week: number): string {
-	const start = new Date(`${planWeekStartIso(week)}T12:00:00`);
+export function planWeekDateRange(week: number, cal: PlanCalendar): string {
+	const start = new Date(`${planWeekStartIso(week, cal)}T12:00:00`);
 	const end = new Date(start);
 	end.setDate(end.getDate() + 6);
 	const f = (d: Date) => `${String(d.getDate()).padStart(2, '0')} ${MONTHS[d.getMonth()]}`;
 	return `${f(start)}–${f(end)} ${end.getFullYear()}`;
+}
+
+function dayMonthLabel(iso: string): string {
+	const d = new Date(`${iso}T12:00:00`);
+	if (Number.isNaN(d.getTime())) return '';
+	return `${String(d.getDate()).padStart(2, '0')} ${MONTHS[d.getMonth()]}`;
+}
+
+export function weekBelongsToCalendar(week: PlanWeek, cal: PlanCalendar): boolean {
+	if (!Number.isInteger(week.week) || week.week < 1 || week.week > cal.weekCount) return false;
+	if (!cal.rolling) return true;
+	if (week.start) return week.start === cal.startIso;
+	const expected = planWeekDateRange(1, cal);
+	if (week.dates && week.dates === expected) return true;
+	const label = dayMonthLabel(cal.startIso);
+	return Boolean(label && (week.dates || '').includes(label));
+}
+
+export function filterPlanForCalendar(plan: PlanWeek[], cal: PlanCalendar): PlanWeek[] {
+	return plan.filter((w) => weekBelongsToCalendar(w, cal)).sort((a, b) => a.week - b.week);
 }
 
 export function dateForSessionDay(weekStartIso: string, day: string): string | null {
@@ -178,11 +241,12 @@ function sortLogsForMatch(a: WeekViewRun, b: WeekViewRun): number {
 export function buildWeekView(
 	week: PlanWeek,
 	runs: WeekViewRun[],
+	cal: PlanCalendar,
 	today = new Date()
 ): WeekView {
 	const todayIso = isoDateLocal(today);
-	const start = planWeekStartIso(week.week);
-	const end = planWeekEndIso(week.week);
+	const start = planWeekStartIso(week.week, cal);
+	const end = planWeekEndIso(week.week, cal);
 	const buckets = new Map<string, WeekViewRun[]>();
 	for (const r of runs) {
 		const key = logMatchKey(r.date, r.activity_type);
@@ -276,22 +340,23 @@ export function keepSoonestNext(views: WeekView[]): WeekView[] {
 export function pickBannerWeekView(
 	plan: PlanWeek[],
 	runs: WeekViewRun[],
+	cal: PlanCalendar,
 	today = new Date()
 ): WeekView | null {
-	const currentNum = weekToPlan(today);
+	const currentNum = weekToPlan(cal, today);
 	const weeks = [...plan]
 		.filter((w) => (w.sessions?.length ?? 0) > 0)
 		.sort((a, b) => a.week - b.week);
 	let currentView: WeekView | null = null;
 	for (const w of weeks) {
 		if (w.week < currentNum) continue;
-		const view = buildWeekView(w, runs, today);
+		const view = buildWeekView(w, runs, cal, today);
 		if (w.week === currentNum) currentView = view;
 		if (view.next) return view;
 	}
 	if (currentView) return currentView;
 	const last = weeks[weeks.length - 1];
-	return last ? buildWeekView(last, runs, today) : null;
+	return last ? buildWeekView(last, runs, cal, today) : null;
 }
 
 export type WeekDayGroup = {
@@ -384,6 +449,7 @@ export function weekToPlanJson(week: PlanWeek): unknown {
 	return {
 		week: week.week,
 		dates: week.dates,
+		...(week.start ? { start: week.start } : {}),
 		phase: week.phase,
 		focus: week.focus,
 		sessions: week.sessions.map((s) => ({
@@ -451,12 +517,16 @@ export type UpcomingPlanSession = PlanSession & {
 };
 
 /** Current and future non-rest, non-strength sessions (today included). */
-export function upcomingPlanSessions(plan: PlanWeek[], today = new Date()): UpcomingPlanSession[] {
+export function upcomingPlanSessions(
+	plan: PlanWeek[],
+	cal: PlanCalendar,
+	today = new Date()
+): UpcomingPlanSession[] {
 	const todayIso = isoDateLocal(today);
 	const out: UpcomingPlanSession[] = [];
 	const weeks = [...plan].sort((a, b) => a.week - b.week);
 	for (const w of weeks) {
-		const start = planWeekStartIso(w.week);
+		const start = planWeekStartIso(w.week, cal);
 		for (const s of w.sessions) {
 			if (isRestLike(s.label)) continue;
 			if (sessionActivityType(s) === 'strength') continue;
@@ -474,14 +544,19 @@ export function upcomingPlanSessions(plan: PlanWeek[], today = new Date()): Upco
 }
 
 /** Consecutive planned-session dates (from the plan, any weekdays) that have a logged run. */
-export function sessionStreak(runs: RunRecord[], plan: PlanWeek[], today = new Date()): number {
+export function sessionStreak(
+	runs: RunRecord[],
+	plan: PlanWeek[],
+	cal: PlanCalendar,
+	today = new Date()
+): number {
 	const todayIso = isoDateLocal(today);
 	const runDates = new Set(
 		runs.filter((r) => normalizeActivityType(r.activity_type) === 'run').map((r) => r.date)
 	);
 	const planned: string[] = [];
 	for (const w of plan) {
-		const start = planWeekStartIso(w.week);
+		const start = planWeekStartIso(w.week, cal);
 		for (const s of w.sessions) {
 			if (isRestLike(s.label)) continue;
 			if (sessionActivityType(s) !== 'run') continue;

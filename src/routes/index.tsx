@@ -14,7 +14,7 @@ import {
     routeIdsForRuns,
     type RangeKind
 } from '$lib/date-range';
-import { buildDashboardStats, weekToPlan, type DashboardStats } from '$lib/plan';
+import { buildDashboardStats, daysUntil, weekToPlan, type DashboardStats } from '$lib/plan';
 import { getDashboardData } from '$lib/server/functions';
 import { buildTrainingTrends } from '$lib/trends';
 import { cn, ui } from '$lib/ui';
@@ -105,7 +105,11 @@ function Dashboard() {
 					<p className={ui.muted}>Personal training desk</p>
 					<h1>The Long Run</h1>
 					<p>
-						Stats, maps, and this week’s plan live here. After a race, debrief in Coach.
+						Stats, maps, and this week’s plan live here.{' '}
+						<Link className="text-accent font-semibold" to="/goals">
+							Goals
+						</Link>{' '}
+						hold the race — and the medals after.
 					</p>
 				</div>
 				<div className={ui.actions}>
@@ -195,17 +199,19 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 		return ids;
 	}, [runs]);
 
-	const raceDate = new Date(`${data.goals.race_date}T00:00:00`);
-	const daysToRace = Number.isNaN(raceDate.getTime())
-		? null
-		: Math.ceil((raceDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+	const raceDays = data.activeGoal ? daysUntil(data.activeGoal.date) : null;
+	const daysToRace = raceDays != null && raceDays >= 0 ? raceDays : null;
 	const mappedRuns = runs.filter((r) => r.has_map).length;
 	const stats = buildDashboardStats(runs, {
 		daysToRace,
 		mappedRuns,
 		streak: data.streak
 	});
-	const trends = buildTrainingTrends(runs, { endDate: range.to, fromDate: range.from });
+	const trends = buildTrainingTrends(runs, {
+		endDate: range.to,
+		fromDate: range.from,
+		calendar: data.calendar
+	});
 
 	const totalAllTime = allRuns.length;
 	const filteredEmpty = totalAllTime > 0 && stats.runCount === 0;
@@ -218,7 +224,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 			: [];
 	const highlightHead = highlightSessions[0];
 	const laterWeek =
-		data.weekView != null && data.weekView.week.week > weekToPlan();
+		data.weekView != null && data.weekView.week.week > weekToPlan(data.calendar);
 	const coachPlanSearch = {
 		tab: 'plan' as const,
 		planWeek: data.weekView?.week.week
@@ -352,11 +358,36 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 					>
 						<div className={statsItem}>
 							<span className={cn(statsLabel, 'text-accent font-semibold')}>
-								Days to {data.goals.race_name}
+								{data.activeGoal
+									? raceDays != null && raceDays < 0
+										? `Since ${data.activeGoal.name}`
+										: `Days to ${data.activeGoal.name}`
+									: data.lastMedal
+										? data.lastMedal.name
+										: 'Next race'}
 							</span>
 							<strong className={cn(statsValue, 'text-accent text-[2.1rem] max-sm:text-[1.7rem]')}>
-								{stats.daysToRace ?? '—'}
+								{data.activeGoal ? (
+									raceDays == null ? (
+										'—'
+									) : raceDays === 0 ? (
+										'Today'
+									) : (
+										Math.abs(raceDays)
+									)
+								) : data.lastMedal?.result?.time ? (
+									data.lastMedal.result.time
+								) : (
+									<Link className="text-accent" to="/goals">
+										Set
+									</Link>
+								)}
 							</strong>
+							{data.activeGoal || data.lastMedal ? (
+								<Link className="text-[0.78rem] text-accent font-semibold" to="/goals">
+									{data.activeGoal && raceDays != null && raceDays < 0 ? 'Pin result' : 'Goals'}
+								</Link>
+							) : null}
 						</div>
 						<div className={statsItem}>
 							<span className={cn(statsLabel, 'text-muted')}>

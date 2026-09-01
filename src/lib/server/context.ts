@@ -1,4 +1,11 @@
-import { planWeekIndex } from '$lib/plan';
+import {
+	calendarFromGoal,
+	filterPlanForCalendar,
+	planWeekIndex,
+	rollingCalendar,
+	type PlanCalendar
+} from '$lib/plan';
+import { goalIdFrom } from '$lib/goals';
 import {
 	asShoeNameList,
 	emptyShoes,
@@ -6,7 +13,7 @@ import {
 	shoeKey,
 	type ShoeContext
 } from '$lib/shoes';
-import type { Goals, PlanWeek } from '$lib/types';
+import type { Goal, PlanWeek } from '$lib/types';
 import {
 	clonePattern,
 	DEFAULT_WEEK_PATTERN,
@@ -54,11 +61,155 @@ export async function loadPlan(): Promise<PlanWeek[]> {
 }
 
 export async function currentPlanWeek(today = new Date()): Promise<PlanWeek | null> {
-	const plan = await loadPlan();
+	const { plan, calendar } = await loadTrainingContext();
 	if (!plan.length) return null;
-	const weekIndex = planWeekIndex(today);
+	const weekIndex = planWeekIndex(calendar, today);
 	if (weekIndex < 1) return plan[0] ?? null;
 	return plan.find((w) => w.week === weekIndex) ?? plan[plan.length - 1] ?? null;
+}
+
+export type GoalStore = { goals: Goal[] };
+
+function emptyStore(): GoalStore {
+	return { goals: [] };
+}
+
+function parseStore(raw: string): GoalStore | null {
+	try {
+		const o = JSON.parse(raw) as { goals?: unknown };
+		if (!Array.isArray(o.goals)) return null;
+		const goals: Goal[] = [];
+		for (const item of o.goals) {
+			const g = normalizeStoredGoal(item);
+			if (g) goals.push(g);
+		}
+		return { goals };
+	} catch {
+		return null;
+	}
+}
+
+function normalizeStoredGoal(item: unknown): Goal | null {
+	if (!item || typeof item !== 'object') return null;
+	const o = item as Record<string, unknown>;
+	const name = String(o.name ?? o.race_name ?? '').trim();
+	const date = toIsoDate(o.date ?? o.race_date, '');
+	if (!name && !date) return null;
+	const distance = Number(o.distance_km ?? o.race_distance_km ?? 10);
+	const primary = Array.isArray(o.primary)
+		? o.primary.map(String).map((s) => s.trim()).filter(Boolean)
+		: [];
+	const status: Goal['status'] = o.status === 'done' ? 'done' : 'active';
+	const result =
+		o.result && typeof o.result === 'object'
+			? {
+					activity_slug: String((o.result as { activity_slug?: unknown }).activity_slug ?? ''),
+					date: String((o.result as { date?: unknown }).date ?? date),
+					time: String((o.result as { time?: unknown }).time ?? ''),
+					distance_km:
+						typeof (o.result as { distance_km?: unknown }).distance_km === 'number'
+							? ((o.result as { distance_km: number }).distance_km)
+							: null,
+					pace: String((o.result as { pace?: unknown }).pace ?? '')
+				}
+			: null;
+	const plan = Array.isArray(o.plan) ? (o.plan as PlanWeek[]) : null;
+	const planStart = toIsoDate(o.plan_start, date);
+	return {
+		id: String(o.id ?? '').trim() || goalIdFrom(name || 'race', date),
+		name: name || 'Race',
+		date,
+		distance_km: Number.isFinite(distance) && distance > 0 ? distance : 10,
+		sport: String(o.sport ?? 'run') || 'run',
+		time_goal: String(o.time_goal ?? ''),
+		primary,
+		notes: String(o.notes ?? '').trim(),
+		plan_start: planStart,
+		status,
+		result,
+		plan
+	};
+}
+
+function parseLegacyGoalsMd(raw: string): Goal | null {
+	if (!raw.trim()) return null;
+	const { data, content } = matter(raw);
+	const name = String(data.race_name ?? '').trim();
+	const date = toIsoDate(data.race_date, '');
+	if (!name && !date) return null;
+	const primary = Array.isArray(data.primary)
+		? data.primary.map(String)
+		: String(data.primary ?? '')
+				.split('\n')
+				.map((s) => s.replace(/^- /, '').trim())
+				.filter(Boolean);
+	const distance = Number(data.race_distance_km ?? 10);
+	return {
+		id: goalIdFrom(name || 'race', date || '2026-09-27'),
+		name: name || '10K',
+		date: date || '2026-09-27',
+		distance_km: Number.isFinite(distance) && distance > 0 ? distance : 10,
+		sport: 'run',
+		time_goal: String(data.time_goal ?? ''),
+		primary,
+		notes: content.trim(),
+		plan_start: '2026-08-03',
+		status: 'active',
+		result: null,
+		plan: null
+	};
+}
+
+export async function loadGoalStore(): Promise<GoalStore> {
+	const json = await readContextFile('goals.json');
+	const parsed = json ? parseStore(json) : null;
+	if (parsed) return parsed;
+	// One-shot import of a leftover D1 `goals.md` row (the repo file is gone).
+	const md = await readContextFile('goals.md');
+	const legacy = parseLegacyGoalsMd(md);
+	if (!legacy) return emptyStore();
+	const store = { goals: [legacy] };
+	await saveGoalStore(store);
+	return store;
+}
+
+export async function saveGoalStore(store: GoalStore): Promise<void> {
+	const active = store.goals.filter((g) => g.status === 'active');
+	const rest = store.goals.filter((g) => g.status !== 'active');
+	const goals = active.length ? [active[0]!, ...active.slice(1).map((g) => ({ ...g, status: 'done' as const })), ...rest] : rest;
+	await writeContextFile('goals.json', `${JSON.stringify({ goals }, null, 2)}\n`);
+}
+
+export function activeGoalOf(store: GoalStore): Goal | null {
+	return store.goals.find((g) => g.status === 'active') ?? null;
+}
+
+export type TrainingContext = {
+	store: GoalStore;
+	activeGoal: Goal | null;
+	medals: Goal[];
+	calendar: PlanCalendar;
+	plan: PlanWeek[];
+};
+
+export async function loadTrainingContext(): Promise<TrainingContext> {
+	const [store, rawPlan] = await Promise.all([loadGoalStore(), loadPlan()]);
+	const activeGoal = activeGoalOf(store);
+	const medals = store.goals
+		.filter((g) => g.status === 'done')
+		.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+	const calendar = activeGoal ? calendarFromGoal(activeGoal) : rollingCalendar();
+	return {
+		store,
+		activeGoal,
+		medals,
+		calendar,
+		plan: filterPlanForCalendar(rawPlan, calendar)
+	};
+}
+
+export async function savePlan(plan: PlanWeek[]): Promise<void> {
+	await writeContextFile('plan.json', `${JSON.stringify(plan, null, 2)}\n`);
 }
 
 /** YAML often parses 2026-09-27 as a Date — keep YYYY-MM-DD strings. */
@@ -79,46 +230,6 @@ function toIsoDate(value: unknown, fallback = '2026-09-27'): string {
 		return `${y}-${m}-${d}`;
 	}
 	return fallback;
-}
-
-export async function loadGoals(): Promise<Goals> {
-	const raw = await readContextFile('goals.md');
-	if (!raw) {
-		return {
-			race_name: '10K',
-			race_date: '2026-09-27',
-			race_distance_km: 10,
-			primary: [],
-			time_goal: '',
-			notes: ''
-		};
-	}
-	const { data, content } = matter(raw);
-	const primary = Array.isArray(data.primary)
-		? data.primary.map(String)
-		: String(data.primary ?? '')
-				.split('\n')
-				.map((s) => s.replace(/^- /, '').trim())
-				.filter(Boolean);
-	return {
-		race_name: String(data.race_name ?? '10K'),
-		race_date: toIsoDate(data.race_date),
-		race_distance_km: Number(data.race_distance_km ?? 10),
-		primary,
-		time_goal: String(data.time_goal ?? ''),
-		notes: content.trim()
-	};
-}
-
-export async function saveGoals(goals: Goals): Promise<void> {
-	const front = {
-		race_name: goals.race_name,
-		race_date: toIsoDate(goals.race_date),
-		race_distance_km: goals.race_distance_km,
-		time_goal: goals.time_goal,
-		primary: goals.primary
-	};
-	await writeContextFile('goals.md', matter.stringify(goals.notes ? `${goals.notes}\n` : '', front));
 }
 
 function emptySettings(): AppSettings {

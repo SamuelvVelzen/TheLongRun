@@ -21,7 +21,7 @@ function Context() {
 				<div>
 					<p className={ui.muted}>Profile, gear, and race notes</p>
 					<h1>Context</h1>
-					<p>Read the formatted docs and edit markdown when something changes.</p>
+					<p>Read the formatted docs and edit markdown when something changes. Races live on Goals.</p>
 				</div>
 			</section>
 			<DeferredData promise={page}>{(data) => <ContextBody data={data} />}</DeferredData>

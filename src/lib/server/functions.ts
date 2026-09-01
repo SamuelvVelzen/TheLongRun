@@ -17,17 +17,19 @@ import {
     normalizeStartTime,
     parseDurationSeconds
 } from '$lib/format';
+import { activityLooksLikeRace, normalizeGoalInput, resultFromActivity, type GoalInput } from '$lib/goals';
 import { buildHrZoneSummary } from '$lib/hr-zones';
 import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import {
     buildWeekView,
+    calendarFromGoal,
     dateForSessionDay,
+    daysUntil,
     formatUnplannedBrief,
     isoDateLocal,
     keepSoonestNext,
+    mondayIso,
     pickBannerWeekView,
-    PLAN_START_ISO,
-    PLAN_WEEK_COUNT,
     plannedSessionFor,
     planWeekDateRange,
     planWeekIndex,
@@ -37,6 +39,7 @@ import {
     weekNumberForDate,
     weekToPlan,
     withSessionRoutes,
+    type PlanCalendar,
     type WeekView
 } from '$lib/plan';
 import {
@@ -49,7 +52,7 @@ import { analyticsToProperties, type RouteAnalytics } from '$lib/splits';
 import { parseStrengthNotes, strengthSummary } from '$lib/strength';
 import type {
     ActivityAttachOption,
-    Goals,
+    Goal,
     PlanAttachOption,
     PlannedRoute,
     PlannedRouteActivityLink,
@@ -72,14 +75,17 @@ import matter from 'gray-matter';
 import { requireAuth } from './auth';
 import {
     currentPlanWeek,
-    loadGoals,
+    loadGoalStore,
     loadPlan,
     loadSettings,
     loadShoes,
+    loadTrainingContext,
     persistShoes,
     readContextFile,
     rememberShoeName,
+    saveGoalStore,
     saveHrMaxSetting,
+    savePlan,
     saveWeekPatternSetting,
     writeContextFile
 } from './context';
@@ -190,24 +196,27 @@ export const getAuthState = createServerFn({ method: 'GET' }).handler(async () =
 });
 
 export const getDashboardData = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, tracks, routeIds, week, plan, goals, shoes, planRefs] = await Promise.all([
+	const [runs, tracks, routeIds, training, shoes, planRefs] = await Promise.all([
 		listRuns(),
 		listRouteTracks(),
 		listRouteIds(),
-		currentPlanWeek(),
-		loadPlan(),
-		loadGoals(),
+		loadTrainingContext(),
 		loadShoes(),
 		listPlanRouteRefs()
 	]);
-	const weekView = attachPlanRoutes(pickBannerWeekView(plan, runs), planRefs);
+	const { plan, calendar, activeGoal, medals } = training;
+	const weekNum = weekToPlan(calendar);
+	const week = plan.find((w) => w.week === weekNum) ?? plan[plan.length - 1] ?? null;
+	const weekView = attachPlanRoutes(pickBannerWeekView(plan, runs, calendar), planRefs);
 	return {
 		runs: withMap(runs, routeIds),
 		tracks,
 		week,
 		weekView,
-		streak: sessionStreak(runs, plan),
-		goals,
+		streak: sessionStreak(runs, plan, calendar),
+		activeGoal,
+		lastMedal: medals[0] ?? null,
+		calendar,
 		shoes
 	} satisfies {
 		runs: RunWithMap[];
@@ -215,34 +224,37 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 		week: PlanWeek | null;
 		weekView: WeekView | null;
 		streak: number;
-		goals: Goals;
+		activeGoal: Goal | null;
+		lastMedal: Goal | null;
+		calendar: PlanCalendar;
 		shoes: { active: string; notes: string; rotation: string[]; retired: string[] };
 	};
 });
 
 export const getCurrentWeekView = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, plan, planRefs] = await Promise.all([
+	const [runs, training, planRefs] = await Promise.all([
 		listRuns(),
-		loadPlan(),
+		loadTrainingContext(),
 		listPlanRouteRefs()
 	]);
-	return attachPlanRoutes(pickBannerWeekView(plan, runs), planRefs);
+	return attachPlanRoutes(pickBannerWeekView(training.plan, runs, training.calendar), planRefs);
 });
 
 export const getCoachPlan = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, plan, planRefs] = await Promise.all([
+	const [runs, training, planRefs] = await Promise.all([
 		listRuns(),
-		loadPlan(),
+		loadTrainingContext(),
 		listPlanRouteRefs()
 	]);
+	const { plan, calendar, activeGoal } = training;
 	const views = keepSoonestNext(
 		plan
 			.filter((w) => (w.sessions?.length ?? 0) > 0)
 			.sort((a, b) => a.week - b.week)
-			.map((w) => attachPlanRoutes(buildWeekView(w, runs), planRefs))
+			.map((w) => attachPlanRoutes(buildWeekView(w, runs, calendar), planRefs))
 			.filter((v): v is NonNullable<typeof v> => v != null)
 	);
-	return { views, currentWeek: weekToPlan() };
+	return { views, currentWeek: weekToPlan(calendar), calendar, activeGoal };
 });
 
 export const getTimelineRuns = createServerFn({ method: 'GET' }).handler(async () => {
@@ -256,7 +268,7 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 	.handler(async ({ data: slug }) => {
 		const run = await getRun(slug);
 		if (!run) return null;
-		const [analytics, routeIds, shoes, settings, allTimeMaxHr, allRuns, plannedRoute] =
+		const [analytics, routeIds, shoes, settings, allTimeMaxHr, allRuns, plannedRoute, training] =
 			await Promise.all([
 				loadRouteAnalytics(run),
 				listRouteIds(),
@@ -264,7 +276,8 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 				loadSettings(),
 				getMaxHrAllTime(),
 				listRuns(),
-				getActivityRouteRef(slug)
+				getActivityRouteRef(slug),
+				loadTrainingContext()
 			]);
 		await hydrateBestEfforts(allRuns);
 		const current = allRuns.find((r) => r.slug === slug) ?? run;
@@ -294,7 +307,8 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 			hrMaxManual,
 			hrMaxAllTime: allTimeMaxHr,
 			bestEfforts: highlights,
-			plannedRoute
+			plannedRoute,
+			calendar: training.calendar
 		};
 	});
 
@@ -306,8 +320,13 @@ export const saveHrMax = createServerFn({ method: 'POST' }).middleware([requireA
 	});
 
 export const getLogDefaults = createServerFn({ method: 'GET' }).handler(async () => {
-	const [week, shoes, runs] = await Promise.all([currentPlanWeek(), loadShoes(), listRuns()]);
-	return { week, shoes, shoeWear: wearByShoe(runs) };
+	const [week, shoes, runs, training] = await Promise.all([
+		currentPlanWeek(),
+		loadShoes(),
+		listRuns(),
+		loadTrainingContext()
+	]);
+	return { week, shoes, shoeWear: wearByShoe(runs), calendar: training.calendar };
 });
 
 export const getRouteGeoJsonFn = createServerFn({ method: 'GET' })
@@ -324,7 +343,6 @@ export const getWeather = createServerFn({ method: 'GET' })
 
 const CONTEXT_FILES: { name: string; title: string }[] = [
 	{ name: 'profile.md', title: 'Runner profile' },
-	{ name: 'goals.md', title: 'Goals' },
 	{ name: 'shoes.md', title: 'Shoes' },
 	{ name: 'injury.md', title: 'Injury rules' },
 	{ name: 'gear.md', title: 'Gear & fueling' },
@@ -377,7 +395,7 @@ function weekHasSessions(w: PlanWeek | undefined): boolean {
 }
 
 /** Compact plan for the coach brief — never the full plan.json. */
-function formatTrainingPlanBrief(plan: PlanWeek[], targetWeek: number): string {
+function formatTrainingPlanBrief(plan: PlanWeek[], targetWeek: number, cal: PlanCalendar): string {
 	const byWeek = new Map(plan.map((w) => [w.week, w]));
 	const include = new Set<number>([targetWeek]);
 	for (const w of plan
@@ -393,7 +411,7 @@ function formatTrainingPlanBrief(plan: PlanWeek[], targetWeek: number): string {
 			(n) =>
 				byWeek.get(n) ?? {
 					week: n,
-					dates: planWeekDateRange(n),
+					dates: planWeekDateRange(n, cal),
 					phase: '',
 					focus: '',
 					sessions: [] as PlanWeek['sessions']
@@ -402,7 +420,7 @@ function formatTrainingPlanBrief(plan: PlanWeek[], targetWeek: number): string {
 
 	const emptyFuture: number[] = [];
 	const filledFuture: number[] = [];
-	for (let n = targetWeek + 1; n <= PLAN_WEEK_COUNT; n++) {
+	for (let n = targetWeek + 1; n <= cal.weekCount; n++) {
 		if (weekHasSessions(byWeek.get(n))) filledFuture.push(n);
 		else emptyFuture.push(n);
 	}
@@ -506,11 +524,10 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 	})
 	.handler(async ({ data }) => {
 		const range = data.range;
-		const [allRuns, goals, plan, shoes, profile, injury, gear, raceStrategy, settings] =
+		const [allRuns, training, shoes, profile, injury, gear, raceStrategy, settings] =
 			await Promise.all([
 				listRuns(),
-				loadGoals(),
-				loadPlan(),
+				loadTrainingContext(),
 				loadShoes(),
 				readContextFile('profile.md'),
 				readContextFile('injury.md'),
@@ -518,6 +535,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 				readContextFile('race-strategy.md'),
 				loadSettings()
 			]);
+		const { plan, calendar, activeGoal, medals } = training;
 		const defaultPattern = data.defaultPattern ?? settings.weekPattern;
 		const thisPattern = data.pattern != null ? data.pattern : defaultPattern;
 		const mixNote = data.note.trim();
@@ -525,16 +543,14 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		const today = new Date();
 		const windowRuns = filterRunsByRange(allRuns, range).sort(byDateNewestFirst);
 
-		const raceDate = new Date(`${goals.race_date}T00:00:00`);
-		const weeksToRace = Number.isNaN(raceDate.getTime())
-			? null
-			: Math.max(0, Math.ceil((raceDate.getTime() - today.getTime()) / (7 * 86_400_000)));
+		const weeksToRace =
+			activeGoal != null ? Math.max(0, daysUntil(activeGoal.date, today) ?? 0) : null;
 
-		const curWeek = Math.min(PLAN_WEEK_COUNT, Math.max(1, planWeekIndex(today)));
-		const targetWeek = weekToPlan(today);
+		const curWeek = Math.min(calendar.weekCount, Math.max(1, planWeekIndex(calendar, today)));
+		const targetWeek = weekToPlan(calendar, today);
 		const weekPhrase = 'this week';
-		const todayIso = today.toISOString().slice(0, 10);
-		const weekRange = planWeekDateRange;
+		const todayIso = isoDateLocal(today);
+		const weekRange = (n: number) => planWeekDateRange(n, calendar);
 
 		// All-time summary (computed from every activity, so derived facts stay current).
 		const byType = { run: 0, ride: 0, walk: 0, swim: 0, strength: 0 } as Record<string, number>;
@@ -560,15 +576,9 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		const shinsRecent = avg(shinRuns.slice(0, 4).map((r) => r.shins!));
 		const shinsPrior = avg(shinRuns.slice(4, 8).map((r) => r.shins!));
 
-		const mondayOf = (iso: string) => {
-			const d = new Date(`${iso}T12:00:00`);
-			const off = (d.getDay() + 6) % 7;
-			d.setDate(d.getDate() - off);
-			return d.toISOString().slice(0, 10);
-		};
 		const weekMap = new Map<string, { counts: Record<string, number>; km: Record<string, number> }>();
 		for (const r of windowRuns) {
-			const wk = mondayOf(r.date);
+			const wk = mondayIso(r.date);
 			const t = normalizeActivityType(r.activity_type);
 			const e = weekMap.get(wk) ?? { counts: {}, km: {} };
 			e.counts[t] = (e.counts[t] ?? 0) + 1;
@@ -604,7 +614,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 
 		const savedTarget = plan.find((w) => w.week === targetWeek);
 		const revising = weekHasSessions(savedTarget);
-		const targetView = savedTarget ? buildWeekView(savedTarget, allRuns, today) : null;
+		const targetView = savedTarget ? buildWeekView(savedTarget, allRuns, calendar, today) : null;
 		const unplannedSection =
 			targetView?.unplanned.length
 				? `## Unplanned activities (${weekPhrase})
@@ -638,35 +648,60 @@ ${formatUnplannedBrief(targetView.unplanned)}
 			null,
 			2
 		);
+		const lastMedal = medals[0];
+		const lastMedalLine = lastMedal
+			? `- Last race: ${lastMedal.name} on ${lastMedal.date}${lastMedal.result?.time ? ` in ${lastMedal.result.time}` : ''}${lastMedal.result?.pace ? ` (${lastMedal.result.pace}/km)` : ''}`
+			: '';
+		const toward = activeGoal
+			? `I'm training toward **${activeGoal.name}** (${activeGoal.distance_km} km) on **${activeGoal.date}**${
+					weeksToRace != null ? ` — about **${weeksToRace} weeks** away` : ''
+				}`
+			: `There is **no race on the calendar**. Plan this week as base / consistency training`;
+		const ladderLine = activeGoal
+			? 'Invent `label`, distance or duration, and intent from how I\'ve been recovering and laddering toward the race.'
+			: 'Invent `label`, distance or duration, and intent from how I\'ve been recovering. No race to peak for — keep it sustainable.';
 		const briefAsk = revising
 			? `Week ${targetWeek} already has a saved plan (see Training plan). **Revise remaining sessions** given what is already logged, including any unplanned extras. Keep completed planned sessions in the JSON as they were. Usual-week skeleton still applies for what's ahead, unless notes or recovery require a shift. You may add sessions for extras I propose in the notes — say why. Flag any red flags (injury risk, overtraining, under-recovery).`
-			: `Please assess how my training is going and give me a concrete plan for **${weekPhrase}** covering **every session in my usual-week skeleton** (runs, rides, walks, swims, strength — whatever I pinned), keeping those days and sports. Invent \`label\`, distance or duration, and intent from how I've been recovering and laddering toward the race. Flag any red flags (injury risk, overtraining, under-recovery). If you move a day, say why.`;
+			: `Please assess how my training is going and give me a concrete plan for **${weekPhrase}** covering **every session in my usual-week skeleton** (runs, rides, walks, swims, strength — whatever I pinned), keeping those days and sports. ${ladderLine} Flag any red flags (injury risk, overtraining, under-recovery). If you move a day, say why.`;
 		const replyRules = revising
 			? `Start from the saved week JSON — do not replace it with the usual-week skeleton. Keep completed sessions as they were. Revise what's still ahead. You may add a session for an extra I declared in the notes. If you move a day, say why.`
 			: `Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride, Gym, …), \`"distance_km"\` (null for strength), and \`"detail"\`. The example labels below are yours to replace with a real kind, not values to copy from my skeleton. If you move a day, say why.`;
 
+		const goalSection = activeGoal
+			? `## Goal
+- Race: ${activeGoal.name} — ${activeGoal.distance_km} km on ${activeGoal.date}${weeksToRace != null ? ` (~${weeksToRace} weeks to go)` : ''}
+- Sport: ${activityLabel(activeGoal.sport)}
+- Time goal: ${activeGoal.time_goal || '—'}
+${(activeGoal.primary ?? []).map((p) => `- Priority: ${p}`).join('\n')}
+${activeGoal.notes ? `\n${activeGoal.notes}\n` : ''}`
+			: `## Goal
+- No active race. This is a base week.
+${lastMedalLine}
+`;
+
+		const timingSection = calendar.rolling
+			? `## Timing (use these exact values — do not guess dates)
+- Today: ${todayIso}.
+- No multi-week race block — plan **this week only** (${weekRange(1)}).
+- The week to plan is **week ${targetWeek}** (${weekRange(targetWeek)}) — ${weekPhrase}. In the JSON you return, set exactly \`"week": ${targetWeek}\` and \`"dates": "${weekRange(targetWeek)}"\`.`
+			: `## Timing (use these exact values — do not guess dates)
+- Today: ${todayIso}.
+- Plan block: Monday–Sunday, **${calendar.weekCount} weeks**, from ${calendar.startIso} to race day ${activeGoal?.date ?? ''}.
+- Current week: **week ${curWeek}** of ${calendar.weekCount} (${weekRange(curWeek)}).
+- The week to plan is **week ${targetWeek}** (${weekRange(targetWeek)}) — ${weekPhrase}. In the JSON you return, set exactly \`"week": ${targetWeek}\` and \`"dates": "${weekRange(targetWeek)}"\`.`;
+
 		return `# The Long Run — training context
 
 ## Coaching brief
-You are my coach for the sports I actually do — not a running-only coach. I'm training toward **${goals.race_name}** (${goals.race_distance_km} km) on **${goals.race_date}**${
-			weeksToRace != null ? ` — about **${weeksToRace} weeks** away` : ''
-		}. Keep my usual weekdays and sports unless this week's notes or recovery require a shift. You choose the session kind (easy / quality / long / tempo / easy spin / …), distance, and intent. Below is my plan, my recent training with how each session felt (effort / shins / legs / energy, each 0–10), weekly volume across sports, and my constraints.
+You are my coach for the sports I actually do — not a running-only coach. ${toward}. Keep my usual weekdays and sports unless this week's notes or recovery require a shift. You choose the session kind (easy / quality / long / tempo / easy spin / …), distance, and intent. Below is my plan, my recent training with how each session felt (effort / shins / legs / energy, each 0–10), weekly volume across sports, and my constraints.
 
 ${briefAsk}
 
 ## How to read this brief
 Goal, Timing, All-time summary, weekly volume, and the Activity log are auto-computed from logged activities and are **current**. Runner profile, injury, gear, and race strategy are hand-written and may lag. If they disagree on numbers (longest run, weekly rhythm, dates), **prefer the computed sections**.
 
-## Goal
-- Race: ${goals.race_name} — ${goals.race_distance_km} km on ${goals.race_date}${weeksToRace != null ? ` (~${weeksToRace} weeks to go)` : ''}
-- Time goal: ${goals.time_goal || '—'}
-${(goals.primary ?? []).map((p) => `- Priority: ${p}`).join('\n')}
-${goals.notes ? `\n${goals.notes}\n` : ''}
-## Timing (use these exact values — do not guess dates)
-- Today: ${todayIso}.
-- Plan block: Monday–Sunday, ${PLAN_WEEK_COUNT} weeks, from ${PLAN_START_ISO} to race day ${goals.race_date}.
-- Current week: **week ${curWeek}** (${weekRange(curWeek)}).
-- The week to plan is **week ${targetWeek}** (${weekRange(targetWeek)}) — ${weekPhrase}. In the JSON you return, set exactly \`"week": ${targetWeek}\` and \`"dates": "${weekRange(targetWeek)}"\`.
+${goalSection}
+${timingSection}
 
 ## All-time summary (auto-computed from all logged activities — current, not hand-maintained)
 - Logged since ${firstDate}: ${byType.run} runs, ${byType.ride} rides, ${byType.walk} walks${byType.swim ? `, ${byType.swim} swims` : ''}${byType.strength ? `, ${byType.strength} strength sessions` : ''}.
@@ -685,7 +720,7 @@ Feel = effort/shins/legs/energy (0–10, – = not recorded).
 ${rows}
 
 ## Training plan
-${plan.length ? formatTrainingPlanBrief(plan, targetWeek) : '(no plan set)'}
+${plan.length ? formatTrainingPlanBrief(plan, targetWeek, calendar) : '(no plan set)'}
 
 ${unplannedSection}${unplannedSection ? '\n' : ''}${shoesSectionForBrief(shoes, allRuns)}
 
@@ -744,15 +779,17 @@ function formatRunBriefLine(r: RunRecord): string {
 export const getDebriefPrompt = createServerFn({ method: 'GET' })
 	.validator((slug: string) => (typeof slug === 'string' ? slug : ''))
 	.handler(async ({ data: slug }) => {
-		const [allRuns, week, injury, trainingNotes, settings] = await Promise.all([
+		const [allRuns, week, injury, trainingNotes, settings, training] = await Promise.all([
 			listRuns(),
 			currentPlanWeek(),
 			readContextFile('injury.md'),
 			readContextFile('training-plan.md'),
-			loadSettings()
+			loadSettings(),
+			loadTrainingContext()
 		]);
-		const weekView = week ? buildWeekView(week, allRuns) : null;
-		const weekStart = week ? planWeekStartIso(week.week) : '';
+		const { calendar, activeGoal } = training;
+		const weekView = week ? buildWeekView(week, allRuns, calendar) : null;
+		const weekStart = week ? planWeekStartIso(week.week, calendar) : '';
 		let weekEnd = weekStart;
 		if (weekStart) {
 			const end = new Date(`${weekStart}T12:00:00`);
@@ -769,7 +806,9 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 				prompt: '',
 				run: null,
 				weekView,
-				error: 'Import this session’s GPX first — the prompt needs those numbers.'
+				error: 'Import this session’s GPX first — the prompt needs those numbers.',
+				activeGoal,
+				raceCandidate: false
 			};
 		}
 
@@ -867,7 +906,9 @@ Rules:
 				hasFeel: hasFeel(run)
 			},
 			weekView,
-			error: null as string | null
+			error: null as string | null,
+			activeGoal,
+			raceCandidate: activeGoal != null && activityLooksLikeRace(activeGoal, run)
 		};
 	});
 
@@ -903,7 +944,8 @@ export const createRun = createServerFn({ method: 'POST' }).middleware([requireA
 		const session = data.session.trim();
 		if (!date || !session) throw new Error('Date and session are required.');
 		const day = dayFromIsoDate(date);
-		const week = weekNumberForDate(date);
+		const { calendar } = await loadTrainingContext();
+		const week = weekNumberForDate(date, calendar);
 		const start_time = normalizeStartTime(data.start_time.trim());
 		const time = data.time.trim();
 		let weather = data.weather.trim();
@@ -956,7 +998,8 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 
 		const activity_type = normalizeActivityType(data.activityType || parsed.detectedType);
 		const day = dayFromIsoDate(parsed.date);
-		const week = weekNumberForDate(parsed.date);
+		const { calendar } = await loadTrainingContext();
+		const week = weekNumberForDate(parsed.date, calendar);
 		const planWeek = await currentPlanWeek(
 			parsed.date ? new Date(`${parsed.date}T12:00:00`) : new Date()
 		);
@@ -1125,7 +1168,8 @@ export const updateRun = createServerFn({ method: 'POST' }).middleware([requireA
 		const session = data.session.trim();
 		if (!date || !session) throw new Error('Date and session are required.');
 		const day = dayFromIsoDate(date);
-		const week = weekNumberForDate(date);
+		const { calendar } = await loadTrainingContext();
+		const week = weekNumberForDate(date, calendar);
 		const fields: UpdateRunFields = {
 			date,
 			week,
@@ -1199,15 +1243,31 @@ function asPlanWeeks(parsed: unknown): PlanWeek[] {
 
 async function mergePlanWeeks(incoming: PlanWeek[]): Promise<{ weeks: number; updated: number[] }> {
 	if (!incoming.length) throw new Error('No plan week found in that JSON.');
+	const { calendar } = await loadTrainingContext();
 	for (const w of incoming) {
 		if (typeof w.week !== 'number') throw new Error('Each week needs a numeric "week".');
 		if (!Array.isArray(w.sessions)) throw new Error(`Week ${w.week} has no "sessions" array.`);
+		if (!Number.isInteger(w.week) || w.week < 1 || w.week > calendar.weekCount) {
+			throw new Error(
+				calendar.rolling
+					? 'With no race on the calendar, paste a single week (week 1).'
+					: `Week ${w.week} is outside this ${calendar.weekCount}-week block.`
+			);
+		}
 	}
 	const current = await loadPlan();
 	const byWeek = new Map<number, PlanWeek>(current.map((w) => [w.week, w]));
-	for (const w of incoming) byWeek.set(w.week, w);
-	const merged = [...byWeek.values()].sort((a, b) => a.week - b.week);
-	await writeContextFile('plan.json', `${JSON.stringify(merged, null, 2)}\n`);
+	for (const w of incoming) {
+		byWeek.set(w.week, {
+			...w,
+			start: planWeekStartIso(w.week, calendar),
+			dates: w.dates?.trim() ? w.dates : planWeekDateRange(w.week, calendar)
+		});
+	}
+	const merged = [...byWeek.values()]
+		.filter((w) => w.week >= 1 && w.week <= calendar.weekCount)
+		.sort((a, b) => a.week - b.week);
+	await savePlan(merged);
 	return { weeks: merged.length, updated: incoming.map((w) => w.week) };
 }
 
@@ -1406,6 +1466,87 @@ export const saveContextFile = createServerFn({ method: 'POST' }).middleware([re
 		return { ok: true };
 	});
 
+export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () => {
+	const [training, runs] = await Promise.all([loadTrainingContext(), listRuns()]);
+	const { activeGoal, medals, calendar } = training;
+	const candidates = activeGoal
+		? [...runs]
+				.filter((r) => activityLooksLikeRace(activeGoal, r) || r.date === activeGoal.date)
+				.sort((a, b) => {
+					const da = Math.abs(Date.parse(a.date) - Date.parse(activeGoal.date));
+					const db = Math.abs(Date.parse(b.date) - Date.parse(activeGoal.date));
+					if (da !== db) return da - db;
+					return a.date < b.date ? 1 : -1;
+				})
+				.slice(0, 16)
+				.map((r) => ({
+					slug: r.slug,
+					date: r.date,
+					day: r.day,
+					activity_type: r.activity_type,
+					distance_km: r.distance_km,
+					time: r.time,
+					avg_pace: r.avg_pace
+				}))
+		: [];
+	return {
+		activeGoal,
+		medals,
+		calendar,
+		candidates
+	};
+});
+
+export const saveActiveGoal = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: GoalInput) => d)
+	.handler(async ({ data }) => {
+		const name = data.name.trim();
+		const date = data.date.trim();
+		if (!name) throw new Error('Give the race a name.');
+		if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Race date must be YYYY-MM-DD.');
+		const store = await loadGoalStore();
+		const existing = store.goals.find((g) => g.status === 'active') ?? null;
+		const next = normalizeGoalInput(data, existing);
+		if (next.date < next.plan_start) {
+			throw new Error('Race day needs to be on or after the plan start.');
+		}
+		const others = store.goals.filter((g) => g.id !== next.id && g.status !== 'active');
+		await saveGoalStore({ goals: [next, ...others] });
+		return { id: next.id, weekCount: calendarFromGoal(next).weekCount };
+	});
+
+export const completeGoal = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: { activitySlug: string }) => d)
+	.handler(async ({ data }) => {
+		const store = await loadGoalStore();
+		const active = store.goals.find((g) => g.status === 'active');
+		if (!active) throw new Error('No active goal to complete.');
+		const run = await getRun(data.activitySlug);
+		if (!run) throw new Error('That activity was not found.');
+		const rawPlan = await loadPlan();
+		const done: Goal = {
+			...active,
+			status: 'done',
+			result: resultFromActivity(run),
+			plan: rawPlan
+		};
+		await saveGoalStore({
+			goals: store.goals.map((g) => (g.id === done.id ? done : g))
+		});
+		await savePlan([]);
+		return { id: done.id };
+	});
+
+export const clearActiveGoal = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.handler(async () => {
+		const store = await loadGoalStore();
+		const active = store.goals.find((g) => g.status === 'active');
+		if (!active) return { ok: true as const };
+		await saveGoalStore({ goals: store.goals.filter((g) => g.id !== active.id) });
+		await savePlan([]);
+		return { ok: true as const };
+	});
+
 // ---------- planned routes (BRouter exports) ----------
 
 export const getPlannedRoutesData = createServerFn({ method: 'GET' }).handler(async () => {
@@ -1416,14 +1557,15 @@ export const getPlannedRoutesData = createServerFn({ method: 'GET' }).handler(as
 export const getPlannedRouteDetail = createServerFn({ method: 'GET' })
 	.validator((slug: string) => slug)
 	.handler(async ({ data: slug }) => {
-		const [route, allLinks, plan, runs, routes] = await Promise.all([
+		const [route, allLinks, training, runs, routes] = await Promise.all([
 			getPlannedRoute(slug),
 			listRouteLinks(),
-			loadPlan(),
+			loadTrainingContext(),
 			listRuns(),
 			listPlannedRoutes()
 		]);
 		if (!route) return null;
+		const { plan, calendar } = training;
 		const names = new Map(routes.map((r) => [r.slug, r.name]));
 		const runBySlug = new Map(runs.map((r) => [r.slug, r]));
 		const mine = allLinks.filter((l) => l.route_slug === slug);
@@ -1439,7 +1581,7 @@ export const getPlannedRouteDetail = createServerFn({ method: 'GET' })
 				id: link.id,
 				week: link.plan_week,
 				day: link.plan_day,
-				date: dateForSessionDay(planWeekStartIso(link.plan_week), link.plan_day),
+				date: dateForSessionDay(planWeekStartIso(link.plan_week, calendar), link.plan_day),
 				label: session?.label || 'Planned session',
 				activity_type: session?.activity_type || 'run',
 				distance_km: session?.distance_km ?? null
@@ -1479,7 +1621,7 @@ export const getPlannedRouteDetail = createServerFn({ method: 'GET' })
 			activityTaken.set(link.activity_slug, { slug: link.route_slug, name });
 		}
 
-		const planOptions: PlanAttachOption[] = upcomingPlanSessions(plan)
+		const planOptions: PlanAttachOption[] = upcomingPlanSessions(plan, calendar)
 			.filter((s) => planTaken.get(`${s.week}|${s.day.trim().toLowerCase()}`)?.slug !== slug)
 			.map((s) => ({
 				week: s.week,
@@ -1548,10 +1690,13 @@ export const attachPlannedRoute = createServerFn({ method: 'POST' }).middleware(
 		const week = data.week;
 		const day = data.day?.trim() ?? '';
 		if (week == null || !day) throw new Error('Pick a plan day or an activity.');
-		if (!Number.isInteger(week) || week < 1 || week > PLAN_WEEK_COUNT) {
+		if (!Number.isInteger(week) || week < 1) {
 			throw new Error('That plan week is out of range.');
 		}
-		const plan = await loadPlan();
+		const { calendar, plan } = await loadTrainingContext();
+		if (week > calendar.weekCount) {
+			throw new Error('That plan week is out of range.');
+		}
 		const found = plan
 			.find((w) => w.week === week)
 			?.sessions.find((s) => s.day.toLowerCase() === day.toLowerCase());

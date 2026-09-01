@@ -44,7 +44,7 @@ npm run d1:exec:remote -- --command="SELECT slug, date FROM runs ORDER BY date D
 ```
 src/
   routes/            TanStack routes: __root, index (dashboard), timeline,
-                     log, runs.$slug, context, goals (→ redirect)
+                     log, runs.$slug, context, goals
   components/        React: RouteMap, RoutesHeatmap, SplitsPanel, TrendsSection,
                      Sparkline, DateRangeFilter
   lib/               framework-agnostic logic: splits, trends, format, plan,
@@ -62,7 +62,7 @@ schema.sql           same schema, for reading
 |-------|-------|
 | `runs` | one row per run |
 | `routes` | `id` + GeoJSON track + downsampled `polyline` for heatmaps |
-| `context` | goals, shoes, plan.json, profile, injury, gear, race strategy |
+| `context` | goals.json, shoes, plan.json, profile, injury, gear, race strategy |
 | `planned_routes` | BRouter exports (not activity GPS) |
 | `planned_route_links` | plan-day / activity attachments |
 

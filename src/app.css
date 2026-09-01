@@ -54,6 +54,8 @@
 	color-scheme: dark;
 	--app-header-inner: 3.65rem;
 	--app-header-height: calc(var(--app-header-inner) + env(safe-area-inset-top, 0px));
+	--app-content-inset: 1.25rem;
+	--app-shell-pad-top: calc(var(--app-header-height) + var(--app-content-inset));
 }
 
 @layer base {
@@ -192,7 +194,7 @@
 	}
 
 	.app-shell {
-		padding-top: var(--app-header-height);
+		padding-top: var(--app-shell-pad-top);
 	}
 
 	.app-header {

@@ -40,7 +40,7 @@ import { TrendsSection } from '../components/TrendsSection';
 type DashSearch = RangeSearch & { sport?: string; country?: string; province?: string; place?: string };
 
 const nextUpBase =
-	'mt-5 p-[1rem_1.1rem_1.05rem] border border-line rounded-xl max-sm:p-[0.85rem_0.9rem_0.9rem] [&_h2]:text-[1.45rem] [&_h2]:font-[750] [&_h2]:tracking-[-0.03em] [&_h2]:m-0 [&_h2]:mb-[0.35rem] [&_h2]:[overflow-wrap:anywhere] [&_p]:m-0 [&_p]:leading-[1.45] max-sm:[&_h2]:text-[1.2rem]';
+	'mt-5 p-[1rem_1.1rem_1.05rem] border border-line rounded-xl max-sm:mt-0 max-sm:p-[0.85rem_0.9rem_0.9rem] [&_h2]:text-[1.45rem] [&_h2]:font-[750] [&_h2]:tracking-[-0.03em] [&_h2]:m-0 [&_h2]:mb-[0.35rem] [&_h2]:[overflow-wrap:anywhere] [&_p]:m-0 [&_p]:leading-[1.45] max-sm:[&_h2]:text-[1.2rem]';
 const nextUp = cn(
 	nextUpBase,
 	'bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))]'

@@ -1,4 +1,5 @@
 import type { ActivityType } from '$lib/activity';
+import { sportChipLabel } from './Icon';
 import { SegmentedToggle } from './SegmentedToggle';
 
 const OPTIONS: { value: 'all' | ActivityType; label: string }[] = [
@@ -34,7 +35,7 @@ export function SportFilter({
 				aria-label="Activity type"
 				options={options.map((o) => ({
 					value: o.value,
-					label: o.label,
+					label: sportChipLabel(o.value, o.label),
 					to,
 					search: (prev: Record<string, unknown>) => ({
 						...prev,

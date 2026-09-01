@@ -24,6 +24,7 @@ import { DateRangeFilter, rangeToSearch, type RangeSearch } from '../components/
 import { DeferredData } from '../components/DeferredData';
 import { FeelBadge } from '../components/FeelBadge';
 import { FilterSheet, filterSummary } from '../components/FilterSheet';
+import { ActivityIcon, ActivityTag, Icon } from '../components/Icon';
 import { PlaceFilter } from '../components/PlaceFilter';
 import { RouteChip } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
@@ -109,14 +110,19 @@ function Dashboard() {
 				</div>
 				<div className={ui.actions}>
 					<Link className={ui.btnPrimary} to="/coach">
+						<Icon name="coach" size={16} />
 						Coach
 					</Link>
 					{authed ? (
 						<Link className={ui.btnGhost} to="/import">
+							<Icon name="plus" size={16} />
 							Add activity
 						</Link>
 					) : (
-						<SignInLink className={ui.btnGhost}>Sign in to edit</SignInLink>
+						<SignInLink className={ui.btnGhost}>
+							<Icon name="signIn" size={16} />
+							Sign in to edit
+						</SignInLink>
 					)}
 				</div>
 			</section>
@@ -222,7 +228,8 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 		<>
 			{highlightHead && data.weekView && (
 				<section className={nextUp} aria-labelledby="next-up-heading">
-					<p className={nextUpKicker}>
+					<p className={cn(nextUpKicker, 'inline-flex items-center gap-1.5')}>
+						<Icon name={highlightHead.isToday ? 'sun' : laterWeek ? 'calendar' : 'arrow'} size={13} />
 						{highlightHead.isToday ? 'Today' : laterWeek ? 'Next week' : 'Next up'}
 					</p>
 					{highlightSessions.length === 1 ? (
@@ -260,7 +267,8 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 											session.skipped && 'opacity-55'
 										)}
 									>
-										<p className="m-0 text-[0.82rem] font-semibold text-muted">
+										<p className="m-0 inline-flex items-center gap-1.5 text-[0.82rem] font-semibold text-muted">
+											<ActivityIcon type={session.activity_type ?? 'run'} size={13} />
 											{activityLabel(session.activity_type ?? 'run')}
 											{session.distance_km != null ? ` · ${session.distance_km} km` : ''}
 											{session.done ? ' · completed' : session.isNext ? ' · next' : ''}
@@ -296,7 +304,10 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 			)}
 			{data.weekView && !data.weekView.next && (
 				<section className={nextUpDone} aria-labelledby="next-up-heading">
-					<p className={nextUpKicker}>This week</p>
+					<p className={cn(nextUpKicker, 'inline-flex items-center gap-1.5')}>
+						<Icon name="check" size={13} />
+						This week
+					</p>
 					<h2 id="next-up-heading">
 						{data.weekView.sessions.some((s) => s.unlogged)
 							? 'Some sessions not logged yet'
@@ -452,9 +463,11 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 									place: place === 'all' ? undefined : place
 								}}
 							>
+								<Icon name="timeline" size={16} />
 								Full timeline
 							</Link>
 							<Link className={ui.btnGhost} to="/import">
+								<Icon name="plus" size={16} />
 								Add
 							</Link>
 						</div>
@@ -490,9 +503,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 									</strong>
 									<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.2rem] font-[650] tracking-[-0.02em] max-sm:text-[0.95rem]">
 										{sport === 'all' && (
-											<span className={cn(ui.tag, ui.tagAccent)}>
-												{activityLabel(run.activity_type)}
-											</span>
+											<ActivityTag type={run.activity_type} />
 										)}
 										<span>
 											{showsField(run.activity_type, 'distance')

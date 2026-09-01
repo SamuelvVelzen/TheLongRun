@@ -18,6 +18,7 @@ import { FeelBadge } from '../components/FeelBadge';
 import type { RunWithMap } from '$lib/types';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
 import { FilterSheet, filterSummary } from '../components/FilterSheet';
+import { ActivityTag, Icon } from '../components/Icon';
 import { PlaceFilter } from '../components/PlaceFilter';
 import { SportFilter } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
@@ -93,9 +94,11 @@ function Timeline() {
 				</div>
 				<div className={ui.actions}>
 					<Link className={ui.btnPrimary} to="/import">
+						<Icon name="plus" size={16} />
 						Add activity
 					</Link>
 					<Link className={ui.btnGhost} to="/coach">
+						<Icon name="coach" size={16} />
 						Coach
 					</Link>
 				</div>
@@ -236,9 +239,7 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 														)}
 														{hasContext(run) && <FeelBadge />}
 													</strong>
-													<span className={cn(ui.tag, ui.tagAccent)}>
-														{activityLabel(run.activity_type)}
-													</span>
+													<ActivityTag type={run.activity_type} />
 												</div>
 												{(run.day ||
 													(run.session && run.session !== 'other') ||

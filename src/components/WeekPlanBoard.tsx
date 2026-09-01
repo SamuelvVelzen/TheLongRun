@@ -2,6 +2,7 @@ import { activityLabel, normalizeActivityType } from '$lib/activity';
 import { weekDayGroups, type UnplannedActivity, type WeekView } from '$lib/plan';
 import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
+import { ActivityIcon, Icon } from './Icon';
 import { RouteChip } from './RouteChip';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -29,13 +30,17 @@ function StatusBadge({
 	if (done) {
 		return (
 			<span className={cn(ui.statusPill, 'text-ok border border-[rgba(125,255,168,0.35)] bg-ok/10')}>
+				<Icon name="check" size={11} />
 				Completed
 			</span>
 		);
 	}
 	if (skipped) {
 		return (
-			<span className={cn(ui.statusPill, 'text-muted border border-line bg-black/20')}>Skipped</span>
+			<span className={cn(ui.statusPill, 'text-muted border border-line bg-black/20')}>
+				<Icon name="skip" size={11} />
+				Skipped
+			</span>
 		);
 	}
 	if (unlogged) {
@@ -46,6 +51,7 @@ function StatusBadge({
 					'text-muted border border-dashed border-line bg-black/10'
 				)}
 			>
+				<Icon name="circle" size={11} />
 				No log
 			</span>
 		);
@@ -58,6 +64,7 @@ function StatusBadge({
 					'text-accent-ink bg-accent border border-accent'
 				)}
 			>
+				<Icon name={isToday ? 'sun' : 'arrow'} size={11} />
 				{isToday ? 'Today' : 'Next'}
 			</span>
 		);
@@ -70,6 +77,7 @@ function StatusBadge({
 					'text-accent border border-[rgba(200,242,90,0.4)] bg-[rgba(200,242,90,0.08)]'
 				)}
 			>
+				<Icon name="sun" size={11} />
 				Today
 			</span>
 		);
@@ -85,6 +93,7 @@ function UnplannedBadge() {
 				'text-accent border border-dashed border-[rgba(200,242,90,0.45)] bg-[rgba(200,242,90,0.06)]'
 			)}
 		>
+			<Icon name="unplanned" size={11} />
 			Unplanned
 		</span>
 	);
@@ -107,7 +116,8 @@ function UnplannedRow({
 			)}
 		>
 			<div className="flex items-center justify-between gap-2 min-w-0">
-				<span className="text-[0.78rem] font-semibold text-muted min-w-0 [overflow-wrap:anywhere]">
+				<span className="inline-flex items-center gap-1 text-[0.78rem] font-semibold text-muted min-w-0 [overflow-wrap:anywhere]">
+					<ActivityIcon type={item.activity_type} size={13} />
 					{activityLabel(item.activity_type)}
 					{item.distance_km != null ? ` · ${item.distance_km} km` : ''}
 				</span>
@@ -191,7 +201,8 @@ export function WeekPlanBoard({
 										)}
 									>
 										<div className="flex items-center justify-between gap-2 min-w-0">
-											<span className="text-[0.78rem] font-semibold text-muted min-w-0 [overflow-wrap:anywhere]">
+											<span className="inline-flex items-center gap-1 text-[0.78rem] font-semibold text-muted min-w-0 [overflow-wrap:anywhere]">
+												<ActivityIcon type={session.activity_type ?? 'run'} size={13} />
 												{activityLabel(session.activity_type ?? 'run')}
 												{session.distance_km != null ? ` · ${session.distance_km} km` : ''}
 											</span>
@@ -211,7 +222,7 @@ export function WeekPlanBoard({
 										</p>
 										{session.unlogged && (
 											<Link
-												className="block pt-1 text-[0.8rem] font-[650] text-accent hover:underline"
+												className="inline-flex items-center gap-1 pt-1 text-[0.8rem] font-[650] text-accent hover:underline"
 												to="/import"
 												search={{
 													mode:
@@ -221,6 +232,7 @@ export function WeekPlanBoard({
 															: 'gpx'
 												}}
 											>
+												<Icon name="plus" size={13} />
 												Log this
 											</Link>
 										)}

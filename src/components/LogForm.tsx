@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPES, activityLabel, normalizeActivityType, paceFieldLabel, showsFeel, showsField } from '$lib/activity';
+import { ACTIVITY_TYPES, activityLabel, normalizeActivityType, paceFieldLabel, showsFeel, showsField, type ActivityType } from '$lib/activity';
 import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
 import { createRun, type CreateRunInput } from '$lib/server/functions';
@@ -7,7 +7,9 @@ import type { PlanWeek } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
+import { ChoiceChips } from './ChoiceChips';
 import { FeelChips, WantedFasterChips } from './FeelChips';
+import { Icon, sportChipLabel } from './Icon';
 import { ShoesField } from './ShoesField';
 import { errorMessage, useSnackbar } from './Snackbar';
 import { StrengthEditor } from './StrengthEditor';
@@ -31,7 +33,7 @@ export function LogForm({
 	const [startTimeValue, setStartTimeValue] = useState('');
 	const [durationValue, setDurationValue] = useState('');
 	const [weather, setWeather] = useState('');
-	const [activityType, setActivityType] = useState('run');
+	const [activityType, setActivityType] = useState<ActivityType>('run');
 	const [strengthNotes, setStrengthNotes] = useState('');
 
 	const derivedDay = dayFromIsoDate(dateValue || todayIso);
@@ -121,16 +123,18 @@ export function LogForm({
 								{derivedWeek != null && ` · week ${derivedWeek}`}
 							</span>
 						</label>
-						<label className={ui.field}>
+						<div className={cn(ui.field, 'min-[721px]:col-span-2')}>
 							<span className={ui.req}>Type</span>
-							<select value={activityType} onChange={(e) => setActivityType(e.target.value)}>
-								{ACTIVITY_TYPES.map((t) => (
-									<option key={t} value={t}>
-										{activityLabel(t)}
-									</option>
-								))}
-							</select>
-						</label>
+							<ChoiceChips
+								aria-label="Activity type"
+								value={activityType}
+								options={ACTIVITY_TYPES.map((t) => ({
+									value: t,
+									label: sportChipLabel(t, activityLabel(t))
+								}))}
+								onChange={setActivityType}
+							/>
+						</div>
 						{activityType === 'run' && (
 							<label className={ui.field}>
 								<span>Session</span>
@@ -276,9 +280,11 @@ export function LogForm({
 
 			<div className={cn(ui.actions, ui.stickyActions)}>
 				<button className={cn(ui.btnPrimary, ui.stickyPrimary)} type="submit">
+					<Icon name="check" size={16} />
 					Save activity
 				</button>
 				<Link className={ui.btnGhost} to="/">
+					<Icon name="close" size={16} />
 					Cancel
 				</Link>
 			</div>

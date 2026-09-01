@@ -11,6 +11,7 @@ import { cn, ui } from '$lib/ui';
 import { ChoiceChips } from './ChoiceChips';
 import { ConfirmDialog, Dialog } from './Dialog';
 import { DeleteButton } from './DeleteButton';
+import { ActivityIcon, Icon, sportChipLabel } from './Icon';
 
 export type SlotRow = WeekSlot & { id: string };
 
@@ -25,7 +26,10 @@ export function toPattern(rows: SlotRow[]): WeekSlot[] {
 }
 
 const DAY_OPTIONS = WEEKDAYS.map((d) => ({ value: d, label: d.slice(0, 3) }));
-const SPORT_OPTIONS = ACTIVITY_TYPES.map((t) => ({ value: t, label: activityLabel(t) }));
+const SPORT_OPTIONS = ACTIVITY_TYPES.map((t) => ({
+	value: t,
+	label: sportChipLabel(t, activityLabel(t))
+}));
 
 type Draft = { id: string | null; day: Weekday; activity_type: ActivityType };
 
@@ -119,10 +123,11 @@ export function WeekPatternEditor({
 							>
 								<button
 									type="button"
-									className="appearance-none min-h-11 m-0 px-[0.7rem] py-2 rounded-lg border-0 bg-transparent text-left text-fg font-semibold cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed"
+									className="appearance-none inline-flex items-center gap-2 min-h-11 m-0 px-[0.7rem] py-2 rounded-lg border-0 bg-transparent text-left text-fg font-semibold cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed"
 									disabled={disabled}
 									onClick={() => openEdit(row)}
 								>
+									<ActivityIcon type={row.activity_type} size={16} />
 									{activityLabel(row.activity_type)}
 								</button>
 								<DeleteButton
@@ -144,6 +149,7 @@ export function WeekPatternEditor({
 				disabled={disabled || atCap}
 				onClick={openAdd}
 			>
+				<Icon name="plus" size={16} />
 				Add activity
 			</button>
 

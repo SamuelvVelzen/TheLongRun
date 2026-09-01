@@ -1,7 +1,8 @@
 import type { DateRange, RangeKind } from '$lib/date-range';
+import { cn, ui } from '$lib/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { cn, ui } from '$lib/ui';
+import { Icon } from './Icon';
 import { SegmentedToggle } from './SegmentedToggle';
 
 export type RangeSearch = { range?: RangeKind; from?: string; to?: string };
@@ -76,7 +77,12 @@ export function DateRangeFilter({ range, to }: { range: DateRange; to: string })
 							...rangeToSearch(preset.kind)
 						})
 					})),
-					{ value: 'custom' as const, label: 'Custom' }
+					{ value: 'custom' as const, label: (
+						<>
+							<Icon name="calendar" size={14} />
+							Custom
+						</>
+					) }
 				]}
 			/>
 

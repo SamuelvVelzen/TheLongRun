@@ -12,7 +12,11 @@ export const Route = createRootRoute({
 	head: () => ({
 		meta: [
 			{ charSet: 'utf-8' },
-			{ name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+			{
+				name: 'viewport',
+				content:
+					'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content'
+			},
 			{ title: 'The Long Run' },
 			{ name: 'description', content: 'Personal run log' },
 			{ name: 'theme-color', content: '#10140f' },
@@ -101,8 +105,8 @@ function RootShell() {
 	return (
 		<RootDocument>
 			<SnackbarProvider>
-			<div className="relative z-1 flex flex-1 flex-col w-[min(1120px,calc(100%-2rem))] min-h-dvh mx-auto pt-5 pr-[env(safe-area-inset-right,0px)] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] max-sm:w-[min(1120px,calc(100%-1.25rem))] max-sm:pt-[0.85rem] max-sm:pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]">
-				<header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-8 pt-[calc(0.85rem+env(safe-area-inset-top,0px))] pb-[0.85rem] border-b border-line max-sm:mb-4 max-sm:pt-[max(0.45rem,env(safe-area-inset-top,0px))] max-sm:pb-[0.45rem]">
+			<div className="app-shell relative z-1 flex flex-1 flex-col w-[min(1120px,calc(100%-2rem))] min-h-dvh mx-auto pt-5 pr-[env(safe-area-inset-right,0px)] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] max-sm:w-[min(1120px,calc(100%-1.25rem))] max-sm:pt-[var(--app-header-height)] max-sm:pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]">
+				<header className="app-header flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-8 pt-[calc(0.85rem+env(safe-area-inset-top,0px))] pb-[0.85rem] border-b border-line max-sm:mb-0">
 					<Link
 						to="/"
 						className="shrink-0 font-display font-extrabold text-[1.35rem] tracking-[-0.04em] max-sm:text-[1.15rem] max-sm:py-[0.15rem] [&_span]:text-accent"
@@ -126,7 +130,7 @@ function RootShell() {
 					{authed ? (
 						<Link
 							to="/import"
-							className={cn(navAdd, 'max-sm:hidden')}
+							className={navAdd}
 							aria-label="Add activity"
 							title="Add activity"
 							activeOptions={{ includeSearch: false }}
@@ -136,11 +140,10 @@ function RootShell() {
 					) : (
 						<AuthNavIcon />
 					)}
-					{authed ? <MobileSignOut /> : null}
 				</header>
 				<Outlet />
 				<nav
-					className="tab-bar hidden max-sm:flex items-stretch justify-around fixed inset-x-0 bottom-0 z-40 gap-[0.15rem] min-h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pt-[0.3rem] pl-[max(0.35rem,env(safe-area-inset-left,0px))] pr-[max(0.35rem,env(safe-area-inset-right,0px))] pb-[calc(0.3rem+env(safe-area-inset-bottom,0px))] border-t border-line bg-[rgba(16,20,15,0.96)] shadow-[0_-12px_32px_rgba(0,0,0,0.28)]"
+					className="tab-bar hidden max-sm:flex items-stretch justify-around fixed inset-x-0 bottom-0 z-40 gap-[0.15rem] min-h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pt-[0.3rem] pl-[max(0.35rem,env(safe-area-inset-left,0px))] pr-[max(0.35rem,env(safe-area-inset-right,0px))] pb-[calc(0.3rem+env(safe-area-inset-bottom,0px))] border-t border-line shadow-[0_-12px_32px_rgba(0,0,0,0.28)]"
 					aria-label="Primary"
 				>
 					{tabs.map((tab) => (
@@ -202,6 +205,12 @@ function RootShell() {
 								<Icon name="external" size={13} className="ml-auto opacity-70" />
 							</a>
 							<PwaInstall className={tabMoreLink} />
+							{authed ? (
+								<>
+									<div className="my-[0.15rem] border-t border-line" />
+									<SignOutLink className={tabMoreLink} onClick={closeDetails} />
+								</>
+							) : null}
 						</div>
 					</details>
 				</nav>
@@ -291,24 +300,6 @@ function SignOutLink({
 		>
 			<Icon name="signOut" size={18} />
 			Sign out
-		</a>
-	);
-}
-
-function MobileSignOut() {
-	return (
-		<a
-			href="/logout"
-			className={cn(navAuth, 'hidden max-sm:inline-flex')}
-			aria-label="Sign out"
-			title="Sign out"
-			onClick={(e) => {
-				if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-				e.preventDefault();
-				window.location.assign('/logout');
-			}}
-		>
-			<Icon name="signOut" size={22} />
 		</a>
 	);
 }

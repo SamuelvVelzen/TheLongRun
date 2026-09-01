@@ -97,8 +97,9 @@ function PlannedRouteDetail() {
 
 	return (
 		<>
-			<section className={cn(ui.hero, ui.heroRoute)}>
-				<div>
+			<div className="max-sm:flex max-sm:flex-col">
+			<section className={cn(ui.hero, ui.heroRoute, 'max-sm:contents max-sm:mb-0')}>
+				<div className="max-sm:mb-3">
 					<p className={ui.muted}>
 						<Link to="/routes">Routes</Link>
 						{location ? ` · ${location}` : ''} · saved {route.saved_on}
@@ -125,7 +126,7 @@ function PlannedRouteDetail() {
 					</h1>
 					<p>{route.notes || 'Imported from GPX.'}</p>
 				</div>
-				<div>
+				<div className="max-sm:order-3 max-sm:mt-1 max-sm:mb-4">
 					<div className={ui.actions}>
 						<button
 							className={mapsPref === 'apple' ? ui.btnPrimary : ui.btnGhost}
@@ -172,7 +173,7 @@ function PlannedRouteDetail() {
 			</section>
 
 			{editing && (
-				<form className={cn(ui.panel, ui.form, 'mb-4')} onSubmit={save}>
+				<form className={cn(ui.panel, ui.form, 'mb-4 max-sm:order-4')} onSubmit={save}>
 					<label className={ui.field}>
 						<span>Notes</span>
 						<textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
@@ -185,7 +186,19 @@ function PlannedRouteDetail() {
 				</form>
 			)}
 
-			<div className={cn(ui.metrics, 'mb-4')}>
+			<div className={cn(ui.panel, 'mb-4 p-0 overflow-hidden max-sm:order-1')}>
+				<div className="hidden sm:block p-[1.1rem_1.2rem_0.65rem]">
+					<h3>Route</h3>
+					<p className={cn(ui.muted, 'mt-1')}>Kilometres and available GPX waypoints are marked</p>
+				</div>
+				<PlannedRouteMap
+					geojson={route.geojson}
+					kmMarkers={route.kmMarkers}
+					waypoints={route.waypoints}
+				/>
+			</div>
+
+			<div className={cn(ui.metrics, 'mb-4 max-sm:order-2')}>
 				<div className={cn(ui.metric, ui.metricEmph)}>
 					<b>{route.distance_km ?? '—'}</b>
 					<span>km</span>
@@ -214,18 +227,7 @@ function PlannedRouteDetail() {
 				</div>
 			</div>
 
-			<div className={cn(ui.panel, 'mb-4 p-0 overflow-hidden')}>
-				<div className="p-[1.1rem_1.2rem_0.65rem]">
-					<h3>Route</h3>
-					<p className={cn(ui.muted, 'mt-1')}>Kilometres and available GPX waypoints are marked</p>
-				</div>
-				<PlannedRouteMap
-					geojson={route.geojson}
-					kmMarkers={route.kmMarkers}
-					waypoints={route.waypoints}
-				/>
-			</div>
-
+			<div className="max-sm:order-5">
 			<RouteAttach
 				slug={route.slug}
 				planLinks={route.planLinks}
@@ -233,9 +235,10 @@ function PlannedRouteDetail() {
 				planOptions={route.planOptions}
 				activityOptions={route.activityOptions}
 			/>
+			</div>
 
 			{route.waypoints.length > 0 && (
-				<div className={cn(ui.panel, 'mb-4')}>
+				<div className={cn(ui.panel, 'mb-4 max-sm:order-6')}>
 					<h3>Waypoints</h3>
 					<div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-0 mt-3 border-t border-line [&>div]:flex [&>div]:flex-col [&>div]:gap-[0.15rem] [&>div]:py-[0.7rem] [&>div]:pr-4 [&>div]:border-b [&>div]:border-line">
 						{route.waypoints.map((waypoint, index) => (
@@ -249,6 +252,7 @@ function PlannedRouteDetail() {
 					</div>
 				</div>
 			)}
+			</div>
 			<ConfirmDialog
 				open={pendingDelete}
 				title="Delete this route?"

@@ -2,8 +2,22 @@ import { AuthProvider, SignInLink, useAuthed } from '$lib/auth';
 import { getAuthState } from '$lib/server/functions';
 import { applyTheme, getTheme, themeInitScript } from '$lib/theme';
 import { cn } from '$lib/ui';
-import { createRootRoute, HeadContent, Link, Outlet, Scripts } from '@tanstack/react-router';
-import { useEffect, type MouseEvent, type MouseEventHandler, type ReactNode } from 'react';
+import {
+    createRootRoute,
+    HeadContent,
+    Link,
+    Outlet,
+    Scripts,
+    useElementScrollRestoration,
+    useRouterState
+} from '@tanstack/react-router';
+import {
+    useEffect,
+    useLayoutEffect,
+    type MouseEvent,
+    type MouseEventHandler,
+    type ReactNode
+} from 'react';
 import '../app.css';
 import { Icon } from '../components/Icon';
 import { PwaInstall } from '../components/PwaInstall';
@@ -108,6 +122,7 @@ function RootShell() {
 	return (
 		<RootDocument>
 			<SnackbarProvider>
+			<ScrollRestore />
 			<div className="app-shell relative z-1 flex flex-1 flex-col w-[min(1120px,calc(100%-2rem))] min-h-dvh mx-auto pt-5 pr-[env(safe-area-inset-right,0px)] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] max-sm:w-[min(1120px,calc(100%-1.25rem))] max-sm:pt-[var(--app-shell-pad-top)] max-sm:pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]">
 				<header className="app-header flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-8 pt-[calc(0.85rem+env(safe-area-inset-top,0px))] pb-[0.85rem] border-b border-line max-sm:mb-0">
 					<Link
@@ -316,6 +331,76 @@ function AuthNavIcon() {
 			<Icon name="signIn" size={22} />
 		</SignInLink>
 	);
+}
+
+/** Re-apply saved window scroll after deferred content makes the page tall enough. */
+function ScrollRestore() {
+	const locationKey = useRouterState({
+		select: (s) => s.location.state.__TSR_key ?? s.location.href
+	});
+	const entry = useElementScrollRestoration({
+		getElement: () => (typeof window === 'undefined' ? null : window)
+	});
+	const x = entry?.scrollX ?? 0;
+	const y = entry?.scrollY ?? 0;
+
+	useLayoutEffect(() => {
+		if ((!x && !y) || typeof window === 'undefined' || window.location.hash) return;
+
+		let applying = false;
+		let userMoved = false;
+		let stopped = false;
+		let raf = 0;
+		let frames = 0;
+		let timeout = 0;
+		const apply = () => {
+			if (stopped || userMoved) return true;
+			applying = true;
+			window.scrollTo({ top: y, left: x, behavior: 'instant' });
+			applying = false;
+			return document.documentElement.scrollHeight - window.innerHeight >= y - 2;
+		};
+
+		if (apply()) return;
+
+		const onScroll = () => {
+			if (!applying) userMoved = true;
+		};
+		window.addEventListener('scroll', onScroll, { passive: true });
+
+		const ro = new ResizeObserver(() => {
+			if (apply()) cleanup();
+		});
+		ro.observe(document.documentElement);
+		if (document.body) ro.observe(document.body);
+		if (stopped) return cleanup;
+
+		const tick = () => {
+			if (apply() || ++frames > 120) {
+				cleanup();
+				return;
+			}
+			raf = requestAnimationFrame(tick);
+		};
+		raf = requestAnimationFrame(tick);
+		timeout = window.setTimeout(() => {
+			apply();
+			cleanup();
+		}, 4000);
+
+		function cleanup() {
+			if (stopped) return;
+			stopped = true;
+			ro.disconnect();
+			window.removeEventListener('scroll', onScroll);
+			cancelAnimationFrame(raf);
+			window.clearTimeout(timeout);
+		}
+
+		return cleanup;
+	}, [locationKey, x, y]);
+
+	return null;
 }
 
 function RootDocument({ children }: { children: ReactNode }) {

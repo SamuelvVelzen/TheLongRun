@@ -487,7 +487,7 @@ export function weekToPlanJson(week: PlanWeek): unknown {
 }
 
 const COPY_STATUS_HINT =
-	'Session states: done / skipped / unlogged / next / upcoming / unplanned. Skipped only if `"status": "skipped"` or the plan text actually says skipped — a missing log is unlogged, do not assume skipped. Unplanned logs are extra load, already done — do not add a plan row just to file them. If I ask you to revise remaining sessions, keep completed ones and return one JSON object I can paste back.';
+	'Session states: done / skipped / unlogged / next / upcoming / today / unplanned. Skipped only if `"status": "skipped"` or the plan text actually says skipped — a missing log is unlogged, do not assume skipped. Unplanned logs are extra load, already done — do not add a plan row just to file them. The JSON is the saved plan (computed states live in the list only). If I ask you to revise remaining sessions, keep completed ones and return one JSON object I can paste back.';
 
 export function formatWeekPlanClipboard(view: WeekView, todayIso: string): string {
 	return `# The Long Run — week ${view.week.week} snapshot

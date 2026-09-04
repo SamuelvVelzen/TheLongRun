@@ -239,7 +239,7 @@ export function formatPatternPromptSection(opts: {
 			? `For **${opts.weekPhrase}** use **those same days and sports**.`
 			: `For **${opts.weekPhrase}** use this skeleton instead:\n${now}`,
 		count
-			? `**Keep these days and sports.** You choose the session kind (\`label\`: Easy, Quality, Long, tempo, easy spin, endurance ride, Gym, …), plus distance or duration and intent. The skeleton has no kinds — do not copy placeholder labels. Do not invent a different weekday pattern (do not move a Tuesday run to Wednesday just because a template prefers other days). Only shift a session if recovery, heat, life, or the notes below require it — and if you move a day, say why in prose.`
+			? `**Keep these days and sports.** You choose the session kind (\`label\`: Easy, Quality, Long, tempo, easy spin, endurance ride, Gym, …), plus distance (put duration in \`detail\` — there is no duration field) and intent. The skeleton has no kinds — do not copy placeholder labels. Do not invent a different weekday pattern (do not move a Tuesday run to Wednesday just because a template prefers other days). Only shift a session if recovery, heat, life, or the notes below require it — and if you move a day, say why in prose.`
 			: `I did not pin a usual week — plan whatever the week needs across the sports I do (run, ride, walk, swim, strength). Do not default to a 3-run template.`
 	];
 	lines.push(

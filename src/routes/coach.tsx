@@ -57,7 +57,7 @@ function withCoachSearch(search: CoachSearch, extra: Partial<CoachSearch> = {}):
 }
 
 function defaultQuestion(): string {
-	return `What should this week look like? Keep my usual days and sports. Account for any unplanned logs already listed. You pick the session kind (easy / quality / long / etc.), distance and intent. If I noted extras I'm considering, say whether to add them. If you shift a day, say why.`;
+	return `What should this week look like? Use the rules above. If I noted extras I'm considering, say whether to add them.`;
 }
 
 function parseTab(v: unknown): CoachTab {

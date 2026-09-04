@@ -32,6 +32,7 @@ import {
     pickBannerWeekView,
     plannedSessionFor,
     planWeekDateRange,
+    planWeekEndIso,
     planWeekIndex,
     planWeekStartIso,
     sessionStreak,
@@ -443,6 +444,10 @@ function formatTrainingPlanBrief(plan: PlanWeek[], targetWeek: number, cal: Plan
 	return parts.join('\n\n');
 }
 
+/** Decoder for feel columns in generate/debrief/race prompts. */
+const FEEL_SCALE =
+	'Feel = effort/shins/legs/energy. Effort and energy 1–10 (effort higher = harder, energy higher = better). Shins and legs 0–10 (higher = worse). – = not recorded.';
+
 function notesForBriefRow(r: RunRecord): string {
 	const isStrength = normalizeActivityType(r.activity_type) === 'strength';
 	let notesText = r.notes || '';
@@ -544,7 +549,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		const today = new Date();
 		const windowRuns = filterRunsByRange(allRuns, range).sort(byDateNewestFirst);
 
-		const weeksToRace =
+		const daysToRace =
 			activeGoal != null ? Math.max(0, daysUntil(activeGoal.date, today) ?? 0) : null;
 
 		const curWeek = Math.min(calendar.weekCount, Math.max(1, planWeekIndex(calendar, today)));
@@ -624,6 +629,21 @@ These logs fall in week ${targetWeek} but did not match a planned session (extra
 ${formatUnplannedBrief(targetView.unplanned)}
 `
 				: '';
+		const weekStartIso = planWeekStartIso(targetWeek, calendar);
+		const weekEndIso = planWeekEndIso(targetWeek, calendar);
+		const thisWeekLogs = allRuns
+			.filter((r) => r.date >= weekStartIso && r.date <= weekEndIso)
+			.sort((a, b) =>
+				a.date !== b.date ? (a.date < b.date ? -1 : 1) : (a.slug ?? '').localeCompare(b.slug ?? '')
+			);
+		const alreadyLoggedSection =
+			!revising && thisWeekLogs.length
+				? `## Already logged this week
+These are already done. If a log matches a skeleton day and sport, that slot is done — keep it in the JSON to match what I did, and plan the remaining days. Logs that are not a skeleton day+sport are extra load; do not add a plan row just to file them.
+
+${thisWeekLogs.map(formatRunBriefLine).join('\n')}
+`
+				: '';
 		const mixSection = formatPatternPromptSection({
 			defaultPattern,
 			thisWeek: thisPattern,
@@ -655,18 +675,18 @@ ${formatUnplannedBrief(targetView.unplanned)}
 			: '';
 		const toward = activeGoal
 			? `I'm training toward **${activeGoal.name}** (${activeGoal.distance_km} km) on **${activeGoal.date}**${
-					weeksToRace != null ? ` — about **${weeksToRace} weeks** away` : ''
+					daysToRace != null ? ` — **${daysToRace} days** away` : ''
 				}`
 			: `There is **no race on the calendar**. Plan this week as base / consistency training`;
 		const ladderLine = activeGoal
-			? 'Invent `label`, distance or duration, and intent from how I\'ve been recovering and laddering toward the race.'
-			: 'Invent `label`, distance or duration, and intent from how I\'ve been recovering. No race to peak for — keep it sustainable.';
+			? 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering and laddering toward the race. Put duration in `detail` — there is no duration field.'
+			: 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering. Put duration in `detail` — there is no duration field. No race to peak for — keep it sustainable.';
 		const briefAsk = revising
-			? `Week ${targetWeek} already has a saved plan (see Training plan). **Revise remaining sessions** given what is already logged, including any unplanned extras. Keep completed planned sessions in the JSON as they were. Usual-week skeleton still applies for what's ahead, unless notes or recovery require a shift. You may add sessions for extras I propose in the notes — say why. Flag any red flags (injury risk, overtraining, under-recovery).`
-			: `Please assess how my training is going and give me a concrete plan for **${weekPhrase}** covering **every session in my usual-week skeleton** (runs, rides, walks, swims, strength — whatever I pinned), keeping those days and sports. ${ladderLine} Flag any red flags (injury risk, overtraining, under-recovery). If you move a day, say why.`;
+			? `Week ${targetWeek} already has a saved plan (see Training plan). **Revise remaining sessions** given what is already logged, including any unplanned extras. Start from the saved week JSON — do not rebuild from the usual-week skeleton. Keep completed planned sessions in the JSON as they were (a matching Activity log date + sport means done; do not add \`"status": "completed"\` — \`status\` is only for skipped). You may add sessions for extras I propose in the notes — say why. Flag any red flags (injury risk, overtraining, under-recovery).`
+			: `Please assess how my training is going and give me a concrete plan for **${weekPhrase}** covering **every session in my usual-week skeleton** (runs, rides, walks, swims, strength — whatever I pinned), keeping those days and sports. ${ladderLine} If a log this week already matches a skeleton day and sport, that slot is done — keep it in the JSON to match what I did, and plan the remaining days. Flag any red flags (injury risk, overtraining, under-recovery).`;
 		const replyRules = revising
-			? `Start from the saved week JSON — do not replace it with the usual-week skeleton. Keep completed sessions as they were. Revise what's still ahead. You may add a session for an extra I declared in the notes. If you drop a session, set \`"status": "skipped"\` — a missing log is unlogged, not skipped. If you move a day, say why.`
-			: `Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride, Gym, …), \`"distance_km"\` (null for strength), and \`"detail"\`. The example labels below are yours to replace with a real kind, not values to copy from my skeleton. If you drop a session, set \`"status": "skipped"\`. If you move a day, say why.`;
+			? `Start from the saved week JSON — do not replace it with the usual-week skeleton. Keep completed sessions as they were (do not add \`"status": "completed"\`). Revise what's still ahead, same days and sports unless notes or recovery require a shift. You may add a session for an extra I declared in the notes. If you drop a session, set \`"status": "skipped"\` — a missing log is unlogged, not skipped. Only move a day if you must, and say why in prose.`
+			: `Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride, Gym, …), \`"distance_km"\` (null for strength), and \`"detail"\`. Put swim/strength time in \`detail\` — there is no duration field. The example labels and distances below are placeholders, not prescriptions. If you drop a session, set \`"status": "skipped"\`. Unlogged ≠ skipped. Only move a day if recovery, heat, life, or the notes require it — and say why in prose.`;
 
 		const laterRaces = store.goals
 			.filter((g) => g.status !== 'done' && g.id !== activeGoal?.id)
@@ -676,7 +696,7 @@ ${formatUnplannedBrief(targetView.unplanned)}
 			.join('\n');
 		const goalSection = activeGoal
 			? `## Goal
-- Race: ${activeGoal.name} — ${activeGoal.distance_km} km on ${activeGoal.date}${weeksToRace != null ? ` (~${weeksToRace} weeks to go)` : ''}
+- Race: ${activeGoal.name} — ${activeGoal.distance_km} km on ${activeGoal.date}${daysToRace != null ? ` (~${daysToRace} days to go)` : ''}
 - Sport: ${activityLabel(activeGoal.sport)}
 - Time goal: ${activeGoal.time_goal || '—'}
 ${activeGoal.url ? `- Race URL: ${activeGoal.url}` : ''}
@@ -702,12 +722,12 @@ ${lastMedalLine}
 		return `# The Long Run — training context
 
 ## Coaching brief
-You are my coach for the sports I actually do — not a running-only coach. ${toward}. Keep my usual weekdays and sports unless this week's notes or recovery require a shift. You choose the session kind (easy / quality / long / tempo / easy spin / …), distance, and intent. Below is my plan, my recent training with how each session felt (effort / shins / legs / energy, each 0–10), weekly volume across sports, and my constraints.
+You are my coach for the sports I actually do — not a running-only coach. ${toward}. Keep my usual weekdays and sports unless this week's notes or recovery require a shift. You choose the session kind (easy / quality / long / tempo / easy spin / …), distance, and intent. Below is my plan, my recent training with how each session felt (effort and energy 1–10, shins and legs 0–10), weekly volume across sports, and my constraints.
 
 ${briefAsk}
 
 ## How to read this brief
-Goal, Timing, All-time summary, weekly volume, and the Activity log are auto-computed from logged activities and are **current**. Runner profile, injury, gear, and race strategy are hand-written and may lag. If they disagree on numbers (longest run, weekly rhythm, dates), **prefer the computed sections**.
+Goal and Timing come from the race and calendar I set. All-time summary, weekly volume, and the Activity log are auto-computed from logs and are **current**. Runner profile, injury, gear, and race strategy are hand-written and may lag. If they disagree on numbers (longest run, weekly volume), **prefer the computed sections**.
 
 ${goalSection}
 ${timingSection}
@@ -722,7 +742,7 @@ ${timingSection}
 ${weekLines}
 
 ## Activity log (${activityHeading})
-Feel = effort/shins/legs/energy (0–10, – = not recorded).
+${FEEL_SCALE}
 
 | Date | Type | km | pace/speed | HR avg/max | Feel | Notes |
 |------|------|----|-----------|-----------|------|-------|
@@ -731,7 +751,7 @@ ${rows}
 ## Training plan
 ${plan.length ? formatTrainingPlanBrief(plan, targetWeek, calendar) : '(no plan set)'}
 
-${unplannedSection}${unplannedSection ? '\n' : ''}${shoesSectionForBrief(shoes, allRuns)}
+${unplannedSection}${unplannedSection ? '\n' : ''}${alreadyLoggedSection}${alreadyLoggedSection ? '\n' : ''}${shoesSectionForBrief(shoes, allRuns)}
 
 ## Runner profile
 ${profile.trim() || '(none)'}
@@ -914,12 +934,13 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const sessionHeading = many ? 'These sessions' : 'This session';
 		const sessionBlock = featured.map(formatRunBriefLine).join('\n');
 		const feelingsRule = many
-			? `- \`feelings\` is an array with one object per session above. Each \`slug\` must be exactly one of: ${featured.map((r) => `\`${r.slug}\``).join(', ')}. Scores 0–10 (effort/energy 1–10). Omit fields you don't know. Omit a session entirely if I said nothing about it.`
-			: `- \`feelings.slug\` must be exactly \`${featured[0]!.slug}\`. Scores 0–10 (effort/energy 1–10). Omit fields you don't know.`;
+			? `- \`feelings\` is an array with one object per session above. Each \`slug\` must be exactly one of: ${featured.map((r) => `\`${r.slug}\``).join(', ')}. effort and energy 1–10; shins and legs 0–10. Omit fields you don't know. Do not invent scores from GPS or screenshots. Omit a session entirely if I said nothing about it. Do not copy example numbers.`
+			: `- \`feelings.slug\` must be exactly \`${featured[0]!.slug}\`. effort and energy 1–10; shins and legs 0–10. Omit fields you don't know. Do not invent scores from GPS or screenshots. Omit the feelings object if I said nothing about this session. Do not copy example numbers.`;
 
 		const prompt = `# The Long Run — debrief ${sessionWord}
 
 You are my coach for the sports I train, not a running-only coach. GPS numbers are below. I'll attach Strava screenshots and say how ${many ? 'each one' : 'it'} felt.
+${FEEL_SCALE}
 
 Update **this week** from ${sessionWord}. Keep remaining sessions on their planned days unless recovery requires a shift — and if you move a day, say why. Keep non-run sessions unless recovery says otherwise.
 
@@ -939,7 +960,7 @@ ${unplannedLines ? `## Unplanned activities this week\nThese logs did not match 
 ${injury.trim() || '(none)'}
 
 ## When you reply
-Short assessment. Then **one JSON object** (no prose before or after):
+Short assessment in prose. Then one fenced JSON object I can paste back — the JSON is what I save; the assessment is not.
 
 \`\`\`json
 {
@@ -950,7 +971,7 @@ ${formatFeelingsExample(featured)},
     "phase": ${JSON.stringify(week?.phase ?? '')},
     "focus": "one-line focus after ${sessionWord}",
     "sessions": [
-      { "day": "Friday", "activity_type": "run", "label": "Easy", "distance_km": 7, "detail": "keep, shorten, or skip + why" }
+      { "day": "Friday", "activity_type": "run", "label": "Easy", "distance_km": 7, "detail": "copy each day from Current week plan — do not use this Friday row as-is" }
     ]
   }
 }
@@ -958,9 +979,9 @@ ${formatFeelingsExample(featured)},
 
 Rules:
 ${feelingsRule}
-- \`week.sessions\` is the **full week** from Current week plan: keep completed/skipped rows as they were, rewrite what's still ahead. Every session needs \`"activity_type"\`. If you move a day, say why.
+- \`week.sessions\` is the **full week** from Current week plan: keep completed/skipped rows as they were, rewrite what's still ahead. Every session needs \`"activity_type"\`. Only move a day if you must, and say why.
 - To drop a session, set \`"status": "skipped"\` (and why in \`detail\`). Unlogged ≠ skipped.
-- If the week is finished, still return the week object with the sessions as completed.
+- If the week is finished, return the same session rows unchanged — do not invent a completed status (\`status\` is only \`"skipped"\`).
 `;
 		const runs = featured.map(debriefRunSummary);
 		return {
@@ -1459,6 +1480,7 @@ export const getFeelingsPrompt = createServerFn({ method: 'GET' })
 					.join('\n')
 			: '| — | — | — | — | — |';
 
+		const exampleSlug = targets[0]?.slug ?? 'copy-slug-from-table';
 		const prompt = `# The Long Run — capture how each activity felt
 
 From our conversation, summarise how I felt for each activity below (${rangeLabel}). I describe things like the road/terrain, shin soreness, energy, whether I wanted to run more or faster, and how my legs felt.
@@ -1469,21 +1491,22 @@ Return ONLY a JSON block in exactly this shape — no prose before or after:
 {
   "activities": [
     {
-      "slug": "PASTE-EXACT-SLUG",
+      "slug": ${JSON.stringify(exampleSlug)},
       "effort": 6,
       "shins": 3,
       "legs": 7,
       "energy": 7,
       "wanted_faster": true,
       "surface": "wet asphalt",
-      "notes": "Shins tight the first 2 km, opened up after the turnaround."
+      "notes": "My shins were tight the first 2 km, then opened up after the turnaround."
     }
   ]
 }
 \`\`\`
 
 Rules:
-- Use the exact \`slug\` values from the table. Scores are 0–10 (effort/energy 1–10). \`wanted_faster\` is true/false.
+- Copy \`slug\` from the table — do not use the example slug if it is not in the table. Do not copy example numbers.
+- ${FEEL_SCALE} \`wanted_faster\` is true/false.
 - Omit any field you have no information for; omit an activity entirely if I said nothing about it.
 - Keep \`notes\` short and in my voice (first person).
 
@@ -1586,7 +1609,7 @@ export const getGoalBrief = createServerFn({ method: 'GET' })
 					.split('\n')
 					.map((s) => s.trim())
 					.filter(Boolean);
-		const weeksToRace =
+		const daysToRace =
 			data.date && ISO_DATE_RE.test(data.date) ? Math.max(0, daysUntil(data.date) ?? 0) : null;
 		const lastMedal = medals[0];
 		const lastMedalLine = lastMedal
@@ -1604,18 +1627,16 @@ export const getGoalBrief = createServerFn({ method: 'GET' })
 		const extra = data.extra.trim();
 		const exampleJson = JSON.stringify(
 			{
-				name: data.name.trim() || 'Race name',
-				date: data.date || todayIso,
-				distance_km: distanceKm ?? 10,
+				name: data.name.trim(),
+				date: data.date || '',
+				distance_km: distanceKm,
 				sport,
-				time_goal: data.time_goal.trim() || '',
-				plan_start: data.plan_start || mondayIso(data.date || todayIso),
-				url: data.url.trim() || '',
-				itinerary_url: data.itinerary_url.trim() || '',
-				primary: primaryLines.length
-					? primaryLines
-					: ['one training priority', 'one race-day priority'],
-				notes: data.notes.trim() || 'course, logistics, and race-day notes'
+				time_goal: data.time_goal.trim(),
+				plan_start: data.plan_start || '',
+				url: data.url.trim(),
+				itinerary_url: data.itinerary_url.trim(),
+				primary: primaryLines,
+				notes: data.notes.trim()
 			},
 			null,
 			2
@@ -1623,7 +1644,7 @@ export const getGoalBrief = createServerFn({ method: 'GET' })
 		return `# The Long Run — race brief
 
 ## Coaching brief
-You are helping me set this race in my training app. Invent **priorities** (how I should train toward it) and **notes** (course, logistics, race-day intent). Fill any empty identity fields you can from the race URL, itinerary URL, or my extra notes. Keep values I already filled unless I asked to change them.
+You are helping me set this race in my training app. Propose **priorities** (how I should train toward it) and **notes** (course, logistics, race-day intent). Keep every identity field and any priorities/notes I already filled unless I asked to change them. Fill empty identity fields only from the race URL, itinerary URL, or my extra notes — do not guess.
 
 ## Race (current draft)
 - Name: ${data.name.trim() || '(empty — fill if you can)'}
@@ -1632,7 +1653,7 @@ You are helping me set this race in my training app. Invent **priorities** (how 
 - Sport: ${activityLabel(sport)}
 - Time goal: ${data.time_goal.trim() || '(empty)'}
 - Plan starts (Monday): ${data.plan_start || '(empty)'}
-${weeksToRace != null ? `- Days to race: ${weeksToRace}` : ''}
+${daysToRace != null ? `- Days to race: ${daysToRace}${daysToRace === 0 ? ' (race day or already past)' : ''}` : ''}
 - Race URL: ${data.url.trim() || '(none)'}
 - Itinerary URL: ${data.itinerary_url.trim() || '(none)'}
 - Current priorities:
@@ -1643,7 +1664,7 @@ Today is ${todayIso}.
 ${lastMedalLine}
 
 ${extra ? `## Extra from me\n${extra}\n` : ''}## Recent training (${range.label.toLowerCase()}, newest first)
-Feel = effort/shins/legs/energy (0–10, – = not recorded). Use this to keep priorities honest (volume, shin load, what is already working).
+${FEEL_SCALE} Use this to keep priorities honest (volume, shin load, what is already working).
 
 | Date | Type | km | pace/speed | HR avg/max | Feel | Notes |
 |------|------|----|-----------|-----------|------|-------|
@@ -1656,7 +1677,7 @@ ${injury.trim() || '(none)'}
 ${raceStrategy.trim() || '(none)'}
 
 ## When you reply
-Give a short assessment in prose if you want. Then output **one JSON object** I can paste back, with exactly these keys. \`primary\` is an array of 3–6 short priorities (one line each). \`notes\` is a few sentences on course / logistics / race-day intent. Empty strings are fine for unknown URLs. If I gave a URL, keep it.
+Give a short assessment in prose if you want. Then output **one JSON object** I can paste back, with exactly these keys. If a draft field is empty, leave it \`""\`, \`null\`, or \`[]\` unless a URL or my extra notes make it clear. Do not copy example placeholders. \`primary\` is an array of 3–6 short priorities (one line each). \`notes\` is a few sentences on course / logistics / race-day intent. Keep any URL I gave.
 
 \`\`\`json
 ${exampleJson}

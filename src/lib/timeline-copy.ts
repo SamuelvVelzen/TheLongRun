@@ -208,8 +208,8 @@ export function formatTimelineClipboard(
 		if (endMonday && (last4 > 0 || prior4 > 0)) {
 			const load =
 				prior4 > 0
-					? `- Last 4 weeks: ${last4} km · previous 4 weeks: ${prior4} km`
-					: `- Last 4 weeks: ${last4} km`;
+					? `- Last 4 Monday-weeks in this view (ending ${endMonday}): ${last4} km · previous 4: ${prior4} km`
+					: `- Last 4 Monday-weeks in this view (ending ${endMonday}): ${last4} km`;
 			snapshot.push(load);
 		}
 		const extras = [pace ? `avg pace ${pace}` : null, hr ? `avg HR ${hr}` : null].filter(Boolean);
@@ -232,9 +232,9 @@ export function formatTimelineClipboard(
 
 Today: ${opts.todayIso}.
 On screen: ${opts.summary} · ${countLabel}.
-These are logged activities, not a week-by-week plan. Use them for high-level questions: race readiness, training load, what to change, when to plan a race. Do not invent sessions I did not log.
+These are logged activities, not a week-by-week plan. Snapshot and weekly volume are this filtered view (not all-time, not necessarily ending today). Use them for high-level questions: race readiness, training load, what to change, when to plan a race. Do not invent sessions I did not log.
 
-Feel = effort/shins/legs/energy (0–10, – = not recorded). I'll ask a question after this log.
+Feel = effort/shins/legs/energy. Effort and energy 1–10 (effort higher = harder, energy higher = better). Shins and legs 0–10 (higher = worse). – = not recorded. I'll ask a question after this log.
 
 ## Snapshot
 ${snapshot.join('\n')}

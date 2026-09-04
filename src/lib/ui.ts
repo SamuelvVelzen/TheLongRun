@@ -5,7 +5,7 @@ export function cn(...parts: Array<string | false | null | undefined>): string {
 }
 
 const btnBase =
-	'inline-flex items-center justify-center gap-1.5 rounded-full min-h-11 px-[1.15rem] py-3 cursor-pointer transition-[transform,background-color,opacity] duration-150 ease-out enabled:active:-translate-y-px enabled:hover:-translate-y-px disabled:opacity-55 disabled:cursor-not-allowed disabled:translate-y-0 max-sm:py-[0.7rem] max-sm:px-[1.05rem]';
+	'inline-flex items-center justify-center gap-1.5 rounded-full min-h-11 px-[1.15rem] py-3 cursor-pointer transition-[transform,background-color,opacity] duration-150 ease-out enabled:active:-translate-y-px disabled:opacity-55 disabled:cursor-not-allowed disabled:translate-y-0 max-sm:py-[0.7rem] max-sm:px-[1.05rem]';
 
 export const ui = {
 	muted: 'text-muted',

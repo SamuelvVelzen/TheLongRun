@@ -108,6 +108,17 @@ export function planWeekDateRange(week: number, cal: PlanCalendar): string {
 	return `${f(start)}–${f(end)} ${end.getFullYear()}`;
 }
 
+/** Compact chip label, e.g. `3–9 Aug` or `31 Aug–6 Sep`. */
+export function planWeekDateRangeShort(week: number, cal: PlanCalendar): string {
+	const start = new Date(`${planWeekStartIso(week, cal)}T12:00:00`);
+	const end = new Date(start);
+	end.setDate(end.getDate() + 6);
+	if (start.getMonth() === end.getMonth()) {
+		return `${start.getDate()}–${end.getDate()} ${MONTHS[end.getMonth()]}`;
+	}
+	return `${start.getDate()} ${MONTHS[start.getMonth()]}–${end.getDate()} ${MONTHS[end.getMonth()]}`;
+}
+
 function dayMonthLabel(iso: string): string {
 	const d = new Date(`${iso}T12:00:00`);
 	if (Number.isNaN(d.getTime())) return '';

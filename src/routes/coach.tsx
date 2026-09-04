@@ -4,7 +4,8 @@ import {
     formatAllWeeksClipboard,
     formatWeekPlanClipboard,
     isoDateLocal,
-    planWeekDateRange
+    planWeekDateRange,
+    planWeekDateRangeShort
 } from '$lib/plan';
 import {
     completeGoal,
@@ -24,7 +25,6 @@ import {
 } from '$lib/week-mix';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import { ChoiceChips } from '../components/ChoiceChips';
 import { PageHero } from '../components/PageHero';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
@@ -71,6 +71,12 @@ function parsePlanWeek(v: unknown): number | undefined {
 	const week = Math.floor(n);
 	if (week < 1 || week > 52) return undefined;
 	return week;
+}
+
+function weekTag(n: number, current: number, upcoming: number): 'now' | 'next' | null {
+	if (n === current) return 'now';
+	if (n === upcoming && n !== current) return 'next';
+	return null;
 }
 
 function visibleTab(tab: CoachTab | undefined, authed: boolean): CoachTab {
@@ -136,72 +142,87 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 			<div className={cn(ui.panel, ui.form, 'mb-4')}>
 				<div className={ui.field}>
 					<span>Week</span>
-					<div className="hidden max-sm:flex items-stretch gap-2">
-						<button
-							type="button"
-							className={cn(ui.btnGhost, ui.btnIcon)}
-							aria-label="Previous week"
-							disabled={selected <= 1}
-							onClick={() => setWeek(selected - 1)}
-						>
-							<Icon name="arrow" size={18} className="rotate-180" />
-						</button>
-						<select
-							aria-label="Plan week"
-							className="flex-1"
-							value={selected}
-							onChange={(e) => setWeek(Number(e.target.value))}
-						>
+					<div className="hidden max-sm:flex flex-col gap-[0.35rem]">
+						<div className="flex items-stretch gap-2">
+							<button
+								type="button"
+								className={cn(ui.btnGhost, ui.btnIcon)}
+								aria-label="Previous week"
+								disabled={selected <= 1}
+								onClick={() => setWeek(selected - 1)}
+							>
+								<Icon name="arrow" size={18} className="rotate-180" />
+							</button>
+							<select
+								aria-label="Plan week"
+								className="flex-1"
+								value={selected}
+								onChange={(e) => setWeek(Number(e.target.value))}
+							>
 							{Array.from({ length: weekCount }, (_, i) => {
 								const n = i + 1;
+								const tag = weekTag(n, current, upcomingWeek);
+								const dates = planWeekDateRangeShort(n, planData.calendar);
 								const planned = byWeek.has(n);
-								const tag =
-									n === current
-										? 'now'
-										: n === upcomingWeek && n !== current
-											? 'next'
-											: planned
-												? ''
-												: '—';
 								return (
 									<option key={n} value={n}>
 										Week {n}
-										{tag ? ` · ${tag}` : ''}
+										{tag ? ` · ${tag}` : ''} · {dates}
+										{planned ? '' : ' · no plan'}
 									</option>
 								);
 							})}
-						</select>
-						<button
-							type="button"
-							className={cn(ui.btnGhost, ui.btnIcon)}
-							aria-label="Next week"
-							disabled={selected >= weekCount}
-							onClick={() => setWeek(selected + 1)}
-						>
-							<Icon name="arrow" size={18} />
-						</button>
+							</select>
+							<button
+								type="button"
+								className={cn(ui.btnGhost, ui.btnIcon)}
+								aria-label="Next week"
+								disabled={selected >= weekCount}
+								onClick={() => setWeek(selected + 1)}
+							>
+								<Icon name="arrow" size={18} />
+							</button>
+						</div>
+						<p className={cn(ui.muted, 'm-0 text-[0.82rem]')}>
+							{planWeekDateRange(selected, planData.calendar)}
+							{byWeek.has(selected) ? '' : ' · no plan yet'}
+						</p>
 					</div>
-					<div className="max-sm:hidden">
-						<ChoiceChips
-							aria-label="Plan week"
-							value={String(selected)}
-							options={Array.from({ length: weekCount }, (_, i) => {
+					<div className="max-sm:hidden" role="group" aria-label="Plan week">
+						<div className="flex flex-wrap gap-[0.4rem]">
+							{Array.from({ length: weekCount }, (_, i) => {
 								const n = i + 1;
+								const tag = weekTag(n, current, upcomingWeek);
+								const dates = planWeekDateRangeShort(n, planData.calendar);
 								const planned = byWeek.has(n);
-								return {
-									value: String(n),
-									label:
-										n === current
-											? `${n} · now`
-											: n === upcomingWeek && n !== current
-												? `${n} · next`
-												: planned
-													? String(n)
-													: `${n} · —`
-								};
+								const pressed = n === selected;
+								return (
+									<button
+										key={n}
+										type="button"
+										aria-pressed={pressed}
+										aria-label={`Week ${n}, ${dates}${tag ? `, ${tag}` : ''}${planned ? '' : ', no plan yet'}`}
+										className={cn(
+											'appearance-none inline-flex flex-col items-center justify-center gap-[0.18rem] min-h-[3.35rem] min-w-[4.4rem] px-[0.7rem] py-[0.4rem] rounded-[14px] bg-transparent text-muted cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg',
+											planned
+												? 'border border-solid border-line hover:border-accent/35'
+												: 'border border-dashed border-line/80 text-muted/80 hover:border-accent/40 hover:text-muted',
+											'aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-solid! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent'
+										)}
+										onClick={() => {
+											if (!pressed) setWeek(n);
+										}}
+									>
+										<span className="text-[0.95rem] font-semibold leading-none">
+											{tag ? `${n} · ${tag}` : n}
+										</span>
+										<span className="text-[0.68rem] font-medium leading-[1.15] whitespace-nowrap opacity-80">
+											{dates}
+										</span>
+									</button>
+								);
 							})}
-							onChange={(value) => setWeek(Number(value))}
-						/>
+						</div>
 					</div>
 				</div>
 				<p className={cn(ui.muted, 'm-0 max-sm:hidden')}>

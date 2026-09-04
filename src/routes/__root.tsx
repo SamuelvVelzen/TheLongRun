@@ -130,20 +130,22 @@ function RootShell() {
 						))}
 						<DesktopMore />
 					</nav>
-					<ThemeToggle className={cn(navAuth, 'max-sm:hidden')} />
-					{authed ? (
-						<Link
-							to="/import"
-							className={navAdd}
-							aria-label="Add activity"
-							title="Add activity"
-							activeOptions={{ includeSearch: false }}
-						>
-							<Icon name="plus" size={20} />
-						</Link>
-					) : (
-						<AuthNavIcon />
-					)}
+					<div className="flex items-center gap-[0.35rem] shrink-0">
+						<ThemeToggle className={navAuth} />
+						{authed ? (
+							<Link
+								to="/import"
+								className={navAdd}
+								aria-label="Add activity"
+								title="Add activity"
+								activeOptions={{ includeSearch: false }}
+							>
+								<Icon name="plus" size={20} />
+							</Link>
+						) : (
+							<AuthNavIcon />
+						)}
+					</div>
 				</header>
 				<Outlet />
 				<nav
@@ -209,7 +211,6 @@ function RootShell() {
 								<Icon name="external" size={13} className="ml-auto opacity-70" />
 							</a>
 							<PwaInstall className={tabMoreLink} />
-							<ThemeToggle className={tabMoreLink} showLabel onClick={closeDetails} />
 							{authed ? (
 								<>
 									<div className="my-[0.15rem] border-t border-line" />
@@ -265,7 +266,6 @@ function DesktopMore() {
 					Plan route
 					<Icon name="external" size={13} className="ml-auto opacity-70" />
 				</a>
-				<ThemeToggle className={tabMoreLink} showLabel onClick={closeDetails} />
 				{authed ? (
 					<>
 						<div className="my-[0.15rem] border-t border-line" />

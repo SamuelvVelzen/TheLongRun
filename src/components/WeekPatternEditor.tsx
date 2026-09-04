@@ -116,7 +116,7 @@ export function WeekPatternEditor({
 								key={row.id}
 								ref={row.id === flashId ? flashRef : undefined}
 								className={cn(
-									'grid grid-cols-[minmax(0,1fr)_auto] items-center min-h-11 pl-[0.35rem] pr-[0.4rem] transition-[background-color,box-shadow] duration-300',
+									'grid grid-cols-[minmax(0,1fr)_auto] items-center min-h-11 pl-[0.35rem] pr-2 transition-[background-color,box-shadow] duration-300',
 									i > 0 && 'border-t border-line',
 									row.id === flashId && 'bg-accent/12 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)]'
 								)}
@@ -131,6 +131,7 @@ export function WeekPatternEditor({
 									{activityLabel(row.activity_type)}
 								</button>
 								<DeleteButton
+									compact
 									label={`Delete ${group.day} ${activityLabel(row.activity_type)}`}
 									disabled={disabled}
 									onClick={(event) => {

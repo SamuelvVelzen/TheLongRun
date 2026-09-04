@@ -1,41 +1,41 @@
 import { useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
 import {
-    formatAllWeeksClipboard,
-    formatWeekPlanClipboard,
-    isoDateLocal,
-    planWeekDateRange,
-    planWeekDateRangeShort
+	formatAllWeeksClipboard,
+	formatWeekPlanClipboard,
+	isoDateLocal,
+	planWeekDateRange,
+	planWeekDateRangeShort
 } from '$lib/plan';
 import {
-    completeGoal,
-    getCoachBrief,
-    getCoachPlan,
-    getDebriefPrompt,
-    getWeekPattern,
-    saveDebrief,
-    savePlanWeeks,
-    saveWeekPattern
+	completeGoal,
+	getCoachBrief,
+	getCoachPlan,
+	getDebriefPrompt,
+	getWeekPattern,
+	saveDebrief,
+	savePlanWeeks,
+	saveWeekPattern
 } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import {
-    formatPatternProse,
-    patternsEqual,
-    type WeekPattern
+	formatPatternProse,
+	patternsEqual,
+	type WeekPattern
 } from '$lib/week-mix';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import { PageHero } from '../components/PageHero';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
+import { PageHero } from '../components/PageHero';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 import {
-    rowsFrom,
-    toPattern,
-    WeekPatternEditor,
-    type SlotRow
+	rowsFrom,
+	toPattern,
+	WeekPatternEditor,
+	type SlotRow
 } from '../components/WeekPatternEditor';
 import { WeekPlanBoard } from '../components/WeekPlanBoard';
 
@@ -640,19 +640,6 @@ function CoachPanels({
 								</button>
 							</div>
 						</>
-					)}
-					{authed && (
-						<p className={cn(ui.muted, 'mb-0')}>
-							When this week’s days look right,{' '}
-							<Link
-								className="text-accent-fg font-semibold"
-								to="/coach"
-								search={withCoachSearch(search, { tab: 'generate' })}
-							>
-								generate the prompt
-							</Link>
-							.
-						</p>
 					)}
 				</div>
 			)}

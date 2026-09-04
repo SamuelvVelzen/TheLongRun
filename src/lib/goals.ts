@@ -241,20 +241,25 @@ export type GoalPinCandidate = Pick<
 	'slug' | 'date' | 'day' | 'activity_type' | 'distance_km' | 'time' | 'avg_pace'
 >;
 
-/** Pin window: day before race through one week after. Older past races stay off the list. */
+/** Recent past races stay in the list; older than this are collapsed until you open them. */
 export const PAST_RACE_PIN_DAYS = 7;
 
 export function canPinRaceResult(goal: Pick<Goal, 'date' | 'status'>, today?: Date): boolean {
 	if (goal.status === 'done') return false;
 	const days = daysUntil(goal.date, today);
-	if (days == null) return true;
-	return days <= 1 && days >= -PAST_RACE_PIN_DAYS;
+	return days == null || days <= 1;
 }
 
-/** Past, not active, and still inside the pin window — shown under Unpinned. */
+/** Past, not active, and still inside the week window — shown under Unpinned. */
 export function isUnpinnedPastRace(goal: Pick<Goal, 'date'>, today?: Date): boolean {
 	const days = daysUntil(goal.date, today);
 	return days != null && days < 0 && days >= -PAST_RACE_PIN_DAYS;
+}
+
+/** Past and older than the week window — hidden by default. */
+export function isOlderPastRace(goal: Pick<Goal, 'date'>, today?: Date): boolean {
+	const days = daysUntil(goal.date, today);
+	return days != null && days < -PAST_RACE_PIN_DAYS;
 }
 
 export function pinCandidatesForGoal(

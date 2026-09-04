@@ -1,14 +1,15 @@
 import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
 import {
-	activityLooksLikeRace,
-	canPinRaceResult,
-	emptyGoalDraft,
-	goalDraftFromReply,
-	goalUrlHref,
-	isUnpinnedPastRace,
-	planStartHint,
-	shiftPlanStartWithRaceDate
+    activityLooksLikeRace,
+    canPinRaceResult,
+    emptyGoalDraft,
+    goalDraftFromReply,
+    goalUrlHref,
+    isOlderPastRace,
+    isUnpinnedPastRace,
+    planStartHint,
+    shiftPlanStartWithRaceDate
 } from '$lib/goals';
 import { calendarFromGoal, daysUntil, mondayIso } from '$lib/plan';
 import { clearGoal, completeGoal, getGoalBrief, getGoalsData, saveActiveGoal } from '$lib/server/functions';
@@ -112,7 +113,7 @@ function GoalsPage() {
 				lead={
 					tab === 'medals'
 						? 'Finished races live here with the time you pinned. Open one for the goal you set and the activity you ran.'
-						: 'The soonest race is active — it drives the plan length and the generate prompt. Later races wait. Pin a result within a week of race day.'
+						: 'The soonest race is active — it drives the plan length and the generate prompt. Later races wait. Older past races stay hidden until you open them.'
 				}
 			/>
 			<div className={ui.coachTabs}>
@@ -160,15 +161,41 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 		isActive: boolean;
 	} | null>(null);
 	const [openMedal, setOpenMedal] = useState<Goal | null>(null);
+	const [showOlder, setShowOlder] = useState(false);
 	const nextAfterClear = pendingRemove?.isActive ? data.upcoming[0] : undefined;
 	const pastOpen = data.upcoming
 		.filter((g) => isUnpinnedPastRace(g))
+		.slice()
+		.sort((a, b) => b.date.localeCompare(a.date));
+	const olderPast = data.upcoming
+		.filter((g) => isOlderPastRace(g))
 		.slice()
 		.sort((a, b) => b.date.localeCompare(a.date));
 	const later = data.upcoming.filter((g) => {
 		const days = daysUntil(g.date);
 		return days == null || days >= 0;
 	});
+	const olderVisible =
+		showOlder || (typeof editingId === 'string' && olderPast.some((g) => g.id === editingId));
+
+	function pastCard(g: Goal) {
+		return (
+			<UpcomingGoalCard
+				key={g.id}
+				goal={g}
+				candidates={data.candidatesByGoalId[g.id] ?? []}
+				authed={authed}
+				editing={editingId === g.id}
+				onEdit={() => setEditingId(g.id)}
+				onCancelEdit={() => setEditingId(null)}
+				onSaved={async () => {
+					setEditingId(null);
+					await router.invalidate();
+				}}
+				onRemove={() => setPendingRemove({ id: g.id, name: g.name, isActive: false })}
+			/>
+		);
+	}
 
 	return (
 		<>
@@ -246,34 +273,54 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 						</section>
 					)}
 
-					{pastOpen.length > 0 && (
+					{(pastOpen.length > 0 || olderPast.length > 0) && (
 						<>
-							<section className={ui.sectionTitle}>
-								<div>
-									<h2>Unpinned</h2>
-									<p>
-										{pastOpen.length === 1
-											? 'This race already happened. Pin the activity this week to put it on the medal wall.'
-											: `${pastOpen.length} races already happened. Pin each activity this week to put them on the medal wall.`}
-									</p>
+							{(pastOpen.length > 0 || olderVisible) && (
+								<>
+									<section className={ui.sectionTitle}>
+										<div>
+											<h2>Unpinned</h2>
+											<p>
+												{pastOpen.length
+													? pastOpen.length === 1
+														? 'This race already happened. Pin the activity this week to put it on the medal wall.'
+														: `${pastOpen.length} races already happened. Pin each activity this week to put them on the medal wall.`
+													: olderPast.length === 1
+														? 'This race already happened. Pin the activity to put it on the medal wall.'
+														: `${olderPast.length} races already happened. Pin each activity to put them on the medal wall.`}
+											</p>
+										</div>
+									</section>
+									{pastOpen.map(pastCard)}
+									{olderVisible && olderPast.map(pastCard)}
+								</>
+							)}
+							{olderPast.length > 0 && (
+								<div className={cn(ui.actions, 'justify-start!', pastOpen.length || olderVisible ? 'mb-6' : 'mt-8 mb-6')}>
+									<button
+										className={ui.btnGhost}
+										type="button"
+										aria-expanded={olderVisible}
+										onClick={() => {
+											if (olderVisible) {
+												setShowOlder(false);
+												if (typeof editingId === 'string' && olderPast.some((g) => g.id === editingId)) {
+													setEditingId(null);
+												}
+											} else {
+												setShowOlder(true);
+											}
+										}}
+									>
+										<Icon name="calendar" size={16} />
+										{olderVisible
+											? 'Hide older races'
+											: olderPast.length === 1
+												? 'Show 1 older race'
+												: `Show ${olderPast.length} older races`}
+									</button>
 								</div>
-							</section>
-							{pastOpen.map((g) => (
-								<UpcomingGoalCard
-									key={g.id}
-									goal={g}
-									candidates={data.candidatesByGoalId[g.id] ?? []}
-									authed={authed}
-									editing={editingId === g.id}
-									onEdit={() => setEditingId(g.id)}
-									onCancelEdit={() => setEditingId(null)}
-									onSaved={async () => {
-										setEditingId(null);
-										await router.invalidate();
-									}}
-									onRemove={() => setPendingRemove({ id: g.id, name: g.name, isActive: false })}
-								/>
-							))}
+							)}
 						</>
 					)}
 
@@ -352,7 +399,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 					) : (
 						<section className={ui.panel}>
 							<p className={cn(ui.muted, 'm-0')}>
-								Nothing on the wall yet. Pin a result within a week of race day.
+								Nothing on the wall yet. Pin a result after you run the race.
 							</p>
 						</section>
 					)}

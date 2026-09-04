@@ -1742,7 +1742,7 @@ export const completeGoal = createServerFn({ method: 'POST' }).middleware([requi
 		const target = store.goals.find((g) => g.id === data.goalId);
 		if (!target) throw new Error('That race was not found.');
 		if (target.status === 'done') throw new Error('That race is already on the medal wall.');
-		if (!canPinRaceResult(target)) throw new Error('Pin a result within a week of race day.');
+		if (!canPinRaceResult(target)) throw new Error('Pin a result from race day onward.');
 		const run = await getRun(data.activitySlug);
 		if (!run) throw new Error('That activity was not found.');
 		const activeId = pickSoonestOpenGoal(store.goals)?.id ?? null;

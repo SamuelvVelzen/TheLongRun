@@ -38,6 +38,7 @@ import {
     upcomingPlanSessions,
     weekNumberForDate,
     weekToPlan,
+    isSkippedStatus,
     withSessionRoutes,
     type PlanCalendar,
     type WeekView
@@ -664,8 +665,8 @@ ${formatUnplannedBrief(targetView.unplanned)}
 			? `Week ${targetWeek} already has a saved plan (see Training plan). **Revise remaining sessions** given what is already logged, including any unplanned extras. Keep completed planned sessions in the JSON as they were. Usual-week skeleton still applies for what's ahead, unless notes or recovery require a shift. You may add sessions for extras I propose in the notes — say why. Flag any red flags (injury risk, overtraining, under-recovery).`
 			: `Please assess how my training is going and give me a concrete plan for **${weekPhrase}** covering **every session in my usual-week skeleton** (runs, rides, walks, swims, strength — whatever I pinned), keeping those days and sports. ${ladderLine} Flag any red flags (injury risk, overtraining, under-recovery). If you move a day, say why.`;
 		const replyRules = revising
-			? `Start from the saved week JSON — do not replace it with the usual-week skeleton. Keep completed sessions as they were. Revise what's still ahead. You may add a session for an extra I declared in the notes. If you move a day, say why.`
-			: `Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride, Gym, …), \`"distance_km"\` (null for strength), and \`"detail"\`. The example labels below are yours to replace with a real kind, not values to copy from my skeleton. If you move a day, say why.`;
+			? `Start from the saved week JSON — do not replace it with the usual-week skeleton. Keep completed sessions as they were. Revise what's still ahead. You may add a session for an extra I declared in the notes. If you drop a session, set \`"status": "skipped"\` — a missing log is unlogged, not skipped. If you move a day, say why.`
+			: `Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride, Gym, …), \`"distance_km"\` (null for strength), and \`"detail"\`. The example labels below are yours to replace with a real kind, not values to copy from my skeleton. If you drop a session, set \`"status": "skipped"\`. If you move a day, say why.`;
 
 		const laterRaces = store.goals
 			.filter((g) => g.status !== 'done' && g.id !== activeGoal?.id)
@@ -899,6 +900,7 @@ Short assessment. Then output **one JSON object** I can paste back (no prose bef
 Rules:
 - \`feelings.slug\` must be exactly \`${run.slug}\`. Scores 0–10 (effort/energy 1–10). Omit fields you don't know.
 - \`week.sessions\` is the **full remaining-aware week**: keep completed sessions as they were, rewrite what's still ahead. Keep each remaining session on its planned day unless you have a reason to move it (then say why). Keep rides, walks, swims and strength in the week unless recovery says to drop them. Every session needs \`"activity_type"\`.
+- To drop a session, set \`"status": "skipped"\` on that row (you can still explain why in \`detail\`). A missing log is unlogged, not skipped — do not mark skipped just because the detail mentions skip as advice.
 - If the week is finished, still return the week object with the sessions as completed.
 `;
 		return {
@@ -1267,7 +1269,11 @@ async function mergePlanWeeks(incoming: PlanWeek[]): Promise<{ weeks: number; up
 		byWeek.set(w.week, {
 			...w,
 			start: planWeekStartIso(w.week, calendar),
-			dates: w.dates?.trim() ? w.dates : planWeekDateRange(w.week, calendar)
+			dates: w.dates?.trim() ? w.dates : planWeekDateRange(w.week, calendar),
+			sessions: w.sessions.map((s) => {
+				const { status, ...rest } = s;
+				return isSkippedStatus(status) ? { ...rest, status: 'skipped' as const } : rest;
+			})
 		});
 	}
 	const merged = [...byWeek.values()]

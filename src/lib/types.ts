@@ -78,6 +78,9 @@ export interface Goal {
 	plan: PlanWeek[] | null;
 }
 
+/** Stored on a plan row only when the session is explicitly dropped. */
+export type PlanSessionStatus = 'skipped';
+
 export interface PlanSession {
 	day: string;
 	label: string;
@@ -85,6 +88,8 @@ export interface PlanSession {
 	activity_type?: string;
 	distance_km: number | null;
 	detail: string;
+	/** Explicit skip. Done / unlogged are computed from logs, never stored. */
+	status?: PlanSessionStatus;
 }
 
 export interface PlanWeek {

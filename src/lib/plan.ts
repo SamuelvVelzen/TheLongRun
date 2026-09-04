@@ -3,7 +3,7 @@
  */
 import { activityLabel, normalizeActivityType } from '$lib/activity';
 import { dayFromIsoDate, formatDuration, parseDurationSeconds } from '$lib/format';
-import type { PlanSession, PlanWeek, RunRecord, SessionRouteRef } from '$lib/types';
+import type { PlanSession, PlanSessionStatus, PlanWeek, RunRecord, SessionRouteRef } from '$lib/types';
 import { sessionActivityType } from '$lib/week-mix';
 
 /** Monday-start training block. Derived from the active goal, or a 1-week rolling window. */
@@ -178,7 +178,7 @@ export type WeekSessionView = PlanSession & {
 	date: string | null;
 	done: boolean;
 	skipped: boolean;
-	/** Past workout with no matching log and no skip language in the plan. */
+	/** Past workout with no matching log and not marked skipped. */
 	unlogged: boolean;
 	isToday: boolean;
 	isNext: boolean;
@@ -207,7 +207,6 @@ export type WeekViewRun = Pick<
 	'date' | 'activity_type' | 'slug' | 'distance_km' | 'start_time'
 >;
 
-const SKIP_LANG_RE = /\bskip(?:ped|ping|s)?\b/i;
 /** Rest / off days — not recovery workouts like "Recovery easy". */
 const REST_LIKE_RE = /^(rest|off|recovery)(\s*(day|only))?$/i;
 
@@ -215,18 +214,31 @@ export function isRestLike(label: string): boolean {
 	return REST_LIKE_RE.test(label.trim());
 }
 
-/** Past incomplete session: skipped only when the plan says so (not from a missing log). */
-export function isSessionSkipped(
-	session: Pick<PlanSession, 'label' | 'detail'>,
-	date: string | null,
-	done: boolean,
-	todayIso: string
-): boolean {
-	if (done || date == null || date >= todayIso) return false;
-	return SKIP_LANG_RE.test(`${session.label} ${session.detail}`);
+export function isSkippedStatus(status: unknown): status is PlanSessionStatus {
+	return typeof status === 'string' && status.trim().toLowerCase() === 'skipped';
 }
 
-/** Past workout with no log and no skip language. Rest/off days stay blank, not unlogged. */
+/**
+ * Skipped only when the plan says so: `"status": "skipped"`, or the word "skipped"
+ * in the label/detail. Advisory "skip this if…" does not count. A missing log is unlogged.
+ */
+export function hasSkipStatus(
+	session: Pick<PlanSession, 'label' | 'detail' | 'status'>
+): boolean {
+	if (isSkippedStatus(session.status)) return true;
+	return /\bskipped\b/i.test(`${session.label} ${session.detail}`);
+}
+
+/** Incomplete session marked skipped in the plan. A missing log is not enough. */
+export function isSessionSkipped(
+	session: Pick<PlanSession, 'label' | 'detail' | 'status'>,
+	done: boolean
+): boolean {
+	if (done) return false;
+	return hasSkipStatus(session);
+}
+
+/** Past workout with no log and not marked skipped. Rest/off days stay blank, not unlogged. */
 export function isSessionUnlogged(
 	label: string,
 	date: string | null,
@@ -275,7 +287,7 @@ export function buildWeekView(
 		const list = !isRest && key ? buckets.get(key) : undefined;
 		const matched = list?.length ? list.shift() : null;
 		const done = matched != null;
-		const skipped = isSessionSkipped(s, date, done, todayIso);
+		const skipped = isSessionSkipped(s, done);
 		return {
 			...s,
 			date,
@@ -468,13 +480,14 @@ export function weekToPlanJson(week: PlanWeek): unknown {
 			activity_type: s.activity_type ?? 'run',
 			label: s.label,
 			distance_km: s.distance_km,
-			detail: s.detail
+			detail: s.detail,
+			...(hasSkipStatus(s) ? { status: 'skipped' as const } : {})
 		}))
 	};
 }
 
 const COPY_STATUS_HINT =
-	'Session states: done / skipped / unlogged / next / upcoming / unplanned. Unplanned logs are extra load, already done — do not add a plan row just to file them. If I ask you to revise remaining sessions, keep completed ones and return one JSON object I can paste back.';
+	'Session states: done / skipped / unlogged / next / upcoming / unplanned. Skipped only if `"status": "skipped"` or the plan text actually says skipped — a missing log is unlogged, do not assume skipped. Unplanned logs are extra load, already done — do not add a plan row just to file them. If I ask you to revise remaining sessions, keep completed ones and return one JSON object I can paste back.';
 
 export function formatWeekPlanClipboard(view: WeekView, todayIso: string): string {
 	return `# The Long Run — week ${view.week.week} snapshot
@@ -540,6 +553,7 @@ export function upcomingPlanSessions(
 		const start = planWeekStartIso(w.week, cal);
 		for (const s of w.sessions) {
 			if (isRestLike(s.label)) continue;
+			if (hasSkipStatus(s)) continue;
 			if (sessionActivityType(s) === 'strength') continue;
 			const date = dateForSessionDay(start, s.day);
 			if (date && date < todayIso) continue;

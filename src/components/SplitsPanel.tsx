@@ -3,7 +3,7 @@ import type { HrZoneBand } from '$lib/hr-zones';
 import type { KmSplit, RouteAnalytics } from '$lib/splits';
 import { cn, ui } from '$lib/ui';
 import { useState } from 'react';
-import { TipBubble, TipCaption, TipValue, usePinnedTip } from './Tip';
+import { ExplainTip, TipBubble, TipCaption, TipValue, usePinnedTip } from './Tip';
 
 const zoneColors: Record<number, string> = {
 	1: 'var(--ok)',
@@ -12,6 +12,24 @@ const zoneColors: Record<number, string> = {
 	4: 'var(--warn)',
 	5: '#ff5b5b'
 };
+
+const zoneSourceCopy = {
+	activity: {
+		label: 'from this activity’s max',
+		value: 'This activity’s max',
+		caption: 'No saved HRmax — this file’s peak sets the 100% line.'
+	},
+	profile: {
+		label: 'your HRmax',
+		value: 'Saved HRmax',
+		caption: 'Zones use the HRmax you set. Clear it to follow peaks instead.'
+	},
+	alltime: {
+		label: 'all-time max',
+		value: 'All-time max',
+		caption: 'Zones use the highest HR you’ve logged, until you save one.'
+	}
+} as const;
 
 const splitsRow =
 	'grid grid-cols-[2.6rem_3.4rem_3.2rem_2.6rem_minmax(4rem,1fr)] gap-x-[0.65rem] gap-y-[0.45rem] items-center py-[0.28rem] text-[0.92rem] border-b border-line/50 max-[520px]:grid-cols-[2.4rem_3.1rem_2.8rem_2.2rem_minmax(2.5rem,1fr)] max-[520px]:gap-x-1.5 max-[520px]:gap-y-[0.3rem] max-[520px]:text-[0.85rem]';
@@ -113,15 +131,19 @@ export function SplitsPanel({
 					<div className="flex items-start justify-between gap-3 mb-[0.85rem] flex-wrap">
 						<div>
 							<h3>Heart rate zones</h3>
-							<p className={cn(ui.muted, 'text-[0.85rem]')}>
-								% of HRmax {zones.hrMax}
-								{zones.source === 'activity' && ' (from this activity’s max)'}
-								{zones.source === 'profile' && ' (your HRmax)'}
-								{zones.source === 'alltime' && ' (all-time max)'}
+							<div className={cn(ui.muted, 'text-[0.85rem]')}>
+								% of HRmax {zones.hrMax}{' '}
+								<ExplainTip
+									label={`How HRmax was chosen: ${zoneSourceCopy[zones.source].value}`}
+									value={zoneSourceCopy[zones.source].value}
+									caption={zoneSourceCopy[zones.source].caption}
+								>
+									({zoneSourceCopy[zones.source].label})
+								</ExplainTip>
 								{zones.avgZone != null && zones.avgHr != null && (
 									<> · avg {zones.avgHr} → Z{zones.avgZone}</>
 								)}
-							</p>
+							</div>
 						</div>
 						{onSaveHrMax &&
 							(editingMax ? (
@@ -146,19 +168,17 @@ export function SplitsPanel({
 										<button
 											type="button"
 											className={cn(ui.btnGhost, ui.btnSm)}
-											title={
-												hrMaxAllTime
-													? `Use the all-time max (${hrMaxAllTime})`
-													: 'Use the dynamic max'
-											}
 											onClick={() => {
 												onSaveHrMax(null);
 												setEditingMax(false);
 											}}
 										>
-											Use dynamic
+											{hrMaxAllTime ? `Use ${hrMaxAllTime}` : 'Use activity max'}
 										</button>
 									)}
+									<p className={cn(ui.fieldHint, ui.muted, 'basis-full text-right max-sm:text-left mt-0')}>
+										Saved HRmax is used for every activity.
+									</p>
 								</div>
 							) : (
 								<button

@@ -8,10 +8,10 @@ import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { ChoiceChips } from '../components/ChoiceChips';
-import { PageHero } from '../components/PageHero';
 import { DeferredData } from '../components/DeferredData';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { Icon, sportChipLabel } from '../components/Icon';
+import { PageHero } from '../components/PageHero';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 
 export const Route = createFileRoute('/goals')({
@@ -376,10 +376,6 @@ function ActiveGoalCard({
 							Edit
 						</button>
 					)}
-					<button className={ui.btnGhost} type="button" onClick={onAdd}>
-						<Icon name="plus" size={16} />
-						Add race
-					</button>
 					<button className={cn(ui.btnGhost, ui.btnDanger)} type="button" onClick={onClear}>
 						Clear
 					</button>

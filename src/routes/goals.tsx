@@ -2,10 +2,13 @@ import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity'
 import { useAuthed } from '$lib/auth';
 import {
 	activityLooksLikeRace,
+	canPinRaceResult,
 	emptyGoalDraft,
 	goalDraftFromReply,
 	goalUrlHref,
-	planStartHint
+	isUnpinnedPastRace,
+	planStartHint,
+	shiftPlanStartWithRaceDate
 } from '$lib/goals';
 import { calendarFromGoal, daysUntil, mondayIso } from '$lib/plan';
 import { clearGoal, completeGoal, getGoalBrief, getGoalsData, saveActiveGoal } from '$lib/server/functions';
@@ -109,7 +112,7 @@ function GoalsPage() {
 				lead={
 					tab === 'medals'
 						? 'Finished races live here with the time you pinned. Open one for the goal you set and the activity you ran.'
-						: 'The soonest race is active — it drives the plan length and the generate prompt. Later races wait their turn.'
+						: 'The soonest race is active — it drives the plan length and the generate prompt. Later races wait. Pin a result within a week of race day.'
 				}
 			/>
 			<div className={ui.coachTabs}>
@@ -158,6 +161,14 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 	} | null>(null);
 	const [openMedal, setOpenMedal] = useState<Goal | null>(null);
 	const nextAfterClear = pendingRemove?.isActive ? data.upcoming[0] : undefined;
+	const pastOpen = data.upcoming
+		.filter((g) => isUnpinnedPastRace(g))
+		.slice()
+		.sort((a, b) => b.date.localeCompare(a.date));
+	const later = data.upcoming.filter((g) => {
+		const days = daysUntil(g.date);
+		return days == null || days >= 0;
+	});
 
 	return (
 		<>
@@ -167,7 +178,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 						<ActiveGoalCard
 							goal={data.activeGoal}
 							weekCount={data.calendar.weekCount}
-							candidates={data.candidates}
+							candidates={data.candidatesByGoalId[data.activeGoal.id] ?? []}
 							authed={authed}
 							editing={editingId === data.activeGoal.id}
 							onEdit={() => setEditingId(data.activeGoal!.id)}
@@ -235,14 +246,45 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 						</section>
 					)}
 
-					{(data.activeGoal || data.upcoming.length > 0) && (
+					{pastOpen.length > 0 && (
+						<>
+							<section className={ui.sectionTitle}>
+								<div>
+									<h2>Unpinned</h2>
+									<p>
+										{pastOpen.length === 1
+											? 'This race already happened. Pin the activity this week to put it on the medal wall.'
+											: `${pastOpen.length} races already happened. Pin each activity this week to put them on the medal wall.`}
+									</p>
+								</div>
+							</section>
+							{pastOpen.map((g) => (
+								<UpcomingGoalCard
+									key={g.id}
+									goal={g}
+									candidates={data.candidatesByGoalId[g.id] ?? []}
+									authed={authed}
+									editing={editingId === g.id}
+									onEdit={() => setEditingId(g.id)}
+									onCancelEdit={() => setEditingId(null)}
+									onSaved={async () => {
+										setEditingId(null);
+										await router.invalidate();
+									}}
+									onRemove={() => setPendingRemove({ id: g.id, name: g.name, isActive: false })}
+								/>
+							))}
+						</>
+					)}
+
+					{(data.activeGoal || later.length > 0) && (
 						<>
 							<section className={ui.sectionTitle}>
 								<div>
 									<h2>Up next</h2>
 									<p>
-										{data.upcoming.length
-											? `${data.upcoming.length} later race${data.upcoming.length === 1 ? '' : 's'} — the soonest date becomes active when this one is done.`
+										{later.length
+											? `${later.length} later race${later.length === 1 ? '' : 's'} — the soonest date becomes active when this one is done.`
 											: 'Add the races after this one. Closest date stays active.'}
 									</p>
 								</div>
@@ -253,10 +295,11 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 									</button>
 								)}
 							</section>
-							{data.upcoming.map((g) => (
+							{later.map((g) => (
 								<UpcomingGoalCard
 									key={g.id}
 									goal={g}
+									candidates={data.candidatesByGoalId[g.id] ?? []}
 									authed={authed}
 									editing={editingId === g.id}
 									onEdit={() => setEditingId(g.id)}
@@ -309,7 +352,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 					) : (
 						<section className={ui.panel}>
 							<p className={cn(ui.muted, 'm-0')}>
-								Nothing on the wall yet. Pin a result from the active race after you run it.
+								Nothing on the wall yet. Pin a result within a week of race day.
 							</p>
 						</section>
 					)}
@@ -396,6 +439,81 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 	);
 }
 
+function PinRaceResult({
+	goal,
+	candidates
+}: {
+	goal: Goal;
+	candidates: GoalsData['candidatesByGoalId'][string];
+}) {
+	const router = useRouter();
+	const snack = useSnackbar();
+	const [pinSlug, setPinSlug] = useState(
+		candidates.find((c) => activityLooksLikeRace(goal, c))?.slug ?? candidates[0]?.slug ?? ''
+	);
+	const [pinning, setPinning] = useState(false);
+
+	async function pinResult() {
+		if (!pinSlug) {
+			snack.error('Import or log the race first, then pin it here.');
+			return;
+		}
+		setPinning(true);
+		try {
+			await completeGoal({ data: { goalId: goal.id, activitySlug: pinSlug } });
+			snack.success(`Saved — ${goal.name} is on the medal wall.`);
+			await router.navigate({ to: '/goals', search: { tab: 'medals' } });
+			await router.invalidate();
+		} catch (e) {
+			snack.error(errorMessage(e, 'Could not pin that result.'));
+		} finally {
+			setPinning(false);
+		}
+	}
+
+	return (
+		<div className="grid gap-3 pt-3 border-t border-line">
+			<h3 className="m-0">Pin race result</h3>
+			<p className={cn(ui.muted, 'm-0')}>
+				Attach the activity you ran on the day. That time becomes the medal.
+			</p>
+			{candidates.length ? (
+				<label className={ui.field}>
+					<span>Activity</span>
+					<select value={pinSlug} onChange={(e) => setPinSlug(e.target.value)}>
+						{candidates.map((c) => (
+							<option key={c.slug} value={c.slug}>
+								{c.date}
+								{c.time ? ` · ${c.time}` : ''}
+								{c.distance_km != null ? ` · ${c.distance_km} km` : ''}
+							</option>
+						))}
+					</select>
+				</label>
+			) : (
+				<p className={cn(ui.muted, 'm-0')}>
+					No matching activity yet.{' '}
+					<Link className="text-accent-fg font-semibold" to="/import">
+						Import the GPX
+					</Link>
+					.
+				</p>
+			)}
+			<div className={ui.actions}>
+				<button
+					className={ui.btnPrimary}
+					type="button"
+					disabled={!pinSlug || pinning}
+					onClick={() => void pinResult()}
+				>
+					<Icon name="trophy" size={16} />
+					{pinning ? 'Saving…' : 'Save as medal'}
+				</button>
+			</div>
+		</div>
+	);
+}
+
 function ActiveGoalCard({
 	goal,
 	weekCount,
@@ -409,7 +527,7 @@ function ActiveGoalCard({
 }: {
 	goal: Goal;
 	weekCount: number;
-	candidates: GoalsData['candidates'];
+	candidates: GoalsData['candidatesByGoalId'][string];
 	authed: boolean;
 	editing: boolean;
 	onEdit: () => void;
@@ -417,32 +535,7 @@ function ActiveGoalCard({
 	onSaved: () => void | Promise<void>;
 	onClear: () => void;
 }) {
-	const router = useRouter();
-	const snack = useSnackbar();
 	const days = daysUntil(goal.date);
-	const [pinSlug, setPinSlug] = useState(
-		candidates.find((c) => activityLooksLikeRace(goal, c))?.slug ?? candidates[0]?.slug ?? ''
-	);
-	const [pinning, setPinning] = useState(false);
-
-	async function pinResult() {
-		if (!pinSlug) {
-			snack.error('Import or log the race first, then pin it here.');
-			return;
-		}
-		setPinning(true);
-		try {
-			await completeGoal({ data: { activitySlug: pinSlug } });
-			snack.success(`Saved — ${goal.name} is on the medal wall.`);
-			await router.navigate({ to: '/goals', search: { tab: 'medals' } });
-			await router.invalidate();
-		} catch (e) {
-			snack.error(errorMessage(e, 'Could not pin that result.'));
-		} finally {
-			setPinning(false);
-		}
-	}
-
 	return (
 		<section className={cn(ui.panel, 'mb-6 grid gap-4')}>
 			<div>
@@ -504,46 +597,8 @@ function ActiveGoalCard({
 			{authed && editing && (
 				<GoalForm initial={goal} submitLabel="Save goal" onCancel={onCancelEdit} onSaved={onSaved} />
 			)}
-			{authed && (days == null || days <= 1) && (
-				<div className="grid gap-3 pt-3 border-t border-line">
-					<h3 className="m-0">Pin race result</h3>
-					<p className={cn(ui.muted, 'm-0')}>
-						Attach the activity you ran on the day. That time becomes the medal.
-					</p>
-					{candidates.length ? (
-						<label className={ui.field}>
-							<span>Activity</span>
-							<select value={pinSlug} onChange={(e) => setPinSlug(e.target.value)}>
-								{candidates.map((c) => (
-									<option key={c.slug} value={c.slug}>
-										{c.date}
-										{c.time ? ` · ${c.time}` : ''}
-										{c.distance_km != null ? ` · ${c.distance_km} km` : ''}
-									</option>
-								))}
-							</select>
-						</label>
-					) : (
-						<p className={cn(ui.muted, 'm-0')}>
-							No matching activity yet.{' '}
-							<Link className="text-accent-fg font-semibold" to="/import">
-								Import the GPX
-							</Link>
-							.
-						</p>
-					)}
-					<div className={ui.actions}>
-						<button
-							className={ui.btnPrimary}
-							type="button"
-							disabled={!pinSlug || pinning}
-							onClick={() => void pinResult()}
-						>
-							<Icon name="trophy" size={16} />
-							{pinning ? 'Saving…' : 'Save as medal'}
-						</button>
-					</div>
-				</div>
+			{authed && canPinRaceResult(goal) && !editing && (
+				<PinRaceResult goal={goal} candidates={candidates} />
 			)}
 		</section>
 	);
@@ -551,6 +606,7 @@ function ActiveGoalCard({
 
 function UpcomingGoalCard({
 	goal,
+	candidates,
 	authed,
 	editing,
 	onEdit,
@@ -559,6 +615,7 @@ function UpcomingGoalCard({
 	onRemove
 }: {
 	goal: Goal;
+	candidates: GoalsData['candidatesByGoalId'][string];
 	authed: boolean;
 	editing: boolean;
 	onEdit: () => void;
@@ -567,13 +624,14 @@ function UpcomingGoalCard({
 	onRemove: () => void;
 }) {
 	const days = daysUntil(goal.date);
+	const past = days != null && days < 0;
 	return (
 		<section className={cn(ui.panel, 'mb-3 grid gap-3')}>
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div>
 					<p className="m-0 inline-flex items-center gap-1.5 text-muted font-bold text-[0.72rem] tracking-[0.08em] uppercase">
 						<Icon name="calendar" size={14} />
-						Upcoming
+						{past ? 'Past' : 'Upcoming'}
 					</p>
 					<h3 className="font-display text-[1.35rem] tracking-[-0.03em] m-0 mt-1">{goal.name}</h3>
 					<p className={cn(ui.muted, 'm-0 mt-1')}>
@@ -606,6 +664,9 @@ function UpcomingGoalCard({
 			)}
 			{authed && editing && (
 				<GoalForm initial={goal} submitLabel="Save race" onCancel={onCancelEdit} onSaved={onSaved} />
+			)}
+			{authed && canPinRaceResult(goal) && !editing && (
+				<PinRaceResult goal={goal} candidates={candidates} />
 			)}
 		</section>
 	);
@@ -695,7 +756,12 @@ function GoalForm({
 		try {
 			const patch = goalDraftFromReply(replyJson);
 			if (patch.name !== undefined) setName(patch.name);
-			if (patch.date !== undefined) setDate(patch.date);
+			if (patch.date !== undefined) {
+				if (patch.plan_start === undefined) {
+					setPlanStart((prev) => shiftPlanStartWithRaceDate(prev, date, patch.date!));
+				}
+				setDate(patch.date);
+			}
 			if (patch.distance_km !== undefined) setDistance(patch.distance_km);
 			if (patch.sport !== undefined) setSport(patch.sport);
 			if (patch.time_goal !== undefined) setTimeGoal(patch.time_goal);
@@ -753,7 +819,16 @@ function GoalForm({
 			<div className={ui.formGrid}>
 				<label className={ui.field}>
 					<span className={ui.req}>Race date</span>
-					<input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+					<input
+						type="date"
+						value={date}
+						onChange={(e) => {
+							const next = e.target.value;
+							if (next) setPlanStart((prev) => shiftPlanStartWithRaceDate(prev, date, next));
+							setDate(next);
+						}}
+						required
+					/>
 				</label>
 				<label className={ui.field}>
 					<span className={ui.req}>Distance (km)</span>

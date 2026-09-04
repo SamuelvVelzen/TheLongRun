@@ -3,7 +3,7 @@
  * Safe for client and server.
  */
 import { ACTIVITY_TYPES, normalizeActivityType, type ActivityType } from '$lib/activity';
-import { isoDateLocal, mondayIso, weeksThrough } from '$lib/plan';
+import { daysUntil, isoDateLocal, mondayIso, weeksThrough } from '$lib/plan';
 import type { Goal, GoalResult, RunRecord } from '$lib/types';
 
 export function goalIdFrom(name: string, date: string): string {
@@ -234,6 +234,67 @@ export function activityLooksLikeRace(
 	const b = Date.parse(`${goal.date}T00:00:00`);
 	if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
 	return Math.abs(a - b) <= 24 * 60 * 60 * 1000;
+}
+
+export type GoalPinCandidate = Pick<
+	RunRecord,
+	'slug' | 'date' | 'day' | 'activity_type' | 'distance_km' | 'time' | 'avg_pace'
+>;
+
+/** Pin window: day before race through one week after. Older past races stay off the list. */
+export const PAST_RACE_PIN_DAYS = 7;
+
+export function canPinRaceResult(goal: Pick<Goal, 'date' | 'status'>, today?: Date): boolean {
+	if (goal.status === 'done') return false;
+	const days = daysUntil(goal.date, today);
+	if (days == null) return true;
+	return days <= 1 && days >= -PAST_RACE_PIN_DAYS;
+}
+
+/** Past, not active, and still inside the pin window — shown under Unpinned. */
+export function isUnpinnedPastRace(goal: Pick<Goal, 'date'>, today?: Date): boolean {
+	const days = daysUntil(goal.date, today);
+	return days != null && days < 0 && days >= -PAST_RACE_PIN_DAYS;
+}
+
+export function pinCandidatesForGoal(
+	goal: Pick<Goal, 'date' | 'sport'>,
+	runs: GoalPinCandidate[],
+	limit = 16
+): GoalPinCandidate[] {
+	const raceAt = Date.parse(`${goal.date}T00:00:00`);
+	return [...runs]
+		.filter((r) => activityLooksLikeRace(goal, r) || r.date === goal.date)
+		.sort((a, b) => {
+			const da = Math.abs(Date.parse(a.date) - raceAt);
+			const db = Math.abs(Date.parse(b.date) - raceAt);
+			if (da !== db) return da - db;
+			return a.date < b.date ? 1 : -1;
+		})
+		.slice(0, limit)
+		.map((r) => ({
+			slug: r.slug,
+			date: r.date,
+			day: r.day,
+			activity_type: r.activity_type,
+			distance_km: r.distance_km,
+			time: r.time,
+			avg_pace: r.avg_pace
+		}));
+}
+
+/** Keep the training-block length when the race date moves. */
+export function shiftPlanStartWithRaceDate(planStart: string, fromRaceDate: string, toRaceDate: string): string {
+	const from = fromRaceDate.slice(0, 10);
+	const to = toRaceDate.slice(0, 10);
+	if (!to) return mondayIso(planStart || from);
+	if (!from || from === to) return mondayIso(planStart || to);
+	const weeks = weeksThrough(planStart || from, from);
+	const raceMonday = mondayIso(to);
+	const d = new Date(`${raceMonday}T12:00:00`);
+	if (Number.isNaN(d.getTime())) return mondayIso(planStart || to);
+	d.setDate(d.getDate() - (weeks - 1) * 7);
+	return isoDateLocal(d);
 }
 
 export function planStartHint(planStart: string, raceDate: string): string {

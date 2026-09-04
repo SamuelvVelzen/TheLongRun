@@ -17,7 +17,7 @@ import {
     normalizeStartTime,
     parseDurationSeconds
 } from '$lib/format';
-import { activityLooksLikeRace, normalizeGoalInput, pickSoonestOpenGoal, resultFromActivity, type GoalInput } from '$lib/goals';
+import { canPinRaceResult, normalizeGoalInput, pickSoonestOpenGoal, pinCandidatesForGoal, resultFromActivity, type GoalInput } from '$lib/goals';
 import { buildHrZoneSummary } from '$lib/hr-zones';
 import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import {
@@ -1691,32 +1691,17 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 	const upcoming = store.goals
 		.filter((g) => g.status !== 'done' && g.id !== activeGoal?.id)
 		.sort((a, b) => a.date.localeCompare(b.date));
-	const candidates = activeGoal
-		? [...runs]
-				.filter((r) => activityLooksLikeRace(activeGoal, r) || r.date === activeGoal.date)
-				.sort((a, b) => {
-					const da = Math.abs(Date.parse(a.date) - Date.parse(activeGoal.date));
-					const db = Math.abs(Date.parse(b.date) - Date.parse(activeGoal.date));
-					if (da !== db) return da - db;
-					return a.date < b.date ? 1 : -1;
-				})
-				.slice(0, 16)
-				.map((r) => ({
-					slug: r.slug,
-					date: r.date,
-					day: r.day,
-					activity_type: r.activity_type,
-					distance_km: r.distance_km,
-					time: r.time,
-					avg_pace: r.avg_pace
-				}))
-		: [];
+	const candidatesByGoalId: Record<string, ReturnType<typeof pinCandidatesForGoal>> = {};
+	for (const g of store.goals) {
+		if (!canPinRaceResult(g)) continue;
+		candidatesByGoalId[g.id] = pinCandidatesForGoal(g, runs);
+	}
 	return {
 		activeGoal,
 		upcoming,
 		medals,
 		calendar,
-		candidates
+		candidatesByGoalId
 	};
 });
 
@@ -1751,16 +1736,20 @@ export const saveActiveGoal = createServerFn({ method: 'POST' }).middleware([req
 	});
 
 export const completeGoal = createServerFn({ method: 'POST' }).middleware([requireAuth])
-	.validator((d: { activitySlug: string }) => d)
+	.validator((d: { goalId: string; activitySlug: string }) => d)
 	.handler(async ({ data }) => {
 		const store = await loadGoalStore();
-		const active = pickSoonestOpenGoal(store.goals);
-		if (!active) throw new Error('No active goal to complete.');
+		const target = store.goals.find((g) => g.id === data.goalId);
+		if (!target) throw new Error('That race was not found.');
+		if (target.status === 'done') throw new Error('That race is already on the medal wall.');
+		if (!canPinRaceResult(target)) throw new Error('Pin a result within a week of race day.');
 		const run = await getRun(data.activitySlug);
 		if (!run) throw new Error('That activity was not found.');
-		const rawPlan = await loadPlan();
+		const activeId = pickSoonestOpenGoal(store.goals)?.id ?? null;
+		const isActive = target.id === activeId;
+		const rawPlan = isActive ? await loadPlan() : null;
 		const done: Goal = {
-			...active,
+			...target,
 			status: 'done',
 			result: resultFromActivity(run),
 			plan: rawPlan
@@ -1768,7 +1757,7 @@ export const completeGoal = createServerFn({ method: 'POST' }).middleware([requi
 		await saveGoalStore({
 			goals: store.goals.map((g) => (g.id === done.id ? done : g))
 		});
-		await savePlan([]);
+		if (isActive) await savePlan([]);
 		return { id: done.id };
 	});
 

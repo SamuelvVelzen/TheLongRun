@@ -845,11 +845,10 @@ function formatFeelingsExample(runs: RunRecord[]): string {
 export const getDebriefPrompt = createServerFn({ method: 'GET' })
 	.validator((slug: string) => (typeof slug === 'string' ? slug : ''))
 	.handler(async ({ data: slug }) => {
-		const [allRuns, week, injury, trainingNotes, settings, training] = await Promise.all([
+		const [allRuns, week, injury, settings, training] = await Promise.all([
 			listRuns(),
 			currentPlanWeek(),
 			readContextFile('injury.md'),
-			readContextFile('training-plan.md'),
 			loadSettings(),
 			loadTrainingContext()
 		]);
@@ -913,25 +912,16 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const many = featured.length > 1;
 		const sessionWord = many ? 'these sessions' : 'this session';
 		const sessionHeading = many ? 'These sessions' : 'This session';
-		const sessionBlock = many
-			? `${featured.map(formatRunBriefLine).join('\n')}
-${featured
-	.map(
-		(r) =>
-			`- Feel already in the app for \`${r.slug}\`: ${hasFeel(r) ? 'yes (refine from what I say now)' : 'none yet — fill from this chat'}.`
-	)
-	.join('\n')}`
-			: `${formatRunBriefLine(featured[0]!)}
-- Feel already in the app: ${hasFeel(featured[0]!) ? 'yes (refine from what I say now)' : 'none yet — fill from this chat'}.`;
+		const sessionBlock = featured.map(formatRunBriefLine).join('\n');
 		const feelingsRule = many
 			? `- \`feelings\` is an array with one object per session above. Each \`slug\` must be exactly one of: ${featured.map((r) => `\`${r.slug}\``).join(', ')}. Scores 0–10 (effort/energy 1–10). Omit fields you don't know. Omit a session entirely if I said nothing about it.`
 			: `- \`feelings.slug\` must be exactly \`${featured[0]!.slug}\`. Scores 0–10 (effort/energy 1–10). Omit fields you don't know.`;
 
 		const prompt = `# The Long Run — debrief ${sessionWord}
 
-You are my coach for the sports I train, not a running-only coach. I just trained. GPS numbers are below. I'll also attach Strava screenshots and tell you how ${many ? 'each one' : 'it'} felt.
+You are my coach for the sports I train, not a running-only coach. GPS numbers are below. I'll attach Strava screenshots and say how ${many ? 'each one' : 'it'} felt.
 
-Update the rest of **this week** based on ${sessionWord}. Keep remaining sessions on their planned days unless recovery (heat, shins, heavy legs, life) requires a shift — and if you move a day, say why. Keep, shorten, or drop sessions as needed. Keep non-run sessions (ride, walk, swim, strength) in the week unless recovery says otherwise.
+Update **this week** from ${sessionWord}. Keep remaining sessions on their planned days unless recovery requires a shift — and if you move a day, say why. Keep non-run sessions unless recovery says otherwise.
 
 ## Usual weekdays
 ${formatPatternLines(settings.weekPattern)}
@@ -948,11 +938,8 @@ ${sessionLines}
 ${unplannedLines ? `## Unplanned activities this week\nThese logs did not match a planned session — extra load, already done. Do not add a plan row just to file them.\n${unplannedLines}\n` : ''}## Injury rules
 ${injury.trim() || '(none)'}
 
-## Plan adjustment notes
-${trainingNotes.trim() || '(none)'}
-
 ## When you reply
-Short assessment. Then output **one JSON object** I can paste back (no prose before or after the JSON):
+Short assessment. Then **one JSON object** (no prose before or after):
 
 \`\`\`json
 {
@@ -963,8 +950,7 @@ ${formatFeelingsExample(featured)},
     "phase": ${JSON.stringify(week?.phase ?? '')},
     "focus": "one-line focus after ${sessionWord}",
     "sessions": [
-      { "day": "Wednesday", "activity_type": "run", "label": "Easy", "distance_km": 7, "detail": "how + why" },
-      { "day": "Thursday", "activity_type": "strength", "label": "Gym", "distance_km": null, "detail": "full-body" }
+      { "day": "Friday", "activity_type": "run", "label": "Easy", "distance_km": 7, "detail": "keep, shorten, or skip + why" }
     ]
   }
 }
@@ -972,8 +958,8 @@ ${formatFeelingsExample(featured)},
 
 Rules:
 ${feelingsRule}
-- \`week.sessions\` is the **full remaining-aware week**: keep completed sessions as they were, rewrite what's still ahead. Keep each remaining session on its planned day unless you have a reason to move it (then say why). Keep rides, walks, swims and strength in the week unless recovery says to drop them. Every session needs \`"activity_type"\`.
-- To drop a session, set \`"status": "skipped"\` on that row (you can still explain why in \`detail\`). A missing log is unlogged, not skipped — do not mark skipped just because the detail mentions skip as advice.
+- \`week.sessions\` is the **full week** from Current week plan: keep completed/skipped rows as they were, rewrite what's still ahead. Every session needs \`"activity_type"\`. If you move a day, say why.
+- To drop a session, set \`"status": "skipped"\` (and why in \`detail\`). Unlogged ≠ skipped.
 - If the week is finished, still return the week object with the sessions as completed.
 `;
 		const runs = featured.map(debriefRunSummary);

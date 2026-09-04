@@ -18,6 +18,7 @@ import { DeferredData } from '../components/DeferredData';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { Icon, sportChipLabel } from '../components/Icon';
 import { PageHero } from '../components/PageHero';
+import { SegmentedToggle } from '../components/SegmentedToggle';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 
 type GoalsTab = 'races' | 'medals';
@@ -37,6 +38,13 @@ export const Route = createFileRoute('/goals')({
 });
 
 type GoalsData = Awaited<ReturnType<typeof getGoalsData>>;
+
+function hasRaceCopy(primary: string[] | string, notes: string): boolean {
+	const lines = Array.isArray(primary)
+		? primary
+		: primary.split('\n').map((s) => s.trim()).filter(Boolean);
+	return lines.some((p) => p.trim()) || notes.trim() !== '';
+}
 
 function formatRaceDate(iso: string) {
 	const d = new Date(`${iso}T12:00:00`);
@@ -622,6 +630,9 @@ function GoalForm({
 	const [itineraryUrl, setItineraryUrl] = useState(draft.itinerary_url ?? '');
 	const [primary, setPrimary] = useState(draft.primary.join('\n'));
 	const [notes, setNotes] = useState(draft.notes);
+	const [copyTab, setCopyTab] = useState<'copy' | 'generate'>(() =>
+		hasRaceCopy(draft.primary, draft.notes) ? 'copy' : 'generate'
+	);
 	const [extra, setExtra] = useState('');
 	const [briefText, setBriefText] = useState('');
 	const [replyJson, setReplyJson] = useState('');
@@ -688,6 +699,7 @@ function GoalForm({
 			if (patch.primary !== undefined) setPrimary(patch.primary);
 			if (patch.notes !== undefined) setNotes(patch.notes);
 			setReplyJson('');
+			if (patch.primary !== undefined || patch.notes !== undefined) setCopyTab('copy');
 			snack.success('Filled from the reply — review and save.');
 		} catch (e) {
 			snack.error(errorMessage(e, 'Could not apply that JSON.'));
@@ -798,76 +810,106 @@ function GoalForm({
 					/>
 				</label>
 			</div>
-			<div className={cn(ui.formSection, 'border-t border-line pt-4')}>
-				<p className={ui.formSectionTitle}>Generate priorities & notes</p>
-				<p className={cn(ui.muted, 'm-0 mb-3')}>
-					Same as Coach: build a prompt from this race plus your last 30 days of activities, copy it to
-					an AI, then paste the JSON back to fill the form.
-				</p>
-				<label className={ui.field}>
-					<span>Anything extra for the prompt? (optional)</span>
-					<textarea
-						rows={3}
-						value={extra}
-						onChange={(e) => setExtra(e.target.value)}
-						placeholder="e.g. hilly course, travel the day before, want a conservative first 5k"
-					/>
-				</label>
-				<div className={cn(ui.actions, 'justify-start!')}>
-					<button className={ui.btnPrimary} type="button" onClick={() => void generateBrief()} disabled={briefBusy}>
-						<Icon name="sparkle" size={16} />
-						{briefBusy ? 'Building…' : briefText ? 'Regenerate prompt' : 'Generate prompt'}
-					</button>
-				</div>
-				{briefText && (
+			<div className={cn(ui.formSection, 'border-t border-line pt-4 grid gap-4')}>
+				<SegmentedToggle
+					aria-label="Priorities and notes"
+					value={copyTab}
+					onChange={setCopyTab}
+					className="w-full"
+					options={[
+						{ value: 'copy', label: 'Priorities & notes' },
+						{
+							value: 'generate',
+							label: (
+								<>
+									<Icon name="sparkle" size={14} />
+									Generate
+								</>
+							)
+						}
+					]}
+				/>
+				{copyTab === 'copy' && (
 					<>
 						<label className={ui.field}>
-							<span>Prompt (editable — tweak before you copy)</span>
+							<span>Priorities (one per line)</span>
+							<textarea rows={4} value={primary} onChange={(e) => setPrimary(e.target.value)} />
+						</label>
+						<label className={ui.field}>
+							<span>Notes</span>
+							<textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
+						</label>
+					</>
+				)}
+				{copyTab === 'generate' && (
+					<>
+						<p className={cn(ui.muted, 'm-0')}>
+							Same as Coach: build a prompt from this race plus your last 30 days of activities, copy
+							it to an AI, then paste the JSON back to fill the form.
+						</p>
+						<label className={ui.field}>
+							<span>Anything extra for the prompt? (optional)</span>
 							<textarea
-								className={ui.editor}
-								rows={12}
-								value={briefText}
-								onChange={(e) => setBriefText(e.target.value)}
+								rows={3}
+								value={extra}
+								onChange={(e) => setExtra(e.target.value)}
+								placeholder="e.g. hilly course, travel the day before, want a conservative first 5k"
 							/>
 						</label>
 						<div className={cn(ui.actions, 'justify-start!')}>
-							<button className={ui.btnGhost} type="button" onClick={() => void copyBrief()}>
-								<Icon name={copied ? 'check' : 'copy'} size={16} />
-								{copied ? 'Copied' : 'Copy prompt'}
+							<button
+								className={ui.btnPrimary}
+								type="button"
+								onClick={() => void generateBrief()}
+								disabled={briefBusy}
+							>
+								<Icon name="sparkle" size={16} />
+								{briefBusy ? 'Building…' : briefText ? 'Regenerate prompt' : 'Generate prompt'}
+							</button>
+						</div>
+						{briefText && (
+							<>
+								<label className={ui.field}>
+									<span>Prompt (editable — tweak before you copy)</span>
+									<textarea
+										className={ui.editor}
+										rows={12}
+										value={briefText}
+										onChange={(e) => setBriefText(e.target.value)}
+									/>
+								</label>
+								<div className={cn(ui.actions, 'justify-start!')}>
+									<button className={ui.btnGhost} type="button" onClick={() => void copyBrief()}>
+										<Icon name={copied ? 'check' : 'copy'} size={16} />
+										{copied ? 'Copied' : 'Copy prompt'}
+									</button>
+								</div>
+							</>
+						)}
+						<label className={ui.field}>
+							<span>Paste the JSON your AI returned</span>
+							<textarea
+								className={ui.editor}
+								rows={8}
+								value={replyJson}
+								onChange={(e) => setReplyJson(e.target.value)}
+								placeholder='{ "name": "…", "primary": ["…"], "notes": "…" }'
+							/>
+						</label>
+						<div className={cn(ui.actions, 'justify-start!')}>
+							<button
+								className={ui.btnGhost}
+								type="button"
+								onClick={applyReply}
+								disabled={!replyJson.trim()}
+							>
+								<Icon name="plus" size={16} />
+								Fill form
 							</button>
 						</div>
 					</>
 				)}
-				<label className={ui.field}>
-					<span>Paste the JSON your AI returned</span>
-					<textarea
-						className={ui.editor}
-						rows={8}
-						value={replyJson}
-						onChange={(e) => setReplyJson(e.target.value)}
-						placeholder='{ "name": "…", "primary": ["…"], "notes": "…" }'
-					/>
-				</label>
-				<div className={cn(ui.actions, 'justify-start!')}>
-					<button
-						className={ui.btnGhost}
-						type="button"
-						onClick={applyReply}
-						disabled={!replyJson.trim()}
-					>
-						<Icon name="plus" size={16} />
-						Fill form
-					</button>
-				</div>
 			</div>
-			<label className={ui.field}>
-				<span>Priorities (one per line)</span>
-				<textarea rows={4} value={primary} onChange={(e) => setPrimary(e.target.value)} />
-			</label>
-			<label className={ui.field}>
-				<span>Notes</span>
-				<textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
-			</label>
 			<div className={ui.actions}>
 				<button className={ui.btnPrimary} type="submit" disabled={busy}>
 					<Icon name="check" size={16} />

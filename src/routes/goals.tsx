@@ -1,15 +1,15 @@
 import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
 import {
-    activityLooksLikeRace,
-    canPinRaceResult,
-    emptyGoalDraft,
-    goalDraftFromReply,
-    goalUrlHref,
-    isOlderPastRace,
-    isUnpinnedPastRace,
-    planStartHint,
-    shiftPlanStartWithRaceDate
+	activityLooksLikeRace,
+	canPinRaceResult,
+	emptyGoalDraft,
+	goalDraftFromReply,
+	goalUrlHref,
+	isOlderPastRace,
+	isUnpinnedPastRace,
+	planStartHint,
+	shiftPlanStartWithRaceDate
 } from '$lib/goals';
 import { calendarFromGoal, daysUntil, mondayIso } from '$lib/plan';
 import { clearGoal, completeGoal, getGoalBrief, getGoalsData, saveActiveGoal } from '$lib/server/functions';
@@ -176,7 +176,8 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 		return days == null || days >= 0;
 	});
 	const olderVisible =
-		showOlder || (typeof editingId === 'string' && olderPast.some((g) => g.id === editingId));
+		olderPast.length > 0 &&
+		(showOlder || (typeof editingId === 'string' && olderPast.some((g) => g.id === editingId)));
 
 	function toggleOlder() {
 		if (olderVisible) {

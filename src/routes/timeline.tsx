@@ -13,14 +13,16 @@ import {
     highlightsForActivity,
     supportsBestEfforts
 } from '$lib/best-efforts';
-import { filterRunsByRange, parseDateRange, type RangeKind } from '$lib/date-range';
+import { filterRunsByRange, isoDateLocal, parseDateRange, type RangeKind } from '$lib/date-range';
 import { deleteRun, getTimelineRuns } from '$lib/server/functions';
+import { formatTimelineClipboard } from '$lib/timeline-copy';
 import { buildTrainingTrends } from '$lib/trends';
 import type { RunWithMap } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { ActivityFilters } from '../components/ActivityFilters';
+import { filterSummary } from '../components/FilterSheet';
 import { BestEffortBadges, BestEffortBoard } from '../components/BestEffortBadges';
 import { type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
@@ -29,6 +31,7 @@ import { ConfirmDialog } from '../components/Dialog';
 import { FeelBadge } from '../components/FeelBadge';
 import { ActivityTag, Icon } from '../components/Icon';
 import { PageHero } from '../components/PageHero';
+import { useSnackbar } from '../components/Snackbar';
 import {
     matchesSportFilter,
     parseSportSearch,
@@ -89,35 +92,16 @@ function groupRuns(runs: RunWithMap[]) {
 function Timeline() {
 	const { page } = Route.useLoaderData();
 	return (
-		<>
-			<PageHero
-				variant="quiet"
-				kicker="Every session in order"
-				title="Timeline"
-				lead="Add a file, or open one for notes and full metrics."
-				hideActionsOnMobile
-				actionsClassName="justify-start!"
-				actions={
-					<>
-						<Link className={ui.btnPrimary} to="/import">
-							<Icon name="plus" size={16} />
-							Add activity
-						</Link>
-						<Link className={ui.btnGhost} to="/coach">
-							<Icon name="coach" size={16} />
-							Coach
-						</Link>
-					</>
-				}
-			/>
-			<DeferredData promise={page}>{(allRuns) => <TimelineBody allRuns={allRuns} />}</DeferredData>
-		</>
+		<DeferredData promise={page}>{(allRuns) => <TimelineBody allRuns={allRuns} />}</DeferredData>
 	);
 }
 
 function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 	const search = Route.useSearch();
 	const router = useRouter();
+	const snack = useSnackbar();
+	const [copied, setCopied] = useState(false);
+	const [pending, setPending] = useState<RunWithMap | null>(null);
 
 	const sp = new URLSearchParams();
 	if (search.range) sp.set('range', search.range);
@@ -151,10 +135,65 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 	const totalAllTime = allRuns.length;
 	const neverLogged = totalAllTime === 0;
 	const filteredEmpty = totalAllTime > 0 && !groups.length;
-	const [pending, setPending] = useState<RunWithMap | null>(null);
+	const summary = filterSummary(sport, range, { country, province, place });
+
+	async function copyTimeline() {
+		if (!runs.length) return;
+		try {
+			await navigator.clipboard.writeText(
+				formatTimelineClipboard(runs, {
+					summary,
+					sport,
+					todayIso: isoDateLocal(new Date())
+				})
+			);
+			setCopied(true);
+			setTimeout(() => setCopied(false), 1800);
+		} catch {
+			snack.error('Could not copy — select and copy the text instead.');
+		}
+	}
 
 	return (
 		<>
+			<PageHero
+				variant="quiet"
+				kicker="Every session in order"
+				title="Timeline"
+				lead="Add a file, open one for notes, or copy the filtered log into a chat for race-readiness and training overview."
+				hideActionsOnMobile
+				actionsClassName="justify-start!"
+				actions={
+					<>
+						<Link className={ui.btnPrimary} to="/import">
+							<Icon name="plus" size={16} />
+							Add activity
+						</Link>
+						<Link className={ui.btnGhost} to="/coach">
+							<Icon name="coach" size={16} />
+							Coach
+						</Link>
+						<button
+							className={ui.btnGhost}
+							type="button"
+							disabled={!runs.length}
+							title="Copy the filtered activity log for an AI chat"
+							aria-label="Copy the filtered timeline"
+							onClick={() => void copyTimeline()}
+						>
+							<Icon name={copied ? 'check' : 'copy'} size={16} />
+							{copied ? (
+								'Copied'
+							) : (
+								<>
+									<span className="max-sm:hidden">Copy timeline</span>
+									<span className="hidden max-sm:inline">Copy</span>
+								</>
+							)}
+						</button>
+					</>
+				}
+			/>
 			<ActivityFilters
 				to="/timeline"
 				sport={sport}

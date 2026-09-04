@@ -102,6 +102,10 @@
 	--app-header-height: calc(var(--app-header-inner) + env(safe-area-inset-top, 0px));
 	--app-content-inset: 1.25rem;
 	--app-shell-pad-top: calc(var(--app-header-height) + var(--app-content-inset));
+	--page-bg:
+		radial-gradient(1200px 600px at 80% -10%, var(--wash), transparent 55%),
+		radial-gradient(900px 500px at -10% 20%, var(--wash-ok), transparent 50%),
+		linear-gradient(180deg, var(--canvas-top) 0%, var(--canvas) 40%, var(--canvas-bottom) 100%);
 }
 
 @layer base {
@@ -130,10 +134,7 @@
 	body {
 		display: flex;
 		flex-direction: column;
-		background:
-			radial-gradient(1200px 600px at 80% -10%, var(--wash), transparent 55%),
-			radial-gradient(900px 500px at -10% 20%, var(--wash-ok), transparent 50%),
-			linear-gradient(180deg, var(--canvas-top) 0%, var(--canvas) 40%, var(--canvas-bottom) 100%);
+		background: var(--page-bg);
 	}
 
 	body::before {
@@ -239,25 +240,9 @@
 
 .coach-tabs {
 	--coach-tabs-top: env(safe-area-inset-top, 0px);
-	--coach-tabs-gutter: 1rem;
 	position: sticky;
 	top: var(--coach-tabs-top);
 	z-index: 30;
-	isolation: isolate;
-	margin-left: calc(-1 * var(--coach-tabs-gutter) - env(safe-area-inset-left, 0px));
-	margin-right: calc(-1 * var(--coach-tabs-gutter) - env(safe-area-inset-right, 0px));
-	padding-left: calc(var(--coach-tabs-gutter) + env(safe-area-inset-left, 0px));
-	padding-right: calc(var(--coach-tabs-gutter) + env(safe-area-inset-right, 0px));
-	background: var(--canvas);
-}
-
-.coach-tabs::before {
-	content: '';
-	position: absolute;
-	inset: -1px 0;
-	z-index: -1;
-	pointer-events: none;
-	background: var(--canvas);
 }
 
 @media (max-width: 640px) {
@@ -291,7 +276,6 @@
 
 	.coach-tabs {
 		--coach-tabs-top: var(--app-header-height);
-		--coach-tabs-gutter: 0.625rem;
 	}
 }
 

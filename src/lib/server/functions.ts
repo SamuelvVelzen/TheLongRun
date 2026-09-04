@@ -785,6 +785,63 @@ function formatRunBriefLine(r: RunRecord): string {
 	return `- ${r.date} (${r.day || '—'}) ${activityLabel(r.activity_type)} ${r.distance_km ?? '–'} km · ${metricText(r)} · HR ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} · feel ${feel}${notes ? ` · ${notes}` : ''} · slug \`${r.slug}\``;
 }
 
+function parseDebriefSlugs(raw: string): string[] {
+	return [...new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))];
+}
+
+function compareDebriefRuns(a: RunRecord, b: RunRecord) {
+	if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+	const ta = a.start_time || '';
+	const tb = b.start_time || '';
+	if (ta !== tb) return ta < tb ? -1 : 1;
+	return (a.slug ?? '').localeCompare(b.slug ?? '');
+}
+
+/** AM+PM commutes (and anything else that day) belong in one debrief, even if the URL has one slug. */
+function expandDebriefToSameDays(seed: RunRecord[], pool: RunRecord[]): RunRecord[] {
+	if (!seed.length) return [];
+	const dates = new Set(seed.map((r) => r.date));
+	const bySlug = new Map<string, RunRecord>();
+	for (const r of pool) {
+		if (dates.has(r.date)) bySlug.set(r.slug, r);
+	}
+	for (const r of seed) bySlug.set(r.slug, r);
+	return [...bySlug.values()].sort(compareDebriefRuns);
+}
+
+function debriefRunSummary(r: RunRecord) {
+	return {
+		slug: r.slug,
+		date: r.date,
+		day: r.day,
+		distance_km: r.distance_km,
+		avg_pace: r.avg_pace,
+		hasFeel: hasFeel(r)
+	};
+}
+
+function formatFeelingsExample(runs: RunRecord[]): string {
+	const fields = (r: RunRecord, pad: string) =>
+		[
+			`${pad}"slug": ${JSON.stringify(r.slug)},`,
+			`${pad}"effort": 6,`,
+			`${pad}"shins": 3,`,
+			`${pad}"legs": 7,`,
+			`${pad}"energy": 7,`,
+			`${pad}"wanted_faster": false,`,
+			`${pad}"surface": "asphalt",`,
+			`${pad}"notes": "Short first-person note."`
+		].join('\n');
+	const r = runs[0];
+	if (!r || runs.length === 1) {
+		if (!r) return `  "feelings": { "slug": "…" }`;
+		return `  "feelings": {\n${fields(r, '    ')}\n  }`;
+	}
+	return `  "feelings": [\n${runs
+		.map((row) => `    {\n${fields(row, '      ')}\n    }`)
+		.join(',\n')}\n  ]`;
+}
+
 export const getDebriefPrompt = createServerFn({ method: 'GET' })
 	.validator((slug: string) => (typeof slug === 'string' ? slug : ''))
 	.handler(async ({ data: slug }) => {
@@ -805,15 +862,23 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			end.setDate(end.getDate() + 6);
 			weekEnd = isoDateLocal(end);
 		}
-		const run = slug
-			? ((await getRun(slug)) ?? null)
+		const requested = parseDebriefSlugs(slug);
+		const featuredUnsorted = requested.length
+			? requested
+					.map((s) => allRuns.find((r) => r.slug === s) ?? null)
+					.filter((r): r is RunRecord => r != null)
 			: weekStart
-				? (allRuns.find((r) => r.date >= weekStart && r.date <= weekEnd) ?? null)
-				: null;
-		if (!run) {
+				? (() => {
+						const row = allRuns.find((r) => r.date >= weekStart && r.date <= weekEnd);
+						return row ? [row] : [];
+					})()
+				: [];
+		const featured = expandDebriefToSameDays(featuredUnsorted, allRuns);
+		if (!featured.length) {
 			return {
 				prompt: '',
 				run: null,
+				runs: [],
 				weekView,
 				error: 'Import this session’s GPX first — the prompt needs those numbers.'
 			};
@@ -824,7 +889,8 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 					.filter((r) => r.date >= weekStart && r.date <= weekEnd)
 					.sort(byDateNewestFirst)
 			: [];
-		const otherThisWeek = weekRuns.filter((r) => r.slug !== run.slug);
+		const featuredSlugs = new Set(featured.map((r) => r.slug));
+		const otherThisWeek = weekRuns.filter((r) => !featuredSlugs.has(r.slug));
 		const sessionLines =
 			weekView?.sessions
 				.map((s) => {
@@ -844,21 +910,37 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			? formatUnplannedBrief(weekView.unplanned)
 			: '';
 
-		const prompt = `# The Long Run — debrief this session
+		const many = featured.length > 1;
+		const sessionWord = many ? 'these sessions' : 'this session';
+		const sessionHeading = many ? 'These sessions' : 'This session';
+		const sessionBlock = many
+			? `${featured.map(formatRunBriefLine).join('\n')}
+${featured
+	.map(
+		(r) =>
+			`- Feel already in the app for \`${r.slug}\`: ${hasFeel(r) ? 'yes (refine from what I say now)' : 'none yet — fill from this chat'}.`
+	)
+	.join('\n')}`
+			: `${formatRunBriefLine(featured[0]!)}
+- Feel already in the app: ${hasFeel(featured[0]!) ? 'yes (refine from what I say now)' : 'none yet — fill from this chat'}.`;
+		const feelingsRule = many
+			? `- \`feelings\` is an array with one object per session above. Each \`slug\` must be exactly one of: ${featured.map((r) => `\`${r.slug}\``).join(', ')}. Scores 0–10 (effort/energy 1–10). Omit fields you don't know. Omit a session entirely if I said nothing about it.`
+			: `- \`feelings.slug\` must be exactly \`${featured[0]!.slug}\`. Scores 0–10 (effort/energy 1–10). Omit fields you don't know.`;
 
-You are my coach for the sports I train, not a running-only coach. I just trained. GPS numbers are below. I'll also attach Strava screenshots and tell you how it felt.
+		const prompt = `# The Long Run — debrief ${sessionWord}
 
-Update the rest of **this week** based on this session. Keep remaining sessions on their planned days unless recovery (heat, shins, heavy legs, life) requires a shift — and if you move a day, say why. Keep, shorten, or drop sessions as needed. Keep non-run sessions (ride, walk, swim, strength) in the week unless recovery says otherwise.
+You are my coach for the sports I train, not a running-only coach. I just trained. GPS numbers are below. I'll also attach Strava screenshots and tell you how ${many ? 'each one' : 'it'} felt.
+
+Update the rest of **this week** based on ${sessionWord}. Keep remaining sessions on their planned days unless recovery (heat, shins, heavy legs, life) requires a shift — and if you move a day, say why. Keep, shorten, or drop sessions as needed. Keep non-run sessions (ride, walk, swim, strength) in the week unless recovery says otherwise.
 
 ## Usual weekdays
 ${formatPatternLines(settings.weekPattern)}
 
-## This session
-${formatRunBriefLine(run)}
-- Feel already in the app: ${hasFeel(run) ? 'yes (refine from what I say now)' : 'none yet — fill from this chat'}.
+## ${sessionHeading}
+${sessionBlock}
 
 ## Other activities already logged this week
-${otherThisWeek.length ? otherThisWeek.map(formatRunBriefLine).join('\n') : '- (none besides this one)'}
+${otherThisWeek.length ? otherThisWeek.map(formatRunBriefLine).join('\n') : `- (none besides ${many ? 'these' : 'this one'})`}
 
 ## Current week plan${week ? ` — week ${week.week} (${week.dates}) · ${week.phase} · ${week.focus}` : ''}
 ${sessionLines}
@@ -874,21 +956,12 @@ Short assessment. Then output **one JSON object** I can paste back (no prose bef
 
 \`\`\`json
 {
-  "feelings": {
-    "slug": "${run.slug}",
-    "effort": 6,
-    "shins": 3,
-    "legs": 7,
-    "energy": 7,
-    "wanted_faster": false,
-    "surface": "asphalt",
-    "notes": "Short first-person note."
-  },
+${formatFeelingsExample(featured)},
   "week": {
     "week": ${week?.week ?? 0},
     "dates": ${JSON.stringify(week?.dates ?? '')},
     "phase": ${JSON.stringify(week?.phase ?? '')},
-    "focus": "one-line focus after this session",
+    "focus": "one-line focus after ${sessionWord}",
     "sessions": [
       { "day": "Wednesday", "activity_type": "run", "label": "Easy", "distance_km": 7, "detail": "how + why" },
       { "day": "Thursday", "activity_type": "strength", "label": "Gym", "distance_km": null, "detail": "full-body" }
@@ -898,21 +971,16 @@ Short assessment. Then output **one JSON object** I can paste back (no prose bef
 \`\`\`
 
 Rules:
-- \`feelings.slug\` must be exactly \`${run.slug}\`. Scores 0–10 (effort/energy 1–10). Omit fields you don't know.
+${feelingsRule}
 - \`week.sessions\` is the **full remaining-aware week**: keep completed sessions as they were, rewrite what's still ahead. Keep each remaining session on its planned day unless you have a reason to move it (then say why). Keep rides, walks, swims and strength in the week unless recovery says to drop them. Every session needs \`"activity_type"\`.
 - To drop a session, set \`"status": "skipped"\` on that row (you can still explain why in \`detail\`). A missing log is unlogged, not skipped — do not mark skipped just because the detail mentions skip as advice.
 - If the week is finished, still return the week object with the sessions as completed.
 `;
+		const runs = featured.map(debriefRunSummary);
 		return {
 			prompt,
-			run: {
-				slug: run.slug,
-				date: run.date,
-				day: run.day,
-				distance_km: run.distance_km,
-				avg_pace: run.avg_pace,
-				hasFeel: hasFeel(run)
-			},
+			run: runs[runs.length - 1] ?? null,
+			runs,
 			weekView,
 			error: null as string | null
 		};
@@ -1312,18 +1380,23 @@ async function applyFeelingsRows(
 function feelingsRowsFrom(parsed: unknown): Record<string, unknown>[] {
 	if (!parsed || typeof parsed !== 'object') return [];
 	const o = parsed as Record<string, unknown>;
-	const list = Array.isArray(o)
+	const list: unknown[] = Array.isArray(o)
 		? o
 		: Array.isArray(o.activities)
 			? o.activities
-			: o.feelings && typeof o.feelings === 'object'
-				? Array.isArray((o.feelings as { activities?: unknown }).activities)
-					? (o.feelings as { activities: unknown[] }).activities
-					: [o.feelings]
-				: [];
+			: Array.isArray(o.feelings)
+				? o.feelings
+				: o.feelings && typeof o.feelings === 'object'
+					? Array.isArray((o.feelings as { activities?: unknown }).activities)
+						? (o.feelings as { activities: unknown[] }).activities
+						: [o.feelings]
+					: [];
 	return list.filter(
 		(a): a is Record<string, unknown> =>
-			Boolean(a) && typeof a === 'object' && typeof (a as { slug?: unknown }).slug === 'string'
+			Boolean(a) &&
+			typeof a === 'object' &&
+			!Array.isArray(a) &&
+			typeof (a as { slug?: unknown }).slug === 'string'
 	);
 }
 

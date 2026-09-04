@@ -507,7 +507,8 @@ function CoachPanels({
 		}
 	}
 
-	const run = debrief.run;
+	const runs = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
+	const many = runs.length > 1;
 	const weekPhrase = 'this week';
 	const defaultQ = defaultQuestion();
 	const usualPattern = toPattern(usual);
@@ -639,34 +640,44 @@ function CoachPanels({
 			{tab === 'debrief' && (
 				<>
 					<ol className="list-none m-0 p-0 flex flex-col gap-6 max-sm:gap-[1.15rem] [&>li>strong]:block [&>li>strong]:text-[1.05rem] [&_li.done>strong]:text-accent-fg">
-						<li className={run ? 'done' : 'current'}>
+						<li className={runs.length ? 'done' : 'current'}>
 							<strong>1. Import the GPX</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
-								Download from Strava, then drop it here. The activity needs to be in the app before
-								the prompt.
+								Download from Strava, then drop it here. One file or several — they all go into the
+								prompt.
 							</span>
-							{run && (
-								<p className="mt-[0.45rem] mb-0 font-semibold max-sm:[overflow-wrap:anywhere]">
-									Latest in the prompt:{' '}
-									<Link to="/runs/$slug" params={{ slug: run.slug }}>
-										{run.date}
-										{run.day ? ` · ${run.day}` : ''}
-										{run.distance_km != null ? ` · ${run.distance_km} km` : ''}
-									</Link>
-									{run.hasFeel ? ' · feel already saved' : ' · no feel yet'}
-								</p>
+							{runs.length > 0 && (
+								<div className="mt-[0.45rem] mb-0 font-semibold max-sm:[overflow-wrap:anywhere]">
+									<p className="m-0">
+										{many ? `${runs.length} activities in the prompt:` : 'In the prompt:'}
+									</p>
+									<ul className="list-none m-[0.35rem_0_0] p-0 grid gap-1">
+										{runs.map((r) => (
+											<li key={r.slug}>
+												<Link to="/runs/$slug" params={{ slug: r.slug }}>
+													{r.date}
+													{r.day ? ` · ${r.day}` : ''}
+													{r.distance_km != null ? ` · ${r.distance_km} km` : ''}
+												</Link>
+												{r.hasFeel ? ' · feel already saved' : ' · no feel yet'}
+											</li>
+										))}
+									</ul>
+								</div>
 							)}
 							<div className={cn(ui.panel, ui.form, 'mt-3')}>
 								{authed ? (
 									<GpxImport
 										onImported={(ok) => {
-											const last = ok[ok.length - 1];
-											if (last?.slug) {
+											const slugs = ok
+												.map((r) => r.slug)
+												.filter((s): s is string => Boolean(s));
+											if (slugs.length) {
 												router.navigate({
 													to: '/coach',
 													search: withCoachSearch(search, {
 														tab: 'debrief',
-														slug: last.slug
+														slug: slugs.join(',')
 													}),
 													replace: true,
 													resetScroll: false
@@ -686,11 +697,11 @@ function CoachPanels({
 								.
 							</p>
 						</li>
-						<li className={run && debriefPrompt ? 'current' : undefined}>
+						<li className={runs.length && debriefPrompt ? 'current' : undefined}>
 							<strong>2. Copy the prompt</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
 								In ChatGPT: attach the Strava general + pace screenshots, paste this, and say how
-								it felt.
+								{many ? ' each one' : ' it'} felt.
 							</span>
 							{debrief.error && !debriefPrompt && (
 								<p className={cn(ui.muted, 'mt-[0.4rem]')}>{debrief.error}</p>
@@ -717,7 +728,8 @@ function CoachPanels({
 						<li>
 							<strong>3. Paste ChatGPT’s JSON</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
-								Feelings for this activity plus the updated rest of the week. Days can change.
+								Feelings for {many ? 'these activities' : 'this activity'} plus the updated rest of
+								the week. Days can change.
 							</span>
 							{authed ? (
 							<div className={cn(ui.panel, ui.form, 'mt-3')}>
@@ -725,7 +737,7 @@ function CoachPanels({
 									<textarea
 										className={ui.editor}
 										rows={8}
-										placeholder='{ "feelings": { "slug": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
+										placeholder='{ "feelings": [{ "slug": "…" }], "week": { "week": 3, "sessions": [ … ] } }'
 										value={debriefJson}
 										onChange={(e) => setDebriefJson(e.target.value)}
 									/>

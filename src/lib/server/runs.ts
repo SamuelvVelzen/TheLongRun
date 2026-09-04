@@ -1,6 +1,6 @@
-import type { RunRecord } from '$lib/types';
-import { normalizeStartTime } from '$lib/format';
 import { parseBestEfforts, type BestEffort } from '$lib/best-efforts';
+import { normalizeStartTime } from '$lib/format';
+import type { RunRecord } from '$lib/types';
 import { getSql } from './db';
 
 function toNum(value: unknown): number | null {
@@ -409,8 +409,8 @@ export type UpdateRunFields = {
 };
 
 /**
- * Update a run in place. If date/day change the slug, writes the new row and removes the old
- * (routes/images/strava_id are preserved on the record).
+ * Update a run in place. Same-day extras keep their `-2`/`-3` slug; a date change mints a
+ * free slug instead of colliding. Routes/images/strava_id stay on the record.
  */
 export async function updateRun(slug: string, fields: UpdateRunFields): Promise<RunRecord> {
 	if (!isSafeSlug(slug)) throw new Error('Invalid run slug.');
@@ -422,11 +422,9 @@ export async function updateRun(slug: string, fields: UpdateRunFields): Promise<
 	const session = fields.session.trim();
 	if (!date || !day || !session) throw new Error('Date, day and session are required.');
 
-	const newSlug = runSlug(date, day);
-	if (!isSafeSlug(newSlug)) throw new Error('Invalid date or day for slug.');
-	if (newSlug !== slug && (await getRun(newSlug))) {
-		throw new Error('A run already exists for that date and day.');
-	}
+	const baseSlug = runSlug(date, day);
+	if (!isSafeSlug(baseSlug)) throw new Error('Invalid date or day for slug.');
+	const newSlug = existing.date === date ? slug : await nextFreeSlug(baseSlug);
 
 	const saved = await upsertRun({
 		slug: newSlug,

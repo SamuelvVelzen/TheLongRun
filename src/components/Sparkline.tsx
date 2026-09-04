@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { TipBubble, TipCaption, TipValue } from './Tip';
 
 type Tip = { label: string; display: string };
 
@@ -157,26 +158,21 @@ export function Sparkline({
 			)}
 
 			{activeTip && activeCoord && (
-				<div
-					className="absolute z-[2] -translate-x-1/2 -translate-y-[calc(100%+10px)] flex flex-col items-center gap-[0.05rem] px-[0.45rem] py-[0.28rem] rounded-lg border border-line bg-[#1a2218] shadow-[0_8px_22px_rgba(0,0,0,0.4)] pointer-events-none whitespace-nowrap max-w-[min(11rem,70vw)] after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-[5px] after:border-transparent after:border-t-[#1a2218]"
+				<TipBubble
+					className="z-[2] -translate-x-1/2 -translate-y-[calc(100%+10px)] max-w-[min(11rem,70vw)]"
 					style={{
 						left: `${(activeCoord.x / width) * 100}%`,
 						top: `${(activeCoord.y / height) * 100}%`
 					}}
-					role="tooltip"
 				>
-					<span className="font-display font-bold text-[0.78rem] tracking-[-0.02em] text-accent-fg leading-[1.15]">
-						{activeTip.display}
-					</span>
-					<span className="text-[0.68rem] text-muted leading-[1.15] overflow-hidden text-ellipsis max-w-full">
-						{activeTip.label}
-					</span>
+					<TipValue>{activeTip.display}</TipValue>
+					<TipCaption>{activeTip.label}</TipCaption>
 					{onPick && (
 						<span className="text-[0.62rem] font-semibold tracking-[0.04em] text-accent-fg leading-[1.3]">
 							open →
 						</span>
 					)}
-				</div>
+				</TipBubble>
 			)}
 		</div>
 	);

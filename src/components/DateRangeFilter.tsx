@@ -62,7 +62,6 @@ export function DateRangeFilter({ range, to }: { range: DateRange; to: string })
 	return (
 		<div className="contents" role="group" aria-label="Date range">
 			<SegmentedToggle
-				className="max-[720px]:overflow-x-auto [&_button]:max-[720px]:shrink-0 [&_button]:max-[720px]:px-3 [&_button]:max-[720px]:py-[0.55rem]"
 				value={range.kind === 'custom' || customOpen ? 'custom' : range.kind}
 				onChange={(kind) => {
 					if (kind === 'custom') openCustom();

@@ -107,7 +107,7 @@ export function StrengthEditor({
 							/>
 						</div>
 						<SegmentedToggle
-							className="mt-2 max-sm:w-full max-sm:[&>button]:flex-1"
+							className="mt-2"
 							aria-label="How this exercise is logged"
 							value={kind}
 							onChange={(k) => setKind(i, k)}

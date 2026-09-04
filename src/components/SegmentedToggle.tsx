@@ -17,19 +17,22 @@ export function SegmentedToggle<T extends string>({
 	onChange,
 	options,
 	className,
+	fill,
 	'aria-label': ariaLabel
 }: {
 	value: T;
 	onChange?: (value: T) => void;
 	options: SegmentedOption<T>[];
 	className?: string;
+	/** Equal-width page tabs. Filters stay compact and hug their labels. */
+	fill?: boolean;
 	'aria-label'?: string;
 }) {
 	const navigate = useNavigate();
 
 	return (
 		<div
-			className={cn(ui.segToggle, className)}
+			className={cn(fill ? ui.segToggleFill : ui.segToggle, className)}
 			role={ariaLabel ? 'group' : undefined}
 			aria-label={ariaLabel}
 		>
@@ -39,7 +42,7 @@ export function SegmentedToggle<T extends string>({
 					<button
 						key={opt.value}
 						type="button"
-						className={ui.segItem}
+						className={fill ? ui.segItemFill : ui.segItem}
 						aria-pressed={selected}
 						onClick={() => {
 							if (selected) return;

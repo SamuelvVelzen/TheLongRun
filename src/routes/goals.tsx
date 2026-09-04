@@ -112,27 +112,33 @@ function GoalsPage() {
 						: 'The soonest race is active — it drives the plan length and the generate prompt. Later races wait their turn.'
 				}
 			/>
-			<div className={ui.coachTabs} role="tablist">
-				<button
-					type="button"
-					role="tab"
-					aria-selected={tab === 'races'}
-					className={cn(ui.coachTab, tab === 'races' && ui.coachTabActive)}
-					onClick={() => setTab('races')}
-				>
-					<Icon name="flag" size={15} />
-					Races
-				</button>
-				<button
-					type="button"
-					role="tab"
-					aria-selected={tab === 'medals'}
-					className={cn(ui.coachTab, tab === 'medals' && ui.coachTabActive)}
-					onClick={() => setTab('medals')}
-				>
-					<Icon name="trophy" size={15} />
-					Medals
-				</button>
+			<div className={ui.coachTabs}>
+				<SegmentedToggle
+					fill
+					aria-label="Goals"
+					value={tab}
+					onChange={setTab}
+					options={[
+						{
+							value: 'races',
+							label: (
+								<>
+									<Icon name="flag" size={15} />
+									Races
+								</>
+							)
+						},
+						{
+							value: 'medals',
+							label: (
+								<>
+									<Icon name="trophy" size={15} />
+									Medals
+								</>
+							)
+						}
+					]}
+				/>
 			</div>
 			<DeferredData promise={page}>
 				{(data) => <GoalsBody data={data} authed={authed} tab={tab} />}
@@ -812,10 +818,10 @@ function GoalForm({
 			</div>
 			<div className={cn(ui.formSection, 'border-t border-line pt-4 grid gap-4')}>
 				<SegmentedToggle
+					fill
 					aria-label="Priorities and notes"
 					value={copyTab}
 					onChange={setCopyTab}
-					className="w-full"
 					options={[
 						{ value: 'copy', label: 'Priorities & notes' },
 						{

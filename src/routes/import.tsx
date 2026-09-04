@@ -3,10 +3,11 @@ import { getLogDefaults } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { DeferredData } from '../components/DeferredData';
-import { PageHero } from '../components/PageHero';
 import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
 import { LogForm } from '../components/LogForm';
+import { PageHero } from '../components/PageHero';
+import { SegmentedToggle } from '../components/SegmentedToggle';
 
 type AddSearch = { mode?: 'gpx' | 'manual' };
 
@@ -45,27 +46,36 @@ function AddActivity() {
 				<SignInPanel title="Sign in to add an activity" />
 			) : (
 				<>
-					<div className={ui.coachTabs} role="tablist">
-						<Link
-							to="/import"
-							search={{ mode: 'gpx' }}
-							role="tab"
-							aria-selected={mode === 'gpx'}
-							className={cn(ui.coachTab, mode === 'gpx' && ui.coachTabActive)}
-						>
-							<Icon name="upload" size={15} />
-							GPX file
-						</Link>
-						<Link
-							to="/import"
-							search={{ mode: 'manual' }}
-							role="tab"
-							aria-selected={mode === 'manual'}
-							className={cn(ui.coachTab, mode === 'manual' && ui.coachTabActive)}
-						>
-							<Icon name="pencil" size={15} />
-							Log manually
-						</Link>
+					<div className={ui.coachTabs}>
+						<SegmentedToggle
+							fill
+							aria-label="How to add"
+							value={mode}
+							options={[
+								{
+									value: 'gpx',
+									label: (
+										<>
+											<Icon name="upload" size={15} />
+											GPX file
+										</>
+									),
+									to: '/import',
+									search: { mode: 'gpx' }
+								},
+								{
+									value: 'manual',
+									label: (
+										<>
+											<Icon name="pencil" size={15} />
+											Log manually
+										</>
+									),
+									to: '/import',
+									search: { mode: 'manual' }
+								}
+							]}
+						/>
 					</div>
 
 					{mode === 'gpx' ? (

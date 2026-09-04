@@ -29,6 +29,7 @@ import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
 import { PageHero } from '../components/PageHero';
+import { SegmentedToggle } from '../components/SegmentedToggle';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 import {
 	rowsFrom,
@@ -355,52 +356,60 @@ function Coach() {
 				lead="Usual week and the plan. With a race on Goals, the block runs through race week. Without one, generate this week as base training."
 			/>
 
-			<div className={ui.coachTabs} role="tablist">
-				<button
-					type="button"
-					role="tab"
-					aria-selected={tab === 'training'}
-					className={cn(ui.coachTab, tab === 'training' && ui.coachTabActive)}
-					onClick={() => setTab('training')}
-				>
-					<Icon name="calendar" size={15} />
-					Training
-				</button>
-				{authed && (
-					<button
-						type="button"
-						role="tab"
-						aria-selected={tab === 'generate'}
-						className={cn(ui.coachTab, tab === 'generate' && ui.coachTabActive)}
-						onClick={() => setTab('generate')}
-					>
-						<Icon name="sparkle" size={15} />
-						Generate
-					</button>
-				)}
-				<button
-					type="button"
-					role="tab"
-					aria-selected={tab === 'plan'}
-					className={cn(ui.coachTab, tab === 'plan' && ui.coachTabActive)}
-					onClick={() => setTab('plan')}
-				>
-					<Icon name="board" size={15} />
-					Plan
-				</button>
-				{authed && (
-					<button
-						type="button"
-						role="tab"
-						aria-selected={tab === 'debrief'}
-						className={cn(ui.coachTab, tab === 'debrief' && ui.coachTabActive)}
-						onClick={() => setTab('debrief')}
-					>
-						<Icon name="flag" size={15} />
-						<span className="max-sm:hidden">After an activity</span>
-						<span className="hidden max-sm:inline">Activity</span>
-					</button>
-				)}
+			<div className={ui.coachTabs}>
+				<SegmentedToggle
+					fill
+					aria-label="Coach"
+					value={tab}
+					onChange={setTab}
+					options={[
+						{
+							value: 'training' as const,
+							label: (
+								<>
+									<Icon name="calendar" size={15} />
+									Training
+								</>
+							)
+						},
+						...(authed
+							? [
+									{
+										value: 'generate' as const,
+										label: (
+											<>
+												<Icon name="sparkle" size={15} />
+												Generate
+											</>
+										)
+									}
+								]
+							: []),
+						{
+							value: 'plan' as const,
+							label: (
+								<>
+									<Icon name="board" size={15} />
+									Plan
+								</>
+							)
+						},
+						...(authed
+							? [
+									{
+										value: 'debrief' as const,
+										label: (
+											<>
+												<Icon name="flag" size={15} />
+												<span className="max-sm:hidden">After an activity</span>
+												<span className="hidden max-sm:inline">Activity</span>
+											</>
+										)
+									}
+								]
+							: [])
+					]}
+				/>
 			</div>
 			<DeferredData promise={page}>
 				{(data) => (

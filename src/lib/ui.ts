@@ -67,13 +67,7 @@ export const ui = {
 	dropzone:
 		'flex flex-col items-center justify-center gap-[0.35rem] p-[2.25rem_1.2rem] border-2 border-dashed border-line rounded-box bg-inset text-muted cursor-pointer text-center transition-[border-color,background-color,color] duration-150 ease-out hover:border-accent hover:text-fg active:border-accent active:text-fg max-sm:p-[1.5rem_0.85rem] [&_strong]:font-display [&_strong]:text-[1.02rem] [&_strong]:text-fg',
 	dropzoneOver: 'border-accent bg-accent/8 text-fg',
-	coachTabs:
-		'coach-tabs flex gap-[0.3rem] mb-4 border-b border-line max-sm:gap-0',
-	// Selected styles use aria-* variants (not a second class): cn() does not merge
-	// conflicting utilities, so text-muted/border-transparent would otherwise win.
-	coachTab:
-		'appearance-none inline-flex items-center justify-center gap-1.5 bg-transparent border-0 border-b-2 border-transparent -mb-px min-h-11 px-[0.9rem] py-[0.55rem] font-semibold text-muted cursor-pointer hover:text-fg active:text-fg max-sm:flex-1 max-sm:min-w-0 max-sm:px-1 max-sm:py-2 max-sm:h-auto max-sm:text-[0.78rem] max-sm:text-center max-sm:leading-[1.25] max-sm:whitespace-normal aria-[selected=true]:text-fg! aria-[selected=true]:border-b-accent! data-[status=active]:text-fg! data-[status=active]:border-b-accent!',
-	coachTabActive: 'text-fg border-b-accent',
+	coachTabs: 'coach-tabs mb-4',
 	choiceChips: 'flex flex-wrap gap-[0.4rem]',
 	choiceChip:
 		'appearance-none inline-flex items-center justify-center gap-1.5 min-h-11 px-[0.95rem] py-2 rounded-full border border-solid border-line bg-transparent text-muted font-semibold cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:border-accent/35 disabled:opacity-35 disabled:cursor-not-allowed aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent',
@@ -86,8 +80,11 @@ export const ui = {
 	routeChip:
 		'inline-flex items-center gap-[0.4rem] max-w-full mt-2 px-[0.7rem] py-[0.38rem] rounded-full border border-[color-mix(in_srgb,var(--accent)_55%,var(--line))] bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] text-accent-fg text-[0.88rem] font-bold overflow-hidden hover:bg-[color-mix(in_srgb,var(--accent)_24%,transparent)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent)_18%,transparent)]',
 	segToggle:
-		'inline-flex w-fit max-w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border border-line rounded-full bg-canvas/85 max-sm:w-full',
+		'inline-flex w-fit max-w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border border-line rounded-full bg-canvas/85',
+	segToggleFill: 'flex w-full overflow-hidden border border-line rounded-full bg-canvas/85',
 	segItem:
-		'appearance-none inline-flex items-center justify-center gap-1.5 relative w-auto min-h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted font-inherit no-underline cursor-pointer shrink-0 max-sm:grow max-sm:shrink-0 max-sm:basis-auto max-sm:px-[0.7rem] max-sm:text-[0.82rem] transition-[color,background-color,border-color] duration-150 ease-out aria-[pressed=false]:hover:text-fg aria-[pressed=false]:hover:bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] active:text-fg aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold aria-[pressed=true]:active:text-accent-ink',
+		'appearance-none inline-flex items-center justify-center gap-1.5 relative w-auto min-h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted font-inherit no-underline cursor-pointer shrink-0 transition-[color,background-color,border-color] duration-150 ease-out aria-[pressed=false]:hover:text-fg aria-[pressed=false]:hover:bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] active:text-fg aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold aria-[pressed=true]:active:text-accent-ink',
+	segItemFill:
+		'appearance-none flex flex-1 min-w-0 flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 relative min-h-11 px-2 py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted text-center text-[0.82rem] leading-tight font-inherit no-underline cursor-pointer whitespace-normal transition-[color,background-color,border-color] duration-150 ease-out sm:px-[0.85rem] sm:text-[0.9rem] aria-[pressed=false]:hover:text-fg aria-[pressed=false]:hover:bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] active:text-fg aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold aria-[pressed=true]:active:text-accent-ink',
 	segItemActive: 'text-accent-ink bg-accent font-semibold'
 } as const;

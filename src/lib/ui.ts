@@ -68,7 +68,7 @@ export const ui = {
 		'flex flex-col items-center justify-center gap-[0.35rem] p-[2.25rem_1.2rem] border-2 border-dashed border-line rounded-box bg-inset text-muted cursor-pointer text-center transition-[border-color,background-color,color] duration-150 ease-out hover:border-accent hover:text-fg active:border-accent active:text-fg max-sm:p-[1.5rem_0.85rem] [&_strong]:font-display [&_strong]:text-[1.02rem] [&_strong]:text-fg',
 	dropzoneOver: 'border-accent bg-accent/8 text-fg',
 	coachTabs:
-		'flex gap-[0.3rem] mb-4 border-b border-line max-sm:gap-0 max-sm:overflow-x-auto max-sm:overflow-y-hidden',
+		'coach-tabs flex gap-[0.3rem] mb-4 border-b border-line max-sm:gap-0',
 	// Selected styles use aria-* variants (not a second class): cn() does not merge
 	// conflicting utilities, so text-muted/border-transparent would otherwise win.
 	coachTab:

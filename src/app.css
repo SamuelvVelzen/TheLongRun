@@ -265,6 +265,27 @@
 		background: var(--canvas);
 		border-bottom: 1px solid var(--line);
 	}
+
+	.coach-tabs {
+		position: sticky;
+		top: var(--app-header-height);
+		z-index: 30;
+		isolation: isolate;
+		margin-left: calc(-0.625rem - env(safe-area-inset-left, 0px));
+		margin-right: calc(-0.625rem - env(safe-area-inset-right, 0px));
+		padding-left: calc(0.625rem + env(safe-area-inset-left, 0px));
+		padding-right: calc(0.625rem + env(safe-area-inset-right, 0px));
+		background: var(--canvas);
+	}
+
+	.coach-tabs::before {
+		content: '';
+		position: absolute;
+		inset: -1px 0;
+		z-index: -1;
+		pointer-events: none;
+		background: var(--canvas);
+	}
 }
 
 /* Sparkline SVG strokes (vector-effect is awkward as a utility). */

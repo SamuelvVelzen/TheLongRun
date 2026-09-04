@@ -87,7 +87,7 @@ function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
 						No race on the calendar. Coach still plans this week as base training.
 					</p>
 					{authed && editingId !== 'new' && (
-						<div className={ui.actions}>
+						<div className={cn(ui.actions, 'justify-start!')}>
 							<button className={ui.btnPrimary} type="button" onClick={() => setEditingId('new')}>
 								<Icon name="flag" size={16} />
 								Set a goal
@@ -373,7 +373,7 @@ function ActiveGoalCard({
 				</ul>
 			)}
 			{authed && (
-				<div className={ui.actions}>
+				<div className={cn(ui.actions, 'justify-start!')}>
 					{!editing && (
 						<button className={ui.btnGhost} type="button" onClick={onEdit}>
 							<Icon name="pencil" size={16} />
@@ -479,7 +479,7 @@ function UpcomingGoalCard({
 				</div>
 			</div>
 			{authed && (
-				<div className={ui.actions}>
+				<div className={cn(ui.actions, 'justify-start!')}>
 					{!editing && (
 						<button className={ui.btnGhost} type="button" onClick={onEdit}>
 							<Icon name="pencil" size={16} />

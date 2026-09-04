@@ -679,6 +679,8 @@ ${formatUnplannedBrief(targetView.unplanned)}
 - Race: ${activeGoal.name} — ${activeGoal.distance_km} km on ${activeGoal.date}${weeksToRace != null ? ` (~${weeksToRace} weeks to go)` : ''}
 - Sport: ${activityLabel(activeGoal.sport)}
 - Time goal: ${activeGoal.time_goal || '—'}
+${activeGoal.url ? `- Race URL: ${activeGoal.url}` : ''}
+${activeGoal.itinerary_url ? `- Itinerary: ${activeGoal.itinerary_url}` : ''}
 ${(activeGoal.primary ?? []).map((p) => `- Priority: ${p}`).join('\n')}
 ${laterLines ? `${laterLines}\n` : ''}${activeGoal.notes ? `\n${activeGoal.notes}\n` : ''}`
 			: `## Goal

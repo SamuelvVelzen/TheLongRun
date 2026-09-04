@@ -1,6 +1,6 @@
 import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
-import { activityLooksLikeRace, emptyGoalDraft, planStartHint } from '$lib/goals';
+import { activityLooksLikeRace, emptyGoalDraft, goalUrlHref, planStartHint } from '$lib/goals';
 import { calendarFromGoal, daysUntil, mondayIso } from '$lib/plan';
 import { clearGoal, completeGoal, getGoalsData, saveActiveGoal } from '$lib/server/functions';
 import type { Goal } from '$lib/types';
@@ -36,6 +36,38 @@ function formatRaceDate(iso: string) {
 	const d = new Date(`${iso}T12:00:00`);
 	if (Number.isNaN(d.getTime())) return iso;
 	return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function GoalUrlLinks({ url, itineraryUrl }: { url?: string; itineraryUrl?: string }) {
+	const raceHref = goalUrlHref(url ?? '');
+	const itineraryHref = goalUrlHref(itineraryUrl ?? '');
+	if (!raceHref && !itineraryHref) return null;
+	return (
+		<div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+			{raceHref && (
+				<a
+					className="inline-flex items-center gap-1.5 text-accent-fg font-semibold text-[0.9rem]"
+					href={raceHref}
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					<Icon name="external" size={13} />
+					Race page
+				</a>
+			)}
+			{itineraryHref && (
+				<a
+					className="inline-flex items-center gap-1.5 text-accent-fg font-semibold text-[0.9rem]"
+					href={itineraryHref}
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					<Icon name="external" size={13} />
+					Itinerary
+				</a>
+			)}
+		</div>
+	);
 }
 
 function GoalsPage() {
@@ -281,6 +313,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 								: ` · ${openMedal.distance_km} km`}
 							{openMedal.result?.pace ? ` · ${openMedal.result.pace}/km` : ''}
 						</p>
+						<GoalUrlLinks url={openMedal.url} itineraryUrl={openMedal.itinerary_url} />
 						{openMedal.time_goal ? <p className="m-0">Time goal was {openMedal.time_goal}.</p> : null}
 						{openMedal.primary.length > 0 && (
 							<ul className="m-0 pl-[1.1rem]">
@@ -401,6 +434,7 @@ function ActiveGoalCard({
 					{formatRaceDate(goal.date)} · {goal.distance_km} km · {activityLabel(goal.sport)}
 					{goal.time_goal ? ` · goal ${goal.time_goal}` : ''}
 				</p>
+				<GoalUrlLinks url={goal.url} itineraryUrl={goal.itinerary_url} />
 			</div>
 			<div className="flex flex-wrap gap-6">
 				<div>
@@ -524,6 +558,7 @@ function UpcomingGoalCard({
 						{formatRaceDate(goal.date)} · {goal.distance_km} km · {activityLabel(goal.sport)}
 						{goal.time_goal ? ` · goal ${goal.time_goal}` : ''}
 					</p>
+					<GoalUrlLinks url={goal.url} itineraryUrl={goal.itinerary_url} />
 				</div>
 				<div className="text-right">
 					<span className={cn('block text-[0.78rem]', ui.muted)}>
@@ -575,6 +610,8 @@ function GoalForm({
 	);
 	const [timeGoal, setTimeGoal] = useState(draft.time_goal);
 	const [planStart, setPlanStart] = useState(draft.plan_start);
+	const [url, setUrl] = useState(draft.url ?? '');
+	const [itineraryUrl, setItineraryUrl] = useState(draft.itinerary_url ?? '');
 	const [primary, setPrimary] = useState(draft.primary.join('\n'));
 	const [notes, setNotes] = useState(draft.notes);
 	const [busy, setBusy] = useState(false);
@@ -602,6 +639,8 @@ function GoalForm({
 					time_goal: timeGoal,
 					primary: primary.split('\n'),
 					notes,
+					url,
+					itinerary_url: itineraryUrl,
 					plan_start: mondayIso(planStart)
 				}
 			});
@@ -668,6 +707,28 @@ function GoalForm({
 				/>
 				<span className={ui.fieldHint}>{hint}</span>
 			</label>
+			<div className={ui.formGrid}>
+				<label className={ui.field}>
+					<span>Race URL</span>
+					<input
+						value={url}
+						onChange={(e) => setUrl(e.target.value)}
+						placeholder="https://example.com/race"
+						inputMode="url"
+						autoComplete="url"
+					/>
+				</label>
+				<label className={ui.field}>
+					<span>Itinerary URL</span>
+					<input
+						value={itineraryUrl}
+						onChange={(e) => setItineraryUrl(e.target.value)}
+						placeholder="https://maps.app.goo.gl/…"
+						inputMode="url"
+						autoComplete="url"
+					/>
+				</label>
+			</div>
 			<label className={ui.field}>
 				<span>Priorities (one per line)</span>
 				<textarea rows={4} value={primary} onChange={(e) => setPrimary(e.target.value)} />

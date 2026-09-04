@@ -70,6 +70,10 @@ export interface Goal {
 	time_goal: string;
 	primary: string[];
 	notes: string;
+	/** Race website. */
+	url: string;
+	/** Travel / weekend itinerary. */
+	itinerary_url: string;
 	/** Monday of week 1. */
 	plan_start: string;
 	status: GoalStatus;

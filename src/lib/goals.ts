@@ -25,6 +25,8 @@ export function emptyGoalDraft(today = new Date()): Omit<Goal, 'id' | 'status' |
 		time_goal: '',
 		primary: [],
 		notes: '',
+		url: '',
+		itinerary_url: '',
 		plan_start: date
 	};
 }
@@ -38,8 +40,28 @@ export type GoalInput = {
 	time_goal: string;
 	primary: string[];
 	notes: string;
+	url?: string;
+	itinerary_url?: string;
 	plan_start: string;
 };
+
+/** Drop javascript/data URLs; keep everything else trimmed. */
+export function normalizeGoalUrl(raw: string): string {
+	const s = String(raw ?? '').trim();
+	if (!s) return '';
+	if (/^(javascript|data|vbscript):/i.test(s)) return '';
+	return s;
+}
+
+/** Safe href for an external race/itinerary link, or null if empty/unsafe. */
+export function goalUrlHref(raw: string): string | null {
+	const s = normalizeGoalUrl(raw);
+	if (!s) return null;
+	if (/^https?:\/\//i.test(s)) return s;
+	if (s.startsWith('//')) return `https:${s}`;
+	if (/^[a-z][a-z0-9+.-]*:/i.test(s)) return null;
+	return `https://${s}`;
+}
 
 export function normalizeGoalInput(input: GoalInput, existing?: Goal | null): Goal {
 	const name = input.name.trim() || 'Race';
@@ -56,6 +78,8 @@ export function normalizeGoalInput(input: GoalInput, existing?: Goal | null): Go
 		time_goal: input.time_goal.trim(),
 		primary: input.primary.map((p) => p.trim()).filter(Boolean),
 		notes: input.notes.trim(),
+		url: normalizeGoalUrl(input.url ?? existing?.url ?? ''),
+		itinerary_url: normalizeGoalUrl(input.itinerary_url ?? existing?.itinerary_url ?? ''),
 		plan_start,
 		status: existing?.status === 'done' ? 'done' : 'upcoming',
 		result: existing?.result ?? null,

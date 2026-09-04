@@ -16,8 +16,8 @@ import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-rout
 import { useEffect, useState } from 'react';
 import { DeleteButton, EditButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
-import { PageHero } from '../components/PageHero';
 import { Icon } from '../components/Icon';
+import { PageHero } from '../components/PageHero';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 import { RouteAttach } from '../components/RouteAttach';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
@@ -279,6 +279,7 @@ function PlannedRouteDetail() {
 				onClose={() => setPendingDelete(false)}
 				onConfirm={async () => {
 					await deletePlannedRoute({ data: route.slug });
+					await router.invalidate();
 					await router.navigate({ to: '/routes' });
 				}}
 			/>

@@ -5,10 +5,10 @@ import { cn, ui } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { DeferredData } from '../components/DeferredData';
-import { PageHero } from '../components/PageHero';
 import { DeleteButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
+import { PageHero } from '../components/PageHero';
 import { MapPinIcon } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
@@ -38,6 +38,7 @@ function PlannedRoutes() {
 				data: { text: await file.text(), filename: file.name }
 			});
 			snack.success(`Saved ${result.name}`);
+			await router.invalidate();
 			await router.navigate({ to: '/routes/$slug', params: { slug: result.slug } });
 		} catch (error) {
 			snack.error(errorMessage(error, 'Import failed'));

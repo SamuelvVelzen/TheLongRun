@@ -32,8 +32,8 @@ import { BestEffortBadges } from '../components/BestEffortBadges';
 import { DeleteButton, EditButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
 import { FeelChips, WantedFasterChips } from '../components/FeelChips';
-import { PageHero } from '../components/PageHero';
 import { ActivityIcon } from '../components/Icon';
+import { PageHero } from '../components/PageHero';
 import { RouteChip } from '../components/RouteChip';
 import { RouteMap } from '../components/RouteMap';
 import { ShoesField } from '../components/ShoesField';
@@ -405,6 +405,7 @@ function RunDetail() {
 		try {
 			const res = await updateRun({ data: input });
 			setEditing(false);
+			await router.invalidate();
 			if (res.slug !== r.slug) {
 				router.navigate({ to: '/runs/$slug', params: { slug: res.slug }, search: {} });
 			} else if (editFromSearch) {
@@ -414,8 +415,6 @@ function RunDetail() {
 					search: {},
 					replace: true
 				});
-			} else {
-				router.invalidate();
 			}
 		} catch (err) {
 			snack.error(errorMessage(err, 'Update failed'));
@@ -998,6 +997,7 @@ function RunDetail() {
 				onClose={() => setPendingDelete(false)}
 				onConfirm={async () => {
 					await deleteRun({ data: r.slug });
+					await router.invalidate();
 					router.navigate({ to: '/timeline' });
 				}}
 			/>

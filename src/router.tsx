@@ -6,8 +6,10 @@ export function getRouter() {
 		routeTree,
 		scrollRestoration: true,
 		scrollRestorationBehavior: 'instant',
-		// Keep list pages hydrated on back so restore isn't clamped by the loading spinner.
-		defaultStaleTime: 5 * 60 * 1000,
+		// Activity data barely changes — reuse loaders until a mutation calls router.invalidate().
+		defaultStaleTime: Infinity,
+		defaultPreloadStaleTime: Infinity,
+		defaultGcTime: Infinity,
 		defaultPreload: 'intent'
 	});
 }

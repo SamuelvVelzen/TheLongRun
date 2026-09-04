@@ -1,7 +1,7 @@
 import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
 import { importGpx } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { BestEffortBadges } from './BestEffortBadges';
 import { DeleteButton } from './DeleteButton';
@@ -27,6 +27,7 @@ export function GpxImport({
 	coachAfter?: boolean;
 }) {
 	const navigate = useNavigate();
+	const router = useRouter();
 	const snack = useSnackbar();
 	const [files, setFiles] = useState<File[]>([]);
 	const [dragOver, setDragOver] = useState(false);
@@ -107,7 +108,10 @@ export function GpxImport({
 		} else {
 			snack.error(fail[0]?.message ?? 'Import failed');
 		}
-		if (ok.length) onImported?.(ok);
+		if (ok.length) {
+			await router.invalidate();
+			onImported?.(ok);
+		}
 	}
 
 	const okCount = results.filter((r) => r.status === 'ok').length;

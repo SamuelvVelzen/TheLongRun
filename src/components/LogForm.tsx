@@ -90,6 +90,7 @@ export function LogForm({
 		};
 		try {
 			const res = await createRun({ data: input });
+			await router.invalidate();
 			if (input.session === 'race') {
 				router.navigate({
 					to: '/coach',

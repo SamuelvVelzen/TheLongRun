@@ -1,7 +1,9 @@
 import { formatDuration } from '$lib/format';
+import type { HrZoneBand } from '$lib/hr-zones';
 import type { KmSplit, RouteAnalytics } from '$lib/splits';
 import { cn, ui } from '$lib/ui';
 import { useState } from 'react';
+import { TipBubble, TipCaption, TipValue, usePinnedTip } from './Tip';
 
 const zoneColors: Record<number, string> = {
 	1: 'var(--ok)',
@@ -174,18 +176,7 @@ export function SplitsPanel({
 
 					{zones.distribution?.some((z) => z.seconds > 0) ? (
 						<>
-							<div className="flex h-[0.55rem] rounded-full overflow-hidden bg-white/6 mb-[0.85rem]" aria-hidden="true">
-								{zones.distribution.map((z) =>
-									z.pct > 0 ? (
-										<span
-											key={z.zone}
-											className="min-w-px"
-											style={{ flex: Math.max(z.pct, 1), background: zoneColors[z.zone] }}
-											title={`Z${z.zone} ${z.label}: ${z.pct}%`}
-										></span>
-									) : null
-								)}
-							</div>
+							<ZoneTimeBar bands={zones.distribution} />
 							<div className="grid grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-[0.55rem]">
 								{zones.distribution.map((z) => (
 									<div
@@ -222,6 +213,70 @@ export function SplitsPanel({
 					) : null}
 				</div>
 			)}
+		</div>
+	);
+}
+
+function ZoneTimeBar({ bands }: { bands: HrZoneBand[] }) {
+	const { active, rootRef, onEnter, onLeave, onToggle } = usePinnedTip<number>();
+	const shown = bands.filter((z) => z.pct > 0);
+	const activeZ = shown.find((z) => z.zone === active) ?? null;
+	const total = shown.reduce((sum, z) => sum + Math.max(z.pct, 1), 0);
+	let acc = 0;
+	let tipLeft = 50;
+	for (const z of shown) {
+		const w = Math.max(z.pct, 1);
+		if (z.zone === activeZ?.zone) {
+			tipLeft = ((acc + w / 2) / total) * 100;
+			break;
+		}
+		acc += w;
+	}
+
+	return (
+		<div ref={rootRef} className="relative mb-[0.85rem] pt-8 -mt-8">
+			<div className="relative flex min-h-11">
+				<div
+					className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex h-[0.55rem] rounded-full overflow-hidden bg-white/6 pointer-events-none"
+					aria-hidden="true"
+				>
+					{shown.map((z) => (
+						<span
+							key={z.zone}
+							className="min-w-px h-full"
+							style={{ flex: Math.max(z.pct, 1), background: zoneColors[z.zone] }}
+						/>
+					))}
+				</div>
+				<div className="relative flex w-full min-h-11" role="group" aria-label="Time in heart rate zones">
+					{shown.map((z) => (
+						<button
+							key={z.zone}
+							type="button"
+							className="min-w-px p-0 m-0 border-0 appearance-none bg-transparent cursor-pointer touch-manipulation [-webkit-tap-highlight-color:transparent]"
+							style={{ flex: Math.max(z.pct, 1) }}
+							aria-label={`Z${z.zone} ${z.label}: ${z.pct}%`}
+							aria-pressed={active === z.zone}
+							onPointerEnter={() => onEnter(z.zone)}
+							onPointerLeave={onLeave}
+							onClick={() => onToggle(z.zone)}
+						/>
+					))}
+				</div>
+				{activeZ && (
+					<TipBubble
+						className="bottom-[calc(100%+0.2rem)] -translate-x-1/2"
+						style={{ left: `${tipLeft}%` }}
+					>
+						<TipValue>
+							Z{activeZ.zone} {activeZ.label}
+						</TipValue>
+						<TipCaption>
+							{activeZ.pct}% · {formatDuration(activeZ.seconds) || '0:00'}
+						</TipCaption>
+					</TipBubble>
+				)}
+			</div>
 		</div>
 	);
 }

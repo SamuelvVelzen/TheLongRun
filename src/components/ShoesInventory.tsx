@@ -307,7 +307,7 @@ export function ShoesInventory({
 					onChange={(e) => setNotes(e.target.value)}
 				/>
 			</label>
-			<div>
+			<div className={ui.actions}>
 				<button
 					type="button"
 					className={ui.btnGhost}

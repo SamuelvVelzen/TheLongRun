@@ -87,10 +87,12 @@ function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
 						No race on the calendar. Coach still plans this week as base training.
 					</p>
 					{authed && editingId !== 'new' && (
-						<button className={ui.btnPrimary} type="button" onClick={() => setEditingId('new')}>
-							<Icon name="flag" size={16} />
-							Set a goal
-						</button>
+						<div className={ui.actions}>
+							<button className={ui.btnPrimary} type="button" onClick={() => setEditingId('new')}>
+								<Icon name="flag" size={16} />
+								Set a goal
+							</button>
+						</div>
 					)}
 					{authed && editingId === 'new' && (
 						<GoalForm
@@ -231,14 +233,16 @@ function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
 							</ul>
 						)}
 						{openMedal.result?.activity_slug && (
-							<Link
-								className={ui.btnPrimary}
-								to="/runs/$slug"
-								params={{ slug: openMedal.result.activity_slug }}
-								onClick={() => setOpenMedal(null)}
-							>
-								Open activity
-							</Link>
+							<div className={ui.actions}>
+								<Link
+									className={ui.btnPrimary}
+									to="/runs/$slug"
+									params={{ slug: openMedal.result.activity_slug }}
+									onClick={() => setOpenMedal(null)}
+								>
+									Open activity
+								</Link>
+							</div>
 						)}
 					</div>
 				)}

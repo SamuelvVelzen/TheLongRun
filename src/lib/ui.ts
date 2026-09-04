@@ -28,7 +28,7 @@ export const ui = {
 	formSectionTitle:
 		'font-display text-[0.8rem] uppercase tracking-[0.08em] text-muted m-0 mb-[0.7rem] pb-1.5 border-b border-line',
 	actions:
-		'flex flex-wrap gap-3 max-sm:gap-[0.55rem] max-sm:w-full max-sm:[&>a]:flex-1 max-sm:[&>a]:min-w-[min(100%,9rem)] max-sm:[&>button]:flex-1 max-sm:[&>button]:min-w-[min(100%,9rem)]',
+		'flex flex-wrap justify-end gap-3 max-sm:gap-[0.55rem] max-sm:w-full max-sm:[&>a]:flex-1 max-sm:[&>a]:min-w-[min(100%,9rem)] max-sm:[&>button]:flex-1 max-sm:[&>button]:min-w-[min(100%,9rem)]',
 	hero: 'grid gap-5 mb-8 max-sm:gap-[0.95rem] max-sm:mb-[1.35rem] [&_h1]:text-[clamp(2.4rem,6vw,4.2rem)] [&_h1]:max-w-[12ch] max-sm:[&_h1]:text-[clamp(1.55rem,8vw,2.1rem)] max-sm:[&_h1]:max-w-none [&_p]:max-w-[68ch] [&_p]:text-muted [&_p]:text-[1.05rem] max-sm:[&_p]:text-[0.98rem] max-sm:[&_p]:max-w-none',
 	heroHome: 'max-sm:hidden',
 	heroQuiet: 'max-sm:mb-3 max-sm:gap-2 max-sm:[&>div:first-child>p]:hidden',
@@ -49,7 +49,7 @@ export const ui = {
 	sectionTitle:
 		'flex items-end justify-between gap-4 mt-8 mb-[0.85rem] max-sm:flex-col max-sm:items-start max-sm:gap-[0.55rem] max-sm:mt-[1.45rem] max-sm:mb-[0.7rem] [&_h2]:text-[1.45rem] max-sm:[&_h2]:text-[1.28rem] [&_p]:text-muted',
 	stickyActions:
-		'sticky z-20 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex flex-wrap items-center gap-3 p-3 px-4 border border-line rounded-2xl bg-canvas/92 backdrop-blur-[10px] shadow-lift max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:gap-[0.55rem] max-sm:[&>a]:w-auto max-sm:[&>button]:w-auto max-sm:[&>a]:flex-none max-sm:[&>button]:flex-none',
+		'sticky z-20 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex flex-wrap items-center justify-end gap-3 p-3 px-4 border border-line rounded-2xl bg-canvas/92 backdrop-blur-[10px] shadow-lift max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:gap-[0.55rem] max-sm:[&>a]:w-auto max-sm:[&>button]:w-auto max-sm:[&>a]:flex-none max-sm:[&>button]:flex-none',
 	stickyPrimary: 'max-sm:!flex-1 max-sm:!min-w-[min(100%,9rem)]',
 	editor:
 		'block w-full max-w-full font-mono text-[0.9rem] leading-[1.45] min-h-[22rem] max-sm:min-h-64 max-sm:text-base',

@@ -794,7 +794,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			loadSettings(),
 			loadTrainingContext()
 		]);
-		const { calendar, activeGoal } = training;
+		const { calendar } = training;
 		const weekView = week ? buildWeekView(week, allRuns, calendar) : null;
 		const weekStart = week ? planWeekStartIso(week.week, calendar) : '';
 		let weekEnd = weekStart;
@@ -813,9 +813,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 				prompt: '',
 				run: null,
 				weekView,
-				error: 'Import this session’s GPX first — the prompt needs those numbers.',
-				activeGoal,
-				raceCandidate: false
+				error: 'Import this session’s GPX first — the prompt needs those numbers.'
 			};
 		}
 
@@ -914,9 +912,7 @@ Rules:
 				hasFeel: hasFeel(run)
 			},
 			weekView,
-			error: null as string | null,
-			activeGoal,
-			raceCandidate: activeGoal != null && activityLooksLikeRace(activeGoal, run)
+			error: null as string | null
 		};
 	});
 

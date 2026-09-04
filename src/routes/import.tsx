@@ -31,11 +31,11 @@ function AddActivity() {
 				title="Add activity"
 				lead={
 					<p>
-						Import a <code>.gpx</code> from Strava, or log numbers by hand. After a race, debrief in{' '}
+						Import a <code>.gpx</code> from Strava, or log numbers by hand. After an activity, debrief in{' '}
 						<Link to="/coach" search={{ tab: 'debrief' }}>
 							Coach
-						</Link>{' '}
-						and pin the time on{' '}
+						</Link>
+						. After a race, pin the time on{' '}
 						<Link to="/goals">Goals</Link>.
 					</p>
 				}

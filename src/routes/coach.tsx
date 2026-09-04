@@ -8,7 +8,6 @@ import {
 	planWeekDateRangeShort
 } from '$lib/plan';
 import {
-	completeGoal,
 	getCoachBrief,
 	getCoachPlan,
 	getDebriefPrompt,
@@ -398,8 +397,8 @@ function Coach() {
 						onClick={() => setTab('debrief')}
 					>
 						<Icon name="flag" size={15} />
-						<span className="max-sm:hidden">After a race</span>
-						<span className="hidden max-sm:inline">Race</span>
+						<span className="max-sm:hidden">After an activity</span>
+						<span className="hidden max-sm:inline">Activity</span>
 					</button>
 				)}
 			</div>
@@ -442,7 +441,6 @@ function CoachPanels({
 	const [debriefPrompt, setDebriefPrompt] = useState(initialDebrief.prompt);
 	const [debriefJson, setDebriefJson] = useState('');
 	const [debriefCopied, setDebriefCopied] = useState(false);
-	const [completeAsRace, setCompleteAsRace] = useState(Boolean(initialDebrief.raceCandidate));
 
 	const [usual, setUsual] = useState<SlotRow[]>(() => rowsFrom(initialPattern));
 	const [savedPattern, setSavedPattern] = useState<WeekPattern>(initialPattern);
@@ -455,7 +453,6 @@ function CoachPanels({
 	useEffect(() => {
 		setDebrief(initialDebrief);
 		setDebriefPrompt(initialDebrief.prompt);
-		setCompleteAsRace(Boolean(initialDebrief.raceCandidate));
 	}, [initialDebrief]);
 
 	// Soft slug updates (e.g. after GPX import) refresh the prompt without remounting the page.
@@ -472,7 +469,6 @@ function CoachPanels({
 			if (cancelled) return;
 			setDebrief(next);
 			setDebriefPrompt(next.prompt);
-			setCompleteAsRace(Boolean(next.raceCandidate));
 		});
 		return () => {
 			cancelled = true;
@@ -505,10 +501,6 @@ function CoachPanels({
 				: '';
 			snack.success(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
 			setDebriefJson('');
-			if (completeAsRace && run?.slug && debrief.activeGoal) {
-				await completeGoal({ data: { activitySlug: run.slug } });
-				snack.success(`${debrief.activeGoal.name} is on the medal wall.`);
-			}
 			router.invalidate();
 		} catch (e) {
 			snack.error(errorMessage(e, 'Could not save debrief.'));
@@ -650,8 +642,8 @@ function CoachPanels({
 						<li className={run ? 'done' : 'current'}>
 							<strong>1. Import the GPX</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
-								Download from Strava, then drop it here. The race needs to be in the app before the
-								prompt.
+								Download from Strava, then drop it here. The activity needs to be in the app before
+								the prompt.
 							</span>
 							{run && (
 								<p className="mt-[0.45rem] mb-0 font-semibold max-sm:[overflow-wrap:anywhere]">
@@ -698,7 +690,7 @@ function CoachPanels({
 							<strong>2. Copy the prompt</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
 								In ChatGPT: attach the Strava general + pace screenshots, paste this, and say how
-								the race felt.
+								it felt.
 							</span>
 							{debrief.error && !debriefPrompt && (
 								<p className={cn(ui.muted, 'mt-[0.4rem]')}>{debrief.error}</p>
@@ -725,7 +717,7 @@ function CoachPanels({
 						<li>
 							<strong>3. Paste ChatGPT’s JSON</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
-								Feelings for this race plus the updated rest of the week. Days can change.
+								Feelings for this activity plus the updated rest of the week. Days can change.
 							</span>
 							{authed ? (
 							<div className={cn(ui.panel, ui.form, 'mt-3')}>
@@ -738,19 +730,6 @@ function CoachPanels({
 										onChange={(e) => setDebriefJson(e.target.value)}
 									/>
 								</label>
-								{debrief.activeGoal && run && (
-									<label className="flex items-center gap-3 min-h-11 cursor-pointer">
-										<input
-											type="checkbox"
-											className='w-fit'
-											checked={completeAsRace}
-											onChange={(e) => setCompleteAsRace(e.target.checked)}
-										/>
-										<span>
-											This was {debrief.activeGoal.name} — pin the time as a medal
-										</span>
-									</label>
-								)}
 								<div className={ui.actions}>
 									<button
 										className={ui.btnPrimary}

@@ -117,6 +117,7 @@ function Dashboard() {
 						hold the race — and the medals after.
 					</p>
 				}
+				actionsClassName="justify-start!"
 				actions={
 					<>
 						<Link className={ui.btnPrimary} to="/coach">

@@ -24,7 +24,7 @@ import { ActivityFilters } from '../components/ActivityFilters';
 import { BestEffortBadges, BestEffortBoard } from '../components/BestEffortBadges';
 import { type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
-import { DeleteButton } from '../components/DeleteButton';
+import { DeleteButton, EditButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
 import { FeelBadge } from '../components/FeelBadge';
 import { ActivityTag, Icon } from '../components/Icon';
@@ -96,6 +96,7 @@ function Timeline() {
 				title="Timeline"
 				lead="Add a file, or open one for notes and full metrics."
 				hideActionsOnMobile
+				actionsClassName="justify-start!"
 				actions={
 					<>
 						<Link className={ui.btnPrimary} to="/import">
@@ -222,7 +223,7 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 										</div>
 										<div className="relative p-4 px-[1.1rem] border border-line rounded-[14px] bg-white/[0.02] transition-[border-color,background-color,transform] duration-150 group-hover:border-accent/35 group-hover:bg-accent/4 group-hover:-translate-y-px group-active:border-accent/35 group-active:bg-accent/4 group-active:-translate-y-px max-sm:p-[0.85rem_0.95rem]">
 											<Link
-												className="block text-inherit pr-[2.4rem]"
+												className="block text-inherit pr-[5.5rem]"
 												to="/runs/$slug"
 												params={{ slug: run.slug }}
 											>
@@ -290,18 +291,28 @@ function TimelineBody({ allRuns }: { allRuns: RunWithMap[] }) {
 												)}
 											</Link>
 											<AuthGate>
-											<form
-												className="absolute top-[0.65rem] right-[0.65rem] inline-flex items-center m-0 opacity-100 sm:opacity-55 hover:opacity-100 group-hover:opacity-100"
-												onSubmit={(e) => e.preventDefault()}
-											>
+											<div className="absolute top-[0.65rem] right-[0.65rem] z-[2] inline-flex items-center gap-1 m-0 opacity-100 sm:opacity-55 hover:opacity-100 group-hover:opacity-100">
+												<EditButton
+													label={`Edit ${activityLabel(run.activity_type).toLowerCase()} ${run.date}`}
+													onClick={(e) => {
+														e.preventDefault();
+														e.stopPropagation();
+														void router.navigate({
+															to: '/runs/$slug',
+															params: { slug: run.slug },
+															search: { edit: true }
+														});
+													}}
+												/>
 												<DeleteButton
 													label={`Delete ${activityLabel(run.activity_type).toLowerCase()} ${run.date}`}
 													onClick={(e) => {
 														e.preventDefault();
+														e.stopPropagation();
 														setPending(run);
 													}}
 												/>
-											</form>
+											</div>
 											</AuthGate>
 										</div>
 									</div>

@@ -27,13 +27,13 @@ import {
 } from '$lib/strength';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, notFound, useRouter } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BestEffortBadges } from '../components/BestEffortBadges';
-import { DeleteButton } from '../components/DeleteButton';
+import { DeleteButton, EditButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
 import { FeelChips, WantedFasterChips } from '../components/FeelChips';
 import { PageHero } from '../components/PageHero';
-import { ActivityIcon, Icon } from '../components/Icon';
+import { ActivityIcon } from '../components/Icon';
 import { RouteChip } from '../components/RouteChip';
 import { RouteMap } from '../components/RouteMap';
 import { ShoesField } from '../components/ShoesField';
@@ -42,7 +42,12 @@ import { SplitsPanel } from '../components/SplitsPanel';
 import { StrengthEditor } from '../components/StrengthEditor';
 import { WeatherField } from '../components/WeatherField';
 
+type RunSearch = { edit?: boolean };
+
 export const Route = createFileRoute('/runs/$slug')({
+	validateSearch: (s: Record<string, unknown>): RunSearch => ({
+		edit: s.edit === true || s.edit === 'true' || s.edit === '1' ? true : undefined
+	}),
 	loader: async ({ params }) => {
 		const detail = await getRunDetail({ data: params.slug });
 		if (!detail) throw notFound();
@@ -302,13 +307,14 @@ function RunDetail() {
 	const router = useRouter();
 	const authed = useAuthed();
 	const snack = useSnackbar();
+	const { edit: editFromSearch } = Route.useSearch();
 
 	async function onSaveHrMax(hrMax: number | null) {
 		await saveHrMax({ data: hrMax });
 		await router.invalidate();
 	}
 
-	const [editing, setEditing] = useState(false);
+	const [editing, setEditing] = useState(() => Boolean(editFromSearch));
 	const [editDate, setEditDate] = useState(r.date);
 	const [editActivity, setEditActivity] = useState(r.activity_type || 'run');
 	const [editNotes, setEditNotes] = useState(r.notes);
@@ -341,6 +347,22 @@ function RunDetail() {
 		setEditDate(r.date);
 		setEditing(true);
 	}
+
+	function stopEditing() {
+		setEditing(false);
+		if (editFromSearch) {
+			void router.navigate({
+				to: '/runs/$slug',
+				params: { slug: r.slug },
+				search: {},
+				replace: true
+			});
+		}
+	}
+
+	useEffect(() => {
+		if (editFromSearch) startEditing();
+	}, [r.slug, editFromSearch]);
 
 	async function onDelete(e: React.MouseEvent) {
 		e.preventDefault();
@@ -384,7 +406,14 @@ function RunDetail() {
 			const res = await updateRun({ data: input });
 			setEditing(false);
 			if (res.slug !== r.slug) {
-				router.navigate({ to: '/runs/$slug', params: { slug: res.slug } });
+				router.navigate({ to: '/runs/$slug', params: { slug: res.slug }, search: {} });
+			} else if (editFromSearch) {
+				router.navigate({
+					to: '/runs/$slug',
+					params: { slug: r.slug },
+					search: {},
+					replace: true
+				});
 			} else {
 				router.invalidate();
 			}
@@ -473,15 +502,7 @@ function RunDetail() {
 					<>
 						{authed && !editing && (
 							<>
-								<button
-									className={cn(ui.btnGhost, ui.btnIcon)}
-									type="button"
-									aria-label="Edit activity"
-									title="Edit activity"
-									onClick={startEditing}
-								>
-									<Icon name="pencil" size={16} />
-								</button>
+								<EditButton label="Edit activity" onClick={startEditing} />
 								<DeleteButton
 									label={`Delete ${activityLabel(r.activity_type).toLowerCase()} ${r.date}`}
 									onClick={onDelete}
@@ -703,7 +724,7 @@ function RunDetail() {
 						<button className={cn(ui.btnPrimary, ui.stickyPrimary)} type="submit">
 							Save changes
 						</button>
-						<button className={ui.btnGhost} type="button" onClick={() => setEditing(false)}>
+						<button className={ui.btnGhost} type="button" onClick={stopEditing}>
 							Cancel
 						</button>
 					</div>

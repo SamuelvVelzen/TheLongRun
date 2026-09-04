@@ -9,7 +9,7 @@ import {
 } from '$lib/strength';
 import { cn, ui } from '$lib/ui';
 import { ConfirmDialog } from './Dialog';
-import { DeleteButton, TrashIcon } from './DeleteButton';
+import { DeleteButton } from './DeleteButton';
 import { SegmentedToggle } from './SegmentedToggle';
 
 const KIND_OPTIONS: { value: StrengthKind; label: string }[] = [
@@ -128,19 +128,11 @@ export function StrengthEditor({
 										>
 											Set {si + 1}
 										</span>
-										<button
-											type="button"
-											className={cn(
-												ui.btnGhost,
-												ui.btnDanger,
-												ui.btnIcon,
-												'size-9 min-h-9 min-w-9'
-											)}
-											aria-label="Delete set"
+										<DeleteButton
+											compact
+											label="Delete set"
 											onClick={() => setPending({ kind: 'set', i, si })}
-										>
-											<TrashIcon />
-										</button>
+										/>
 									</div>
 									{kind !== 'time' && (
 										<SetField

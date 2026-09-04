@@ -14,6 +14,7 @@ import {
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import { DeleteButton, EditButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
 import { PageHero } from '../components/PageHero';
 import { Icon } from '../components/Icon';
@@ -172,19 +173,10 @@ function PlannedRouteDetail() {
 							<Icon name="download" size={16} />
 							Download GPX
 						</button>
-						{authed && (
+						{authed && !editing && (
 							<>
-								<button className={ui.btnGhost} type="button" onClick={() => setEditing(!editing)}>
-									<Icon name={editing ? 'close' : 'pencil'} size={16} />
-									{editing ? 'Cancel' : 'Edit notes'}
-								</button>
-								<button
-									className={cn(ui.btnGhost, ui.btnDanger)}
-									type="button"
-									onClick={remove}
-								>
-									Delete
-								</button>
+								<EditButton label="Edit notes" onClick={() => setEditing(true)} />
+								<DeleteButton label={`Delete route ${route.name}`} onClick={remove} />
 							</>
 						)}
 						{appleMapsUrl && (
@@ -205,6 +197,9 @@ function PlannedRouteDetail() {
 					<div className={ui.actions}>
 						<button className={ui.btnPrimary} type="submit">
 							Save
+						</button>
+						<button className={ui.btnGhost} type="button" onClick={() => setEditing(false)}>
+							Cancel
 						</button>
 					</div>
 				</form>

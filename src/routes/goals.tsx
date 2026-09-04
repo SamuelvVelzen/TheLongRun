@@ -1,8 +1,14 @@
 import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
-import { activityLooksLikeRace, emptyGoalDraft, goalUrlHref, planStartHint } from '$lib/goals';
+import {
+	activityLooksLikeRace,
+	emptyGoalDraft,
+	goalDraftFromReply,
+	goalUrlHref,
+	planStartHint
+} from '$lib/goals';
 import { calendarFromGoal, daysUntil, mondayIso } from '$lib/plan';
-import { clearGoal, completeGoal, getGoalsData, saveActiveGoal } from '$lib/server/functions';
+import { clearGoal, completeGoal, getGoalBrief, getGoalsData, saveActiveGoal } from '$lib/server/functions';
 import type { Goal } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
@@ -322,6 +328,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 								))}
 							</ul>
 						)}
+						{openMedal.notes ? <p className={cn(ui.muted, 'm-0 whitespace-pre-wrap')}>{openMedal.notes}</p> : null}
 						{openMedal.result?.activity_slug && (
 							<div className={ui.actions}>
 								<Link
@@ -462,6 +469,7 @@ function ActiveGoalCard({
 					))}
 				</ul>
 			)}
+			{goal.notes ? <p className={cn(ui.muted, 'm-0 whitespace-pre-wrap')}>{goal.notes}</p> : null}
 			{authed && (
 				<div className={cn(ui.actions, 'justify-start!')}>
 					{!editing && (
@@ -614,6 +622,11 @@ function GoalForm({
 	const [itineraryUrl, setItineraryUrl] = useState(draft.itinerary_url ?? '');
 	const [primary, setPrimary] = useState(draft.primary.join('\n'));
 	const [notes, setNotes] = useState(draft.notes);
+	const [extra, setExtra] = useState('');
+	const [briefText, setBriefText] = useState('');
+	const [replyJson, setReplyJson] = useState('');
+	const [briefBusy, setBriefBusy] = useState(false);
+	const [copied, setCopied] = useState(false);
 	const [busy, setBusy] = useState(false);
 
 	const hint = useMemo(() => planStartHint(planStart, date), [planStart, date]);
@@ -624,6 +637,62 @@ function GoalForm({
 			return 1;
 		}
 	}, [planStart, date]);
+
+	async function generateBrief() {
+		setBriefBusy(true);
+		try {
+			const next = await getGoalBrief({
+				data: {
+					name,
+					date,
+					distance_km: distance,
+					sport,
+					time_goal: timeGoal,
+					plan_start: planStart,
+					url,
+					itinerary_url: itineraryUrl,
+					primary,
+					notes,
+					extra
+				}
+			});
+			setBriefText(next);
+		} catch (e) {
+			snack.error(errorMessage(e, 'Could not build the prompt.'));
+		} finally {
+			setBriefBusy(false);
+		}
+	}
+
+	async function copyBrief() {
+		try {
+			await navigator.clipboard.writeText(briefText);
+			setCopied(true);
+			setTimeout(() => setCopied(false), 1800);
+		} catch {
+			snack.error('Could not copy — select and copy the text instead.');
+		}
+	}
+
+	function applyReply() {
+		try {
+			const patch = goalDraftFromReply(replyJson);
+			if (patch.name !== undefined) setName(patch.name);
+			if (patch.date !== undefined) setDate(patch.date);
+			if (patch.distance_km !== undefined) setDistance(patch.distance_km);
+			if (patch.sport !== undefined) setSport(patch.sport);
+			if (patch.time_goal !== undefined) setTimeGoal(patch.time_goal);
+			if (patch.plan_start !== undefined) setPlanStart(patch.plan_start);
+			if (patch.url !== undefined) setUrl(patch.url);
+			if (patch.itinerary_url !== undefined) setItineraryUrl(patch.itinerary_url);
+			if (patch.primary !== undefined) setPrimary(patch.primary);
+			if (patch.notes !== undefined) setNotes(patch.notes);
+			setReplyJson('');
+			snack.success('Filled from the reply — review and save.');
+		} catch (e) {
+			snack.error(errorMessage(e, 'Could not apply that JSON.'));
+		}
+	}
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -728,6 +797,68 @@ function GoalForm({
 						autoComplete="url"
 					/>
 				</label>
+			</div>
+			<div className={cn(ui.formSection, 'border-t border-line pt-4')}>
+				<p className={ui.formSectionTitle}>Generate priorities & notes</p>
+				<p className={cn(ui.muted, 'm-0 mb-3')}>
+					Same as Coach: build a prompt from this race plus your last 30 days of activities, copy it to
+					an AI, then paste the JSON back to fill the form.
+				</p>
+				<label className={ui.field}>
+					<span>Anything extra for the prompt? (optional)</span>
+					<textarea
+						rows={3}
+						value={extra}
+						onChange={(e) => setExtra(e.target.value)}
+						placeholder="e.g. hilly course, travel the day before, want a conservative first 5k"
+					/>
+				</label>
+				<div className={cn(ui.actions, 'justify-start!')}>
+					<button className={ui.btnPrimary} type="button" onClick={() => void generateBrief()} disabled={briefBusy}>
+						<Icon name="sparkle" size={16} />
+						{briefBusy ? 'Building…' : briefText ? 'Regenerate prompt' : 'Generate prompt'}
+					</button>
+				</div>
+				{briefText && (
+					<>
+						<label className={ui.field}>
+							<span>Prompt (editable — tweak before you copy)</span>
+							<textarea
+								className={ui.editor}
+								rows={12}
+								value={briefText}
+								onChange={(e) => setBriefText(e.target.value)}
+							/>
+						</label>
+						<div className={cn(ui.actions, 'justify-start!')}>
+							<button className={ui.btnGhost} type="button" onClick={() => void copyBrief()}>
+								<Icon name={copied ? 'check' : 'copy'} size={16} />
+								{copied ? 'Copied' : 'Copy prompt'}
+							</button>
+						</div>
+					</>
+				)}
+				<label className={ui.field}>
+					<span>Paste the JSON your AI returned</span>
+					<textarea
+						className={ui.editor}
+						rows={8}
+						value={replyJson}
+						onChange={(e) => setReplyJson(e.target.value)}
+						placeholder='{ "name": "…", "primary": ["…"], "notes": "…" }'
+					/>
+				</label>
+				<div className={cn(ui.actions, 'justify-start!')}>
+					<button
+						className={ui.btnGhost}
+						type="button"
+						onClick={applyReply}
+						disabled={!replyJson.trim()}
+					>
+						<Icon name="plus" size={16} />
+						Fill form
+					</button>
+				</div>
 			</div>
 			<label className={ui.field}>
 				<span>Priorities (one per line)</span>

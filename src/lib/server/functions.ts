@@ -1476,6 +1476,135 @@ export const saveContextFile = createServerFn({ method: 'POST' }).middleware([re
 		return { ok: true };
 	});
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+type GoalBriefDraft = {
+	name: string;
+	date: string;
+	distance_km: number | string | undefined;
+	sport: string;
+	time_goal: string;
+	plan_start: string;
+	url: string;
+	itinerary_url: string;
+	primary: string | string[] | undefined;
+	notes: string;
+	extra: string;
+};
+
+/** Prompt to invent race priorities/notes (and fill empty race fields) from recent training. */
+export const getGoalBrief = createServerFn({ method: 'GET' })
+	.validator((d: Partial<GoalBriefDraft> = {}) => ({
+		name: typeof d?.name === 'string' ? d.name : '',
+		date: typeof d?.date === 'string' ? d.date : '',
+		distance_km: d?.distance_km,
+		sport: typeof d?.sport === 'string' ? d.sport : 'run',
+		time_goal: typeof d?.time_goal === 'string' ? d.time_goal : '',
+		plan_start: typeof d?.plan_start === 'string' ? d.plan_start : '',
+		url: typeof d?.url === 'string' ? d.url : '',
+		itinerary_url: typeof d?.itinerary_url === 'string' ? d.itinerary_url : '',
+		primary: d?.primary,
+		notes: typeof d?.notes === 'string' ? d.notes : '',
+		extra: typeof d?.extra === 'string' ? d.extra : ''
+	}))
+	.handler(async ({ data }) => {
+		const range = dateRangeFromSearch({ range: '30d' });
+		const [allRuns, training, injury, raceStrategy] = await Promise.all([
+			listRuns(),
+			loadTrainingContext(),
+			readContextFile('injury.md'),
+			readContextFile('race-strategy.md')
+		]);
+		const { medals } = training;
+		const windowRuns = filterRunsByRange(allRuns, range).sort(byDateNewestFirst);
+		const todayIso = isoDateLocal(new Date());
+		const sport = normalizeActivityType(data.sport || 'run');
+		const distance = Number(data.distance_km);
+		const distanceKm = Number.isFinite(distance) && distance > 0 ? distance : null;
+		const primaryLines = Array.isArray(data.primary)
+			? data.primary.map((p) => String(p).trim()).filter(Boolean)
+			: String(data.primary ?? '')
+					.split('\n')
+					.map((s) => s.trim())
+					.filter(Boolean);
+		const weeksToRace =
+			data.date && ISO_DATE_RE.test(data.date) ? Math.max(0, daysUntil(data.date) ?? 0) : null;
+		const lastMedal = medals[0];
+		const lastMedalLine = lastMedal
+			? `- Last race: ${lastMedal.name} on ${lastMedal.date}${lastMedal.result?.time ? ` in ${lastMedal.result.time}` : ''}${lastMedal.result?.pace ? ` (${lastMedal.result.pace}/km)` : ''}`
+			: '- Last race: (none pinned yet)';
+		const activityRows =
+			windowRuns
+				.map((r) => {
+					const feel = [r.effort, r.shins, r.legs, r.energy]
+						.map((v) => (v == null ? '–' : v))
+						.join('/');
+					return `| ${r.date} | ${activityLabel(r.activity_type)} | ${r.distance_km ?? '–'} | ${metricText(r)} | ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} | ${feel} | ${notesForBriefRow(r)} |`;
+				})
+				.join('\n') || '| – | – | – | – | – | – | – |';
+		const extra = data.extra.trim();
+		const exampleJson = JSON.stringify(
+			{
+				name: data.name.trim() || 'Race name',
+				date: data.date || todayIso,
+				distance_km: distanceKm ?? 10,
+				sport,
+				time_goal: data.time_goal.trim() || '',
+				plan_start: data.plan_start || mondayIso(data.date || todayIso),
+				url: data.url.trim() || '',
+				itinerary_url: data.itinerary_url.trim() || '',
+				primary: primaryLines.length
+					? primaryLines
+					: ['one training priority', 'one race-day priority'],
+				notes: data.notes.trim() || 'course, logistics, and race-day notes'
+			},
+			null,
+			2
+		);
+		return `# The Long Run — race brief
+
+## Coaching brief
+You are helping me set this race in my training app. Invent **priorities** (how I should train toward it) and **notes** (course, logistics, race-day intent). Fill any empty identity fields you can from the race URL, itinerary URL, or my extra notes. Keep values I already filled unless I asked to change them.
+
+## Race (current draft)
+- Name: ${data.name.trim() || '(empty — fill if you can)'}
+- Date: ${data.date || '(empty)'}
+- Distance: ${distanceKm != null ? `${distanceKm} km` : '(empty)'}
+- Sport: ${activityLabel(sport)}
+- Time goal: ${data.time_goal.trim() || '(empty)'}
+- Plan starts (Monday): ${data.plan_start || '(empty)'}
+${weeksToRace != null ? `- Days to race: ${weeksToRace}` : ''}
+- Race URL: ${data.url.trim() || '(none)'}
+- Itinerary URL: ${data.itinerary_url.trim() || '(none)'}
+- Current priorities:
+${primaryLines.length ? primaryLines.map((p) => `  - ${p}`).join('\n') : '  - (none yet)'}
+- Current notes: ${data.notes.trim() || '(none yet)'}
+
+Today is ${todayIso}.
+${lastMedalLine}
+
+${extra ? `## Extra from me\n${extra}\n` : ''}## Recent training (${range.label.toLowerCase()}, newest first)
+Feel = effort/shins/legs/energy (0–10, – = not recorded). Use this to keep priorities honest (volume, shin load, what is already working).
+
+| Date | Type | km | pace/speed | HR avg/max | Feel | Notes |
+|------|------|----|-----------|-----------|------|-------|
+${activityRows}
+
+## Injury rules
+${injury.trim() || '(none)'}
+
+## Race strategy (hand-written, may lag)
+${raceStrategy.trim() || '(none)'}
+
+## When you reply
+Give a short assessment in prose if you want. Then output **one JSON object** I can paste back, with exactly these keys. \`primary\` is an array of 3–6 short priorities (one line each). \`notes\` is a few sentences on course / logistics / race-day intent. Empty strings are fine for unknown URLs. If I gave a URL, keep it.
+
+\`\`\`json
+${exampleJson}
+\`\`\`
+`;
+	});
+
 export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () => {
 	const [training, runs] = await Promise.all([loadTrainingContext(), listRuns()]);
 	const { activeGoal, medals, calendar, store } = training;

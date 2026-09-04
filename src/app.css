@@ -241,7 +241,7 @@
 .coach-tabs {
 	--coach-tabs-top: env(safe-area-inset-top, 0px);
 	position: sticky;
-	top: var(--coach-tabs-top);
+	top: calc(var(--coach-tabs-top) + 1rem);
 	z-index: 30;
 }
 

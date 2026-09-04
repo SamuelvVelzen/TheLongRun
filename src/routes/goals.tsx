@@ -178,6 +178,17 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 	const olderVisible =
 		showOlder || (typeof editingId === 'string' && olderPast.some((g) => g.id === editingId));
 
+	function toggleOlder() {
+		if (olderVisible) {
+			setShowOlder(false);
+			if (typeof editingId === 'string' && olderPast.some((g) => g.id === editingId)) {
+				setEditingId(null);
+			}
+		} else {
+			setShowOlder(true);
+		}
+	}
+
 	function pastCard(g: Goal) {
 		return (
 			<UpcomingGoalCard
@@ -273,54 +284,24 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 						</section>
 					)}
 
-					{(pastOpen.length > 0 || olderPast.length > 0) && (
+					{(pastOpen.length > 0 || olderVisible) && (
 						<>
-							{(pastOpen.length > 0 || olderVisible) && (
-								<>
-									<section className={ui.sectionTitle}>
-										<div>
-											<h2>Unpinned</h2>
-											<p>
-												{pastOpen.length
-													? pastOpen.length === 1
-														? 'This race already happened. Pin the activity this week to put it on the medal wall.'
-														: `${pastOpen.length} races already happened. Pin each activity this week to put them on the medal wall.`
-													: olderPast.length === 1
-														? 'This race already happened. Pin the activity to put it on the medal wall.'
-														: `${olderPast.length} races already happened. Pin each activity to put them on the medal wall.`}
-											</p>
-										</div>
-									</section>
-									{pastOpen.map(pastCard)}
-									{olderVisible && olderPast.map(pastCard)}
-								</>
-							)}
-							{olderPast.length > 0 && (
-								<div className={cn(ui.actions, 'justify-start!', pastOpen.length || olderVisible ? 'mb-6' : 'mt-8 mb-6')}>
-									<button
-										className={ui.btnGhost}
-										type="button"
-										aria-expanded={olderVisible}
-										onClick={() => {
-											if (olderVisible) {
-												setShowOlder(false);
-												if (typeof editingId === 'string' && olderPast.some((g) => g.id === editingId)) {
-													setEditingId(null);
-												}
-											} else {
-												setShowOlder(true);
-											}
-										}}
-									>
-										<Icon name="calendar" size={16} />
-										{olderVisible
-											? 'Hide older races'
+							<section className={ui.sectionTitle}>
+								<div>
+									<h2>Unpinned</h2>
+									<p>
+										{pastOpen.length
+											? pastOpen.length === 1
+												? 'This race already happened. Pin the activity this week to put it on the medal wall.'
+												: `${pastOpen.length} races already happened. Pin each activity this week to put them on the medal wall.`
 											: olderPast.length === 1
-												? 'Show 1 older race'
-												: `Show ${olderPast.length} older races`}
-									</button>
+												? 'This race already happened. Pin the activity to put it on the medal wall.'
+												: `${olderPast.length} races already happened. Pin each activity to put them on the medal wall.`}
+									</p>
 								</div>
-							)}
+							</section>
+							{pastOpen.map(pastCard)}
+							{olderVisible && olderPast.map(pastCard)}
 						</>
 					)}
 
@@ -330,9 +311,47 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 								<div>
 									<h2>Up next</h2>
 									<p>
-										{later.length
-											? `${later.length} later race${later.length === 1 ? '' : 's'} — the soonest date becomes active when this one is done.`
-											: 'Add the races after this one. Closest date stays active.'}
+										{later.length ? (
+											<>
+												{`${later.length} later race${later.length === 1 ? '' : 's'}`}
+												{olderPast.length > 0 && (
+													<>
+														{' · '}
+														<button
+															type="button"
+															className="appearance-none bg-transparent border-0 p-0 m-0 text-accent-fg font-semibold font-inherit cursor-pointer hover:underline underline-offset-2"
+															aria-expanded={olderVisible}
+															onClick={toggleOlder}
+														>
+															{olderVisible
+																? 'Hide older'
+																: olderPast.length === 1
+																	? '1 older race'
+																	: `${olderPast.length} older races`}
+														</button>
+													</>
+												)}
+												{' — the soonest date becomes active when this one is done.'}
+											</>
+										) : olderPast.length > 0 ? (
+											<>
+												<button
+													type="button"
+													className="appearance-none bg-transparent border-0 p-0 m-0 text-accent-fg font-semibold font-inherit cursor-pointer hover:underline underline-offset-2"
+													aria-expanded={olderVisible}
+													onClick={toggleOlder}
+												>
+													{olderVisible
+														? 'Hide older'
+														: olderPast.length === 1
+															? '1 older race'
+															: `${olderPast.length} older races`}
+												</button>
+												{' — already run.'}
+											</>
+										) : (
+											'Add the races after this one. Closest date stays active.'
+										)}
 									</p>
 								</div>
 								{authed && data.activeGoal && editingId !== 'new' && (
@@ -495,9 +514,11 @@ function PinRaceResult({
 }) {
 	const router = useRouter();
 	const snack = useSnackbar();
-	const [pinSlug, setPinSlug] = useState(
-		candidates.find((c) => activityLooksLikeRace(goal, c))?.slug ?? candidates[0]?.slug ?? ''
-	);
+	const [pinSlug, setPinSlug] = useState(() => {
+		const tight = candidates.find((c) => activityLooksLikeRace(goal, c) || c.date === goal.date);
+		if (tight) return tight.slug;
+		return candidates.length === 1 ? candidates[0]!.slug : '';
+	});
 	const [pinning, setPinning] = useState(false);
 
 	async function pinResult() {
@@ -522,12 +543,13 @@ function PinRaceResult({
 		<div className="grid gap-3 pt-3 border-t border-line">
 			<h3 className="m-0">Pin race result</h3>
 			<p className={cn(ui.muted, 'm-0')}>
-				Attach the activity you ran on the day. That time becomes the medal.
+				Pick the activity you ran. That time becomes the medal.
 			</p>
 			{candidates.length ? (
 				<label className={ui.field}>
 					<span>Activity</span>
 					<select value={pinSlug} onChange={(e) => setPinSlug(e.target.value)}>
+						{!pinSlug && <option value="">Pick the activity…</option>}
 						{candidates.map((c) => (
 							<option key={c.slug} value={c.slug}>
 								{c.date}
@@ -543,7 +565,7 @@ function PinRaceResult({
 					<Link className="text-accent-fg font-semibold" to="/import">
 						Import the GPX
 					</Link>
-					.
+					, then pick it here.
 				</p>
 			)}
 			<div className={ui.actions}>

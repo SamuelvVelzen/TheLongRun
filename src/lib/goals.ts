@@ -265,26 +265,39 @@ export function isOlderPastRace(goal: Pick<Goal, 'date'>, today?: Date): boolean
 export function pinCandidatesForGoal(
 	goal: Pick<Goal, 'date' | 'sport'>,
 	runs: GoalPinCandidate[],
-	limit = 16
+	limit = 40
 ): GoalPinCandidate[] {
 	const raceAt = Date.parse(`${goal.date}T00:00:00`);
+	const sport = normalizeActivityType(goal.sport);
+	const dayMs = 24 * 60 * 60 * 1000;
 	return [...runs]
-		.filter((r) => activityLooksLikeRace(goal, r) || r.date === goal.date)
+		.map((r) => {
+			const dist = Math.abs(Date.parse(r.date) - raceAt);
+			const days = Number.isFinite(dist) ? dist / dayMs : Infinity;
+			const sameSport = normalizeActivityType(r.activity_type) === sport;
+			const tight = activityLooksLikeRace(goal, r) || r.date === goal.date;
+			let rank = Infinity;
+			if (tight) rank = 0;
+			else if (sameSport && days <= 14) rank = 1;
+			else if (sameSport) rank = 2;
+			else if (days <= 3) rank = 3;
+			return { r, rank, dist };
+		})
+		.filter((x) => x.rank < Infinity)
 		.sort((a, b) => {
-			const da = Math.abs(Date.parse(a.date) - raceAt);
-			const db = Math.abs(Date.parse(b.date) - raceAt);
-			if (da !== db) return da - db;
-			return a.date < b.date ? 1 : -1;
+			if (a.rank !== b.rank) return a.rank - b.rank;
+			if (a.dist !== b.dist) return a.dist - b.dist;
+			return a.r.date < b.r.date ? 1 : -1;
 		})
 		.slice(0, limit)
-		.map((r) => ({
-			slug: r.slug,
-			date: r.date,
-			day: r.day,
-			activity_type: r.activity_type,
-			distance_km: r.distance_km,
-			time: r.time,
-			avg_pace: r.avg_pace
+		.map((x) => ({
+			slug: x.r.slug,
+			date: x.r.date,
+			day: x.r.day,
+			activity_type: x.r.activity_type,
+			distance_km: x.r.distance_km,
+			time: x.r.time,
+			avg_pace: x.r.avg_pace
 		}));
 }
 

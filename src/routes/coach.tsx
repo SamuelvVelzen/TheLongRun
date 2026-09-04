@@ -742,6 +742,7 @@ function CoachPanels({
 									<label className="flex items-center gap-3 min-h-11 cursor-pointer">
 										<input
 											type="checkbox"
+											className='w-fit'
 											checked={completeAsRace}
 											onChange={(e) => setCompleteAsRace(e.target.checked)}
 										/>

@@ -14,7 +14,18 @@ import { Icon, sportChipLabel } from '../components/Icon';
 import { PageHero } from '../components/PageHero';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 
+type GoalsTab = 'races' | 'medals';
+type GoalsSearch = { tab?: GoalsTab };
+
+function parseTab(v: unknown): GoalsTab {
+	return v === 'medals' ? 'medals' : 'races';
+}
+
 export const Route = createFileRoute('/goals')({
+	validateSearch: (s: Record<string, unknown>): GoalsSearch => ({
+		tab: parseTab(s.tab)
+	}),
+	loaderDeps: () => ({}),
 	loader: () => ({ page: getGoalsData() }),
 	component: GoalsPage
 });
@@ -29,23 +40,62 @@ function formatRaceDate(iso: string) {
 
 function GoalsPage() {
 	const { page } = Route.useLoaderData();
+	const search = Route.useSearch();
+	const router = useRouter();
 	const authed = useAuthed();
+	const tab = parseTab(search.tab);
+
+	function setTab(next: GoalsTab) {
+		router.navigate({
+			to: '/goals',
+			search: { tab: next },
+			replace: true,
+			resetScroll: false
+		});
+	}
+
 	return (
 		<>
 			<PageHero
 				variant="quiet"
-				kicker="Race on the calendar"
+				kicker={tab === 'medals' ? 'On the wall' : 'Race on the calendar'}
 				title="Goals"
-				lead="The soonest race is active — it drives the plan length and the generate prompt. Later races wait their turn. When one is done, it becomes a medal with the time you ran."
+				lead={
+					tab === 'medals'
+						? 'Finished races live here with the time you pinned. Open one for the goal you set and the activity you ran.'
+						: 'The soonest race is active — it drives the plan length and the generate prompt. Later races wait their turn.'
+				}
 			/>
+			<div className={ui.coachTabs} role="tablist">
+				<button
+					type="button"
+					role="tab"
+					aria-selected={tab === 'races'}
+					className={cn(ui.coachTab, tab === 'races' && ui.coachTabActive)}
+					onClick={() => setTab('races')}
+				>
+					<Icon name="flag" size={15} />
+					Races
+				</button>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={tab === 'medals'}
+					className={cn(ui.coachTab, tab === 'medals' && ui.coachTabActive)}
+					onClick={() => setTab('medals')}
+				>
+					<Icon name="trophy" size={15} />
+					Medals
+				</button>
+			</div>
 			<DeferredData promise={page}>
-				{(data) => <GoalsBody data={data} authed={authed} />}
+				{(data) => <GoalsBody data={data} authed={authed} tab={tab} />}
 			</DeferredData>
 		</>
 	);
 }
 
-function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
+function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; tab: GoalsTab }) {
 	const router = useRouter();
 	const snack = useSnackbar();
 	const [editingId, setEditingId] = useState<string | 'new' | null>(data.activeGoal ? null : 'new');
@@ -59,152 +109,159 @@ function GoalsBody({ data, authed }: { data: GoalsData; authed: boolean }) {
 
 	return (
 		<>
-			{data.activeGoal ? (
-				<ActiveGoalCard
-					goal={data.activeGoal}
-					weekCount={data.calendar.weekCount}
-					candidates={data.candidates}
-					authed={authed}
-					editing={editingId === data.activeGoal.id}
-					onEdit={() => setEditingId(data.activeGoal!.id)}
-					onCancelEdit={() => setEditingId(null)}
-					onSaved={async () => {
-						setEditingId(null);
-						await router.invalidate();
-					}}
-					onAdd={() => setEditingId('new')}
-					onClear={() =>
-						setPendingRemove({
-							id: data.activeGoal!.id,
-							name: data.activeGoal!.name,
-							isActive: true
-						})
-					}
-				/>
-			) : (
-				<section className={cn(ui.panel, 'mb-6')}>
-					<p className={cn(ui.muted, 'mt-0')}>
-						No race on the calendar. Coach still plans this week as base training.
-					</p>
-					{authed && editingId !== 'new' && (
-						<div className={cn(ui.actions, 'justify-start!')}>
-							<button className={ui.btnPrimary} type="button" onClick={() => setEditingId('new')}>
-								<Icon name="flag" size={16} />
-								Set a goal
-							</button>
-						</div>
-					)}
-					{authed && editingId === 'new' && (
-						<GoalForm
-							initial={null}
-							submitLabel="Set goal"
-							onCancel={() => setEditingId(null)}
-							onSaved={async () => {
-								setEditingId(null);
-								await router.invalidate();
-							}}
-						/>
-					)}
-					{!authed && <p className={cn(ui.muted, 'mb-0')}>Sign in to set a race.</p>}
-				</section>
-			)}
-
-			{data.activeGoal && authed && editingId === 'new' && (
-				<section className={cn(ui.panel, 'mb-6 grid gap-3')}>
-					<div>
-						<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
-							<Icon name="plus" size={14} />
-							Add race
-						</p>
-						<p className={cn(ui.muted, 'm-0 mt-1')}>
-							Later dates wait. A sooner date takes over as active and resets the plan.
-						</p>
-					</div>
-					<GoalForm
-						initial={null}
-						submitLabel="Add race"
-						onCancel={() => setEditingId(null)}
-						onSaved={async () => {
-							setEditingId(null);
-							await router.invalidate();
-						}}
-					/>
-				</section>
-			)}
-
-			{(data.activeGoal || data.upcoming.length > 0) && (
+			{tab === 'races' && (
 				<>
-					<section className={ui.sectionTitle}>
-						<div>
-							<h2>Up next</h2>
-							<p>
-								{data.upcoming.length
-									? `${data.upcoming.length} later race${data.upcoming.length === 1 ? '' : 's'} — the soonest date becomes active when this one is done.`
-									: 'Add the races after this one. Closest date stays active.'}
-							</p>
-						</div>
-						{authed && data.activeGoal && editingId !== 'new' && (
-							<button className={ui.btnPrimary} type="button" onClick={() => setEditingId('new')}>
-								<Icon name="plus" size={16} />
-								Add race
-							</button>
-						)}
-					</section>
-					{data.upcoming.map((g) => (
-						<UpcomingGoalCard
-							key={g.id}
-							goal={g}
+					{data.activeGoal ? (
+						<ActiveGoalCard
+							goal={data.activeGoal}
+							weekCount={data.calendar.weekCount}
+							candidates={data.candidates}
 							authed={authed}
-							editing={editingId === g.id}
-							onEdit={() => setEditingId(g.id)}
+							editing={editingId === data.activeGoal.id}
+							onEdit={() => setEditingId(data.activeGoal!.id)}
 							onCancelEdit={() => setEditingId(null)}
 							onSaved={async () => {
 								setEditingId(null);
 								await router.invalidate();
 							}}
-							onRemove={() => setPendingRemove({ id: g.id, name: g.name, isActive: false })}
+							onClear={() =>
+								setPendingRemove({
+									id: data.activeGoal!.id,
+									name: data.activeGoal!.name,
+									isActive: true
+								})
+							}
 						/>
-					))}
-					{!authed && data.activeGoal && (
-						<p className={cn(ui.muted, 'mb-6')}>Sign in to add another race.</p>
+					) : (
+						<section className={cn(ui.panel, 'mb-6')}>
+							<p className={cn(ui.muted, 'mt-0')}>
+								No race on the calendar. Coach still plans this week as base training.
+							</p>
+							{authed && editingId !== 'new' && (
+								<div className={cn(ui.actions, 'justify-start!')}>
+									<button className={ui.btnPrimary} type="button" onClick={() => setEditingId('new')}>
+										<Icon name="flag" size={16} />
+										Set a goal
+									</button>
+								</div>
+							)}
+							{authed && editingId === 'new' && (
+								<GoalForm
+									initial={null}
+									submitLabel="Set goal"
+									onCancel={() => setEditingId(null)}
+									onSaved={async () => {
+										setEditingId(null);
+										await router.invalidate();
+									}}
+								/>
+							)}
+							{!authed && <p className={cn(ui.muted, 'mb-0')}>Sign in to set a race.</p>}
+						</section>
+					)}
+
+					{data.activeGoal && authed && editingId === 'new' && (
+						<section className={cn(ui.panel, 'mb-6 grid gap-3')}>
+							<div>
+								<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
+									<Icon name="plus" size={14} />
+									Add race
+								</p>
+								<p className={cn(ui.muted, 'm-0 mt-1')}>
+									Later dates wait. A sooner date takes over as active and resets the plan.
+								</p>
+							</div>
+							<GoalForm
+								initial={null}
+								submitLabel="Add race"
+								onCancel={() => setEditingId(null)}
+								onSaved={async () => {
+									setEditingId(null);
+									await router.invalidate();
+								}}
+							/>
+						</section>
+					)}
+
+					{(data.activeGoal || data.upcoming.length > 0) && (
+						<>
+							<section className={ui.sectionTitle}>
+								<div>
+									<h2>Up next</h2>
+									<p>
+										{data.upcoming.length
+											? `${data.upcoming.length} later race${data.upcoming.length === 1 ? '' : 's'} — the soonest date becomes active when this one is done.`
+											: 'Add the races after this one. Closest date stays active.'}
+									</p>
+								</div>
+								{authed && data.activeGoal && editingId !== 'new' && (
+									<button className={ui.btnPrimary} type="button" onClick={() => setEditingId('new')}>
+										<Icon name="plus" size={16} />
+										Add race
+									</button>
+								)}
+							</section>
+							{data.upcoming.map((g) => (
+								<UpcomingGoalCard
+									key={g.id}
+									goal={g}
+									authed={authed}
+									editing={editingId === g.id}
+									onEdit={() => setEditingId(g.id)}
+									onCancelEdit={() => setEditingId(null)}
+									onSaved={async () => {
+										setEditingId(null);
+										await router.invalidate();
+									}}
+									onRemove={() => setPendingRemove({ id: g.id, name: g.name, isActive: false })}
+								/>
+							))}
+							{!authed && data.activeGoal && (
+								<p className={cn(ui.muted, 'mb-6')}>Sign in to add another race.</p>
+							)}
+						</>
 					)}
 				</>
 			)}
 
-			<section className={ui.sectionTitle}>
-				<h2>Medals</h2>
-				<p>{data.medals.length ? `${data.medals.length} finished` : 'Races you pin a result on land here.'}</p>
-			</section>
-			{data.medals.length ? (
-				<div className="grid gap-3 min-[640px]:grid-cols-2">
-					{data.medals.map((g) => (
-						<button
-							key={g.id}
-							type="button"
-							className={cn(
-								ui.panel,
-								'text-left cursor-pointer transition-[border-color,transform] duration-150 hover:border-accent/40 hover:-translate-y-px'
-							)}
-							onClick={() => setOpenMedal(g)}
-						>
-							<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
-								<Icon name="trophy" size={14} />
-								Medal
+			{tab === 'medals' && (
+				<>
+					{data.medals.length ? (
+						<div className="grid gap-3 min-[640px]:grid-cols-2">
+							{data.medals.map((g) => (
+								<button
+									key={g.id}
+									type="button"
+									className={cn(
+										ui.panel,
+										'text-left cursor-pointer transition-[border-color,transform] duration-150 hover:border-accent/40 hover:-translate-y-px'
+									)}
+									onClick={() => setOpenMedal(g)}
+								>
+									<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
+										<Icon name="trophy" size={14} />
+										Medal
+									</p>
+									<h3 className="font-display text-[1.35rem] tracking-[-0.03em] m-0 mt-1">{g.name}</h3>
+									<p className="font-display font-bold text-[2.1rem] tracking-[-0.04em] text-accent-fg m-0 mt-2 leading-none">
+										{g.result?.time || '—'}
+									</p>
+									<p className={cn(ui.muted, 'm-0 mt-2')}>
+										{formatRaceDate(g.date)}
+										{g.result?.distance_km != null ? ` · ${g.result.distance_km} km` : ` · ${g.distance_km} km`}
+										{g.result?.pace ? ` · ${g.result.pace}/km` : ''}
+									</p>
+								</button>
+							))}
+						</div>
+					) : (
+						<section className={ui.panel}>
+							<p className={cn(ui.muted, 'm-0')}>
+								Nothing on the wall yet. Pin a result from the active race after you run it.
 							</p>
-							<h3 className="font-display text-[1.35rem] tracking-[-0.03em] m-0 mt-1">{g.name}</h3>
-							<p className="font-display font-bold text-[2.1rem] tracking-[-0.04em] text-accent-fg m-0 mt-2 leading-none">
-								{g.result?.time || '—'}
-							</p>
-							<p className={cn(ui.muted, 'm-0 mt-2')}>
-								{formatRaceDate(g.date)}
-								{g.result?.distance_km != null ? ` · ${g.result.distance_km} km` : ` · ${g.distance_km} km`}
-								{g.result?.pace ? ` · ${g.result.pace}/km` : ''}
-							</p>
-						</button>
-					))}
-				</div>
-			) : (
-				<p className={ui.muted}>Nothing on the wall yet.</p>
+						</section>
+					)}
+				</>
 			)}
 
 			<Dialog
@@ -292,7 +349,6 @@ function ActiveGoalCard({
 	authed,
 	editing,
 	onEdit,
-	onAdd,
 	onCancelEdit,
 	onSaved,
 	onClear
@@ -303,7 +359,6 @@ function ActiveGoalCard({
 	authed: boolean;
 	editing: boolean;
 	onEdit: () => void;
-	onAdd: () => void;
 	onCancelEdit: () => void;
 	onSaved: () => void | Promise<void>;
 	onClear: () => void;
@@ -325,6 +380,7 @@ function ActiveGoalCard({
 		try {
 			await completeGoal({ data: { activitySlug: pinSlug } });
 			snack.success(`Saved — ${goal.name} is on the medal wall.`);
+			await router.navigate({ to: '/goals', search: { tab: 'medals' } });
 			await router.invalidate();
 		} catch (e) {
 			snack.error(errorMessage(e, 'Could not pin that result.'));

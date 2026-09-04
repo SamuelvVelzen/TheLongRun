@@ -217,16 +217,16 @@ export function LogForm({
 					<h3 className={ui.formSectionTitle}>How it felt</h3>
 					<div className={ui.formGrid}>
 						{showsFeel(activityType, 'effort') && (
-							<FeelChips name="effort" label="Effort (1–10)" min={1} max={10} />
+							<FeelChips name="effort" label="Effort (1–10)" min={1} max={10} low="easy" high="max" />
 						)}
 						{showsFeel(activityType, 'shins') && (
-							<FeelChips name="shins" label="Shins (0–10)" min={0} max={10} />
+							<FeelChips name="shins" label="Shins (0–10)" min={0} max={10} low="none" high="severe" />
 						)}
 						{showsFeel(activityType, 'legs') && (
-							<FeelChips name="legs" label="Legs (0–10)" min={0} max={10} />
+							<FeelChips name="legs" label="Legs (0–10)" min={0} max={10} low="fresh" high="heavy" />
 						)}
 						{showsFeel(activityType, 'energy') && (
-							<FeelChips name="energy" label="Energy (1–10)" min={1} max={10} />
+							<FeelChips name="energy" label="Energy (1–10)" min={1} max={10} low="empty" high="full" />
 						)}
 						{showsFeel(activityType, 'wanted_faster') && <WantedFasterChips />}
 					</div>

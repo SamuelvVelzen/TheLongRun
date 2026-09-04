@@ -16,12 +16,17 @@ export function FeelChips({
 	label,
 	min,
 	max,
+	low,
+	high,
 	defaultValue
 }: {
 	name: string;
 	label: string;
 	min: number;
 	max: number;
+	/** End-of-scale captions, e.g. easy → max. */
+	low?: string;
+	high?: string;
 	defaultValue?: number | null;
 }) {
 	const [value, setValue] = useState(
@@ -54,6 +59,16 @@ export function FeelChips({
 					);
 				})}
 			</div>
+			{low && high && (
+				<div className="flex justify-between gap-2 text-[0.78rem] text-muted">
+					<span>
+						{min} {low}
+					</span>
+					<span>
+						{max} {high}
+					</span>
+				</div>
+			)}
 		</div>
 	);
 }

@@ -643,16 +643,16 @@ function RunDetail() {
 					<h3 className={ui.formSectionTitle}>How it felt & details</h3>
 					<div className={ui.formGrid}>
 						{showsFeel(editActivity, 'effort') && (
-							<FeelChips name="effort" label="Effort (1–10)" min={1} max={10} defaultValue={r.effort} />
+							<FeelChips name="effort" label="Effort (1–10)" min={1} max={10} low="easy" high="max" defaultValue={r.effort} />
 						)}
 						{showsFeel(editActivity, 'shins') && (
-							<FeelChips name="shins" label="Shins (0–10)" min={0} max={10} defaultValue={r.shins} />
+							<FeelChips name="shins" label="Shins (0–10)" min={0} max={10} low="none" high="severe" defaultValue={r.shins} />
 						)}
 						{showsFeel(editActivity, 'legs') && (
-							<FeelChips name="legs" label="Legs (0–10)" min={0} max={10} defaultValue={r.legs} />
+							<FeelChips name="legs" label="Legs (0–10)" min={0} max={10} low="fresh" high="heavy" defaultValue={r.legs} />
 						)}
 						{showsFeel(editActivity, 'energy') && (
-							<FeelChips name="energy" label="Energy (1–10)" min={1} max={10} defaultValue={r.energy} />
+							<FeelChips name="energy" label="Energy (1–10)" min={1} max={10} low="empty" high="full" defaultValue={r.energy} />
 						)}
 						{showsFeel(editActivity, 'wanted_faster') && (
 							<WantedFasterChips defaultValue={wantedValue} />

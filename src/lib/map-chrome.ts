@@ -49,8 +49,8 @@ const NAV_PAINT: Record<string, Record<string, unknown>> = {
 	landcover_ice_shelf: { 'fill-color': '#2a322a' },
 	landcover_glacier: { 'fill-color': '#3a4242' },
 	building: { 'fill-color': '#3e463e', 'fill-outline-color': '#5a6458' },
-	highway_path: { 'line-color': '#b4c49a', 'line-opacity': 1 },
-	highway_minor: { 'line-color': '#9aa494', 'line-opacity': 1 },
+	highway_path: { 'line-color': '#7a8474', 'line-opacity': 0.9 },
+	highway_minor: { 'line-color': '#8a9488', 'line-opacity': 1 },
 	highway_major_casing: { 'line-color': '#4e564e' },
 	highway_major_inner: { 'line-color': '#b0b8ac' },
 	highway_major_subtle: { 'line-color': '#8a9488' },
@@ -795,6 +795,90 @@ export function userLocationIcon(L: LeafletGlobal) {
 		iconSize: [28, 28],
 		iconAnchor: [14, 14]
 	});
+}
+
+const ROUTE_CASING_EXTRA = 4;
+const ROUTE_CASING_COLOR = '#0c100c';
+
+type RouteLineStyle = {
+	color?: string;
+	weight?: number;
+	opacity?: number;
+	interactive?: boolean;
+	/** Draw the dark halo. Default true — skip when a shared casing is already on the map. */
+	casing?: boolean;
+};
+
+/** Keep casings under every track line, and both under start/finish markers. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ensureRoutePanes(map: any) {
+	if (map.getPane?.('routeCasing')) return;
+	const casing = map.createPane?.('routeCasing');
+	if (casing) casing.style.zIndex = '410';
+	const line = map.createPane?.('routeLine');
+	if (line) line.style.zIndex = '420';
+}
+
+/** Dark halo so a lime GPS track does not disappear into the street grid. */
+export function addRouteCasing(
+	L: LeafletGlobal,
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	map: any,
+	coords: [number, number][],
+	weight = 5
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any {
+	ensureRoutePanes(map);
+	return L.polyline(coords, {
+		pane: 'routeCasing',
+		color: ROUTE_CASING_COLOR,
+		weight: weight + ROUTE_CASING_EXTRA,
+		opacity: 0.9,
+		lineJoin: 'round',
+		lineCap: 'round',
+		interactive: false,
+		className: 'route-line-casing'
+	}).addTo(map);
+}
+
+/** Accent track plus optional casing. Hover/tooltips bind to the returned `line`. */
+export function addRoutePolyline(
+	L: LeafletGlobal,
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	map: any,
+	coords: [number, number][],
+	opts?: RouteLineStyle
+) {
+	ensureRoutePanes(map);
+	const weight = opts?.weight ?? 5;
+	const color = opts?.color ?? cssColor('--accent', '#c8f25a');
+	const opacity = opts?.opacity ?? 0.98;
+	const interactive = opts?.interactive ?? true;
+	const casing = opts?.casing === false ? null : addRouteCasing(L, map, coords, weight);
+	const line = L.polyline(coords, {
+		pane: 'routeLine',
+		color,
+		weight,
+		opacity,
+		lineJoin: 'round',
+		lineCap: 'round',
+		interactive,
+		className: 'route-line'
+	}).addTo(map);
+	return {
+		line,
+		casing,
+		setStyle(next: { weight?: number; opacity?: number; color?: string }) {
+			const w = next.weight ?? line.options.weight ?? weight;
+			const o = next.opacity ?? line.options.opacity ?? opacity;
+			line.setStyle({
+				...(next.color ? { color: next.color } : {}),
+				weight: w,
+				opacity: o
+			});
+			casing?.setStyle({ weight: w + ROUTE_CASING_EXTRA });
+		}
+	};
 }
 
 export function endpointIcon(L: LeafletGlobal, kind: 'start' | 'finish' | 'loop', compact = false) {

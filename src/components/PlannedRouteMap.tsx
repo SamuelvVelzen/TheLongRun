@@ -3,6 +3,7 @@ import { loadLeaflet } from '$lib/leaflet';
 import {
     addBasemap,
     addRouteEndpoints,
+    addRoutePolyline,
     attachMapChrome,
     kmMarkerIcon,
     leafletMapOptions,
@@ -44,13 +45,7 @@ export function PlannedRouteMap({
 				map = L.map(containerRef.current, leafletMapOptions());
 				addBasemap(L, map);
 
-				L.polyline(coords, {
-					color: cssColor('--accent', '#c8f25a'),
-					weight: 4.5,
-					opacity: 0.96,
-					lineJoin: 'round',
-					lineCap: 'round'
-				}).addTo(map);
+				addRoutePolyline(L, map, coords);
 
 				addRouteEndpoints(L, map, coords);
 

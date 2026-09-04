@@ -1,8 +1,8 @@
-import { cssColor } from '$lib/theme';
 import { loadLeaflet } from '$lib/leaflet';
 import {
     addBasemap,
     addRouteEndpoints,
+    addRoutePolyline,
     attachMapChrome,
     leafletMapOptions,
     type MapChromeHandle
@@ -73,20 +73,18 @@ export function RoutesHeatmap({
 				for (const track of tracks) {
 					if (track.coords.length < 2) continue;
 					const info = meta[track.id];
-					const line = L.polyline(track.coords, {
-						color: cssColor('--accent', '#c8f25a'),
-						weight: 2.5,
-						opacity: 0.45,
-						lineJoin: 'round',
-						lineCap: 'round'
-					}).addTo(map);
+					const route = addRoutePolyline(L, map, track.coords, {
+						weight: 3.5,
+						opacity: 0.82
+					});
+					const line = route.line;
 					if (info) {
 						line.bindTooltip(`<strong>${info.title}</strong><br>${info.sub}`, {
 							sticky: true,
 							opacity: 0.95
 						});
-						line.on('mouseover', () => line.setStyle({ weight: 5, opacity: 1 }));
-						line.on('mouseout', () => line.setStyle({ weight: 2.5, opacity: 0.45 }));
+						line.on('mouseover', () => route.setStyle({ weight: 6, opacity: 1 }));
+						line.on('mouseout', () => route.setStyle({ weight: 3.5, opacity: 0.82 }));
 						line.on('click', () => {
 							const handler = onRouteClickRef.current;
 							if (handler) handler(info.slug);

@@ -1,8 +1,9 @@
-import { cssColor } from '$lib/theme';
 import { loadLeaflet } from '$lib/leaflet';
 import {
     addBasemap,
+    addRouteCasing,
     addRouteEndpoints,
+    addRoutePolyline,
     attachMapChrome,
     kmMarkerIcon,
     leafletMapOptions,
@@ -104,6 +105,8 @@ export function RouteMap({
 					};
 					const norm = (sec: number) => (hi > lo ? (sec - lo) / (hi - lo) : 0.5);
 
+					addRouteCasing(L, map, coords, 5);
+
 					// Many short segments that follow the route → a smooth gradient. More GPS points
 					// simply means finer segments (up to a performance cap).
 					const N = coords.length;
@@ -113,29 +116,22 @@ export function RouteMap({
 						const j = Math.min(i + stride, N - 1);
 						const midD = (cum[i]! + cum[j]!) / 2;
 						const secPerKm = paceAt(midD);
-						const seg = L.polyline(coords.slice(i, j + 1), {
+						const { line: seg } = addRoutePolyline(L, map, coords.slice(i, j + 1), {
 							color: paceColor(norm(secPerKm)),
-							weight: 4,
-							opacity: 0.95,
-							lineJoin: 'round',
-							lineCap: 'round'
-						}).addTo(map);
+							weight: 5,
+							opacity: 0.98,
+							casing: false
+						});
 						const label = fmtPace(secPerKm);
 						if (label) {
 							seg.bindTooltip(label, { sticky: true, direction: 'top', opacity: 0.95 });
-							seg.on('mouseover', () => seg.setStyle({ weight: 7 }));
-							seg.on('mouseout', () => seg.setStyle({ weight: 4 }));
+							seg.on('mouseover', () => seg.setStyle({ weight: 8 }));
+							seg.on('mouseout', () => seg.setStyle({ weight: 5 }));
 						}
 					}
 					setColored(true);
 				} else {
-					L.polyline(coords, {
-						color: cssColor('--accent', '#c8f25a'),
-						weight: 3.5,
-						opacity: 0.92,
-						lineJoin: 'round',
-						lineCap: 'round'
-					}).addTo(map);
+					addRoutePolyline(L, map, coords);
 				}
 				const bounds = L.latLngBounds(coords);
 				addRouteEndpoints(L, map, coords);

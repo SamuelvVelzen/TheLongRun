@@ -143,7 +143,7 @@ function PlannedRouteDetail() {
 					)
 				}
 				lead={<p>{route.notes || 'Imported from GPX.'}</p>}
-				actionsClassName="max-sm:order-3 max-sm:mt-1 max-sm:mb-4"
+				actionsClassName="justify-start! max-sm:order-3 max-sm:mt-1 max-sm:mb-4"
 				actions={
 					<>
 						<button

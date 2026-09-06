@@ -7,7 +7,6 @@ import { cn, ui } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { GpsWaypointMap } from './GpsWaypointMap';
-import { Icon } from './Icon';
 import { errorMessage, useSnackbar } from './Snackbar';
 
 export type GpsRepairRouteOption = {
@@ -26,6 +25,13 @@ function writeMemberGpx(date: string, activityType: string, samples: { lat: numb
 		}),
 		'application/gpx+xml'
 	);
+}
+
+export async function exportActivityGpx(date: string, activityType: string, routeId: string) {
+	const geo = await getRouteGeoJsonFn({ data: routeId });
+	const samples = samplesFromGeoJson(geo);
+	if (samples.length < 2) throw new Error('This activity has no GPS points to export.');
+	writeMemberGpx(date, activityType, samples);
 }
 
 export function GpsRepair({
@@ -57,31 +63,12 @@ export function GpsRepair({
 	const snack = useSnackbar();
 	const [editing, setEditing] = useState(() => Boolean(groupedSessionId));
 	const [busy, setBusy] = useState(false);
-	const [downloading, setDownloading] = useState(false);
 	const [waypoints, setWaypoints] = useState<GpsWaypoint[]>([]);
 	const [followNetwork, setFollowNetwork] = useState(false);
 	const [plannedSlug, setPlannedSlug] = useState(plannedRoute?.slug ?? '');
 	const [showPlanned, setShowPlanned] = useState(false);
 
 	const missing = gps.issues.includes('missing');
-
-	async function download() {
-		if (!routeId) {
-			snack.info('No GPS track to export yet.');
-			return;
-		}
-		setDownloading(true);
-		try {
-			const geo = await getRouteGeoJsonFn({ data: routeId });
-			const samples = samplesFromGeoJson(geo);
-			if (samples.length < 2) throw new Error('This activity has no GPS points to export.');
-			writeMemberGpx(date, activityType, samples);
-		} catch (error) {
-			snack.error(errorMessage(error, 'Could not export GPX'));
-		} finally {
-			setDownloading(false);
-		}
-	}
 
 	async function save(from: 'waypoints' | 'planned') {
 		if (busy) return;
@@ -123,17 +110,6 @@ export function GpsRepair({
 					<p className={cn(ui.muted, 'm-0 mt-[0.3rem]')}>{gps.summary}</p>
 				</div>
 				<div className="flex flex-wrap gap-2">
-					{hasMap && (
-						<button
-							className={cn(ui.btnGhost, ui.btnSm)}
-							type="button"
-							disabled={downloading}
-							onClick={() => void download()}
-						>
-							<Icon name="download" size={16} />
-							{downloading ? 'Exporting…' : 'Download GPX'}
-						</button>
-					)}
 					{authed && !editing && (
 						<button
 							className={cn(ui.btnPrimary, ui.btnSm)}
@@ -257,44 +233,5 @@ export function GpsRepair({
 				<p className={cn(ui.muted, 'm-0 mt-3 text-[0.92rem]')}>Sign in to add a GPS track with map pins.</p>
 			)}
 		</div>
-	);
-}
-
-export function GpsExportButton({
-	date,
-	activityType,
-	routeId
-}: {
-	date: string;
-	activityType: string;
-	routeId: string;
-}) {
-	const snack = useSnackbar();
-	const [downloading, setDownloading] = useState(false);
-
-	async function download() {
-		setDownloading(true);
-		try {
-			const geo = await getRouteGeoJsonFn({ data: routeId });
-			const samples = samplesFromGeoJson(geo);
-			if (samples.length < 2) throw new Error('This activity has no GPS points to export.');
-			writeMemberGpx(date, activityType, samples);
-		} catch (error) {
-			snack.error(errorMessage(error, 'Could not export GPX'));
-		} finally {
-			setDownloading(false);
-		}
-	}
-
-	return (
-		<button
-			className={cn(ui.btnGhost, ui.btnSm)}
-			type="button"
-			disabled={downloading || !routeId}
-			onClick={() => void download()}
-		>
-			<Icon name="download" size={16} />
-			{downloading ? 'Exporting…' : 'Download GPX'}
-		</button>
 	);
 }

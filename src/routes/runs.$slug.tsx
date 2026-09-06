@@ -30,11 +30,12 @@ import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, notFound, useBlocker, useRouter } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BestEffortBadges } from '../components/BestEffortBadges';
-import { DeleteButton, EditButton } from '../components/DeleteButton';
+import { EditButton, TrashIcon } from '../components/DeleteButton';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { FeelChips, WantedFasterChips } from '../components/FeelChips';
-import { GpsExportButton, GpsRepair } from '../components/GpsRepair';
+import { exportActivityGpx, GpsRepair } from '../components/GpsRepair';
 import { ActivityIcon, Icon } from '../components/Icon';
+import { MoreMenu } from '../components/MoreMenu';
 import { PageHero } from '../components/PageHero';
 import { RouteChip } from '../components/RouteChip';
 import { RouteMap } from '../components/RouteMap';
@@ -345,6 +346,7 @@ function RunDetail() {
 	const [pendingDelete, setPendingDelete] = useState(false);
 	const [groupOpen, setGroupOpen] = useState(false);
 	const [groupPick, setGroupPick] = useState<string[]>([]);
+	const [downloading, setDownloading] = useState(false);
 
 	const derivedDay = dayFromIsoDate(editDate || r.date);
 	const derivedWeek = weekNumberForDate(editDate || r.date, calendar);
@@ -397,9 +399,19 @@ function RunDetail() {
 		setEditStart(r.start_time || '');
 	}, [r.slug, editFromSearch]);
 
-	async function onDelete(e: React.MouseEvent) {
-		e.preventDefault();
-		setPendingDelete(true);
+	async function downloadGpx() {
+		if (!routeId || gps.issues.length > 0) {
+			snack.info('No GPS track to export yet.');
+			return;
+		}
+		setDownloading(true);
+		try {
+			await exportActivityGpx(r.date, r.activity_type, routeId);
+		} catch (error) {
+			snack.error(errorMessage(error, 'Could not export GPX'));
+		} finally {
+			setDownloading(false);
+		}
 	}
 
 	async function onUpdate(e: React.FormEvent<HTMLFormElement>) {
@@ -498,6 +510,7 @@ function RunDetail() {
 				</p>
 			)}
 			<PageHero
+				className="grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2"
 				kicker={
 					<>
 						<ActivityIcon type={r.activity_type} size={14} />
@@ -534,31 +547,49 @@ function RunDetail() {
 					</>
 				}
 				titleClassName={ui.runTitle}
+				actionsClassName="justify-end! max-sm:w-auto max-sm:[&>button]:flex-none max-sm:[&>button]:min-w-11"
 				actions={
-					<>
-						{authed && !editing && (
-							<>
-								{!group && (
-									<button
-										type="button"
-										className={ui.btnGhost}
-										onClick={() => {
-											setGroupPick([]);
-											setGroupOpen(true);
-										}}
-									>
-										<Icon name="grid" size={16} />
-										Group with…
-									</button>
-								)}
-								<EditButton label="Edit activity" onClick={startEditing} />
-								<DeleteButton
-									label={`Delete ${activityLabel(r.activity_type).toLowerCase()} ${r.date}`}
-									onClick={onDelete}
-								/>
-							</>
-						)}
-					</>
+					!editing ? (
+						<>
+							{authed && <EditButton label="Edit activity" onClick={startEditing} />}
+							<MoreMenu
+								items={[
+									...(gps.issues.length === 0 && routeId
+										? [
+												{
+													label: downloading ? 'Exporting…' : 'Download GPX',
+													icon: <Icon name="download" size={16} />,
+													onClick: () => void downloadGpx(),
+													disabled: downloading
+												}
+											]
+										: []),
+									...(authed && !group
+										? [
+												{
+													label: 'Group',
+													icon: <Icon name="grid" size={16} />,
+													onClick: () => {
+														setGroupPick([]);
+														setGroupOpen(true);
+													}
+												}
+											]
+										: []),
+									...(authed
+										? [
+												{
+													label: 'Delete',
+													icon: <TrashIcon className="size-4" />,
+													onClick: () => setPendingDelete(true),
+													danger: true
+												}
+											]
+										: [])
+								]}
+							/>
+						</>
+					) : null
 				}
 			>
 				{plannedRoute && (
@@ -928,11 +959,8 @@ function RunDetail() {
 
 					{r.route && routeId && (
 						<div className={cn(ui.panel, 'mb-4 p-0 overflow-hidden')}>
-							<div className="flex flex-wrap items-start justify-between gap-3 p-[1.1rem_1.2rem_0.6rem]">
+							<div className="p-[1.1rem_1.2rem_0.6rem]">
 								<h3 className="m-0">Route</h3>
-								{gps.issues.length === 0 && (
-									<GpsExportButton date={r.date} activityType={r.activity_type} routeId={routeId} />
-								)}
 							</div>
 							<RouteMap routeId={routeId} kmMarkers={analytics?.kmMarkers ?? null} />
 						</div>

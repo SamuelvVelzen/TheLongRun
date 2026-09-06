@@ -10,16 +10,20 @@ import {
     supportsBestEfforts,
     type EffortHighlight
 } from '$lib/best-efforts';
-import { combinedAnalytics } from '$lib/combine-track';
+import { combinedAnalytics, trackFromGeoJson } from '$lib/combine-track';
 import { dateRangeFromSearch, filterRunsByRange, type DateRange, type RangeKind } from '$lib/date-range';
-import {
-    dayFromIsoDate,
-    formatDuration,
-    guessSession,
-    normalizeStartTime,
-    parseDurationSeconds
-} from '$lib/format';
+import { dayFromIsoDate, formatDuration, guessSession, localDateTimeToUtcMs, normalizeStartTime, parseDurationSeconds } from '$lib/format';
 import { canPinRaceResult, normalizeGoalInput, pickSoonestOpenGoal, pinCandidatesForGoal, resultFromActivity, type GoalInput } from '$lib/goals';
+import {
+    attachHrSeries,
+    densifyWaypoints,
+    diagnoseGps,
+    MAX_NETWORK_VIAS,
+    normalizeWaypoints,
+    samplesFromGeoJson,
+    stampAlongDistance,
+    trackDistanceMeters
+} from '$lib/gps-repair';
 import { combineRunStats, groupedSessionTitle } from '$lib/group';
 import { buildHrZoneSummary } from '$lib/hr-zones';
 import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
@@ -54,7 +58,12 @@ import {
     wearByShoe,
     type ShoeContext
 } from '$lib/shoes';
-import { analyticsToProperties, type RouteAnalytics } from '$lib/splits';
+import {
+    analyticsFromProperties,
+    analyticsToProperties,
+    computeRouteAnalytics,
+    type RouteAnalytics
+} from '$lib/splits';
 import { parseStrengthNotes, strengthSummary } from '$lib/strength';
 import type {
     ActivityAttachOption,
@@ -81,6 +90,7 @@ import { zipStoreBytes } from '$lib/zip';
 import { createServerFn } from '@tanstack/react-start';
 import matter from 'gray-matter';
 import { requireAuth } from './auth';
+import { brouterViaPath } from './brouter';
 import {
     currentPlanWeek,
     loadGoalStore,
@@ -97,7 +107,7 @@ import {
     saveWeekPatternSetting,
     writeContextFile
 } from './context';
-import { reverseGeocode } from './geo';
+import { reverseGeocode, timezoneForCoord } from './geo';
 import { parseGpx } from './gpx';
 import {
     addActivityToGroup,
@@ -128,7 +138,6 @@ import {
 import {
     getRouteGeoJson,
     listRouteEffortSources,
-    loadRouteAnalytics,
     routeIdForRun,
     saveRouteGeoJson
 } from './route-analytics';
@@ -149,7 +158,7 @@ import {
     type FeelingsPatch,
     type UpdateRunFields
 } from './runs';
-import { fetchWeatherForDateTime } from './weather';
+import { DEFAULT_START_HHMM, fetchWeatherForDateTime } from './weather';
 
 const withMap = (runs: RunRecord[], routeIds: Set<string>): RunWithMap[] =>
 	runs.map((r) => ({ ...r, has_map: runHasMap(r, routeIds) }));
@@ -303,9 +312,10 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 	.handler(async ({ data: slug }) => {
 		const run = await getRun(slug);
 		if (!run) return null;
-		const [analytics, routeIds, shoes, settings, allTimeMaxHr, allRuns, plannedRoute, training, group] =
+		const routeId = routeIdForRun(run);
+		const [geo, routeIds, shoes, settings, allTimeMaxHr, allRuns, plannedRoute, training, group, plannedRoutes] =
 			await Promise.all([
-				loadRouteAnalytics(run),
+				routeId ? getRouteGeoJson(routeId) : Promise.resolve(null),
 				listRouteIds(),
 				loadShoes(),
 				loadSettings(),
@@ -313,8 +323,17 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 				listRuns(),
 				getActivityRouteRef(slug),
 				loadTrainingContext(),
-				membershipForSlug(slug)
+				membershipForSlug(slug),
+				listPlannedRoutes()
 			]);
+		const analytics = geo
+			? analyticsFromProperties(
+					geo && typeof geo === 'object'
+						? ((geo as { properties?: unknown }).properties ?? null)
+						: null
+				)
+			: null;
+		const gps = diagnoseGps(geo ? samplesFromGeoJson(geo) : []);
 		await hydrateBestEfforts(allRuns);
 		const current = allRuns.find((r) => r.slug === slug) ?? run;
 		const highlights = highlightsForActivity(current.slug, current.activity_type, allRuns);
@@ -348,15 +367,43 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 				grouped: groupedSlugs.has(r.slug)
 			}));
 
+		const gpsContextTracks = group
+			? (
+					await Promise.all(
+						group.member_slugs
+							.filter((s) => s !== slug)
+							.map(async (s) => {
+								const sibling = allRuns.find((r) => r.slug === s);
+								if (!sibling) return null;
+								const id = routeIdForRun(sibling);
+								if (!id) return null;
+								const siblingGeo = await getRouteGeoJson(id);
+								const coords = trackFromGeoJson(siblingGeo).coords;
+								if (coords.length < 2) return null;
+								return {
+									slug: s,
+									label: `${sibling.date}${sibling.start_time ? ` · ${sibling.start_time}` : ''} ${activityLabel(sibling.activity_type)}`,
+									coords
+								};
+							})
+					)
+				).filter((t): t is { slug: string; label: string; coords: [number, number][] } => t != null)
+			: [];
+
 		return {
 			run: { ...current, has_map: runHasMap(current, routeIds) } as RunWithMap,
 			analytics: out,
+			gps,
 			shoes,
 			shoeWear: wearByShoe(allRuns),
 			hrMaxManual,
 			hrMaxAllTime: allTimeMaxHr,
 			bestEfforts: highlights,
 			plannedRoute,
+			repairRoutes: plannedRoutes
+				.filter((r) => r.point_count >= 2)
+				.map((r) => ({ slug: r.slug, name: r.name, distance_km: r.distance_km })),
+			gpsContextTracks,
 			calendar: training.calendar,
 			group,
 			groupOptions
@@ -1268,6 +1315,120 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 			has_route: Boolean(route),
 			duplicate: false,
 			highlights
+		};
+	});
+
+function activityStartMs(
+	run: Pick<RunRecord, 'date' | 'start_time'>,
+	samples: { lat: number; lng: number; timeMs?: number }[]
+): number | null {
+	const timed = samples.find((p) => p.timeMs != null && Number.isFinite(p.timeMs));
+	if (timed?.timeMs != null) return timed.timeMs;
+	const coord = samples.find((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+	const tz = (coord && timezoneForCoord(coord.lat, coord.lng)) || 'Europe/Amsterdam';
+	return localDateTimeToUtcMs(run.date, run.start_time || DEFAULT_START_HHMM, tz);
+}
+
+export const repairRunGps = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator(
+		(d: {
+			slug: string;
+			waypoints?: { lat: number; lng: number }[];
+			follow_network?: boolean;
+			planned_slug?: string;
+		}) => d
+	)
+	.handler(async ({ data }) => {
+		const run = await getRun(data.slug);
+		if (!run) throw new Error('Activity not found.');
+
+		const pins = normalizeWaypoints(data.waypoints);
+		let plannedSlug = data.planned_slug?.trim() || '';
+		const attached = await getActivityRouteRef(run.slug);
+		if (pins.length < 2) {
+			if (plannedSlug && plannedSlug !== attached?.slug) {
+				await dbAttachRouteToActivity(plannedSlug, run.slug);
+			} else if (!plannedSlug) {
+				plannedSlug = attached?.slug ?? '';
+			}
+		}
+
+		const routeId = routeIdForRun(run);
+		const [geo, planned] = await Promise.all([
+			routeId ? getRouteGeoJson(routeId) : Promise.resolve(null),
+			plannedSlug && pins.length < 2 ? getPlannedRoute(plannedSlug) : Promise.resolve(null)
+		]);
+		if (plannedSlug && pins.length < 2 && !planned) throw new Error('That planned route was not found.');
+
+		let out = pins.length >= 2 ? densifyWaypoints(pins) : planned ? samplesFromGeoJson(planned.geojson) : [];
+		let source: 'waypoints' | 'waypoints-network' | 'planned' = pins.length >= 2 ? 'waypoints' : 'planned';
+
+		if (pins.length >= 2 && data.follow_network && pins.length <= MAX_NETWORK_VIAS) {
+			const routed = await brouterViaPath(pins);
+			if (routed.length >= 2) {
+				out = routed;
+				source = 'waypoints-network';
+			}
+		}
+
+		if (out.length < 2) {
+			throw new Error('Drop at least two waypoints on the map, or pick a saved route.');
+		}
+
+		const durationSec =
+			parseDurationSeconds(run.elapsed_time) ??
+			parseDurationSeconds(run.time) ??
+			parseDurationSeconds(planned?.est_time ?? '');
+		const startMs = activityStartMs(run, out);
+		const durationMs = durationSec != null && durationSec > 0 ? durationSec * 1000 : null;
+		if (startMs != null && durationMs != null) {
+			out = stampAlongDistance(out, startMs, durationMs);
+		}
+
+		const prevHr = analyticsFromProperties(
+			geo && typeof geo === 'object' ? ((geo as { properties?: unknown }).properties ?? null) : null
+		)?.hrSamples;
+		if (prevHr?.length) {
+			out = attachHrSeries(
+				out,
+				prevHr.map((s) => ({ t: s.t, hr: s.hr }))
+			);
+		}
+
+		const analytics = computeRouteAnalytics(out, { avgHr: run.avg_hr, maxHr: run.max_hr });
+		const id = routeId || crypto.randomUUID();
+		const geojson = {
+			type: 'Feature',
+			properties: {
+				date: run.date,
+				sport: run.activity_type,
+				distance_km: run.distance_km,
+				point_count: out.length,
+				added_gps: true,
+				gps_source: source,
+				track_km: Math.round((trackDistanceMeters(out) / 1000) * 100) / 100,
+				...(analytics ? analyticsToProperties(analytics) : {}),
+				times: out.map((p) => p.timeMs ?? null)
+			},
+			geometry: {
+				type: 'LineString',
+				coordinates: out.map((p) =>
+					p.elev != null && Number.isFinite(p.elev) ? [p.lng, p.lat, p.elev] : [p.lng, p.lat]
+				)
+			}
+		};
+		await saveRouteGeoJson(id, geojson);
+		if (!run.route) await setRunRoute(run.slug, `/routes/${id}.json`);
+
+		if (supportsBestEfforts(run.activity_type)) {
+			const efforts = computeBestEffortsFromTrack(out);
+			if (efforts.length) await setRunBestEfforts(run.slug, efforts);
+		}
+
+		return {
+			ok: true as const,
+			points: out.length,
+			source
 		};
 	});
 

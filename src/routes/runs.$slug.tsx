@@ -11,11 +11,11 @@ import { useAuthed } from '$lib/auth';
 import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate } from '$lib/plan';
 import {
+    createActivityGroupFn,
     deleteRun,
     getRunDetail,
     saveHrMax,
     updateRun,
-    createActivityGroupFn,
     type UpdateRunInput
 } from '$lib/server/functions';
 import { shoePickerOptions } from '$lib/shoes';
@@ -33,6 +33,7 @@ import { BestEffortBadges } from '../components/BestEffortBadges';
 import { DeleteButton, EditButton } from '../components/DeleteButton';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { FeelChips, WantedFasterChips } from '../components/FeelChips';
+import { GpsExportButton, GpsRepair } from '../components/GpsRepair';
 import { ActivityIcon, Icon } from '../components/Icon';
 import { PageHero } from '../components/PageHero';
 import { RouteChip } from '../components/RouteChip';
@@ -297,12 +298,15 @@ function RunDetail() {
 	const {
 		run: r,
 		analytics,
+		gps,
 		shoes,
 		shoeWear,
 		hrMaxManual,
 		hrMaxAllTime,
 		bestEfforts,
 		plannedRoute,
+		repairRoutes,
+		gpsContextTracks,
 		calendar,
 		group,
 		groupOptions
@@ -888,10 +892,27 @@ function RunDetail() {
 						</div>
 					)}
 
+					<GpsRepair
+						slug={r.slug}
+						date={r.date}
+						activityType={r.activity_type}
+						gps={gps}
+						plannedRoute={plannedRoute}
+						repairRoutes={repairRoutes}
+						contextTracks={gpsContextTracks}
+						hasMap={r.has_map}
+						routeId={routeId}
+						authed={authed}
+						groupedSessionId={group?.id}
+					/>
+
 					{r.route && routeId && (
 						<div className={cn(ui.panel, 'mb-4 p-0 overflow-hidden')}>
-							<div className="p-[1.1rem_1.2rem_0.6rem]">
-								<h3>Route</h3>
+							<div className="flex flex-wrap items-start justify-between gap-3 p-[1.1rem_1.2rem_0.6rem]">
+								<h3 className="m-0">Route</h3>
+								{gps.issues.length === 0 && (
+									<GpsExportButton date={r.date} activityType={r.activity_type} routeId={routeId} />
+								)}
 							</div>
 							<RouteMap routeId={routeId} kmMarkers={analytics?.kmMarkers ?? null} />
 						</div>

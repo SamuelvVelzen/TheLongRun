@@ -14,6 +14,8 @@ type AttachOpts = {
 	wrap: HTMLElement;
 	/** Called when user hits “fit” — typically fitBounds of the route(s). */
 	onFit: () => void;
+	/** One-finger pan on phones (waypoint editor). Default keeps page-scroll until two fingers / fullscreen. */
+	alwaysPan?: boolean;
 };
 
 function isCoarsePointer(): boolean {
@@ -367,7 +369,7 @@ function applyFsBox(wrap: HTMLElement, mapEl: HTMLElement, on: boolean, nativeFs
  * Returns a handle for cleanup.
  */
 export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
-	const { map, wrap, onFit } = opts;
+	const { map, wrap, onFit, alwaysPan } = opts;
 	const mapEl: HTMLElement =
 		(typeof map.getContainer === 'function' ? map.getContainer() : null) ??
 		(wrap.querySelector('.leaflet-container') as HTMLElement);
@@ -466,7 +468,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 
 	const applyCoarseGestures = (fullscreen: boolean) => {
 		if (!coarse || !mapEl) return;
-		if (fullscreen) {
+		if (alwaysPan || fullscreen) {
 			mapEl.style.touchAction = 'none';
 			map.dragging?.enable?.();
 		} else {
@@ -492,14 +494,17 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			map.dragging?.disable?.();
 		}
 	};
-	if (coarse && mapEl) {
+	if (coarse && mapEl && !alwaysPan) {
 		mapEl.addEventListener('touchstart', onTouchStart, { passive: true });
 		mapEl.addEventListener('touchend', onTouchEnd, { passive: true });
 		mapEl.addEventListener('touchcancel', onTouchEnd, { passive: true });
 		applyCoarseGestures(false);
+	} else if (alwaysPan) {
+		map.dragging?.enable?.();
+		if (mapEl) mapEl.style.touchAction = 'none';
 	}
 
-	const hint = coarse ? document.createElement('button') : null;
+	const hint = coarse && !alwaysPan ? document.createElement('button') : null;
 	if (hint) {
 		hint.type = 'button';
 		hint.className =
@@ -776,6 +781,16 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		},
 		isFullscreen: () => isOn()
 	};
+}
+
+/** Numbered pin for the add-GPS map. */
+export function waypointPinIcon(L: LeafletGlobal, n: number) {
+	return L.divIcon({
+		className: 'wp-marker',
+		html: `<span class="inline-flex items-center justify-center min-w-[1.55rem] h-[1.55rem] px-1 rounded-full bg-accent text-accent-ink font-display text-[0.72rem] font-bold leading-none border border-[rgba(12,16,12,0.35)] shadow-[0_4px_12px_rgba(0,0,0,0.45)]">${n}</span>`,
+		iconSize: [26, 26],
+		iconAnchor: [13, 13]
+	});
 }
 
 /** Create a small km-marker DivIcon for the detail map. */

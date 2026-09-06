@@ -37,6 +37,51 @@ export function formatClockTime(d: Date | null | undefined): string {
 	return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+/**
+ * Convert a civil date + clock in an IANA zone to a UTC epoch.
+ * Used when a reconstructed GPS track needs timestamps but the file had none.
+ */
+export function localDateTimeToUtcMs(
+	date: string,
+	clock: string,
+	timeZone: string
+): number | null {
+	const start = normalizeStartTime(clock);
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !start || !timeZone) return null;
+	const [year, month, day] = date.split('-').map(Number);
+	const [hour, minute] = start.split(':').map(Number);
+	if (![year, month, day, hour, minute].every((n) => Number.isFinite(n))) return null;
+	const desired = Date.UTC(year!, month! - 1, day!, hour!, minute!, 0);
+	let utc = desired;
+	for (let i = 0; i < 4; i++) {
+		const parts = new Intl.DateTimeFormat('en-US', {
+			timeZone,
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hour12: false
+		}).formatToParts(new Date(utc));
+		const num = (type: Intl.DateTimeFormatPartTypes) => {
+			const v = Number(parts.find((p) => p.type === type)?.value);
+			return Number.isFinite(v) ? v : null;
+		};
+		const y = num('year');
+		const mo = num('month');
+		const d = num('day');
+		let h = num('hour');
+		const mi = num('minute');
+		const s = num('second');
+		if (y == null || mo == null || d == null || h == null || mi == null || s == null) return null;
+		if (h === 24) h = 0;
+		const got = Date.UTC(y, mo - 1, d, h, mi, s);
+		utc += desired - got;
+	}
+	return utc;
+}
+
 export function dayFromIsoDate(iso: string): string {
 	const d = new Date(`${iso}T12:00:00`);
 	if (Number.isNaN(d.getTime())) return '';

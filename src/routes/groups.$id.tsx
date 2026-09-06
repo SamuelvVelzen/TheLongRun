@@ -211,7 +211,8 @@ function GroupDetail() {
 										showsField(run.activity_type, 'distance') && run.distance_km != null
 											? `${run.distance_km} km`
 											: null,
-										run.time || null
+										run.time || null,
+										!run.has_map ? 'no GPS' : null
 									]
 										.filter(Boolean)
 										.join(' · ')}
@@ -274,6 +275,9 @@ function GroupDetail() {
 					{stats.mixed
 						? 'Mixed sports cannot be one Strava/Apple activity. Download each part and upload separately.'
 						: 'Upload the GPX in Strava (+ → Upload activity). Apple Fitness has no file import — use Strava’s Apple Health sync, or open the file in HealthFit / RunGap. If these parts are already in Health from Apple Watch, uploading again creates a second workout.'}
+					{members.some((m) => !m.has_map)
+						? ' Parts with no GPS are omitted until you add GPS on that part.'
+						: ''}
 				</p>
 			</div>
 

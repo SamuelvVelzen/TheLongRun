@@ -63,6 +63,7 @@ export function ConfirmDialog({
 	title,
 	description,
 	confirmLabel = 'Delete',
+	cancelLabel = 'Cancel',
 	busyLabel,
 	onClose,
 	onConfirm
@@ -71,6 +72,7 @@ export function ConfirmDialog({
 	title: string;
 	description?: ReactNode;
 	confirmLabel?: string;
+	cancelLabel?: string;
 	busyLabel?: string;
 	onClose: () => void;
 	onConfirm: () => void | Promise<void>;
@@ -100,7 +102,7 @@ export function ConfirmDialog({
 			actions={
 				<>
 					<button className={ui.btnGhost} type="button" disabled={busy} onClick={onClose}>
-						Cancel
+						{cancelLabel}
 					</button>
 					<button
 						className={cn(ui.btnGhost, ui.btnDanger)}

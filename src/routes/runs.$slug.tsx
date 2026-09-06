@@ -27,8 +27,8 @@ import {
     topSet
 } from '$lib/strength';
 import { cn, ui } from '$lib/ui';
-import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { createFileRoute, Link, notFound, useBlocker, useRouter } from '@tanstack/react-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BestEffortBadges } from '../components/BestEffortBadges';
 import { DeleteButton, EditButton } from '../components/DeleteButton';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
@@ -315,13 +315,28 @@ function RunDetail() {
 	const authed = useAuthed();
 	const snack = useSnackbar();
 	const { edit: editFromSearch } = Route.useSearch();
+	const editing = authed && Boolean(editFromSearch);
+	const skipLeaveRef = useRef(false);
+	const shouldBlockLeave = useCallback(() => {
+		if (skipLeaveRef.current) {
+			skipLeaveRef.current = false;
+			return false;
+		}
+		return true;
+	}, []);
+	const leaveBlocker = useBlocker({
+		shouldBlockFn: shouldBlockLeave,
+		withResolver: true,
+		enableBeforeUnload: true,
+		disabled: !editing
+	});
+	const leaveOpen = leaveBlocker.status === 'blocked';
 
 	async function onSaveHrMax(hrMax: number | null) {
 		await saveHrMax({ data: hrMax });
 		await router.invalidate();
 	}
 
-	const [editing, setEditing] = useState(() => Boolean(editFromSearch));
 	const [editDate, setEditDate] = useState(r.date);
 	const [editActivity, setEditActivity] = useState(r.activity_type || 'run');
 	const [editNotes, setEditNotes] = useState(r.notes);
@@ -353,24 +368,33 @@ function RunDetail() {
 					: 'pace /km';
 
 	function startEditing() {
-		setEditDate(r.date);
-		setEditing(true);
+		void router.navigate({
+			to: '/runs/$slug',
+			params: { slug: r.slug },
+			search: { edit: true }
+		});
 	}
 
-	function stopEditing() {
-		setEditing(false);
-		if (editFromSearch) {
-			void router.navigate({
-				to: '/runs/$slug',
-				params: { slug: r.slug },
-				search: {},
-				replace: true
-			});
+	function requestLeaveEdit() {
+		if (router.history.canGoBack()) {
+			router.history.back();
+			return;
 		}
+		void router.navigate({
+			to: '/runs/$slug',
+			params: { slug: r.slug },
+			search: {},
+			replace: true
+		});
 	}
 
 	useEffect(() => {
-		if (editFromSearch) startEditing();
+		if (!editFromSearch) return;
+		setEditDate(r.date);
+		setEditActivity(r.activity_type || 'run');
+		setEditNotes(r.notes);
+		setEditWeather(r.weather || '');
+		setEditStart(r.start_time || '');
 	}, [r.slug, editFromSearch]);
 
 	async function onDelete(e: React.MouseEvent) {
@@ -413,18 +437,14 @@ function RunDetail() {
 		};
 		try {
 			const res = await updateRun({ data: input });
-			setEditing(false);
+			skipLeaveRef.current = true;
 			await router.invalidate();
-			if (res.slug !== r.slug) {
-				router.navigate({ to: '/runs/$slug', params: { slug: res.slug }, search: {} });
-			} else if (editFromSearch) {
-				router.navigate({
-					to: '/runs/$slug',
-					params: { slug: r.slug },
-					search: {},
-					replace: true
-				});
-			}
+			await router.navigate({
+				to: '/runs/$slug',
+				params: { slug: res.slug },
+				search: {},
+				replace: true
+			});
 		} catch (err) {
 			snack.error(errorMessage(err, 'Update failed'));
 		}
@@ -753,7 +773,7 @@ function RunDetail() {
 						<button className={cn(ui.btnPrimary, ui.stickyPrimary)} type="submit">
 							Save changes
 						</button>
-						<button className={ui.btnGhost} type="button" onClick={stopEditing}>
+						<button className={ui.btnGhost} type="button" onClick={requestLeaveEdit}>
 							Cancel
 						</button>
 					</div>
@@ -1115,6 +1135,15 @@ function RunDetail() {
 						})}
 				</div>
 			</Dialog>
+			<ConfirmDialog
+				open={leaveOpen}
+				title="Are you sure?"
+				description="You'll lose any unsaved changes."
+				confirmLabel="Leave"
+				cancelLabel="Keep editing"
+				onClose={() => leaveBlocker.reset?.()}
+				onConfirm={() => leaveBlocker.proceed?.()}
+			/>
 			<ConfirmDialog
 				open={pendingDelete}
 				title="Delete this activity?"

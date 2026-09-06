@@ -1,5 +1,5 @@
 /**
- * Training trend series for dashboard / timeline sparklines.
+ * Training trend series for dashboard sparklines.
  */
 import { isoDateLocal } from '$lib/date-range';
 import { formatDuration, parseDurationSeconds } from '$lib/format';
@@ -262,7 +262,7 @@ function buildDistanceSeries(
 	};
 }
 
-/** Build the coherent trend set used on Dashboard / Timeline. */
+/** Build the coherent trend set used on Dashboard. */
 export function buildTrainingTrends(
 	runs: RunRecord[],
 	opts?: { endDate?: string | null; fromDate?: string | null; calendar?: PlanCalendar }

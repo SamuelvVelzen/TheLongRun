@@ -20,7 +20,6 @@ import {
 } from '$lib/group';
 import { createActivityGroupFn, deleteRun, getTimelineRuns } from '$lib/server/functions';
 import { formatTimelineClipboard } from '$lib/timeline-copy';
-import { buildTrainingTrends } from '$lib/trends';
 import type { ActivityGroupInfo, RunWithMap } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
@@ -42,7 +41,6 @@ import {
 	selectedSports,
 	sportIsAll
 } from '../components/SportFilter';
-import { TrendsSection } from '../components/TrendsSection';
 
 type TimelineSearch = RangeSearch & {
 	sport?: string;
@@ -158,7 +156,6 @@ function TimelineBody({
 	const runs = filterRunsByRange(scoped, range);
 	const items = collapseRuns(runs, allRuns, groups);
 	const months = groupItems(items);
-	const trends = buildTrainingTrends(runs, { endDate: range.to, fromDate: range.from });
 	const selected = selectedSports(sport);
 	const boardSport = !selected.includes('run') && selected.includes('walk') ? 'walk' : 'run';
 	const showBoard = sportIsAll(sport) || selected.includes('run') || selected.includes('walk');
@@ -309,17 +306,6 @@ function TimelineBody({
 				</div>
 			) : (
 				<>
-					{trends?.series.length ? (
-						<TrendsSection
-							trends={trends}
-							caption={
-								range.kind === 'all'
-									? 'Progress over recent weeks'
-									: `Within ${range.label.toLowerCase()}`
-							}
-						/>
-					) : null}
-
 					<BestEffortBoard
 						rows={board}
 						caption={

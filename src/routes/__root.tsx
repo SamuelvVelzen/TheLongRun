@@ -69,8 +69,6 @@ const moreLinks = [
 
 const desktopMoreLinks = [{ href: '/context', label: 'Context', icon: 'context' }] as const;
 
-const PLAN_ROUTE_HREF = 'https://brouter.de/brouter-web/';
-
 const tabs = [
 	{ href: '/', label: 'Home', icon: 'home', primary: false },
 	{ href: '/timeline', label: 'Timeline', icon: 'timeline', primary: false },
@@ -215,16 +213,15 @@ function RootShell() {
 									{l.label}
 								</Link>
 							))}
-							<a
-								href={PLAN_ROUTE_HREF}
-								target="_blank"
-								rel="noreferrer noopener"
+							<Link
+								to="/routes"
+								search={{ draw: true }}
 								className={tabMoreLink}
+								onClick={closeDetails}
 							>
 								<Icon name="map" size={18} />
 								Plan route
-								<Icon name="external" size={13} className="ml-auto opacity-70" />
-							</a>
+							</Link>
 							<PwaInstall className={tabMoreLink} />
 							{authed ? (
 								<>
@@ -270,17 +267,15 @@ function DesktopMore() {
 						{l.label}
 					</Link>
 				))}
-				<a
-					href={PLAN_ROUTE_HREF}
-					target="_blank"
-					rel="noreferrer noopener"
+				<Link
+					to="/routes"
+					search={{ draw: true }}
 					className={tabMoreLink}
 					onClick={closeDetails}
 				>
 					<Icon name="map" size={18} />
 					Plan route
-					<Icon name="external" size={13} className="ml-auto opacity-70" />
-				</a>
+				</Link>
 				{authed ? (
 					<>
 						<div className="my-[0.15rem] border-t border-line" />

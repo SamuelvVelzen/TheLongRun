@@ -1,11 +1,11 @@
-import type { PlannedRoute, PlannedWaypoint, RouteTrack, SessionRouteRef } from '$lib/types';
 import type { KmMarker } from '$lib/splits';
+import { analyticsToProperties } from '$lib/splits';
+import type { PlannedRoute, PlannedWaypoint, RouteTrack, SessionRouteRef } from '$lib/types';
 import { WEEKDAYS } from '$lib/week-mix';
 import { getSql, parseJsonColumn } from './db';
-import { parsePolyline, polylineFromGeoJson, polylineJson } from './routes';
-import { parsePlannedFile } from './planned-file';
 import { reverseGeocode } from './geo';
-import { analyticsToProperties } from '$lib/splits';
+import { parsePlannedFile, plannedTrackStats, type ParsedPlannedRoute } from './planned-file';
+import { parsePolyline, polylineFromGeoJson, polylineJson } from './routes';
 
 export type PlannedRouteDetail = PlannedRoute & {
 	geojson: {
@@ -150,12 +150,24 @@ export async function getPlannedRoute(slug: string): Promise<PlannedRouteDetail 
 	return { ...route, geojson, kmMarkers };
 }
 
-export async function savePlannedFromFile(input: {
-	text: string;
-	filename: string;
-	notes?: string;
-}): Promise<PlannedRoute> {
-	const parsed = parsePlannedFile(input.text, input.filename);
+async function insertPlannedRoute(
+	parsed: Pick<
+		ParsedPlannedRoute,
+		| 'name'
+		| 'distanceKm'
+		| 'elevGain'
+		| 'elevLoss'
+		| 'elevMin'
+		| 'elevMax'
+		| 'points'
+		| 'waypoints'
+		| 'kmMarkers'
+		| 'startLat'
+		| 'startLng'
+		| 'estTime'
+	>,
+	notes?: string
+): Promise<PlannedRoute> {
 	const slug = await nextFreeSlug(slugify(parsed.name));
 	const geo =
 		parsed.startLat != null && parsed.startLng != null
@@ -191,7 +203,7 @@ export async function savePlannedFromFile(input: {
 			slug, name, notes, distance_km, elev_gain, elev_loss, elev_min, elev_max,
 			point_count, est_time, saved_on, country, province, place, waypoints, geojson, polyline
 		) VALUES (
-			${slug}, ${parsed.name}, ${input.notes?.trim() ?? ''}, ${parsed.distanceKm},
+			${slug}, ${parsed.name}, ${notes?.trim() ?? ''}, ${parsed.distanceKm},
 			${parsed.elevGain}, ${parsed.elevLoss}, ${parsed.elevMin}, ${parsed.elevMax},
 			${parsed.points.length}, ${parsed.estTime}, ${saved_on}, ${geo.country}, ${geo.province}, ${geo.place},
 			${JSON.stringify(parsed.waypoints)}, ${JSON.stringify(geojson)},
@@ -201,6 +213,41 @@ export async function savePlannedFromFile(input: {
 			point_count, est_time, saved_on, country, province, place, waypoints
 	`) as Record<string, unknown>[];
 	return rowToRoute(rows[0]!);
+}
+
+export async function savePlannedFromFile(input: {
+	text: string;
+	filename: string;
+	notes?: string;
+}): Promise<PlannedRoute> {
+	return insertPlannedRoute(parsePlannedFile(input.text, input.filename), input.notes);
+}
+
+export async function savePlannedFromTrack(input: {
+	name: string;
+	points: { lat: number; lng: number; elev?: number }[];
+	waypoints: PlannedWaypoint[];
+	notes?: string;
+}): Promise<PlannedRoute> {
+	const name = input.name.trim();
+	if (!name) throw new Error('Name this route.');
+	const points = input.points.filter(
+		(p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
+	);
+	if (points.length < 2) throw new Error('Need a path with at least two points.');
+	const stats = plannedTrackStats(points);
+	return insertPlannedRoute(
+		{
+			name,
+			...stats,
+			points,
+			waypoints: input.waypoints,
+			startLat: points[0]?.lat ?? null,
+			startLng: points[0]?.lng ?? null,
+			estTime: ''
+		},
+		input.notes
+	);
 }
 
 export async function updatePlannedRoute(

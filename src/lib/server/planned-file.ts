@@ -92,7 +92,7 @@ function formatBrouterTime(raw: string): string {
 	return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function statsFromPoints(points: { lat: number; lng: number; elev?: number }[]): {
+export function plannedTrackStats(points: { lat: number; lng: number; elev?: number }[]): {
 	distanceKm: number | null;
 	elevGain: number | null;
 	elevLoss: number | null;
@@ -218,7 +218,7 @@ function parsePlannedGpx(xml: string, filename: string): ParsedPlannedRoute {
 	}
 	points = downsample(points, MAX_POINTS);
 	const waypoints = parseGpxWaypoints(xml, points.length);
-	const stats = statsFromPoints(points);
+	const stats = plannedTrackStats(points);
 	const brouter = parseBrouterComment(xml);
 	if (stats.distanceKm == null && brouter.lengthM != null && brouter.lengthM > 0) {
 		stats.distanceKm = round2(brouter.lengthM / 1000);
@@ -347,7 +347,7 @@ function parsePlannedGeoJson(text: string, filename: string): ParsedPlannedRoute
 	}
 
 	const slim = downsample(points, MAX_POINTS);
-	const stats = statsFromPoints(slim);
+	const stats = plannedTrackStats(slim);
 	if (stats.distanceKm == null && brouterLenM != null && brouterLenM > 0) {
 		stats.distanceKm = round2(brouterLenM / 1000);
 	}

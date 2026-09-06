@@ -1,5 +1,11 @@
 import { AuthGate, useAuthed } from '$lib/auth';
-import { deletePlannedRoute, getPlannedRoutesData, importPlannedRoute, updatePlannedRoute } from '$lib/server/functions';
+import {
+    createPlannedRoute,
+    deletePlannedRoute,
+    getPlannedRoutesData,
+    importPlannedRoute,
+    updatePlannedRoute
+} from '$lib/server/functions';
 import type { PlannedRoute } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
@@ -12,19 +18,37 @@ import { PageHero } from '../components/PageHero';
 import { MapPinIcon } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
+import { WaypointEditor } from '../components/WaypointEditor';
+
+type RoutesSearch = { draw?: boolean };
 
 export const Route = createFileRoute('/routes/')({
+	validateSearch: (s: Record<string, unknown>): RoutesSearch => ({
+		draw: s.draw === true || s.draw === '1' || s.draw === 'true' ? true : undefined
+	}),
 	loader: () => ({ page: getPlannedRoutesData() }),
 	component: PlannedRoutes
 });
 
 function PlannedRoutes() {
 	const { page } = Route.useLoaderData();
+	const { draw } = Route.useSearch();
 	const router = useRouter();
 	const authed = useAuthed();
 	const snack = useSnackbar();
 	const [dragOver, setDragOver] = useState(false);
 	const [busy, setBusy] = useState(false);
+	const [drawing, setDrawing] = useState(() => Boolean(draw));
+	const [routeName, setRouteName] = useState('');
+
+	useEffect(() => {
+		if (draw) setDrawing(true);
+	}, [draw]);
+
+	function closeDraw() {
+		setDrawing(false);
+		if (draw) void router.navigate({ to: '/routes', search: {} });
+	}
 
 	async function importFile(file: File | undefined) {
 		if (!file) return;
@@ -46,6 +70,42 @@ function PlannedRoutes() {
 		}
 	}
 
+	async function saveDrawn(data: {
+		waypoints: { lat: number; lng: number }[];
+		followNetwork: boolean;
+		networkCoords: { lat: number; lng: number; elev?: number }[];
+	}) {
+		const name = routeName.trim();
+		if (!name) {
+			snack.info('Name this route first.');
+			return;
+		}
+		if (data.waypoints.length < 2) {
+			snack.info('Drop at least two pins — start and end, plus any turns in between.');
+			return;
+		}
+		setBusy(true);
+		try {
+			const result = await createPlannedRoute({
+				data: {
+					name,
+					waypoints: data.waypoints,
+					follow_network: data.followNetwork,
+					network_coords:
+						data.followNetwork && data.networkCoords.length >= 2 ? data.networkCoords : undefined
+				}
+			});
+			snack.success(`Saved ${result.name}`);
+			setRouteName('');
+			setDrawing(false);
+			await router.invalidate();
+			await router.navigate({ to: '/routes/$slug', params: { slug: result.slug } });
+		} catch (error) {
+			snack.error(errorMessage(error, 'Could not save route'));
+			setBusy(false);
+		}
+	}
+
 	return (
 		<>
 			<PageHero
@@ -54,40 +114,77 @@ function PlannedRoutes() {
 				title="Routes"
 				lead={
 					<p>
-						Import a <strong>GPX route</strong>, then open it to attach the loop to upcoming plan
-						days or a logged activity. The same route can cover more than one day.
+						Draw a loop with pins, or import a <strong>GPX route</strong>. Open it later to attach
+						the same loop to upcoming plan days or a logged activity.
 					</p>
 				}
 			/>
 
 			{authed ? (
-			<label
-				className={cn(ui.dropzone, 'mb-5', dragOver && ui.dropzoneOver)}
-				onDragOver={(event) => {
-					event.preventDefault();
-					setDragOver(true);
-				}}
-				onDragLeave={() => setDragOver(false)}
-				onDrop={(event) => {
-					event.preventDefault();
-					setDragOver(false);
-					void importFile(event.dataTransfer.files[0]);
-				}}
-			>
-				<input
-					type="file"
-					accept=".gpx,.geojson,.json,application/gpx+xml,application/geo+json"
-					hidden
-					disabled={busy}
-					onChange={(event) => void importFile(event.target.files?.[0])}
-				/>
-				<Icon name="upload" size={34} />
-				<strong>{busy ? 'Saving route…' : 'Choose a GPX'}</strong>
-				<span className={ui.muted}>or tap to browse · waypoints are imported when available</span>
-				<span className={cn(ui.muted, 'hidden [@media(hover:hover)_and_(pointer:fine)]:block')}>
-					You can also drop a GPX or GeoJSON file here
-				</span>
-			</label>
+			<div className="mb-5 grid gap-3">
+				{drawing ? (
+					<div className={ui.panel}>
+						<WaypointEditor
+							emptyHint="Tap to drop pins along the loop"
+							hint="Place pins in order. Tap a pin to remove it, or tap the line to add one between. Drag to adjust."
+							saveLabel="Save route"
+							busy={busy}
+							onClose={closeDraw}
+							onSave={saveDrawn}
+						>
+							<label className={ui.field}>
+								<span className={ui.req}>Name</span>
+								<input
+									value={routeName}
+									required
+									autoComplete="off"
+									placeholder="Saturday loop"
+									disabled={busy}
+									onChange={(event) => setRouteName(event.target.value)}
+								/>
+							</label>
+						</WaypointEditor>
+					</div>
+				) : (
+					<button
+						className={cn(ui.btnPrimary, 'justify-self-start')}
+						type="button"
+						onClick={() => setDrawing(true)}
+					>
+						<Icon name="map" size={16} />
+						Draw a route
+					</button>
+				)}
+				{drawing ? null : (
+					<label
+						className={cn(ui.dropzone, dragOver && ui.dropzoneOver)}
+						onDragOver={(event) => {
+							event.preventDefault();
+							setDragOver(true);
+						}}
+						onDragLeave={() => setDragOver(false)}
+						onDrop={(event) => {
+							event.preventDefault();
+							setDragOver(false);
+							void importFile(event.dataTransfer.files[0]);
+						}}
+					>
+						<input
+							type="file"
+							accept=".gpx,.geojson,.json,application/gpx+xml,application/geo+json"
+							hidden
+							disabled={busy}
+							onChange={(event) => void importFile(event.target.files?.[0])}
+						/>
+						<Icon name="upload" size={34} />
+						<strong>{busy ? 'Saving route…' : 'Choose a GPX'}</strong>
+						<span className={ui.muted}>or tap to browse · waypoints are imported when available</span>
+						<span className={cn(ui.muted, 'hidden [@media(hover:hover)_and_(pointer:fine)]:block')}>
+							You can also drop a GPX or GeoJSON file here
+						</span>
+					</label>
+				)}
+			</div>
 			) : null}
 			<DeferredData promise={page}>
 				{(data) => <PlannedRoutesList data={data} />}
@@ -129,7 +226,7 @@ function PlannedRoutesList({
 						<p>
 							{data.tracks.length
 								? `${data.tracks.length} planned route${data.tracks.length === 1 ? '' : 's'} · click a line to open`
-								: 'Import a route to see it here'}
+								: 'Draw or import a route to see it here'}
 						</p>
 					</div>
 				</div>
@@ -138,7 +235,7 @@ function PlannedRoutesList({
 					meta={meta}
 					focusIds={[]}
 					detailPath="/routes/$slug"
-					emptyText="No planned routes yet — import a GPX to add one."
+					emptyText="No planned routes yet — draw one or import a GPX."
 				/>
 			</section>
 

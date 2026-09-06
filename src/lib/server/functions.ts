@@ -133,7 +133,8 @@ import {
     listPlannedRouteTracks,
     listPlanRouteRefs,
     listRouteLinks,
-    savePlannedFromFile
+    savePlannedFromFile,
+    savePlannedFromTrack
 } from './planned-routes';
 import {
     getRouteGeoJson,
@@ -2326,6 +2327,53 @@ export const importPlannedRoute = createServerFn({ method: 'POST' }).middleware(
 	.validator((d: { text: string; filename: string }) => d)
 	.handler(async ({ data }) => {
 		const route = await savePlannedFromFile(data);
+		return {
+			slug: route.slug,
+			name: route.name,
+			distance_km: route.distance_km
+		};
+	});
+
+export const createPlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator(
+		(d: {
+			name: string;
+			waypoints: { lat: number; lng: number }[];
+			follow_network?: boolean;
+			network_coords?: { lat: number; lng: number; elev?: number }[];
+		}) => d
+	)
+	.handler(async ({ data }) => {
+		const name = data.name.trim();
+		if (!name) throw new Error('Name this route.');
+		const pins = normalizeWaypoints(data.waypoints);
+		if (pins.length < 2) throw new Error('Drop at least two pins.');
+
+		let points = densifyWaypoints(pins);
+		if (data.follow_network) {
+			const previewed = normalizeTrackPoints(data.network_coords);
+			if (previewed.length >= 2) {
+				points = previewed;
+			} else {
+				const routed = await brouterAlongPins(pins);
+				if (routed.length < 2) {
+					throw new Error(
+						'Could not follow roads between those pins. Uncheck Follow roads to save the straight line.'
+					);
+				}
+				points = routed;
+			}
+		}
+
+		const route = await savePlannedFromTrack({
+			name,
+			points,
+			waypoints: pins.map((p, i) => ({
+				name: i === 0 ? 'Start' : i === pins.length - 1 ? 'Finish' : `Via ${i}`,
+				lat: p.lat,
+				lng: p.lng
+			}))
+		});
 		return {
 			slug: route.slug,
 			name: route.name,

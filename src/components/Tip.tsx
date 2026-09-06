@@ -1,12 +1,15 @@
 import { cn } from '$lib/ui';
 import {
-	useEffect,
-	useId,
-	useRef,
-	useState,
-	type CSSProperties,
-	type ReactNode
+    useEffect,
+    useId,
+    useLayoutEffect,
+    useRef,
+    useState,
+    type CSSProperties,
+    type ReactNode
 } from 'react';
+
+const VIEWPORT_PAD = 8;
 
 export function finePointerHover(): boolean {
 	return (
@@ -15,7 +18,7 @@ export function finePointerHover(): boolean {
 	);
 }
 
-/** Shared bubble chrome. Position with `className` / `style`. */
+/** Shared bubble chrome. Natural width; shifts or wraps only if it would clip the viewport. */
 export function TipBubble({
 	children,
 	className,
@@ -27,16 +30,67 @@ export function TipBubble({
 	style?: CSSProperties;
 	id?: string;
 }) {
+	const ref = useRef<HTMLDivElement>(null);
+	const [fit, setFit] = useState({ shift: 0, maxWidth: 0, arrow: 50 });
+
+	useLayoutEffect(() => {
+		const el = ref.current;
+		if (!el) return;
+
+		function place() {
+			if (!el) return;
+			const vw = window.innerWidth;
+			const cap = Math.max(0, vw - VIEWPORT_PAD * 2);
+
+			el.style.marginLeft = '0px';
+			el.style.maxWidth = 'none';
+			el.style.whiteSpace = 'nowrap';
+
+			const natural = el.getBoundingClientRect().width;
+			const wrap = natural > cap + 0.5;
+			if (wrap) {
+				el.style.maxWidth = `${cap}px`;
+				el.style.whiteSpace = 'normal';
+			}
+
+			const rect = el.getBoundingClientRect();
+			let shift = 0;
+			if (rect.left < VIEWPORT_PAD) shift = VIEWPORT_PAD - rect.left;
+			if (rect.right + shift > vw - VIEWPORT_PAD) {
+				shift = vw - VIEWPORT_PAD - rect.right;
+			}
+
+			const arrow = Math.round(Math.min(rect.width - 10, Math.max(10, rect.width / 2 - shift)));
+			const maxWidth = wrap ? cap : 0;
+			setFit((prev) =>
+				prev.shift === shift && prev.maxWidth === maxWidth && prev.arrow === arrow
+					? prev
+					: { shift, maxWidth, arrow }
+			);
+		}
+
+		place();
+		window.addEventListener('resize', place);
+		return () => window.removeEventListener('resize', place);
+	}, [children]);
+
 	return (
 		<div
+			ref={ref}
 			id={id}
 			role="tooltip"
 			className={cn(
-				'absolute z-[3] flex flex-col items-center gap-[0.05rem] px-[0.45rem] py-[0.28rem] rounded-lg border border-line bg-surface shadow-lift pointer-events-none whitespace-nowrap max-w-[min(14rem,70vw)] text-center',
-				'after:content-[\'\'] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-[5px] after:border-solid after:border-transparent after:border-t-surface',
+				'absolute z-[3] flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg border border-line bg-surface shadow-lift pointer-events-none text-center',
+				'after:content-[\'\'] after:absolute after:top-full after:left-[var(--tip-arrow-left,50%)] after:-translate-x-1/2 after:border-[5px] after:border-solid after:border-transparent after:border-t-surface',
 				className
 			)}
-			style={style}
+			style={{
+				...style,
+				marginLeft: fit.shift,
+				maxWidth: fit.maxWidth || undefined,
+				whiteSpace: fit.maxWidth ? 'normal' : 'nowrap',
+				['--tip-arrow-left' as string]: `${fit.arrow}px`
+			}}
 		>
 			{children}
 		</div>
@@ -47,7 +101,7 @@ export function TipValue({ children, className }: { children: ReactNode; classNa
 	return (
 		<span
 			className={cn(
-				'font-display font-bold text-[0.78rem] tracking-[-0.02em] text-accent-fg leading-[1.15]',
+				'font-display font-bold text-[0.95rem] tracking-[-0.02em] text-accent-fg leading-[1.25]',
 				className
 			)}
 		>
@@ -60,7 +114,7 @@ export function TipCaption({ children, className }: { children: ReactNode; class
 	return (
 		<span
 			className={cn(
-				'text-[0.68rem] text-muted leading-[1.15] overflow-hidden text-ellipsis max-w-full',
+				'text-[0.82rem] text-muted leading-[1.3]',
 				className
 			)}
 		>

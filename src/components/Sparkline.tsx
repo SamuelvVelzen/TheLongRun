@@ -1,3 +1,4 @@
+import { ui } from '$lib/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TipBubble, TipCaption, TipValue } from './Tip';
 
@@ -11,7 +12,7 @@ type Props = {
 	color?: string;
 	label?: string;
 	pad?: number;
-	/** Called with the point index when a point is clicked/tapped (e.g. to open its activity). */
+	/** Called with the point index when a point is opened (desktop click, or Open on touch). */
 	onPick?: (index: number) => void;
 };
 
@@ -26,6 +27,7 @@ export function Sparkline({
 	onPick
 }: Props) {
 	const rootRef = useRef<HTMLDivElement>(null);
+	const lastPointer = useRef<'mouse' | 'touch' | 'pen'>('mouse');
 	const [active, setActive] = useState<number | null>(null);
 	const [pinned, setPinned] = useState(false);
 
@@ -53,12 +55,18 @@ export function Sparkline({
 	}, [values, width, height, pad]);
 
 	const tipFor = (i: number): Tip | null => tips?.[i] ?? null;
+	const firstTip = tips?.[0];
+	const lastTip = tips?.length ? tips[tips.length - 1] : undefined;
 
 	function nearestIndex(clientX: number, target: Element): number {
 		const rect = target.getBoundingClientRect();
 		const x = ((clientX - rect.left) / Math.max(rect.width, 1)) * width;
 		const step = width / Math.max(values.length - 1, 1);
 		return Math.max(0, Math.min(values.length - 1, Math.round(x / step)));
+	}
+
+	function onPointerDown(e: React.PointerEvent) {
+		lastPointer.current = e.pointerType === 'touch' || e.pointerType === 'pen' ? e.pointerType : 'mouse';
 	}
 
 	function onPointerMove(e: React.PointerEvent) {
@@ -74,14 +82,11 @@ export function Sparkline({
 
 	function onPointerUp(e: React.PointerEvent) {
 		if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+		e.preventDefault();
 		if (values.length < 2) return;
 		const i = nearestIndex(e.clientX, e.currentTarget);
 		if (!tipFor(i)) return;
 		if (pinned && active === i) {
-			if (onPick) {
-				onPick(i);
-				return;
-			}
 			setPinned(false);
 			setActive(null);
 			return;
@@ -91,7 +96,8 @@ export function Sparkline({
 	}
 
 	function onClick(e: React.MouseEvent) {
-		if (!onPick || values.length < 2) return;
+		// Touch already pinned the value on pointerup; the leftover click must not navigate.
+		if (lastPointer.current !== 'mouse' || !onPick || values.length < 2) return;
 		const i = nearestIndex(e.clientX, e.currentTarget);
 		if (tipFor(i)) onPick(i);
 	}
@@ -104,12 +110,23 @@ export function Sparkline({
 			setPinned(false);
 			setActive(null);
 		}
+		function onKey(e: KeyboardEvent) {
+			if (e.key === 'Escape') {
+				setPinned(false);
+				setActive(null);
+			}
+		}
 		document.addEventListener('pointerdown', onDocPointerDown);
-		return () => document.removeEventListener('pointerdown', onDocPointerDown);
+		window.addEventListener('keydown', onKey);
+		return () => {
+			document.removeEventListener('pointerdown', onDocPointerDown);
+			window.removeEventListener('keydown', onKey);
+		};
 	}, [pinned]);
 
 	const activeTip = active !== null ? tipFor(active) : null;
 	const activeCoord = active !== null ? geometry.coords[active] : null;
+	const showReadout = pinned && activeTip;
 
 	return (
 		<div className="relative block min-w-0 touch-manipulation" ref={rootRef}>
@@ -122,6 +139,7 @@ export function Sparkline({
 				aria-label={label}
 				preserveAspectRatio="none"
 				style={onPick ? { cursor: 'pointer' } : undefined}
+				onPointerDown={onPointerDown}
 				onPointerMove={onPointerMove}
 				onPointerLeave={onPointerLeave}
 				onPointerUp={onPointerUp}
@@ -157,9 +175,9 @@ export function Sparkline({
 				/>
 			)}
 
-			{activeTip && activeCoord && (
+			{activeTip && activeCoord && !pinned && (
 				<TipBubble
-					className="z-[2] -translate-x-1/2 -translate-y-[calc(100%+10px)] max-w-[min(11rem,70vw)]"
+					className="z-[2] -translate-x-1/2 -translate-y-[calc(100%+10px)]"
 					style={{
 						left: `${(activeCoord.x / width) * 100}%`,
 						top: `${(activeCoord.y / height) * 100}%`
@@ -167,13 +185,33 @@ export function Sparkline({
 				>
 					<TipValue>{activeTip.display}</TipValue>
 					<TipCaption>{activeTip.label}</TipCaption>
-					{onPick && (
-						<span className="text-[0.62rem] font-semibold tracking-[0.04em] text-accent-fg leading-[1.3]">
-							open →
-						</span>
-					)}
 				</TipBubble>
 			)}
+
+			<div className="flex justify-between items-baseline gap-2 min-h-[1.15rem] text-[0.72rem] mt-[0.2rem]">
+				{showReadout ? (
+					<>
+						<span className="min-w-0 text-fg">
+							<strong className="font-semibold">{activeTip.display}</strong>
+							<span className={ui.muted}> · {activeTip.label}</span>
+						</span>
+						{onPick && active != null && (
+							<button
+								type="button"
+								className="shrink-0 appearance-none bg-transparent border-0 p-0 m-0 text-accent-fg font-semibold cursor-pointer touch-manipulation"
+								onClick={() => onPick(active)}
+							>
+								Open
+							</button>
+						)}
+					</>
+				) : (
+					<>
+						<span className={ui.muted}>{firstTip?.label}</span>
+						<span className={ui.muted}>{lastTip?.label}</span>
+					</>
+				)}
+			</div>
 		</div>
 	);
 }

@@ -83,10 +83,6 @@ export function TrendsSection({
 											: undefined
 									}
 								/>
-								<div className="flex justify-between text-[0.72rem] mt-[0.2rem] text-muted" aria-hidden="true">
-									<span>{series.points[0]?.label}</span>
-									<span>{series.points[series.points.length - 1]?.label}</span>
-								</div>
 							</div>
 						)}
 					</article>
@@ -97,8 +93,9 @@ export function TrendsSection({
 }
 
 function TrendBarChart({ series }: { series: TrendSeries }) {
-	const { active, rootRef, onEnter, onLeave, onToggle } = usePinnedTip<number>();
+	const { active, pinned, rootRef, onEnter, onLeave, onToggle } = usePinnedTip<number>();
 	const max = Math.max(...series.points.map((p) => p.value), 0.1);
+	const selected = active != null ? series.points[active] : null;
 
 	function barHeight(value: number): string {
 		const pct = Math.max(4, Math.round((value / max) * 100));
@@ -106,49 +103,53 @@ function TrendBarChart({ series }: { series: TrendSeries }) {
 	}
 
 	return (
-		<div
-			className="flex items-stretch gap-[0.28rem] h-[4.6rem] min-w-0 overflow-visible pt-[1.85rem] -mt-[1.85rem] max-[720px]:h-[4.2rem] max-[720px]:gap-[0.18rem]"
-			ref={rootRef}
-			role="group"
-			aria-label={`${series.title}: ${series.points.map((p) => p.display).join(', ')}`}
-		>
-			{series.points.map((point, i) => (
-				<button
-					key={i}
-					type="button"
-					className="group/bar relative flex-1 min-w-0 flex flex-col items-center gap-[0.28rem] p-0 m-0 border-0 bg-transparent text-inherit font-inherit cursor-pointer touch-manipulation [-webkit-tap-highlight-color:transparent] max-[720px]:even:[&>span:first-of-type]:invisible"
-					aria-label={`${point.label}: ${point.display}`}
-					onPointerEnter={() => onEnter(i)}
-					onPointerLeave={onLeave}
-					onClick={(e) => {
-						e.stopPropagation();
-						onToggle(i);
-					}}
-				>
-					<div className="flex-1 w-full flex items-end justify-center">
-						<span
-							className={cn(
-								'block w-full max-w-[1.35rem] rounded-[3px_3px_1px_1px] bg-[linear-gradient(180deg,var(--accent)_0%,color-mix(in_srgb,var(--accent)_45%,transparent)_100%)] min-h-[3px] transition-[filter,opacity] duration-100 group-hover/bar:brightness-[1.08] group-active/bar:brightness-[1.08]',
-								point.value <= 0
-									? 'opacity-[0.22] bg-line min-h-[2px] !h-[4%] group-hover/bar:brightness-100 group-active/bar:brightness-100'
-									: active === i
-										? 'brightness-[1.08]'
-										: ''
-							)}
-							style={{ height: barHeight(point.value) }}
-						></span>
-					</div>
-					<span className="text-[0.62rem] leading-[1.1] text-center whitespace-nowrap overflow-hidden text-ellipsis max-w-full text-muted max-[720px]:text-[0.58rem]">
-						{point.label}
-					</span>
-					{active === i && (
-						<TipBubble className="bottom-[calc(100%-0.1rem)] left-1/2 -translate-x-1/2">
-							<TipValue>{point.display}</TipValue>
-							<TipCaption>{point.label}</TipCaption>
-						</TipBubble>
-					)}
-				</button>
-			))}
+		<div ref={rootRef}>
+			<div
+				className="flex items-stretch gap-[0.28rem] h-[4.6rem] min-w-0 overflow-visible pt-[1.85rem] -mt-[1.85rem] max-[720px]:h-[4.2rem] max-[720px]:gap-[0.18rem]"
+				role="group"
+				aria-label={`${series.title}: ${series.points.map((p) => p.display).join(', ')}`}
+			>
+				{series.points.map((point, i) => (
+					<button
+						key={i}
+						type="button"
+						className="group/bar relative flex-1 min-w-0 flex flex-col items-center gap-[0.28rem] p-0 m-0 border-0 bg-transparent text-inherit font-inherit cursor-pointer touch-manipulation [-webkit-tap-highlight-color:transparent] max-[720px]:even:[&>span:first-of-type]:invisible"
+						aria-label={`${point.label}: ${point.display}`}
+						onPointerEnter={() => onEnter(i)}
+						onPointerLeave={onLeave}
+						onClick={(e) => {
+							e.stopPropagation();
+							onToggle(i);
+						}}
+					>
+						<div className="flex-1 w-full flex items-end justify-center">
+							<span
+								className={cn(
+									'block w-full max-w-[1.35rem] rounded-[3px_3px_1px_1px] bg-[linear-gradient(180deg,var(--accent)_0%,color-mix(in_srgb,var(--accent)_45%,transparent)_100%)] min-h-[3px] transition-[filter,opacity] duration-100 group-hover/bar:brightness-[1.08] group-active/bar:brightness-[1.08]',
+									point.value <= 0
+										? 'opacity-[0.22] bg-line min-h-[2px] !h-[4%] group-hover/bar:brightness-100 group-active/bar:brightness-100'
+										: active === i
+											? 'brightness-[1.08]'
+											: ''
+								)}
+								style={{ height: barHeight(point.value) }}
+							></span>
+						</div>
+						<span className="text-[0.62rem] leading-[1.1] text-center whitespace-nowrap overflow-hidden text-ellipsis max-w-full text-muted max-[720px]:text-[0.58rem]">
+							{point.label}
+						</span>
+						{active === i && !pinned && (
+							<TipBubble className="bottom-[calc(100%-0.1rem)] left-1/2 -translate-x-1/2">
+								<TipValue>{point.display}</TipValue>
+								<TipCaption>{point.label}</TipCaption>
+							</TipBubble>
+						)}
+					</button>
+				))}
+			</div>
+			<p className="min-h-[1.15rem] mt-[0.2rem] text-[0.72rem] leading-[1.3] text-fg">
+				{pinned && selected ? selected.display : null}
+			</p>
 		</div>
 	);
 }

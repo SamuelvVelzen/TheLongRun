@@ -1,7 +1,7 @@
-import { isValidCoord, type GpsPoint } from '$lib/gps-repair';
+import { densifyWaypoints, isValidCoord, MAX_NETWORK_VIAS, type GpsPoint } from '$lib/gps-repair';
 
 const BROUTER_URL = 'https://brouter.de/brouter';
-const TIMEOUT_MS = 12000;
+const TIMEOUT_MS = 20000;
 const MAX_POINTS = 2500;
 
 type BrouterGeo = {
@@ -58,4 +58,23 @@ export async function brouterViaPath(points: GpsPoint[]): Promise<GpsPoint[]> {
 /** Trail/road path between two known-good GPS points (BRouter public instance). */
 export async function brouterFill(from: GpsPoint, to: GpsPoint): Promise<GpsPoint[]> {
 	return brouterViaPath([from, to]);
+}
+
+/** Follow the road network through pins. Tries one via-request, then hop-by-hop. */
+export async function brouterAlongPins(points: GpsPoint[]): Promise<GpsPoint[]> {
+	const pts = points.filter((p) => isValidCoord(p.lat, p.lng));
+	if (pts.length < 2) return [];
+	if (pts.length <= MAX_NETWORK_VIAS) {
+		const via = await brouterViaPath(pts);
+		if (via.length >= 2) return via;
+	}
+	const out: GpsPoint[] = [];
+	for (let i = 0; i < pts.length - 1; i++) {
+		const hop = await brouterViaPath([pts[i]!, pts[i + 1]!]);
+		const chunk = hop.length >= 2 ? hop : densifyWaypoints([pts[i]!, pts[i + 1]!]);
+		if (!chunk.length) continue;
+		if (out.length) chunk.shift();
+		out.push(...chunk);
+	}
+	return out.length >= 2 ? out : [];
 }

@@ -38,7 +38,9 @@ export type IconName =
 	| 'trophy'
 	| 'install'
 	| 'signIn'
-	| 'signOut';
+	| 'signOut'
+	| 'undo'
+	| 'redo';
 
 function Paths({ name }: { name: IconName }) {
 	switch (name) {
@@ -298,6 +300,20 @@ function Paths({ name }: { name: IconName }) {
 					<path d="M14 7l5 5-5 5" />
 					<path d="M19 12H7" />
 					<path d="M9 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4" />
+				</>
+			);
+		case 'undo':
+			return (
+				<>
+					<path d="M8 8H4v4" />
+					<path d="M4.4 12a8 8 0 1 0 2.2-6.5" />
+				</>
+			);
+		case 'redo':
+			return (
+				<>
+					<path d="M16 8h4v4" />
+					<path d="M19.6 12a8 8 0 1 1-2.2-6.5" />
 				</>
 			);
 	}

@@ -32,15 +32,20 @@ function lerp(a: number, b: number, t: number): number {
 }
 
 export function normalizeWaypoints(raw: unknown): GpsWaypoint[] {
+	return normalizeTrackPoints(raw, MAX_WAYPOINTS);
+}
+
+export function normalizeTrackPoints(raw: unknown, max = MAX_STORE_POINTS): GpsPoint[] {
 	if (!Array.isArray(raw)) return [];
-	const out: GpsWaypoint[] = [];
+	const out: GpsPoint[] = [];
 	for (const w of raw) {
 		if (!w || typeof w !== 'object') continue;
 		const lat = Number((w as { lat?: unknown }).lat);
 		const lng = Number((w as { lng?: unknown }).lng);
 		if (!isValidCoord(lat, lng)) continue;
-		out.push({ lat, lng });
-		if (out.length >= MAX_WAYPOINTS) break;
+		const elev = Number((w as { elev?: unknown }).elev);
+		out.push(Number.isFinite(elev) ? { lat, lng, elev } : { lat, lng });
+		if (out.length >= max) break;
 	}
 	return out;
 }
@@ -88,6 +93,87 @@ export function snapToTrackEnds(
 		}
 	}
 	return best?.p ?? null;
+}
+
+function closestOnSegment(
+	lat: number,
+	lng: number,
+	a: GpsWaypoint,
+	b: GpsWaypoint
+): { lat: number; lng: number; distM: number } {
+	const toRad = Math.PI / 180;
+	const cos = Math.cos(((a.lat + b.lat) / 2) * toRad);
+	const bx = (b.lng - a.lng) * cos;
+	const by = b.lat - a.lat;
+	const px = (lng - a.lng) * cos;
+	const py = lat - a.lat;
+	const len2 = bx * bx + by * by;
+	const t = len2 < 1e-18 ? 0 : Math.max(0, Math.min(1, (px * bx + py * by) / len2));
+	const q = { lat: a.lat + t * (b.lat - a.lat), lng: a.lng + t * (b.lng - a.lng) };
+	return { ...q, distM: haversineMeters(lat, lng, q.lat, q.lng) };
+}
+
+function closestOnPolyline(
+	lat: number,
+	lng: number,
+	line: GpsWaypoint[]
+): { lat: number; lng: number; distM: number } | null {
+	if (line.length < 2) return null;
+	let best: { lat: number; lng: number; distM: number } | null = null;
+	for (let i = 0; i < line.length - 1; i++) {
+		const hit = closestOnSegment(lat, lng, line[i]!, line[i + 1]!);
+		if (!best || hit.distM < best.distM) best = hit;
+	}
+	return best;
+}
+
+function nearestIndex(line: GpsWaypoint[], pin: GpsWaypoint): number {
+	let best = 0;
+	let bestD = Infinity;
+	for (let i = 0; i < line.length; i++) {
+		const d = haversineMeters(pin.lat, pin.lng, line[i]!.lat, line[i]!.lng);
+		if (d < bestD) {
+			bestD = d;
+			best = i;
+		}
+	}
+	return best;
+}
+
+function hopPath(a: GpsWaypoint, b: GpsWaypoint, preview?: GpsWaypoint[] | null): GpsWaypoint[] {
+	if (!preview || preview.length < 2) return [a, b];
+	let ia = nearestIndex(preview, a);
+	let ib = nearestIndex(preview, b);
+	if (ib < ia) [ia, ib] = [ib, ia];
+	const slice = preview.slice(ia, ib + 1);
+	return slice.length >= 2 ? slice : [a, b];
+}
+
+/** Insert a pin on the closest hop of the drawn/routed line. */
+export function insertPinOnLine(
+	pins: GpsWaypoint[],
+	click: GpsWaypoint,
+	preview?: GpsWaypoint[] | null,
+	maxM = 150
+): GpsWaypoint[] | null {
+	if (pins.length < 2 || pins.length >= MAX_WAYPOINTS) return null;
+	let best: { insertAt: number; point: GpsWaypoint; distM: number } | null = null;
+	for (let i = 0; i < pins.length - 1; i++) {
+		const path = hopPath(pins[i]!, pins[i + 1]!, preview);
+		const hit = closestOnPolyline(click.lat, click.lng, path);
+		if (!hit) continue;
+		if (!best || hit.distM < best.distM) {
+			best = { insertAt: i + 1, point: { lat: hit.lat, lng: hit.lng }, distM: hit.distM };
+		}
+	}
+	if (!best || best.distM > maxM) return null;
+	const nearPin = pins.some(
+		(p) => haversineMeters(p.lat, p.lng, best.point.lat, best.point.lng) < 15
+	);
+	if (nearPin) return null;
+	const next = pins.slice();
+	next.splice(best.insertAt, 0, best.point);
+	return next;
 }
 
 export function diagnoseGps(samples: GpsPoint[]): GpsHealth {

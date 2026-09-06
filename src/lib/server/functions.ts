@@ -18,7 +18,7 @@ import {
     attachHrSeries,
     densifyWaypoints,
     diagnoseGps,
-    MAX_NETWORK_VIAS,
+    normalizeTrackPoints,
     normalizeWaypoints,
     samplesFromGeoJson,
     stampAlongDistance,
@@ -90,7 +90,7 @@ import { zipStoreBytes } from '$lib/zip';
 import { createServerFn } from '@tanstack/react-start';
 import matter from 'gray-matter';
 import { requireAuth } from './auth';
-import { brouterViaPath } from './brouter';
+import { brouterAlongPins } from './brouter';
 import {
     currentPlanWeek,
     loadGoalStore,
@@ -1335,6 +1335,7 @@ export const repairRunGps = createServerFn({ method: 'POST' }).middleware([requi
 			slug: string;
 			waypoints?: { lat: number; lng: number }[];
 			follow_network?: boolean;
+			network_coords?: { lat: number; lng: number }[];
 			planned_slug?: string;
 		}) => d
 	)
@@ -1363,11 +1364,19 @@ export const repairRunGps = createServerFn({ method: 'POST' }).middleware([requi
 		let out = pins.length >= 2 ? densifyWaypoints(pins) : planned ? samplesFromGeoJson(planned.geojson) : [];
 		let source: 'waypoints' | 'waypoints-network' | 'planned' = pins.length >= 2 ? 'waypoints' : 'planned';
 
-		if (pins.length >= 2 && data.follow_network && pins.length <= MAX_NETWORK_VIAS) {
-			const routed = await brouterViaPath(pins);
-			if (routed.length >= 2) {
-				out = routed;
+		const previewed = normalizeTrackPoints(data.network_coords);
+		if (pins.length >= 2 && data.follow_network) {
+			if (previewed.length >= 2) {
+				out = previewed;
 				source = 'waypoints-network';
+			} else {
+				const routed = await brouterAlongPins(pins);
+				if (routed.length >= 2) {
+					out = routed;
+					source = 'waypoints-network';
+				} else {
+					throw new Error('Could not follow roads between those pins. Uncheck Follow roads to save the straight line.');
+				}
 			}
 		}
 
@@ -1429,6 +1438,21 @@ export const repairRunGps = createServerFn({ method: 'POST' }).middleware([requi
 			ok: true as const,
 			points: out.length,
 			source
+		};
+	});
+
+export const previewGpsNetwork = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: { waypoints: { lat: number; lng: number }[] }) => d)
+	.handler(async ({ data }) => {
+		const pins = normalizeWaypoints(data.waypoints);
+		if (pins.length < 2) return { coords: [] as { lat: number; lng: number }[] };
+		const routed = await brouterAlongPins(pins);
+		return {
+			coords: routed.map((p) =>
+				p.elev != null && Number.isFinite(p.elev)
+					? { lat: p.lat, lng: p.lng, elev: p.elev }
+					: { lat: p.lat, lng: p.lng }
+			)
 		};
 	});
 

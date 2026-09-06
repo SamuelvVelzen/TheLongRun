@@ -1,13 +1,13 @@
 import { downloadTextFile, memberActivityGpx } from '$lib/activity-export';
-import type { GpsContextTrack, GpsHealth, GpsWaypoint } from '$lib/gps-repair';
+import type { GpsContextTrack, GpsHealth } from '$lib/gps-repair';
 import { samplesFromGeoJson } from '$lib/gps-repair';
 import { getRouteGeoJsonFn, repairRunGps } from '$lib/server/functions';
 import type { SessionRouteRef } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
-import { GpsWaypointMap } from './GpsWaypointMap';
 import { errorMessage, useSnackbar } from './Snackbar';
+import { WaypointEditor } from './WaypointEditor';
 
 export type GpsRepairRouteOption = {
 	slug: string;
@@ -36,8 +36,6 @@ export async function exportActivityGpx(date: string, activityType: string, rout
 
 export function GpsRepair({
 	slug,
-	date,
-	activityType,
 	gps,
 	plannedRoute,
 	repairRoutes,
@@ -63,33 +61,53 @@ export function GpsRepair({
 	const snack = useSnackbar();
 	const [editing, setEditing] = useState(() => Boolean(groupedSessionId));
 	const [busy, setBusy] = useState(false);
-	const [waypoints, setWaypoints] = useState<GpsWaypoint[]>([]);
-	const [followNetwork, setFollowNetwork] = useState(false);
 	const [plannedSlug, setPlannedSlug] = useState(plannedRoute?.slug ?? '');
 	const [showPlanned, setShowPlanned] = useState(false);
 
 	const missing = gps.issues.includes('missing');
 
-	async function save(from: 'waypoints' | 'planned') {
+	async function saveWaypoints(data: {
+		waypoints: { lat: number; lng: number }[];
+		followNetwork: boolean;
+		networkCoords: { lat: number; lng: number }[];
+	}) {
 		if (busy) return;
-		if (from === 'waypoints' && waypoints.length < 2) {
+		if (data.waypoints.length < 2) {
 			snack.info('Drop at least two pins — start and end, plus any turns in between.');
 			return;
 		}
-		if (from === 'planned' && !plannedSlug) {
+		setBusy(true);
+		try {
+			const result = await repairRunGps({
+				data: {
+					slug,
+					waypoints: data.waypoints,
+					follow_network: data.followNetwork,
+					network_coords:
+						data.followNetwork && data.networkCoords.length >= 2 ? data.networkCoords : undefined
+				}
+			});
+			snack.success(`Saved a ${result.points}-point GPS track.`);
+			await router.invalidate();
+		} catch (error) {
+			snack.error(errorMessage(error, 'Could not save GPS'));
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function savePlanned() {
+		if (busy) return;
+		if (!plannedSlug) {
 			snack.info('Pick a saved route first.');
 			return;
 		}
 		setBusy(true);
 		try {
 			const result = await repairRunGps({
-				data:
-					from === 'waypoints'
-						? { slug, waypoints, follow_network: followNetwork }
-						: { slug, planned_slug: plannedSlug }
+				data: { slug, planned_slug: plannedSlug }
 			});
 			snack.success(`Saved a ${result.points}-point GPS track.`);
-			setWaypoints([]);
 			await router.invalidate();
 		} catch (error) {
 			snack.error(errorMessage(error, 'Could not save GPS'));
@@ -137,58 +155,15 @@ export function GpsRepair({
 
 			{authed && editing ? (
 				<div className="mt-4 grid gap-3">
-					<p className={cn(ui.muted, 'm-0 text-[0.92rem]')}>
-						Place pins in order for how you actually travelled. Drag to adjust, undo the last pin if needed.
-						Watch GPS is not smoothed — this only fills a missing track.
-					</p>
-					<GpsWaypointMap waypoints={waypoints} contextTracks={contextTracks} onChange={setWaypoints} />
-					<div className={cn(ui.actions, 'justify-start!')}>
-						<button
-							className={cn(ui.btnGhost, ui.btnSm)}
-							type="button"
-							disabled={busy}
-							onClick={() => setEditing(false)}
-						>
-							Close
-						</button>
-						<button
-							className={cn(ui.btnGhost, ui.btnSm)}
-							type="button"
-							disabled={busy || waypoints.length === 0}
-							onClick={() => setWaypoints((w) => w.slice(0, -1))}
-						>
-							Undo pin
-						</button>
-						<button
-							className={cn(ui.btnGhost, ui.btnSm)}
-							type="button"
-							disabled={busy || waypoints.length === 0}
-							onClick={() => setWaypoints([])}
-						>
-							Clear
-						</button>
-						<button
-							className={cn(ui.btnPrimary, ui.btnSm)}
-							type="button"
-							disabled={busy || waypoints.length < 2}
-							onClick={() => void save('waypoints')}
-						>
-							{busy ? 'Saving…' : 'Save GPS'}
-						</button>
-					</div>
-					<label className="flex items-start gap-2 text-[0.88rem] text-muted m-0">
-						<input
-							className="mt-1"
-							type="checkbox"
-							checked={followNetwork}
-							disabled={busy}
-							onChange={(e) => setFollowNetwork(e.target.checked)}
-						/>
-						<span>
-							Follow roads between pins (BRouter bike/hike network — not trains). Leave off to keep the line you
-							drew.
-						</span>
-					</label>
+					<WaypointEditor
+						contextTracks={contextTracks}
+						emptyHint="Tap to drop pins along how you travelled"
+						hint="Place pins in order for how you actually travelled. Tap a pin to remove it, or tap the line to add one between. Drag to adjust. Watch GPS is not smoothed — this only fills a missing track."
+						saveLabel="Save GPS"
+						busy={busy}
+						onClose={() => setEditing(false)}
+						onSave={saveWaypoints}
+					/>
 					{repairRoutes.length > 0 && (
 						<div>
 							<button
@@ -220,7 +195,7 @@ export function GpsRepair({
 										className={cn(ui.btnGhost, ui.btnSm)}
 										type="button"
 										disabled={busy || !plannedSlug}
-										onClick={() => void save('planned')}
+										onClick={() => void savePlanned()}
 									>
 										Build track from route
 									</button>

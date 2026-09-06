@@ -2,10 +2,10 @@
  * Training trend series for dashboard sparklines.
  */
 import {
-    normalizeActivityType,
-    showsFeel,
-    type ActivityType,
-    type FeelField
+	normalizeActivityType,
+	showsFeel,
+	type ActivityType,
+	type FeelField
 } from '$lib/activity';
 import { isoDateLocal } from '$lib/date-range';
 import { formatDuration, parseDurationSeconds } from '$lib/format';
@@ -33,7 +33,7 @@ export type TrendSeries = {
 	latest: string | null;
 	/** First → last delta caption, e.g. `↓0.4` or `→`. */
 	delta: string | null;
-	/** Lower values are better (pace, shins, legs). Colors the delta. */
+	/** Lower values are better (pace, effort, shins, legs). Colors the delta. */
 	lowerIsBetter?: boolean;
 	/** Higher values are better (energy). Colors the delta. */
 	higherIsBetter?: boolean;
@@ -331,7 +331,8 @@ function buildHrSeries(runs: RunRecord[]): TrendSeries | null {
 		unit: 'bpm',
 		points,
 		latest: String(Math.round(last.value)),
-		delta: formatDelta(first.value, last.value, { digits: 0 })
+		delta: formatDelta(first.value, last.value, { digits: 0 }),
+		lowerIsBetter: true
 	};
 }
 
@@ -376,7 +377,8 @@ export function buildTrainingTrends(
 	const effort = buildScoreSeries(runs, {
 		id: 'effort',
 		title: 'Effort',
-		field: 'effort'
+		field: 'effort',
+		lowerIsBetter: true
 	});
 	if (effort) series.push(effort);
 

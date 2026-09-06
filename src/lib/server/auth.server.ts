@@ -1,12 +1,12 @@
 import {
-	getCookie,
-	getRequestHeader,
-	getRequestHost,
-	getRequestProtocol,
-	getResponse,
-	setResponseStatus,
-	useSession,
-	type SessionConfig
+    getCookie,
+    getRequestHeader,
+    getRequestHost,
+    getRequestProtocol,
+    getResponse,
+    setResponseStatus,
+    useSession,
+    type SessionConfig
 } from '@tanstack/react-start/server';
 import { env } from 'cloudflare:workers';
 import { createRemoteJWKSet, decodeJwt, jwtVerify } from 'jose';
@@ -14,6 +14,8 @@ import { createRemoteJWKSet, decodeJwt, jwtVerify } from 'jose';
 export const SESSION_DAYS = 30;
 const SESSION_MAX_AGE = SESSION_DAYS * 24 * 60 * 60;
 const SESSION_COOKIE = 'tlr_session';
+/** Localhost-only: Sign out sets this so AUTH_DEV_BYPASS does not keep you signed in. */
+const DEV_GUEST_COOKIE = 'tlr_dev_guest';
 
 export type AuthSession = { authed: boolean; email?: string };
 
@@ -41,11 +43,30 @@ export function redirectWithSession(url: string): Response {
 	return new Response(null, { status: 302, headers });
 }
 
+function isLocalDevHost(): boolean {
+	const host = (getRequestHost({ xForwardedHost: true }).split(':')[0] ?? '').toLowerCase();
+	return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+}
+
+/** Localhost shortcut is on unless AUTH_DEV_BYPASS=0. Production host never matches. */
+export function localAuthEnabled(): boolean {
+	if (!isLocalDevHost()) return false;
+	const v = envStr('AUTH_DEV_BYPASS').toLowerCase();
+	return v !== '0' && v !== 'false';
+}
+
+function setDevGuestCookie(guest: boolean): void {
+	if (!isLocalDevHost()) return;
+	const maxAge = guest ? SESSION_MAX_AGE : 0;
+	getResponse().headers.append(
+		'Set-Cookie',
+		`${DEV_GUEST_COOKIE}=${guest ? '1' : ''}; Path=/; SameSite=Lax; Max-Age=${maxAge}; HttpOnly`
+	);
+}
+
 export function authDevBypass(): boolean {
-	const v = envStr('AUTH_DEV_BYPASS');
-	if (v !== '1' && v !== 'true') return false;
-	const host = getRequestHost({ xForwardedHost: true }).split(':')[0] ?? '';
-	return host === 'localhost' || host === '127.0.0.1';
+	if (!localAuthEnabled()) return false;
+	return getCookie(DEV_GUEST_COOKIE) !== '1';
 }
 
 const ACCESS_ISS = /^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/i;
@@ -128,7 +149,10 @@ export async function readAuthSession(): Promise<AuthSession> {
 }
 
 export async function completeAccessLogin(): Promise<{ ok: true } | { ok: false; error: string }> {
-	if (authDevBypass()) return { ok: true };
+	if (localAuthEnabled()) {
+		setDevGuestCookie(false);
+		return { ok: true };
+	}
 	const cfg = sessionConfig();
 	if (!cfg || !envStr('CF_ACCESS_AUD')) {
 		return {
@@ -155,6 +179,7 @@ export async function completeAccessLogin(): Promise<{ ok: true } | { ok: false;
 }
 
 export async function clearAuthSession(): Promise<void> {
+	if (localAuthEnabled()) setDevGuestCookie(true);
 	const cfg = sessionConfig();
 	if (!cfg) return;
 	const session = await useSession(cfg);

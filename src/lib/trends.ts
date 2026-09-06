@@ -1,6 +1,12 @@
 /**
  * Training trend series for dashboard sparklines.
  */
+import {
+    normalizeActivityType,
+    showsFeel,
+    type ActivityType,
+    type FeelField
+} from '$lib/activity';
 import { isoDateLocal } from '$lib/date-range';
 import { formatDuration, parseDurationSeconds } from '$lib/format';
 import { avg, sumDistance, weekNumberForDate, type PlanCalendar } from '$lib/plan';
@@ -27,8 +33,10 @@ export type TrendSeries = {
 	latest: string | null;
 	/** First → last delta caption, e.g. `↓0.4` or `→`. */
 	delta: string | null;
-	/** Whether lower values are better (pace, effort/shins when improving). */
+	/** Lower values are better (pace, shins, legs). Colors the delta. */
 	lowerIsBetter?: boolean;
+	/** Higher values are better (energy). Colors the delta. */
+	higherIsBetter?: boolean;
 	/** Render as CSS bars instead of sparkline. */
 	bars?: boolean;
 };
@@ -38,8 +46,12 @@ export type TrainingTrends = {
 };
 
 const PACE_MAX_SECS = 60 * 20;
+const SWIM_PACE_MAX_SECS = 10 * 60;
+const RIDE_KPH_MAX = 80;
 const WEEK_COUNT = 12;
 const RUN_SERIES_LIMIT = 16;
+const EASY_SESSIONS = new Set(['easy', 'shakeout', 'steady']);
+const PACE_SPORT_ORDER: ActivityType[] = ['run', 'walk', 'ride', 'swim'];
 
 function mondayOf(isoDate: string): Date {
 	const d = new Date(`${isoDate}T12:00:00`);
@@ -66,10 +78,18 @@ function round1(n: number): number {
 	return Math.round(n * 10) / 10;
 }
 
+function formatHours(secs: number): string {
+	if (!Number.isFinite(secs) || secs <= 0) return '';
+	const h = secs / 3600;
+	if (h >= 10) return `${Math.round(h)}h`;
+	if (h >= 1) return `${round1(h)}h`;
+	return `${Math.max(1, Math.round(secs / 60))}m`;
+}
+
 function formatDelta(
 	first: number,
 	last: number,
-	opts: { digits?: number; lowerIsBetter?: boolean; format?: (n: number) => string }
+	opts: { digits?: number; format?: (n: number) => string }
 ): string {
 	const digits = opts.digits ?? 1;
 	const diff = last - first;
@@ -77,15 +97,14 @@ function formatDelta(
 	if (Math.abs(diff) < eps) return '→';
 	const mag = Math.abs(diff);
 	const body = opts.format ? opts.format(mag) : mag.toFixed(digits).replace(/\.0$/, '');
-	if (opts.lowerIsBetter) {
-		return diff < 0 ? `↓${body}` : `↑${body}`;
-	}
 	return `${diff > 0 ? '↑' : '↓'}${body}`;
 }
 
 function chronological(runs: RunRecord[]): RunRecord[] {
 	return [...runs].filter((r) => Boolean(r.date)).sort((a, b) => a.date.localeCompare(b.date));
 }
+
+type WeekBucket = { km: number; sessions: number; seconds: number };
 
 /** Weekly distance buckets ending at `endIso`, optionally clipped by `fromDate`. */
 export function buildWeeklyDistance(
@@ -108,27 +127,38 @@ export function buildWeeklyDistance(
 		if (fromMonday.getTime() > startMonday.getTime()) startMonday = fromMonday;
 	}
 
-	const buckets = new Map<string, number>();
+	const buckets = new Map<string, WeekBucket>();
 	for (let cursor = new Date(startMonday); cursor.getTime() <= endMonday.getTime(); cursor = addDays(cursor, 7)) {
-		buckets.set(isoDateLocal(cursor), 0);
+		buckets.set(isoDateLocal(cursor), { km: 0, sessions: 0, seconds: 0 });
 	}
 	if (!buckets.size) return [];
 
 	for (const run of dated) {
 		const key = isoDateLocal(mondayOf(run.date));
-		if (!buckets.has(key)) continue;
-		buckets.set(key, (buckets.get(key) ?? 0) + (run.distance_km ?? 0));
+		const bucket = buckets.get(key);
+		if (!bucket) continue;
+		bucket.km += run.distance_km ?? 0;
+		bucket.sessions += 1;
+		bucket.seconds += parseDurationSeconds(run.time) ?? 0;
 	}
 
 	const entries = [...buckets.entries()];
 	const lastIdx = entries.length - 1;
 	return entries.map(([iso, raw], i) => {
-		const value = round1(raw);
+		const value = round1(raw.km);
 		const weeksAgo = lastIdx - i;
 		const label = weeksAgo === 0 ? 'now' : `-${weeksAgo}w`;
 		const wk = opts?.calendar ? weekNumberForDate(iso, opts.calendar) : null;
 		const wkNote = wk != null ? ` · plan wk ${wk}` : '';
-		return { label, value, display: `${value} km · wk of ${shortWeekLabel(iso)}${wkNote}` };
+		const bits = [`${value} km`];
+		if (raw.sessions) bits.push(raw.sessions === 1 ? '1 session' : `${raw.sessions} sessions`);
+		const dur = formatHours(raw.seconds);
+		if (dur) bits.push(dur);
+		return {
+			label,
+			value,
+			display: `${bits.join(' · ')} · wk of ${shortWeekLabel(iso)}${wkNote}`
+		};
 	});
 }
 
@@ -146,34 +176,103 @@ function takeLastWithMetric(
 	return out.slice(-limit);
 }
 
+function runPaceSecs(run: RunRecord): number | null {
+	const secs = parseDurationSeconds(run.avg_pace);
+	if (secs == null || secs <= 0 || secs >= PACE_MAX_SECS) return null;
+	return secs;
+}
+
+function swimPaceSecs(run: RunRecord): number | null {
+	const sec = parseDurationSeconds(run.time);
+	if (run.distance_km && sec && sec > 0) {
+		const per100 = sec / (run.distance_km * 10);
+		if (per100 > 0 && per100 < SWIM_PACE_MAX_SECS) return per100;
+	}
+	const stored = parseDurationSeconds(run.avg_pace);
+	if (stored != null && stored > 0 && stored < SWIM_PACE_MAX_SECS) return stored;
+	return null;
+}
+
+function rideKph(run: RunRecord): number | null {
+	const sec = parseDurationSeconds(run.time);
+	if (!run.distance_km || !sec || sec <= 0) return null;
+	const kph = run.distance_km / (sec / 3600);
+	if (!Number.isFinite(kph) || kph < 5 || kph > RIDE_KPH_MAX) return null;
+	return kph;
+}
+
+function metricForSport(run: RunRecord, sport: ActivityType): number | null {
+	if (normalizeActivityType(run.activity_type) !== sport) return null;
+	if (sport === 'ride') return rideKph(run);
+	if (sport === 'swim') return swimPaceSecs(run);
+	if (sport === 'run' || sport === 'walk') return runPaceSecs(run);
+	return null;
+}
+
+function paceSport(runs: RunRecord[]): ActivityType | null {
+	const counts: Partial<Record<ActivityType, number>> = {};
+	for (const run of runs) {
+		const t = normalizeActivityType(run.activity_type);
+		if (t === 'strength') continue;
+		if (metricForSport(run, t) == null) continue;
+		counts[t] = (counts[t] ?? 0) + 1;
+	}
+	const present = PACE_SPORT_ORDER.filter((t) => (counts[t] ?? 0) > 0);
+	return present[0] ?? null;
+}
+
+function isEasySession(run: RunRecord): boolean {
+	return EASY_SESSIONS.has(String(run.session || '').toLowerCase());
+}
+
 function buildPaceSeries(runs: RunRecord[]): TrendSeries | null {
-	const rows = takeLastWithMetric(runs, (r) => {
-		const secs = parseDurationSeconds(r.avg_pace);
-		if (secs == null || secs <= 0 || secs >= PACE_MAX_SECS) return null;
-		return secs;
-	});
+	const sport = paceSport(runs);
+	if (!sport) return null;
+
+	const all = takeLastWithMetric(runs, (r) => metricForSport(r, sport));
+	const easy = takeLastWithMetric(runs, (r) => (isEasySession(r) ? metricForSport(r, sport) : null));
+	const useEasy = easy.length >= 2;
+	const rows = useEasy ? easy : all;
 	if (rows.length < 2) return null;
+
+	const lowerIsBetter = sport !== 'ride';
+	const unit = sport === 'ride' ? 'km/h' : sport === 'swim' ? '/100m' : '/km';
+	const formatValue = (v: number) =>
+		sport === 'ride' ? v.toFixed(1).replace(/\.0$/, '') : formatDuration(v);
 
 	const points: TrendPoint[] = rows.map(({ run, value }) => ({
 		label: run.date.slice(5),
 		value,
-		display: `${formatDuration(value)}/km`,
+		display: `${formatValue(value)}${unit === 'km/h' ? ' km/h' : unit}`,
 		slug: run.slug
 	}));
 	const first = points[0]!;
 	const last = points[points.length - 1]!;
+	const noun =
+		sport === 'run' ? 'runs' : sport === 'walk' ? 'walks' : sport === 'ride' ? 'rides' : 'swims';
+	const title =
+		sport === 'ride'
+			? 'Ride speed'
+			: sport === 'swim'
+				? 'Swim pace'
+				: useEasy && sport === 'run'
+					? 'Easy pace'
+					: 'Pace';
+	const subtitle = useEasy
+		? `Last ${points.length} easy ${noun}`
+		: `Last ${points.length} with ${sport === 'ride' ? 'speed' : 'pace'}`;
+
 	return {
 		id: 'pace',
-		title: 'Pace',
-		subtitle: `Last ${points.length} with pace`,
-		unit: '/km',
+		title,
+		subtitle,
+		unit,
 		points,
-		latest: formatDuration(last.value),
+		latest: formatValue(last.value),
 		delta: formatDelta(first.value, last.value, {
-			lowerIsBetter: true,
-			format: (secs) => formatDuration(secs)
+			format: sport === 'ride' ? (n) => n.toFixed(1).replace(/\.0$/, '') : (secs) => formatDuration(secs)
 		}),
-		lowerIsBetter: true
+		lowerIsBetter: lowerIsBetter || undefined
 	};
 }
 
@@ -182,11 +281,14 @@ function buildScoreSeries(
 	opts: {
 		id: string;
 		title: string;
-		field: 'effort' | 'shins';
-		lowerIsBetter: boolean;
+		field: FeelField & ('effort' | 'shins' | 'legs' | 'energy');
+		lowerIsBetter?: boolean;
+		higherIsBetter?: boolean;
 	}
 ): TrendSeries | null {
-	const rows = takeLastWithMetric(runs, (r) => r[opts.field]);
+	const rows = takeLastWithMetric(runs, (r) =>
+		showsFeel(r.activity_type, opts.field) ? r[opts.field] : null
+	);
 	if (rows.length < 2) return null;
 
 	const points: TrendPoint[] = rows.map(({ run, value }) => ({
@@ -204,11 +306,9 @@ function buildScoreSeries(
 		unit: '/10',
 		points,
 		latest: round1(last.value).toFixed(1).replace(/\.0$/, ''),
-		delta: formatDelta(first.value, last.value, {
-			digits: 1,
-			lowerIsBetter: opts.lowerIsBetter
-		}),
-		lowerIsBetter: opts.lowerIsBetter
+		delta: formatDelta(first.value, last.value, { digits: 1 }),
+		lowerIsBetter: opts.lowerIsBetter,
+		higherIsBetter: opts.higherIsBetter
 	};
 }
 
@@ -231,8 +331,7 @@ function buildHrSeries(runs: RunRecord[]): TrendSeries | null {
 		unit: 'bpm',
 		points,
 		latest: String(Math.round(last.value)),
-		delta: formatDelta(first.value, last.value, { digits: 0, lowerIsBetter: true }),
-		lowerIsBetter: true
+		delta: formatDelta(first.value, last.value, { digits: 0 })
 	};
 }
 
@@ -277,10 +376,17 @@ export function buildTrainingTrends(
 	const effort = buildScoreSeries(runs, {
 		id: 'effort',
 		title: 'Effort',
-		field: 'effort',
-		lowerIsBetter: true
+		field: 'effort'
 	});
 	if (effort) series.push(effort);
+
+	const energy = buildScoreSeries(runs, {
+		id: 'energy',
+		title: 'Energy',
+		field: 'energy',
+		higherIsBetter: true
+	});
+	if (energy) series.push(energy);
 
 	const shins = buildScoreSeries(runs, {
 		id: 'shins',
@@ -289,6 +395,14 @@ export function buildTrainingTrends(
 		lowerIsBetter: true
 	});
 	if (shins) series.push(shins);
+
+	const legs = buildScoreSeries(runs, {
+		id: 'legs',
+		title: 'Legs',
+		field: 'legs',
+		lowerIsBetter: true
+	});
+	if (legs) series.push(legs);
 
 	const hr = buildHrSeries(runs);
 	if (hr) series.push(hr);

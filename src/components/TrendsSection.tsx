@@ -53,9 +53,10 @@ export function TrendsSection({
 									<span
 										className={cn(
 											'inline-block mt-[0.15rem] text-[0.78rem] text-muted',
-											series.delta.startsWith('↓') && series.lowerIsBetter && 'text-ok',
-											series.delta.startsWith('↑') && series.lowerIsBetter && 'text-warn',
-											series.delta.startsWith('↑') && !series.lowerIsBetter && 'text-ok'
+											series.lowerIsBetter && series.delta.startsWith('↓') && 'text-ok',
+											series.lowerIsBetter && series.delta.startsWith('↑') && 'text-warn',
+											series.higherIsBetter && series.delta.startsWith('↑') && 'text-ok',
+											series.higherIsBetter && series.delta.startsWith('↓') && 'text-warn'
 										)}
 									>
 										{series.delta}

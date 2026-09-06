@@ -14,7 +14,7 @@ import {
     routeIdsForRuns,
     type RangeKind
 } from '$lib/date-range';
-import { buildDashboardStats, daysUntil, weekToPlan, type DashboardStats } from '$lib/plan';
+import { buildDashboardStats, daysUntil, weekToPlan, weekViewIsClosed, type DashboardStats } from '$lib/plan';
 import { getDashboardData } from '$lib/server/functions';
 import { buildTrainingTrends } from '$lib/trends';
 import { cn, ui } from '$lib/ui';
@@ -234,9 +234,20 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 	const highlightHead = highlightSessions[0];
 	const laterWeek =
 		data.weekView != null && data.weekView.week.week > weekToPlan(data.calendar);
+	const currentWeekNum = weekToPlan(data.calendar);
+	const nextWeekNum = currentWeekNum + 1;
+	const canPlanNext =
+		data.weekView != null &&
+		data.weekView.week.week === currentWeekNum &&
+		weekViewIsClosed(data.weekView) &&
+		nextWeekNum <= data.calendar.weekCount;
 	const coachPlanSearch = {
 		tab: 'plan' as const,
 		planWeek: data.weekView?.week.week
+	};
+	const coachNextWeekSearch = {
+		tab: 'generate' as const,
+		planWeek: nextWeekNum
 	};
 
 	return (
@@ -318,27 +329,39 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 				</section>
 			)}
 			{data.weekView && !data.weekView.next && (
-				<section className={nextUpDone} aria-labelledby="next-up-heading">
+				<section className={canPlanNext ? nextUp : nextUpDone} aria-labelledby="next-up-heading">
 					<p className={cn(nextUpKicker, 'inline-flex items-center gap-1.5')}>
-						<Icon name="check" size={13} />
-						This week
+						<Icon name={canPlanNext ? 'calendar' : 'check'} size={13} />
+						{canPlanNext ? 'Next week' : 'This week'}
 					</p>
 					<h2 id="next-up-heading">
 						{data.weekView.sessions.some((s) => s.unlogged)
 							? 'Some sessions not logged yet'
-							: data.weekView.sessions.some((s) => s.skipped)
-								? 'Week complete — some sessions skipped'
-								: 'All planned sessions logged'}
+							: canPlanNext
+								? 'Plan next week'
+								: data.weekView.sessions.some((s) => s.skipped)
+									? 'Week complete — some sessions skipped'
+									: 'All planned sessions logged'}
 					</h2>
 					<p className={cn(ui.muted, 'mt-[0.4rem]')}>
 						Week {data.weekView.week.week} · {data.weekView.week.phase}
+						{canPlanNext ? ' is done' : ''}
+						{canPlanNext && data.weekView.sessions.some((s) => s.skipped)
+							? ' · some sessions skipped'
+							: ''}
 						{data.weekView.unplanned.length
 							? ` · ${data.weekView.unplanned.length} unplanned logged`
 							: ''}
 						.{' '}
-						<Link className="text-accent-fg font-semibold" to="/coach" search={coachPlanSearch}>
-							See the week in Coach
-						</Link>
+						{canPlanNext ? (
+							<Link className="text-accent-fg font-semibold" to="/coach" search={coachNextWeekSearch}>
+								Plan week {nextWeekNum} in Coach
+							</Link>
+						) : (
+							<Link className="text-accent-fg font-semibold" to="/coach" search={coachPlanSearch}>
+								See the week in Coach
+							</Link>
+						)}
 						.
 					</p>
 				</section>

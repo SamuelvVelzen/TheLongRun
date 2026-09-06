@@ -56,8 +56,8 @@ function withCoachSearch(search: CoachSearch, extra: Partial<CoachSearch> = {}):
 	};
 }
 
-function defaultQuestion(): string {
-	return `What should this week look like? Use the rules above. If I noted extras I'm considering, say whether to add them.`;
+function defaultQuestion(nextWeek = false): string {
+	return `What should ${nextWeek ? 'next week' : 'this week'} look like? Use the rules above. If I noted extras I'm considering, say whether to add them.`;
 }
 
 function parseTab(v: unknown): CoachTab {
@@ -95,7 +95,7 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 	const snack = useSnackbar();
 	const current = planData.currentWeek;
 	const weekCount = planData.calendar.weekCount;
-	const upcomingWeek = planData.views.find((v) => v.next)?.week.week ?? current;
+	const upcomingWeek = planData.views.find((v) => v.next)?.week.week ?? planData.generateWeek;
 	const selected = Math.min(weekCount, search.planWeek ?? upcomingWeek);
 	const byWeek = new Map(planData.views.map((v) => [v.week.week, v]));
 	const view = byWeek.get(selected) ?? null;
@@ -441,7 +441,9 @@ function CoachPanels({
 	const tab = visibleTab(search.tab, authed);
 	const slug = search.slug ?? '';
 
-	const [question, setQuestion] = useState(() => defaultQuestion());
+	const [question, setQuestion] = useState(() =>
+		defaultQuestion(planData.generateWeek > planData.currentWeek)
+	);
 	const [copied, setCopied] = useState(false);
 	const [briefText, setBriefText] = useState('');
 	const [planJson, setPlanJson] = useState('');
@@ -518,8 +520,10 @@ function CoachPanels({
 
 	const runs = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
 	const many = runs.length > 1;
-	const weekPhrase = 'this week';
-	const defaultQ = defaultQuestion();
+	const planningNext = planData.generateWeek > planData.currentWeek;
+	const weekPhrase = planningNext ? 'next week' : 'this week';
+	const weekPhraseCap = planningNext ? 'Next week' : 'This week';
+	const defaultQ = defaultQuestion(planningNext);
 	const usualPattern = toPattern(usual);
 	const mixDirty = !patternsEqual(usualPattern, savedPattern);
 
@@ -787,7 +791,7 @@ function CoachPanels({
 							Weekly volume and the activity table both cover {range.label.toLowerCase()}. Shorter
 							windows keep the prompt tighter.
 							{planData.activeGoal
-								? ` Generating week ${planData.currentWeek} of ${planData.calendar.weekCount} toward ${planData.activeGoal.name}.`
+								? ` Generating week ${planData.generateWeek} of ${planData.calendar.weekCount} toward ${planData.activeGoal.name}.`
 								: ' No race on the calendar — this prompt is a base week.'}{' '}
 							<Link className="text-accent-fg font-semibold" to="/goals">
 								Goals
@@ -797,11 +801,11 @@ function CoachPanels({
 						<p className={cn(ui.muted, 'mt-2 mb-0')}>
 							{mixDirty ? (
 								<>
-									This week: {formatPatternProse(usualPattern)} — not saved as your usual week
+									{weekPhraseCap}: {formatPatternProse(usualPattern)} — not saved as your usual week
 									({formatPatternProse(savedPattern)}).
 								</>
 							) : (
-								<>This week uses your usual days: {formatPatternProse(savedPattern)}.</>
+								<>{weekPhraseCap} uses your usual days: {formatPatternProse(savedPattern)}.</>
 							)}{' '}
 							<Link
 								className="text-accent-fg font-semibold"

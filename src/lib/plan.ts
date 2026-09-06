@@ -79,8 +79,7 @@ export function planWeekIndex(cal: PlanCalendar, today = new Date()): number {
 }
 
 /**
- * Week the Coach generate prompt should target: always the current plan week.
- * Never past weekCount; before week 1 → week 1.
+ * Calendar week we are in. Never past weekCount; before week 1 → week 1.
  */
 export function weekToPlan(cal: PlanCalendar, today = new Date()): number {
 	const idx = planWeekIndex(cal, today);
@@ -380,6 +379,31 @@ export function pickBannerWeekView(
 	if (currentView) return currentView;
 	const last = weeks[weeks.length - 1];
 	return last ? buildWeekView(last, runs, cal, today) : null;
+}
+
+/** Nothing left to do this week: no remaining next session, no unlogged past sessions. */
+export function weekViewIsClosed(view: WeekView): boolean {
+	return !view.next && !view.sessions.some((s) => s.unlogged);
+}
+
+/**
+ * Week Generate should target. Stays on the current week while anything remains
+ * (next or unlogged). Once this week is closed, advances to the next week in
+ * the block if there is one.
+ */
+export function weekToGenerate(
+	plan: PlanWeek[],
+	runs: WeekViewRun[],
+	cal: PlanCalendar,
+	today = new Date()
+): number {
+	const current = weekToPlan(cal, today);
+	if (current >= cal.weekCount) return current;
+	const saved = plan.find((w) => w.week === current);
+	if (!saved || (saved.sessions?.length ?? 0) === 0) return current;
+	const view = buildWeekView(saved, runs, cal, today);
+	if (!weekViewIsClosed(view)) return current;
+	return current + 1;
 }
 
 export type WeekDayGroup = {

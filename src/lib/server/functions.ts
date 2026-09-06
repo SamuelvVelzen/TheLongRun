@@ -38,6 +38,7 @@ import {
     sessionStreak,
     upcomingPlanSessions,
     weekNumberForDate,
+    weekToGenerate,
     weekToPlan,
     isSkippedStatus,
     withSessionRoutes,
@@ -256,7 +257,13 @@ export const getCoachPlan = createServerFn({ method: 'GET' }).handler(async () =
 			.map((w) => attachPlanRoutes(buildWeekView(w, runs, calendar), planRefs))
 			.filter((v): v is NonNullable<typeof v> => v != null)
 	);
-	return { views, currentWeek: weekToPlan(calendar), calendar, activeGoal };
+	return {
+		views,
+		currentWeek: weekToPlan(calendar),
+		generateWeek: weekToGenerate(plan, runs, calendar),
+		calendar,
+		activeGoal
+	};
 });
 
 export const getTimelineRuns = createServerFn({ method: 'GET' }).handler(async () => {
@@ -553,8 +560,8 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 			activeGoal != null ? Math.max(0, daysUntil(activeGoal.date, today) ?? 0) : null;
 
 		const curWeek = Math.min(calendar.weekCount, Math.max(1, planWeekIndex(calendar, today)));
-		const targetWeek = weekToPlan(calendar, today);
-		const weekPhrase = 'this week';
+		const targetWeek = weekToGenerate(plan, allRuns, calendar, today);
+		const weekPhrase = targetWeek > curWeek ? 'next week' : 'this week';
 		const todayIso = isoDateLocal(today);
 		const weekRange = (n: number) => planWeekDateRange(n, calendar);
 
@@ -677,13 +684,13 @@ ${thisWeekLogs.map(formatRunBriefLine).join('\n')}
 			? `I'm training toward **${activeGoal.name}** (${activeGoal.distance_km} km) on **${activeGoal.date}**${
 					daysToRace != null ? ` — **${daysToRace} days** away` : ''
 				}`
-			: `There is **no race on the calendar**. Plan this week as base / consistency training`;
+			: `There is **no race on the calendar**. Plan ${weekPhrase} as base / consistency training`;
 		const ladderLine = activeGoal
 			? 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering and laddering toward the race. Put duration in `detail` — there is no duration field.'
 			: 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering. Put duration in `detail` — there is no duration field. No race to peak for — keep it sustainable.';
 		const briefAsk = revising
 			? `Week ${targetWeek} already has a saved plan (see Training plan). **Revise remaining sessions** given what is already logged, including any unplanned extras. Start from the saved week JSON — do not rebuild from the usual-week skeleton. Keep completed planned sessions in the JSON as they were (a matching Activity log date + sport means done; do not add \`"status": "completed"\` — \`status\` is only for skipped). You may add sessions for extras I propose in the notes — say why. Flag any red flags (injury risk, overtraining, under-recovery).`
-			: `Please assess how my training is going and give me a concrete plan for **${weekPhrase}** covering **every session in my usual-week skeleton** (runs, rides, walks, swims, strength — whatever I pinned), keeping those days and sports. ${ladderLine} If a log this week already matches a skeleton day and sport, that slot is done — keep it in the JSON to match what I did, and plan the remaining days. Flag any red flags (injury risk, overtraining, under-recovery).`;
+			: `Please assess how my training is going and give me a concrete plan for **${weekPhrase}** covering **every session in my usual-week skeleton** (runs, rides, walks, swims, strength — whatever I pinned), keeping those days and sports. ${ladderLine} If a log ${weekPhrase} already matches a skeleton day and sport, that slot is done — keep it in the JSON to match what I did, and plan the remaining days. Flag any red flags (injury risk, overtraining, under-recovery).`;
 		const replyRules = revising
 			? `Start from the saved week JSON — do not replace it with the usual-week skeleton. Keep completed sessions as they were (do not add \`"status": "completed"\`). Revise what's still ahead, same days and sports unless notes or recovery require a shift. You may add a session for an extra I declared in the notes. If you drop a session, set \`"status": "skipped"\` — a missing log is unlogged, not skipped. Only move a day if you must, and say why in prose.`
 			: `Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride, Gym, …), \`"distance_km"\` (null for strength), and \`"detail"\`. Put swim/strength time in \`detail\` — there is no duration field. The example labels and distances below are placeholders, not prescriptions. If you drop a session, set \`"status": "skipped"\`. Unlogged ≠ skipped. Only move a day if recovery, heat, life, or the notes require it — and say why in prose.`;
@@ -722,7 +729,7 @@ ${lastMedalLine}
 		return `# The Long Run — training context
 
 ## Coaching brief
-You are my coach for the sports I actually do — not a running-only coach. ${toward}. Keep my usual weekdays and sports unless this week's notes or recovery require a shift. You choose the session kind (easy / quality / long / tempo / easy spin / …), distance, and intent. Below is my plan, my recent training with how each session felt (effort and energy 1–10, shins and legs 0–10), weekly volume across sports, and my constraints.
+You are my coach for the sports I actually do — not a running-only coach. ${toward}. Keep my usual weekdays and sports unless ${weekPhrase}'s notes or recovery require a shift. You choose the session kind (easy / quality / long / tempo / easy spin / …), distance, and intent. Below is my plan, my recent training with how each session felt (effort and energy 1–10, shins and legs 0–10), weekly volume across sports, and my constraints.
 
 ${briefAsk}
 

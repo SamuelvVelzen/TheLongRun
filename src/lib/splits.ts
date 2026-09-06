@@ -82,6 +82,8 @@ export function computeRouteAnalytics(
 		avgHr?: number | null;
 		maxHr?: number | null;
 		profileMaxHr?: number | null;
+		/** Sample indices `i` where the hop from i-1 → i is a file/part boundary (0 metres). */
+		skipJoinAt?: number[];
 	}
 ): RouteAnalytics | null {
 	const pts = samples.filter(
@@ -129,7 +131,10 @@ export function computeRouteAnalytics(
 		});
 	};
 
+	const skipJoin = new Set(opts?.skipJoinAt ?? []);
+
 	for (let i = 1; i < pts.length; i++) {
+		if (skipJoin.has(i)) continue;
 		const a = pts[i - 1]!;
 		const b = pts[i]!;
 		const seg = haversineMeters(a.lat, a.lng, b.lat, b.lng);
@@ -194,6 +199,25 @@ export function computeRouteAnalytics(
 		kmMarkers,
 		hrSamples: hrSamplesFull.map((s) => ({ t: Math.round(s.timeMs / 1000), hr: s.hr }))
 	};
+}
+
+/** Splits across several GPS files without adding distance for the hop between parts. */
+export function computeRouteAnalyticsFromParts(
+	parts: TrackSample[][],
+	opts?: {
+		avgHr?: number | null;
+		maxHr?: number | null;
+		profileMaxHr?: number | null;
+	}
+): RouteAnalytics | null {
+	const samples: TrackSample[] = [];
+	const skipJoinAt: number[] = [];
+	for (const part of parts) {
+		if (!part.length) continue;
+		if (samples.length) skipJoinAt.push(samples.length);
+		samples.push(...part);
+	}
+	return computeRouteAnalytics(samples, { ...opts, skipJoinAt });
 }
 
 /** Serialize for GeoJSON properties (compact). */

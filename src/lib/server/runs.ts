@@ -333,6 +333,8 @@ export async function deleteRun(slug: string): Promise<boolean> {
 	if (!run) return false;
 
 	const sql = getSql();
+	const { pruneGroupsForSlug } = await import('./groups');
+	await pruneGroupsForSlug(slug);
 	await sql`DELETE FROM runs WHERE slug = ${slug}`;
 
 	for (const id of routeIdsForRun(run)) {
@@ -465,6 +467,8 @@ export async function updateRun(slug: string, fields: UpdateRunFields): Promise<
 	});
 
 	if (newSlug !== slug) {
+		const { repointGroupMember } = await import('./groups');
+		await repointGroupMember(slug, newSlug);
 		const sql = getSql();
 		await sql`DELETE FROM runs WHERE slug = ${slug}`;
 	}

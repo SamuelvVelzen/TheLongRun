@@ -14,6 +14,7 @@ import {
     routeIdsForRuns,
     type RangeKind
 } from '$lib/date-range';
+import { collapseRuns, groupedSessionTitle } from '$lib/group';
 import { buildDashboardStats, daysUntil, weekToPlan, weekViewIsClosed, type DashboardStats } from '$lib/plan';
 import { getDashboardData } from '$lib/server/functions';
 import { buildTrainingTrends } from '$lib/trends';
@@ -171,7 +172,8 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 		range.kind === 'all' && !sportFilterActive && !locationActive
 			? data.tracks
 			: data.tracks.filter((t) => trackIds.has(t.id));
-	const recent = runs.slice(0, 8);
+	const listItems = collapseRuns(runs, allRuns, data.groups);
+	const recent = listItems.slice(0, 8);
 
 	// Map each route track back to its run so heatmap lines can show a tooltip + open the run.
 	const routeMeta = useMemo<RouteMeta>(() => {
@@ -517,7 +519,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 						<div>
 							<h2>{activityListHeading(sport, rangeActive ? 'range' : 'recent')}</h2>
 							<p>
-								{stats.runCount} {rangeActive ? `in ${range.label.toLowerCase()}` : 'total'}
+								{listItems.length} {rangeActive ? `in ${range.label.toLowerCase()}` : 'total'}
 							</p>
 						</div>
 						<div className={cn(ui.actions, 'max-sm:hidden')}>
@@ -544,45 +546,84 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 
 					<div className={ui.grid}>
 						{recent.length ? (
-							recent.map((run, i) => (
-								<Link
-									key={run.slug}
-									className={cn(ui.runRow, ui.runRowCompact)}
-									to="/runs/$slug"
-									params={{ slug: run.slug }}
-									style={{ animationDelay: `${i * 40}ms` }}
-								>
-									<ActivityMark type={run.activity_type} />
-									<span className="min-w-0 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-[0.1rem] items-baseline">
-										<strong className={ui.runTitle}>
-											{run.date}
-											{run.has_map && (
-												<span
-													className={ui.mapBadge}
-													title="Route map available"
-													aria-label="Has route map"
-												>
-													<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-														<path
-															fill="currentColor"
-															d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"
-														/>
-													</svg>
-												</span>
-											)}
-											{hasContext(run) && <FeelBadge />}
-										</strong>
-										<span className="font-[650] tracking-[-0.02em] justify-self-end text-right max-sm:text-[0.95rem]">
-											{showsField(run.activity_type, 'distance')
-												? `${run.distance_km ?? '—'} km · ${metricText(run)}`
-												: metricText(run)}
+							recent.map((item, i) =>
+								item.kind === 'group' ? (
+									<Link
+										key={item.group.id}
+										className={cn(ui.runRow, ui.runRowCompact)}
+										to="/groups/$id"
+										params={{ id: item.group.id }}
+										style={{ animationDelay: `${i * 40}ms` }}
+									>
+										<ActivityMark type={item.stats.activity_type} />
+										<span className="min-w-0 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-[0.1rem] items-baseline">
+											<strong className={ui.runTitle}>
+												{groupedSessionTitle(item.group, item.members.length, item.stats.date)}
+												{item.members.some((m) => m.has_map) && (
+													<span
+														className={ui.mapBadge}
+														title="Route map available"
+														aria-label="Has route map"
+													>
+														<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+															<path
+																fill="currentColor"
+																d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"
+															/>
+														</svg>
+													</span>
+												)}
+											</strong>
+											<span className="font-[650] tracking-[-0.02em] justify-self-end text-right max-sm:text-[0.95rem]">
+												{showsField(item.stats.activity_type, 'distance')
+													? `${item.stats.distance_km ?? '—'} km · ${metricText(item.stats)}`
+													: metricText(item.stats)}
+											</span>
+											<span className={cn(ui.muted, 'text-[0.8rem] col-span-full max-sm:text-[0.76rem]')}>
+												{`${item.members.length} parts · ${item.stats.types.map((t) => activityLabel(t)).join(' + ')}`}
+											</span>
 										</span>
-										<span className={cn(ui.muted, 'text-[0.8rem] col-span-full max-sm:text-[0.76rem]')}>
-											{compactRunSub(run)}
+									</Link>
+								) : (
+									<Link
+										key={item.run.slug}
+										className={cn(ui.runRow, ui.runRowCompact)}
+										to="/runs/$slug"
+										params={{ slug: item.run.slug }}
+										style={{ animationDelay: `${i * 40}ms` }}
+									>
+										<ActivityMark type={item.run.activity_type} />
+										<span className="min-w-0 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-[0.1rem] items-baseline">
+											<strong className={ui.runTitle}>
+												{item.run.date}
+												{item.run.has_map && (
+													<span
+														className={ui.mapBadge}
+														title="Route map available"
+														aria-label="Has route map"
+													>
+														<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+															<path
+																fill="currentColor"
+																d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"
+															/>
+														</svg>
+													</span>
+												)}
+												{hasContext(item.run) && <FeelBadge />}
+											</strong>
+											<span className="font-[650] tracking-[-0.02em] justify-self-end text-right max-sm:text-[0.95rem]">
+												{showsField(item.run.activity_type, 'distance')
+													? `${item.run.distance_km ?? '—'} km · ${metricText(item.run)}`
+													: metricText(item.run)}
+											</span>
+											<span className={cn(ui.muted, 'text-[0.8rem] col-span-full max-sm:text-[0.76rem]')}>
+												{compactRunSub(item.run)}
+											</span>
 										</span>
-									</span>
-								</Link>
-							))
+									</Link>
+								)
+							)
 						) : (
 							<div className={cn(ui.panel, ui.muted)}>
 								No {activityPlural(sport)} yet. Import a file or log one manually.

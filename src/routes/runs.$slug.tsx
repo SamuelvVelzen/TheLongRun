@@ -15,6 +15,7 @@ import {
     getRunDetail,
     saveHrMax,
     updateRun,
+    createActivityGroupFn,
     type UpdateRunInput
 } from '$lib/server/functions';
 import { shoePickerOptions } from '$lib/shoes';
@@ -26,13 +27,13 @@ import {
     topSet
 } from '$lib/strength';
 import { cn, ui } from '$lib/ui';
-import { createFileRoute, notFound, useRouter } from '@tanstack/react-router';
+import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { BestEffortBadges } from '../components/BestEffortBadges';
 import { DeleteButton, EditButton } from '../components/DeleteButton';
-import { ConfirmDialog } from '../components/Dialog';
+import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { FeelChips, WantedFasterChips } from '../components/FeelChips';
-import { ActivityIcon } from '../components/Icon';
+import { ActivityIcon, Icon } from '../components/Icon';
 import { PageHero } from '../components/PageHero';
 import { RouteChip } from '../components/RouteChip';
 import { RouteMap } from '../components/RouteMap';
@@ -302,7 +303,9 @@ function RunDetail() {
 		hrMaxAllTime,
 		bestEfforts,
 		plannedRoute,
-		calendar
+		calendar,
+		group,
+		groupOptions
 	} = Route.useLoaderData();
 	const router = useRouter();
 	const authed = useAuthed();
@@ -321,6 +324,8 @@ function RunDetail() {
 	const [editWeather, setEditWeather] = useState(r.weather || '');
 	const [editStart, setEditStart] = useState(r.start_time || '');
 	const [pendingDelete, setPendingDelete] = useState(false);
+	const [groupOpen, setGroupOpen] = useState(false);
+	const [groupPick, setGroupPick] = useState<string[]>([]);
 
 	const derivedDay = dayFromIsoDate(editDate || r.date);
 	const derivedWeek = weekNumberForDate(editDate || r.date, calendar);
@@ -460,6 +465,14 @@ function RunDetail() {
 
 	return (
 		<>
+			{group && (
+				<p className={cn(ui.panel, 'mb-4')}>
+					Part of a grouped session.{' '}
+					<Link className="text-accent-fg font-semibold" to="/groups/$id" params={{ id: group.id }}>
+						Open grouped activity
+					</Link>
+				</p>
+			)}
 			<PageHero
 				kicker={
 					<>
@@ -501,6 +514,19 @@ function RunDetail() {
 					<>
 						{authed && !editing && (
 							<>
+								{!group && (
+									<button
+										type="button"
+										className={ui.btnGhost}
+										onClick={() => {
+											setGroupPick([]);
+											setGroupOpen(true);
+										}}
+									>
+										<Icon name="grid" size={16} />
+										Group with…
+									</button>
+								)}
 								<EditButton label="Edit activity" onClick={startEditing} />
 								<DeleteButton
 									label={`Delete ${activityLabel(r.activity_type).toLowerCase()} ${r.date}`}
@@ -990,6 +1016,84 @@ function RunDetail() {
 					</div>
 				</>
 			)}
+			<Dialog
+				open={groupOpen}
+				title="Group with other activities"
+				onClose={() => setGroupOpen(false)}
+				actions={
+					<>
+						<button type="button" className={ui.btnGhost} onClick={() => setGroupOpen(false)}>
+							Cancel
+						</button>
+						<button
+							type="button"
+							className={ui.btnPrimary}
+							disabled={groupPick.length < 1}
+							onClick={async () => {
+								try {
+									const res = await createActivityGroupFn({
+										data: { slugs: [r.slug, ...groupPick] }
+									});
+									setGroupOpen(false);
+									await router.invalidate();
+									await router.navigate({ to: '/groups/$id', params: { id: res.id } });
+								} catch (err) {
+									snack.error(errorMessage(err, 'Could not group those activities.'));
+								}
+							}}
+						>
+							Group
+						</button>
+					</>
+				}
+			>
+				<p className={cn(ui.muted, 'm-0')}>
+					Imported GPX files stay as they are. Same calendar day is listed first.
+				</p>
+				<div className="grid gap-1.5 max-h-[50vh] overflow-y-auto">
+					{(groupOptions ?? [])
+						.filter((o) => !o.grouped)
+						.slice()
+						.sort((a, b) => {
+							const sameA = a.date === r.date ? 0 : 1;
+							const sameB = b.date === r.date ? 0 : 1;
+							return sameA - sameB || b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug);
+						})
+						.map((opt) => {
+							const on = groupPick.includes(opt.slug);
+							return (
+								<button
+									key={opt.slug}
+									type="button"
+									className={cn(
+										'flex items-center justify-between gap-3 min-h-11 px-3 py-2 rounded-xl border text-left',
+										on ? 'border-accent bg-accent/10' : 'border-line bg-transparent'
+									)}
+									aria-pressed={on}
+									onClick={() =>
+										setGroupPick((prev) =>
+											prev.includes(opt.slug) ? prev.filter((s) => s !== opt.slug) : [...prev, opt.slug]
+										)
+									}
+								>
+									<span>
+										<strong>{opt.date}</strong>
+										<span className={cn(ui.muted, 'block text-[0.82rem]')}>
+											{[
+												activityLabel(opt.activity_type),
+												opt.start_time || null,
+												opt.distance_km != null ? `${opt.distance_km} km` : null
+											]
+												.filter(Boolean)
+												.join(' · ')}
+										</span>
+									</span>
+									<span className="text-accent-fg font-bold">{on ? '✓' : ''}</span>
+								</button>
+							);
+						})}
+				</div>
+			</Dialog>
 			<ConfirmDialog
 				open={pendingDelete}
 				title="Delete this activity?"

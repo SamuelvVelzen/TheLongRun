@@ -200,3 +200,13 @@ export type ActivityAttachOption = {
 
 /** A run plus whether it has a stored map track (computed server-side). */
 export type RunWithMap = RunRecord & { has_map: boolean };
+
+/** Overlay group — source GPX rows stay intact. */
+export type ActivityGroupInfo = {
+	id: string;
+	name: string;
+	created_on: string;
+	member_slugs: string[];
+	/** Combined rolling efforts for same-type run/walk groups; empty otherwise. */
+	best_efforts: BestEffort[];
+};

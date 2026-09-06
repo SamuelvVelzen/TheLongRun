@@ -1,4 +1,5 @@
 import { ACTIVITY_TYPES, activityLabel, activityPlural, metricText, normalizeActivityType, showsField } from '$lib/activity';
+import { combinedActivityGpx, combinedActivityTcx, memberActivityGpx, safeFilename } from '$lib/activity-export';
 import {
     computeBestEffortsFromSplits,
     computeBestEffortsFromTrack,
@@ -9,6 +10,7 @@ import {
     supportsBestEfforts,
     type EffortHighlight
 } from '$lib/best-efforts';
+import { combinedAnalytics } from '$lib/combine-track';
 import { dateRangeFromSearch, filterRunsByRange, type DateRange, type RangeKind } from '$lib/date-range';
 import {
     dayFromIsoDate,
@@ -18,6 +20,7 @@ import {
     parseDurationSeconds
 } from '$lib/format';
 import { canPinRaceResult, normalizeGoalInput, pickSoonestOpenGoal, pinCandidatesForGoal, resultFromActivity, type GoalInput } from '$lib/goals';
+import { combineRunStats, groupedSessionTitle } from '$lib/group';
 import { buildHrZoneSummary } from '$lib/hr-zones';
 import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import {
@@ -27,6 +30,7 @@ import {
     daysUntil,
     formatUnplannedBrief,
     isoDateLocal,
+    isSkippedStatus,
     keepSoonestNext,
     mondayIso,
     pickBannerWeekView,
@@ -40,7 +44,6 @@ import {
     weekNumberForDate,
     weekToGenerate,
     weekToPlan,
-    isSkippedStatus,
     withSessionRoutes,
     type PlanCalendar,
     type WeekView
@@ -55,6 +58,7 @@ import { analyticsToProperties, type RouteAnalytics } from '$lib/splits';
 import { parseStrengthNotes, strengthSummary } from '$lib/strength';
 import type {
     ActivityAttachOption,
+    ActivityGroupInfo,
     Goal,
     PlanAttachOption,
     PlannedRoute,
@@ -73,6 +77,7 @@ import {
     normalizeWeekPattern,
     type WeekPattern
 } from '$lib/week-mix';
+import { zipStoreBytes } from '$lib/zip';
 import { createServerFn } from '@tanstack/react-start';
 import matter from 'gray-matter';
 import { requireAuth } from './auth';
@@ -94,6 +99,18 @@ import {
 } from './context';
 import { reverseGeocode } from './geo';
 import { parseGpx } from './gpx';
+import {
+    addActivityToGroup,
+    createActivityGroup,
+    enrichAllGroupEfforts,
+    enrichGroupEfforts,
+    getActivityGroup,
+    listActivityGroups,
+    membershipForSlug,
+    removeActivityFromGroup,
+    tracksForMembers,
+    ungroupActivities
+} from './groups';
 import {
     attachRouteToActivity as dbAttachRouteToActivity,
     attachRouteToPlan as dbAttachRouteToPlan,
@@ -199,14 +216,16 @@ export const getAuthState = createServerFn({ method: 'GET' }).handler(async () =
 });
 
 export const getDashboardData = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, tracks, routeIds, training, shoes, planRefs] = await Promise.all([
+	const [runs, tracks, routeIds, training, shoes, planRefs, groupsRaw] = await Promise.all([
 		listRuns(),
 		listRouteTracks(),
 		listRouteIds(),
 		loadTrainingContext(),
 		loadShoes(),
-		listPlanRouteRefs()
+		listPlanRouteRefs(),
+		listActivityGroups()
 	]);
+	const groups = await enrichAllGroupEfforts(groupsRaw, runs);
 	const { plan, calendar, activeGoal, medals } = training;
 	const weekNum = weekToPlan(calendar);
 	const week = plan.find((w) => w.week === weekNum) ?? plan[plan.length - 1] ?? null;
@@ -214,6 +233,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 	return {
 		runs: withMap(runs, routeIds),
 		tracks,
+		groups,
 		week,
 		weekView,
 		streak: sessionStreak(runs, plan, calendar),
@@ -224,6 +244,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 	} satisfies {
 		runs: RunWithMap[];
 		tracks: RouteTrack[];
+		groups: ActivityGroupInfo[];
 		week: PlanWeek | null;
 		weekView: WeekView | null;
 		streak: number;
@@ -267,9 +288,14 @@ export const getCoachPlan = createServerFn({ method: 'GET' }).handler(async () =
 });
 
 export const getTimelineRuns = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, routeIds] = await Promise.all([listRuns(), listRouteIds()]);
+	const [runs, routeIds, groupsRaw] = await Promise.all([
+		listRuns(),
+		listRouteIds(),
+		listActivityGroups()
+	]);
 	await hydrateBestEfforts(runs);
-	return withMap(runs, routeIds);
+	const groups = await enrichAllGroupEfforts(groupsRaw, runs);
+	return { runs: withMap(runs, routeIds), groups };
 });
 
 export const getRunDetail = createServerFn({ method: 'GET' })
@@ -277,7 +303,7 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 	.handler(async ({ data: slug }) => {
 		const run = await getRun(slug);
 		if (!run) return null;
-		const [analytics, routeIds, shoes, settings, allTimeMaxHr, allRuns, plannedRoute, training] =
+		const [analytics, routeIds, shoes, settings, allTimeMaxHr, allRuns, plannedRoute, training, group] =
 			await Promise.all([
 				loadRouteAnalytics(run),
 				listRouteIds(),
@@ -286,11 +312,14 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 				getMaxHrAllTime(),
 				listRuns(),
 				getActivityRouteRef(slug),
-				loadTrainingContext()
+				loadTrainingContext(),
+				membershipForSlug(slug)
 			]);
 		await hydrateBestEfforts(allRuns);
 		const current = allRuns.find((r) => r.slug === slug) ?? run;
 		const highlights = highlightsForActivity(current.slug, current.activity_type, allRuns);
+		const allGroups = await listActivityGroups();
+		const groupedSlugs = new Set(allGroups.flatMap((g) => g.member_slugs));
 
 		// HR zones honour a manually-set HRmax; otherwise the all-time max across activities
 		// (never just this one run's noisy peak). Time-in-zone needs the stored per-point HR
@@ -308,6 +337,17 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 			out = out ? { ...out, hrZones } : { splits: [], kmMarkers: [], hrZones };
 		}
 
+		const groupOptions = allRuns
+			.filter((r) => r.slug !== slug)
+			.map((r) => ({
+				slug: r.slug,
+				date: r.date,
+				start_time: r.start_time,
+				activity_type: r.activity_type,
+				distance_km: r.distance_km,
+				grouped: groupedSlugs.has(r.slug)
+			}));
+
 		return {
 			run: { ...current, has_map: runHasMap(current, routeIds) } as RunWithMap,
 			analytics: out,
@@ -317,7 +357,9 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 			hrMaxAllTime: allTimeMaxHr,
 			bestEfforts: highlights,
 			plannedRoute,
-			calendar: training.calendar
+			calendar: training.calendar,
+			group,
+			groupOptions
 		};
 	});
 
@@ -1133,7 +1175,11 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 				},
 				geometry: {
 					type: 'LineString',
-					coordinates: parsed.points.map((p) => [p.lng, p.lat])
+					coordinates: parsed.points.map((p) =>
+						p.elev != null && Number.isFinite(p.elev)
+							? [p.lng, p.lat, p.elev]
+							: [p.lng, p.lat]
+					)
 				}
 			};
 			await saveRouteGeoJson(id, geojson);
@@ -1291,6 +1337,157 @@ export const deleteRun = createServerFn({ method: 'POST' }).middleware([requireA
 	.validator((slug: string) => slug)
 	.handler(async ({ data: slug }) => {
 		return dbDeleteRun(slug);
+	});
+
+export const getGroupDetail = createServerFn({ method: 'GET' })
+	.validator((id: string) => id)
+	.handler(async ({ data: id }) => {
+		const groupRaw = await getActivityGroup(id);
+		if (!groupRaw) return null;
+		const [allRuns, routeIds, settings, allTimeMaxHr, groupsRaw] = await Promise.all([
+			listRuns(),
+			listRouteIds(),
+			loadSettings(),
+			getMaxHrAllTime(),
+			listActivityGroups()
+		]);
+		await hydrateBestEfforts(allRuns);
+		const members = groupRaw.member_slugs
+			.map((slug) => allRuns.find((r) => r.slug === slug))
+			.filter((r): r is RunRecord => r != null);
+		if (members.length < 2) return null;
+		const group = await enrichGroupEfforts(groupRaw, members);
+		const parts = await tracksForMembers(members);
+		const stats = combineRunStats(members);
+		const hrMaxManual = settings.hrMax;
+		const hrMaxEffective = hrMaxManual ?? allTimeMaxHr ?? null;
+		let analytics = combinedAnalytics(parts, {
+			avgHr: stats.avg_hr,
+			maxHr: stats.max_hr,
+			profileMaxHr: hrMaxEffective
+		});
+		if (hrMaxEffective && analytics) {
+			const hrZones = buildHrZoneSummary({
+				hrMax: hrMaxEffective,
+				source: hrMaxManual != null ? 'profile' : 'alltime',
+				avgHr: stats.avg_hr,
+				samples: (analytics.hrSamples ?? []).map((s) => ({ timeMs: s.t * 1000, hr: s.hr }))
+			});
+			analytics = { ...analytics, hrZones };
+		}
+		const segments = members.map((run, i) => {
+			const points = parts[i] ?? [];
+			return {
+				slug: run.slug,
+				name: `${run.date}${run.start_time ? ` ${run.start_time}` : ''} · ${run.activity_type}`,
+				activity_type: run.activity_type,
+				has_track: points.length >= 2,
+				route_id: routeIdForRun(run)
+			};
+		});
+		return {
+			group,
+			stats,
+			members: withMap(members, routeIds),
+			analytics,
+			routeIds: segments.map((s) => s.route_id).filter((x): x is string => Boolean(x)),
+			segments,
+			hrMaxManual,
+			hrMaxAllTime: allTimeMaxHr,
+			allRuns: withMap(allRuns, routeIds),
+			groups: await enrichAllGroupEfforts(groupsRaw, allRuns)
+		};
+	});
+
+export const createActivityGroupFn = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: { slugs: string[]; name?: string }) => d)
+	.handler(async ({ data }) => {
+		const group = await createActivityGroup(data.slugs, data.name ?? '');
+		return { id: group.id };
+	});
+
+export const addToActivityGroupFn = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: { groupId: string; slug: string }) => d)
+	.handler(async ({ data }) => {
+		await addActivityToGroup(data.groupId, data.slug);
+		return { ok: true };
+	});
+
+export const removeFromActivityGroupFn = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: { groupId: string; slug: string }) => d)
+	.handler(async ({ data }) => {
+		await removeActivityFromGroup(data.groupId, data.slug);
+		return { ok: true };
+	});
+
+export const ungroupActivitiesFn = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((id: string) => id)
+	.handler(async ({ data: id }) => {
+		await ungroupActivities(id);
+		return { ok: true };
+	});
+
+export const exportGroupedActivity = createServerFn({ method: 'GET' })
+	.validator((d: { id: string; kind: 'gpx' | 'tcx' | 'zip' }) => d)
+	.handler(async ({ data }) => {
+		const groupRaw = await getActivityGroup(data.id);
+		if (!groupRaw) throw new Error('Group not found.');
+		const allRuns = await listRuns();
+		const members = groupRaw.member_slugs
+			.map((slug) => allRuns.find((r) => r.slug === slug))
+			.filter((r): r is RunRecord => r != null);
+		if (members.length < 2) throw new Error('Group not found.');
+		const stats = combineRunStats(members);
+		const parts = await tracksForMembers(members);
+		const segments = members.map((run, i) => ({
+			name: `${run.date}${run.start_time ? ` ${run.start_time}` : ''}`,
+			activity_type: run.activity_type,
+			points: parts[i] ?? []
+		}));
+		const withTrack = segments.filter((s) => s.points.length >= 2);
+		if (!withTrack.length) throw new Error('No GPS tracks to export.');
+		const title = groupedSessionTitle(groupRaw, members.length, stats.date);
+		const fileBase = safeFilename(`combined-${stats.mixed ? 'mix' : stats.activity_type}-${stats.date}`);
+
+		if (data.kind === 'zip' || stats.mixed) {
+			if (data.kind !== 'zip' && stats.mixed) {
+				throw new Error('Mixed-type groups export as separate files.');
+			}
+			const entries = withTrack.map((s, i) => ({
+				name: `${fileBase}-${i + 1}-${normalizeActivityType(s.activity_type)}.gpx`,
+				data: memberActivityGpx({
+					name: `${title} · ${s.name}`,
+					activityType: s.activity_type,
+					points: s.points
+				})
+			}));
+			const bytes = zipStoreBytes(entries);
+			let binary = '';
+			for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
+			return {
+				filename: `${fileBase}.zip`,
+				mime: 'application/zip',
+				encoding: 'base64' as const,
+				body: btoa(binary)
+			};
+		}
+
+		const xml =
+			data.kind === 'tcx'
+				? combinedActivityTcx({
+						name: title,
+						activityType: stats.activity_type,
+						segments: withTrack
+					})
+				: combinedActivityGpx({
+						name: title,
+						activityType: stats.activity_type,
+						segments: withTrack
+					});
+		const ext = data.kind === 'tcx' ? 'tcx' : 'gpx';
+		const mime =
+			data.kind === 'tcx' ? 'application/vnd.garmin.tcx+xml' : 'application/gpx+xml';
+		return { filename: `${fileBase}.${ext}`, mime, encoding: 'utf8' as const, body: xml };
 	});
 
 function parseJsonPayload(text: string): unknown {

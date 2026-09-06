@@ -37,11 +37,24 @@ function paceColor(t: number): string {
 	return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
+const PART_COLORS = ['#c8f25a', '#6ec8ff', '#ffb36b', '#d4a5ff', '#ff8aa8'];
+
+function coordsFromGeo(geo: { geometry?: { coordinates?: number[][] } } | null): [number, number][] {
+	const raw = geo?.geometry?.coordinates;
+	if (!Array.isArray(raw) || raw.length < 2) return [];
+	return raw
+		.filter((c) => Array.isArray(c) && c.length >= 2)
+		.map((c) => [Number(c[1]), Number(c[0])] as [number, number])
+		.filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+}
+
 export function RouteMap({
 	routeId,
+	routeIds,
 	kmMarkers = null
 }: {
-	routeId: string;
+	routeId?: string;
+	routeIds?: string[];
 	kmMarkers?: KmMarker[] | null;
 }) {
 	const wrapRef = useRef<HTMLDivElement>(null);
@@ -49,6 +62,8 @@ export function RouteMap({
 	const [status, setStatus] = useState('Loading map…');
 	const [failed, setFailed] = useState(false);
 	const [colored, setColored] = useState(false);
+	const ids = routeIds?.length ? routeIds : routeId ? [routeId] : [];
+	const idsKey = ids.join(',');
 
 	useEffect(() => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,8 +73,38 @@ export function RouteMap({
 
 		(async () => {
 			try {
+				if (!ids.length) throw new Error('Route not found');
 				const L = await loadLeaflet();
-				const geo = (await getRouteGeoJsonFn({ data: routeId })) as {
+				if (ids.length > 1) {
+					const geos = await Promise.all(ids.map((id) => getRouteGeoJsonFn({ data: id })));
+					if (cancelled || !containerRef.current || !wrapRef.current) return;
+					const tracks = geos
+						.map((geo, i) => ({
+							coords: coordsFromGeo(geo as { geometry?: { coordinates?: number[][] } } | null),
+							color: PART_COLORS[i % PART_COLORS.length]!
+						}))
+						.filter((t) => t.coords.length >= 2);
+					if (!tracks.length) throw new Error('Route has no GPS points');
+
+					map = L.map(containerRef.current, leafletMapOptions());
+					addBasemap(L, map);
+					let bounds: ReturnType<typeof L.latLngBounds> | null = null;
+					for (const track of tracks) {
+						addRouteCasing(L, map, track.coords, 5);
+						addRoutePolyline(L, map, track.coords, { color: track.color, casing: false });
+						addRouteEndpoints(L, map, track.coords);
+						const b = L.latLngBounds(track.coords);
+						bounds = bounds ? bounds.extend(b) : b;
+					}
+					const fit = () => map.fitBounds(bounds, { padding: [28, 28] });
+					fit();
+					chrome = attachMapChrome({ map, wrap: wrapRef.current, onFit: fit });
+					setColored(false);
+					setStatus('');
+					return;
+				}
+
+				const geo = (await getRouteGeoJsonFn({ data: ids[0]! })) as {
 					geometry?: { coordinates?: number[][] };
 					properties?: unknown;
 				} | null;
@@ -163,7 +208,7 @@ export function RouteMap({
 			chrome?.destroy();
 			map?.remove?.();
 		};
-	}, [routeId, kmMarkers]);
+	}, [idsKey, kmMarkers]);
 
 	return (
 		<div className="route-map-wrap map-wrap relative rounded-box overflow-hidden border border-line bg-inset" ref={wrapRef}>

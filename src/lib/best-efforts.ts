@@ -229,6 +229,18 @@ export function mergeMissingBestEfforts(stored: BestEffort[], fallback: BestEffo
 	return [...stored, ...extra].sort((a, b) => a.meters - b.meters);
 }
 
+/** Fastest time per distance across several effort lists. */
+export function mergeFastestEfforts(lists: BestEffort[][]): BestEffort[] {
+	const best = new Map<BestEffortKey, BestEffort>();
+	for (const list of lists) {
+		for (const effort of list) {
+			const prev = best.get(effort.key);
+			if (!prev || effort.seconds < prev.seconds) best.set(effort.key, effort);
+		}
+	}
+	return [...best.values()].sort((a, b) => a.meters - b.meters);
+}
+
 export function missingEffortKeys(distanceKm: number | null | undefined, efforts: BestEffort[]): BestEffortKey[] {
 	const meters = (Number(distanceKm) || 0) * 1000;
 	const have = new Set(efforts.map((e) => e.key));
@@ -259,7 +271,7 @@ export function computeBestEffortsFromSplits(splits: KmSplit[]): BestEffort[] {
 	return effortsFromPieces([{ dist, time }]);
 }
 
-type EffortOwner = {
+export type EffortOwner = {
 	slug: string;
 	date: string;
 	activity_type: string;

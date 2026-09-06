@@ -1,5 +1,6 @@
 import type { BestEffortBoardRow, EffortHighlight } from '$lib/best-efforts';
 import { formatEffortTime } from '$lib/best-efforts';
+import { groupIdFromOwnerSlug, isGroupOwnerSlug as isGroupEffortSlug } from '$lib/group';
 import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 import { Icon } from './Icon';
@@ -90,6 +91,23 @@ export function BestEffortBoard({
 									</span>
 								);
 							return (
+								isGroupEffortSlug(entry.slug) ? (
+								<Link
+									key={rank}
+									className={cn(
+										'flex flex-col gap-[0.1rem] text-inherit no-underline min-w-0 hover:[&_b]:underline',
+										rankCell[rank]
+									)}
+									to="/groups/$id"
+									params={{ id: groupIdFromOwnerSlug(entry.slug)! }}
+								>
+									<b className="tabular-nums">{formatEffortTime(entry.seconds)}</b>
+									<span className={cn(ui.muted, 'truncate')}>
+										{entry.date}
+										{entry.pace ? ` · ${entry.pace}/km` : ''}
+									</span>
+								</Link>
+								) : (
 								<Link
 									key={rank}
 									className={cn(
@@ -105,6 +123,7 @@ export function BestEffortBoard({
 										{entry.pace ? ` · ${entry.pace}/km` : ''}
 									</span>
 								</Link>
+								)
 							);
 						})}
 					</div>

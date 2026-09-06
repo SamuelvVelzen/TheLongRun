@@ -22,7 +22,7 @@ export interface ParsedGpx {
 	maxHr: number | null;
 	elevGain: number | null;
 	maxSpeed: number | null;
-	points: { lat: number; lng: number; timeMs?: number }[];
+	points: { lat: number; lng: number; timeMs?: number; elev?: number }[];
 	analytics: RouteAnalytics | null;
 	/** Sport hint from the GPX `<type>` element, if any. */
 	detectedType: string;
@@ -183,7 +183,7 @@ export function parseGpx(xml: string): ParsedGpx {
 		points:
 			distanceMeters > 50
 				? downsample(
-						track.map((p) => ({ lat: p.lat, lng: p.lng, timeMs: p.timeMs })),
+						track.map((p) => ({ lat: p.lat, lng: p.lng, timeMs: p.timeMs, elev: p.elev })),
 						2500
 					)
 				: [],

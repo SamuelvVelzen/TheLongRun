@@ -1,24 +1,25 @@
 import {
-	activityLabel,
-	activityPlural,
-	activityTally,
-	hasContext,
-	metricText,
-	normalizeActivityType,
-	showsField
+    activityLabel,
+    activityPlural,
+    activityTally,
+    hasContext,
+    metricText,
+    normalizeActivityType,
+    showsField
 } from '$lib/activity';
+import { saveExportedFile, shareOrDownload } from '$lib/activity-export';
 import { AuthGate, useAuthed } from '$lib/auth';
 import { buildBestEffortBoard, highlightsForActivity, supportsBestEfforts } from '$lib/best-efforts';
 import { filterRunsByRange, isoDateLocal, parseDateRange, type RangeKind } from '$lib/date-range';
 import {
-	collapseRuns,
-	effortOwnersForBoard,
-	groupHighlights,
-	groupedSessionTitle,
-	groupTypeCaption,
-	type TimelineItem
+    collapseRuns,
+    effortOwnersForBoard,
+    groupedSessionTitle,
+    groupHighlights,
+    groupTypeCaption,
+    type TimelineItem
 } from '$lib/group';
-import { createActivityGroupFn, deleteRun, getTimelineRuns } from '$lib/server/functions';
+import { createActivityGroupFn, deleteRun, deleteRunsFn, exportActivitiesFn, getTimelineRuns } from '$lib/server/functions';
 import { formatTimelineClipboard } from '$lib/timeline-copy';
 import type { ActivityGroupInfo, RunWithMap } from '$lib/types';
 import { cn, ui } from '$lib/ui';
@@ -28,18 +29,19 @@ import { ActivityFilters } from '../components/ActivityFilters';
 import { BestEffortBadges, BestEffortBoard } from '../components/BestEffortBadges';
 import { type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
-import { DeleteButton, EditButton } from '../components/DeleteButton';
+import { DeleteButton, EditButton, TrashIcon } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
-import { filterSummary } from '../components/FilterSheet';
 import { FeelBadge } from '../components/FeelBadge';
+import { filterSummary } from '../components/FilterSheet';
 import { ActivityTag, Icon } from '../components/Icon';
+import { MoreMenu } from '../components/MoreMenu';
 import { PageHero } from '../components/PageHero';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 import {
-	matchesSportFilter,
-	parseSportSearch,
-	selectedSports,
-	sportIsAll
+    matchesSportFilter,
+    parseSportSearch,
+    selectedSports,
+    sportIsAll
 } from '../components/SportFilter';
 
 type TimelineSearch = RangeSearch & {
@@ -112,6 +114,125 @@ function MapPin() {
 	);
 }
 
+function SelectCheck({ on }: { on: boolean }) {
+	return (
+		<span
+			className={cn(
+				'relative z-[1] mt-3 inline-flex size-11 items-center justify-center',
+				on ? 'text-accent-ink' : 'text-muted'
+			)}
+		>
+			<span
+				className={cn(
+					'inline-flex size-6 items-center justify-center rounded-[6px] border',
+					on ? 'border-accent bg-accent' : 'border-line bg-canvas'
+				)}
+			>
+				{on ? <Icon name="check" size={14} /> : null}
+			</span>
+		</span>
+	);
+}
+
+const railClass =
+	"relative flex justify-center before:pointer-events-none before:content-[''] before:absolute before:top-0 before:-bottom-[0.35rem] before:w-0.5 before:bg-accent/22 group-last:before:bottom-1/2";
+const idleRow =
+	'group grid grid-cols-[1.4rem_1fr] gap-[0.85rem] items-stretch animate-rise max-sm:grid-cols-[1rem_1fr] max-sm:gap-[0.65rem]';
+const selectRow =
+	'group grid w-full grid-cols-[2.75rem_1fr] gap-[0.65rem] items-stretch animate-rise text-left text-inherit cursor-pointer max-sm:grid-cols-[2.5rem_1fr] max-sm:gap-[0.5rem]';
+
+function TimelineMore({
+	canGroup,
+	onGroup,
+	onExport,
+	onDelete
+}: {
+	canGroup: boolean;
+	onGroup: () => void;
+	onExport: () => void;
+	onDelete: () => void;
+}) {
+	return (
+		<MoreMenu
+			items={[
+				{
+					label: 'Group',
+					icon: <Icon name="grid" size={16} />,
+					onClick: onGroup,
+					disabled: !canGroup
+				},
+				{
+					label: 'Export',
+					icon: <Icon name="download" size={16} />,
+					onClick: onExport
+				},
+				{
+					label: 'Delete',
+					icon: <TrashIcon className="size-4" />,
+					onClick: onDelete,
+					danger: true
+				}
+			]}
+		/>
+	);
+}
+
+function RunCardBody({
+	run,
+	highlights
+}: {
+	run: RunWithMap;
+	highlights: ReturnType<typeof highlightsForActivity>;
+}) {
+	return (
+		<>
+			<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.35rem]">
+				<strong className={ui.runTitle}>
+					{run.date}
+					{run.has_map && <MapPin />}
+					{hasContext(run) && <FeelBadge />}
+				</strong>
+				<ActivityTag type={run.activity_type} />
+			</div>
+			{(run.day ||
+				(run.session && run.session !== 'other') ||
+				run.week != null ||
+				run.start_time) && (
+				<p className={cn(ui.muted, 'mt-[0.2rem] text-[0.82rem]')}>
+					{[
+						run.day || null,
+						run.session && run.session !== 'other' ? run.session : null,
+						run.week != null ? `W${run.week}` : null,
+						run.start_time || null
+					]
+						.filter(Boolean)
+						.join(' · ')}
+				</p>
+			)}
+			<div className="flex flex-wrap gap-x-[0.85rem] gap-y-[0.35rem] mt-[0.4rem] text-muted text-[0.9rem]">
+				{showsField(run.activity_type, 'distance') && <span>{run.distance_km ?? '—'} km</span>}
+				<span>{metricText(run)}</span>
+				{run.avg_hr != null ? (
+					<span>
+						HR {run.avg_hr}
+						{run.max_hr != null && `/${run.max_hr}`}
+					</span>
+				) : run.elev_gain != null && showsField(run.activity_type, 'elevation') ? (
+					<span>↑ {run.elev_gain} m</span>
+				) : run.time && normalizeActivityType(run.activity_type) !== 'strength' ? (
+					<span>{run.time}</span>
+				) : null}
+			</div>
+			<BestEffortBadges compact highlights={highlights} />
+			{run.notes && (
+				<p className={cn(ui.muted, 'mt-[0.35rem] line-clamp-1 overflow-hidden max-sm:mt-[0.28rem]')}>
+					{run.notes}
+				</p>
+			)}
+		</>
+	);
+}
+
 function Timeline() {
 	const { page } = Route.useLoaderData();
 	return (
@@ -134,8 +255,11 @@ function TimelineBody({
 	const authed = useAuthed();
 	const [copied, setCopied] = useState(false);
 	const [pending, setPending] = useState<RunWithMap | null>(null);
-	const [selecting, setSelecting] = useState(false);
+	const [pendingMass, setPendingMass] = useState(false);
+	const [selectMode, setSelectMode] = useState<'group' | 'delete' | 'export' | null>(null);
 	const [picked, setPicked] = useState<string[]>([]);
+	const [exporting, setExporting] = useState(false);
+	const selecting = selectMode != null;
 
 	const sp = new URLSearchParams();
 	if (search.range) sp.set('range', search.range);
@@ -196,16 +320,59 @@ function TimelineBody({
 		setPicked((prev) => (prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]));
 	}
 
+	function toggleGroupPick(slugs: string[]) {
+		setPicked((prev) => {
+			const allOn = slugs.every((s) => prev.includes(s));
+			if (allOn) return prev.filter((s) => !slugs.includes(s));
+			return [...new Set([...prev, ...slugs])];
+		});
+	}
+
+	function clearSelect() {
+		setSelectMode(null);
+		setPicked([]);
+	}
+
 	async function groupPicked() {
 		if (picked.length < 2) return;
 		try {
 			const res = await createActivityGroupFn({ data: { slugs: picked } });
-			setPicked([]);
-			setSelecting(false);
+			clearSelect();
 			await router.invalidate();
 			await router.navigate({ to: '/groups/$id', params: { id: res.id } });
 		} catch (err) {
 			snack.error(errorMessage(err, 'Could not group those activities.'));
+		}
+	}
+
+	async function deletePicked() {
+		if (!picked.length) return;
+		try {
+			await deleteRunsFn({ data: { slugs: picked } });
+			clearSelect();
+			await router.invalidate();
+		} catch (err) {
+			snack.error(errorMessage(err, 'Could not delete those activities.'));
+			throw err;
+		}
+	}
+
+	async function exportPicked() {
+		if (!picked.length || exporting) return;
+		setExporting(true);
+		try {
+			const file = await exportActivitiesFn({ data: { slugs: picked } });
+			if (file.encoding === 'utf8') {
+				const blob = new Blob([file.body], { type: file.mime });
+				await shareOrDownload({ filename: file.filename, blob, title: file.filename });
+			} else {
+				saveExportedFile(file);
+			}
+			clearSelect();
+		} catch (err) {
+			snack.error(errorMessage(err, 'Could not export those activities.'));
+		} finally {
+			setExporting(false);
 		}
 	}
 
@@ -246,39 +413,6 @@ function TimelineBody({
 								</>
 							)}
 						</button>
-						<AuthGate>
-							{selecting ? (
-								<>
-									<button
-										className={ui.btnPrimary}
-										type="button"
-										disabled={picked.length < 2}
-										onClick={() => void groupPicked()}
-									>
-										Group {picked.length || ''}
-									</button>
-									<button
-										className={ui.btnGhost}
-										type="button"
-										onClick={() => {
-											setSelecting(false);
-											setPicked([]);
-										}}
-									>
-										Cancel
-									</button>
-								</>
-							) : (
-								<button
-									className={ui.btnGhost}
-									type="button"
-									onClick={() => setSelecting(true)}
-								>
-									<Icon name="grid" size={16} />
-									Group
-								</button>
-							)}
-						</AuthGate>
 					</>
 				}
 			/>
@@ -291,7 +425,36 @@ function TimelineBody({
 				province={province}
 				place={place}
 				availableSports={availableSports}
+				actions={
+					authed && !selecting && items.length ? (
+						<TimelineMore
+							canGroup={items.filter((it) => it.kind === 'run').length >= 2}
+							onGroup={() => {
+								setPicked([]);
+								setSelectMode('group');
+							}}
+							onExport={() => {
+								setPicked([]);
+								setSelectMode('export');
+							}}
+							onDelete={() => {
+								setPicked([]);
+								setSelectMode('delete');
+							}}
+						/>
+					) : null
+				}
 			/>
+
+			{authed && selecting ? (
+				<p className={cn(ui.muted, 'mt-[-0.35rem] mb-4')}>
+					{selectMode === 'delete'
+						? 'Tap activities to delete. Grouped sessions delete all their parts.'
+						: selectMode === 'export'
+							? 'Tap activities to export. Each GPS file stays separate — several files download as a ZIP.'
+							: 'Tap activities to combine them. Already grouped sessions stay as they are.'}
+				</p>
+			) : null}
 
 			{neverLogged ? (
 				<div className={cn(ui.panel, ui.muted)}>No activities yet.</div>
@@ -305,7 +468,7 @@ function TimelineBody({
 					</Link>
 				</div>
 			) : (
-				<>
+				<div className={selecting && authed ? 'pb-24' : undefined}>
 					<BestEffortBoard
 						rows={board}
 						caption={
@@ -327,15 +490,78 @@ function TimelineBody({
 							<div className="grid gap-[0.35rem] mb-6 max-sm:gap-[0.45rem]">
 								{month.items.map((item, i) =>
 									item.kind === 'group' ? (
+										(selectMode === 'delete' || selectMode === 'export') && authed ? (
+										<button
+											key={item.group.id}
+											type="button"
+											className={selectRow}
+											style={{ animationDelay: `${i * 35}ms` }}
+											aria-pressed={item.members.every((m) => picked.includes(m.slug))}
+											aria-label={`Select grouped session ${item.stats.date}`}
+											onClick={() => toggleGroupPick(item.members.map((m) => m.slug))}
+										>
+											<div className={railClass}>
+												<SelectCheck
+													on={item.members.every((m) => picked.includes(m.slug))}
+												/>
+											</div>
+											<div
+												className={cn(
+													'relative p-4 px-[1.1rem] border rounded-[14px] transition-[border-color,background-color,transform] duration-150 max-sm:p-[0.85rem_0.95rem]',
+													item.members.every((m) => picked.includes(m.slug))
+														? 'border-accent bg-accent/10'
+														: 'border-accent/35 bg-accent/4'
+												)}
+											>
+												<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.35rem]">
+													<strong className={ui.runTitle}>
+														{groupedSessionTitle(
+															item.group,
+															item.members.length,
+															item.stats.date
+														)}
+														{item.members.some((m) => m.has_map) && <MapPin />}
+													</strong>
+													{item.stats.types.map((t) => (
+														<ActivityTag key={t} type={t} />
+													))}
+												</div>
+												<p className={cn(ui.muted, 'mt-[0.2rem] text-[0.82rem]')}>
+													{[
+														`${item.members.length} parts`,
+														item.stats.start_time || null,
+														groupTypeCaption(item.stats)
+													]
+														.filter(Boolean)
+														.join(' · ')}
+												</p>
+												<div className="flex flex-wrap gap-x-[0.85rem] gap-y-[0.35rem] mt-[0.4rem] text-muted text-[0.9rem]">
+													{showsField(item.stats.activity_type, 'distance') && (
+														<span>{item.stats.distance_km ?? '—'} km</span>
+													)}
+													<span>{metricText(item.stats)}</span>
+													{item.stats.avg_hr != null ? (
+														<span>
+															HR {item.stats.avg_hr}
+															{item.stats.max_hr != null && `/${item.stats.max_hr}`}
+														</span>
+													) : item.stats.time ? (
+														<span>{item.stats.time}</span>
+													) : null}
+												</div>
+												<BestEffortBadges
+													compact
+													highlights={groupHighlights(item.group, item.stats, boardOwners)}
+												/>
+											</div>
+										</button>
+										) : (
 										<div
 											key={item.group.id}
-											className="group grid grid-cols-[1.4rem_1fr] gap-[0.85rem] items-stretch animate-rise max-sm:grid-cols-[1rem_1fr] max-sm:gap-[0.65rem]"
+											className={idleRow}
 											style={{ animationDelay: `${i * 35}ms` }}
 										>
-											<div
-												className="relative flex justify-center before:content-[''] before:absolute before:top-0 before:-bottom-[0.35rem] before:w-0.5 before:bg-accent/22 group-last:before:bottom-1/2"
-												aria-hidden="true"
-											>
+											<div className={railClass} aria-hidden="true">
 												<span className="relative z-[1] size-[0.7rem] mt-5 rounded-full bg-accent shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent)_12%,transparent)]"></span>
 											</div>
 											<div className="relative p-4 px-[1.1rem] border border-accent/35 rounded-[14px] bg-accent/4 transition-[border-color,background-color,transform] duration-150 group-hover:border-accent/55 group-hover:-translate-y-px max-sm:p-[0.85rem_0.95rem]">
@@ -387,33 +613,42 @@ function TimelineBody({
 												</Link>
 											</div>
 										</div>
+										)
+									) : selecting && authed ? (
+										<button
+											key={item.run.slug}
+											type="button"
+											className={selectRow}
+											style={{ animationDelay: `${i * 35}ms` }}
+											aria-pressed={picked.includes(item.run.slug)}
+											aria-label={`Select ${item.run.date}`}
+											onClick={() => togglePick(item.run.slug)}
+										>
+											<div className={railClass}>
+												<SelectCheck on={picked.includes(item.run.slug)} />
+											</div>
+											<div
+												className={cn(
+													'relative p-4 px-[1.1rem] border rounded-[14px] transition-[border-color,background-color,transform] duration-150 max-sm:p-[0.85rem_0.95rem]',
+													picked.includes(item.run.slug)
+														? 'border-accent bg-accent/10'
+														: 'border-line bg-white/[0.02]'
+												)}
+											>
+												<RunCardBody
+													run={item.run}
+													highlights={highlightsBySlug.get(item.run.slug) ?? []}
+												/>
+											</div>
+										</button>
 									) : (
 										<div
 											key={item.run.slug}
-											className="group grid grid-cols-[1.4rem_1fr] gap-[0.85rem] items-stretch animate-rise max-sm:grid-cols-[1rem_1fr] max-sm:gap-[0.65rem]"
+											className={idleRow}
 											style={{ animationDelay: `${i * 35}ms` }}
 										>
-											<div
-												className="relative flex justify-center before:content-[''] before:absolute before:top-0 before:-bottom-[0.35rem] before:w-0.5 before:bg-accent/22 group-last:before:bottom-1/2"
-												aria-hidden="true"
-											>
-												{selecting && authed ? (
-													<button
-														type="button"
-														className={cn(
-															'relative z-[1] size-6 mt-4 rounded-md border border-line bg-surface text-[0.7rem] font-bold',
-															picked.includes(item.run.slug) &&
-																'bg-accent text-accent-ink border-accent'
-														)}
-														aria-pressed={picked.includes(item.run.slug)}
-														aria-label={`Select ${item.run.date}`}
-														onClick={() => togglePick(item.run.slug)}
-													>
-														{picked.includes(item.run.slug) ? '✓' : ''}
-													</button>
-												) : (
-													<span className="relative z-[1] size-[0.7rem] mt-5 rounded-full bg-accent shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent)_12%,transparent)]"></span>
-												)}
+											<div className={railClass} aria-hidden="true">
+												<span className="relative z-[1] size-[0.7rem] mt-5 rounded-full bg-accent shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent)_12%,transparent)]"></span>
 											</div>
 											<div className="relative p-4 px-[1.1rem] border border-line rounded-[14px] bg-white/[0.02] transition-[border-color,background-color,transform] duration-150 group-hover:border-accent/35 group-hover:bg-accent/4 group-hover:-translate-y-px group-active:border-accent/35 group-active:bg-accent/4 group-active:-translate-y-px max-sm:p-[0.85rem_0.95rem]">
 												<Link
@@ -421,58 +656,10 @@ function TimelineBody({
 													to="/runs/$slug"
 													params={{ slug: item.run.slug }}
 												>
-													<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.35rem]">
-														<strong className={ui.runTitle}>
-															{item.run.date}
-															{item.run.has_map && <MapPin />}
-															{hasContext(item.run) && <FeelBadge />}
-														</strong>
-														<ActivityTag type={item.run.activity_type} />
-													</div>
-													{(item.run.day ||
-														(item.run.session && item.run.session !== 'other') ||
-														item.run.week != null ||
-														item.run.start_time) && (
-														<p className={cn(ui.muted, 'mt-[0.2rem] text-[0.82rem]')}>
-															{[
-																item.run.day || null,
-																item.run.session && item.run.session !== 'other'
-																	? item.run.session
-																	: null,
-																item.run.week != null ? `W${item.run.week}` : null,
-																item.run.start_time || null
-															]
-																.filter(Boolean)
-																.join(' · ')}
-														</p>
-													)}
-													<div className="flex flex-wrap gap-x-[0.85rem] gap-y-[0.35rem] mt-[0.4rem] text-muted text-[0.9rem]">
-														{showsField(item.run.activity_type, 'distance') && (
-															<span>{item.run.distance_km ?? '—'} km</span>
-														)}
-														<span>{metricText(item.run)}</span>
-														{item.run.avg_hr != null ? (
-															<span>
-																HR {item.run.avg_hr}
-																{item.run.max_hr != null && `/${item.run.max_hr}`}
-															</span>
-														) : item.run.elev_gain != null &&
-														  showsField(item.run.activity_type, 'elevation') ? (
-															<span>↑ {item.run.elev_gain} m</span>
-														) : item.run.time &&
-														  normalizeActivityType(item.run.activity_type) !== 'strength' ? (
-															<span>{item.run.time}</span>
-														) : null}
-													</div>
-													<BestEffortBadges
-														compact
+													<RunCardBody
+														run={item.run}
 														highlights={highlightsBySlug.get(item.run.slug) ?? []}
 													/>
-													{item.run.notes && (
-														<p className={cn(ui.muted, 'mt-[0.35rem] line-clamp-1 overflow-hidden max-sm:mt-[0.28rem]')}>
-															{item.run.notes}
-														</p>
-													)}
 												</Link>
 												<AuthGate>
 													<div className="absolute top-[0.65rem] right-[0.65rem] z-[2] inline-flex items-center gap-1 m-0 opacity-100 sm:opacity-55 hover:opacity-100 group-hover:opacity-100">
@@ -505,8 +692,49 @@ function TimelineBody({
 							</div>
 						</div>
 					))}
-				</>
+				</div>
 			)}
+			{authed && selecting ? (
+				<div
+					className={cn(
+						ui.actions,
+						ui.stickyActions,
+						'fixed left-1/2 z-30 w-[min(1120px,calc(100%-2rem))] -translate-x-1/2'
+					)}
+				>
+					<button className={ui.btnGhost} type="button" onClick={clearSelect}>
+						Cancel
+					</button>
+					{selectMode === 'delete' ? (
+						<button
+							className={cn(ui.btnGhost, ui.btnDanger, ui.stickyPrimary)}
+							type="button"
+							disabled={!picked.length}
+							onClick={() => setPendingMass(true)}
+						>
+							Delete {picked.length || ''}
+						</button>
+					) : selectMode === 'export' ? (
+						<button
+							className={cn(ui.btnPrimary, ui.stickyPrimary)}
+							type="button"
+							disabled={!picked.length || exporting}
+							onClick={() => void exportPicked()}
+						>
+							{exporting ? 'Exporting…' : `Export ${picked.length || ''}`}
+						</button>
+					) : (
+						<button
+							className={cn(ui.btnPrimary, ui.stickyPrimary)}
+							type="button"
+							disabled={picked.length < 2}
+							onClick={() => void groupPicked()}
+						>
+							Group {picked.length || ''}
+						</button>
+					)}
+				</div>
+			) : null}
 			<ConfirmDialog
 				open={pending != null}
 				title="Delete this activity?"
@@ -521,6 +749,15 @@ function TimelineBody({
 					await deleteRun({ data: pending.slug });
 					await router.invalidate();
 				}}
+			/>
+			<ConfirmDialog
+				open={pendingMass}
+				title={
+					picked.length === 1 ? 'Delete this activity?' : `Delete ${picked.length} activities?`
+				}
+				description="This cannot be undone."
+				onClose={() => setPendingMass(false)}
+				onConfirm={deletePicked}
 			/>
 		</>
 	);

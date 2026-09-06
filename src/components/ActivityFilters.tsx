@@ -1,4 +1,5 @@
 import type { DateRange } from '$lib/date-range';
+import type { ReactNode } from 'react';
 import { DateRangeFilter } from './DateRangeFilter';
 import { FilterSheet, filterSummary } from './FilterSheet';
 import { PlaceFilter } from './PlaceFilter';
@@ -14,7 +15,8 @@ export function ActivityFilters({
 	country,
 	province,
 	place,
-	availableSports
+	availableSports,
+	actions
 }: {
 	to: string;
 	sport: string;
@@ -24,9 +26,13 @@ export function ActivityFilters({
 	province: string;
 	place: string;
 	availableSports?: Set<string>;
+	actions?: ReactNode;
 }) {
 	return (
-		<FilterSheet summary={filterSummary(sport, range, { country, province, place })}>
+		<FilterSheet
+			summary={filterSummary(sport, range, { country, province, place })}
+			actions={actions}
+		>
 			<SportFilter sport={sport} to={to} defaultSport="all" available={availableSports} />
 			<DateRangeFilter range={range} to={to} />
 			<PlaceFilter to={to} runs={runs} country={country} province={province} place={place} />

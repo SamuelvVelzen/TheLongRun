@@ -24,7 +24,7 @@ import {
     stampAlongDistance,
     trackDistanceMeters
 } from '$lib/gps-repair';
-import { combineRunStats, groupedSessionTitle } from '$lib/group';
+import { combineRunStats, groupedSessionTitle, sortGroupMembers } from '$lib/group';
 import { buildHrZoneSummary } from '$lib/hr-zones';
 import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import {
@@ -1500,6 +1500,15 @@ export const deleteRun = createServerFn({ method: 'POST' }).middleware([requireA
 		return dbDeleteRun(slug);
 	});
 
+export const deleteRunsFn = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: { slugs: string[] }) => d)
+	.handler(async ({ data }) => {
+		const unique = [...new Set(data.slugs.map((s) => s.trim()).filter(Boolean))];
+		if (!unique.length) throw new Error('Pick at least one activity to delete.');
+		for (const slug of unique) await dbDeleteRun(slug);
+		return { ok: true as const };
+	});
+
 export const getGroupDetail = createServerFn({ method: 'GET' })
 	.validator((id: string) => id)
 	.handler(async ({ data: id }) => {
@@ -1622,15 +1631,7 @@ export const exportGroupedActivity = createServerFn({ method: 'GET' })
 					points: s.points
 				})
 			}));
-			const bytes = zipStoreBytes(entries);
-			let binary = '';
-			for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
-			return {
-				filename: `${fileBase}.zip`,
-				mime: 'application/zip',
-				encoding: 'base64' as const,
-				body: btoa(binary)
-			};
+			return zipFilePayload(`${fileBase}.zip`, entries);
 		}
 
 		const xml =
@@ -1649,6 +1650,62 @@ export const exportGroupedActivity = createServerFn({ method: 'GET' })
 		const mime =
 			data.kind === 'tcx' ? 'application/vnd.garmin.tcx+xml' : 'application/gpx+xml';
 		return { filename: `${fileBase}.${ext}`, mime, encoding: 'utf8' as const, body: xml };
+	});
+
+function zipFilePayload(filename: string, entries: { name: string; data: string }[]) {
+	const bytes = zipStoreBytes(entries);
+	let binary = '';
+	for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
+	return {
+		filename,
+		mime: 'application/zip',
+		encoding: 'base64' as const,
+		body: btoa(binary)
+	};
+}
+
+export const exportActivitiesFn = createServerFn({ method: 'GET' })
+	.validator((d: { slugs: string[] }) => d)
+	.handler(async ({ data }) => {
+		const unique = [...new Set(data.slugs.map((s) => s.trim()).filter(Boolean))];
+		if (!unique.length) throw new Error('Pick at least one activity to export.');
+		const all = await listRuns();
+		const runs = sortGroupMembers(
+			unique.map((slug) => all.find((r) => r.slug === slug)).filter((r): r is RunRecord => r != null)
+		);
+		if (!runs.length) throw new Error('Activity not found.');
+		const parts = await tracksForMembers(runs);
+		const entries: { name: string; data: string }[] = [];
+		for (let i = 0; i < runs.length; i++) {
+			const run = runs[i]!;
+			const points = parts[i] ?? [];
+			if (points.length < 2) continue;
+			const name = `${run.date}${run.start_time ? ` ${run.start_time}` : ''}`;
+			entries.push({
+				name: safeFilename(
+					`${run.date}-${normalizeActivityType(run.activity_type)}-${run.slug}.gpx`
+				),
+				data: memberActivityGpx({
+					name,
+					activityType: run.activity_type,
+					points
+				})
+			});
+		}
+		if (!entries.length) throw new Error('No GPS tracks to export.');
+		if (entries.length === 1) {
+			return {
+				filename: entries[0]!.name,
+				mime: 'application/gpx+xml',
+				encoding: 'utf8' as const,
+				body: entries[0]!.data
+			};
+		}
+		const first = runs[0]!.date;
+		const last = runs[runs.length - 1]!.date;
+		const zipName =
+			first === last ? `activities-${first}.zip` : `activities-${first}-to-${last}.zip`;
+		return zipFilePayload(zipName, entries);
 	});
 
 function parseJsonPayload(text: string): unknown {

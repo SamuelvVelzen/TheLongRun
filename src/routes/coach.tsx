@@ -25,6 +25,7 @@ import {
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
+import { DebriefFeelForm } from '../components/DebriefFeelForm';
 import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
@@ -40,16 +41,23 @@ import {
 import { WeekPlanBoard } from '../components/WeekPlanBoard';
 
 type CoachTab = 'training' | 'debrief' | 'plan' | 'generate';
-type CoachSearch = RangeSearch & { tab?: CoachTab; slug?: string; planWeek?: number };
+type CoachSearch = RangeSearch & {
+	tab?: CoachTab;
+	slug?: string;
+	planWeek?: number;
+	includePlan?: boolean;
+};
 
 const RANGE_KINDS: RangeKind[] = ['7d', '30d', 'all', 'custom'];
 
 function withCoachSearch(search: CoachSearch, extra: Partial<CoachSearch> = {}): CoachSearch {
 	const slug = extra.slug !== undefined ? extra.slug : search.slug;
+	const includePlan = extra.includePlan !== undefined ? extra.includePlan : search.includePlan;
 	return {
 		tab: extra.tab ?? search.tab,
 		slug: slug || undefined,
 		planWeek: extra.planWeek !== undefined ? extra.planWeek : search.planWeek,
+		includePlan: includePlan === false ? false : undefined,
 		range: extra.range !== undefined ? extra.range : search.range,
 		from: extra.from !== undefined ? extra.from : search.from,
 		to: extra.to !== undefined ? extra.to : search.to
@@ -311,15 +319,18 @@ export const Route = createFileRoute('/coach')({
 		to: typeof s.to === 'string' ? s.to : undefined,
 		tab: parseTab(s.tab),
 		slug: typeof s.slug === 'string' && s.slug ? s.slug : undefined,
-		planWeek: parsePlanWeek(s.planWeek)
+		planWeek: parsePlanWeek(s.planWeek),
+		includePlan: s.includePlan === false || s.includePlan === 'false' || s.includePlan === '0' ? false : undefined
 	}),
 	// Search (tab, range, slug) must not remount DeferredData/Await — that felt like a full refresh.
 	loaderDeps: () => ({}),
 	loader: ({ location }) => {
-		const slug = (location.search as CoachSearch).slug ?? '';
+		const search = location.search as CoachSearch;
+		const slug = search.slug ?? '';
+		const includePlan = search.includePlan !== false;
 		return {
 			page: Promise.all([
-				getDebriefPrompt({ data: slug }),
+				getDebriefPrompt({ data: { slug, includePlan } }),
 				getWeekPattern(),
 				getCoachPlan()
 			]).then(([debrief, weekPattern, planData]) => ({ debrief, weekPattern, planData }))
@@ -440,6 +451,7 @@ function CoachPanels({
 	const authed = useAuthed();
 	const tab = visibleTab(search.tab, authed);
 	const slug = search.slug ?? '';
+	const includePlan = search.includePlan !== false;
 
 	const [question, setQuestion] = useState(() =>
 		defaultQuestion(planData.generateWeek > planData.currentWeek)
@@ -469,14 +481,15 @@ function CoachPanels({
 	// Soft slug updates (e.g. after GPX import) refresh the prompt without remounting the page.
 	const slugHydrated = useRef<string | null>(null);
 	useEffect(() => {
+		const key = `${slug}|${includePlan ? '1' : '0'}`;
 		if (slugHydrated.current === null) {
-			slugHydrated.current = slug;
+			slugHydrated.current = key;
 			return;
 		}
-		if (slugHydrated.current === slug) return;
-		slugHydrated.current = slug;
+		if (slugHydrated.current === key) return;
+		slugHydrated.current = key;
 		let cancelled = false;
-		getDebriefPrompt({ data: slug }).then((next) => {
+		getDebriefPrompt({ data: { slug, includePlan } }).then((next) => {
 			if (cancelled) return;
 			setDebrief(next);
 			setDebriefPrompt(next.prompt);
@@ -484,7 +497,7 @@ function CoachPanels({
 		return () => {
 			cancelled = true;
 		};
-	}, [slug]);
+	}, [slug, includePlan]);
 
 	async function savePlan() {
 		try {
@@ -520,6 +533,23 @@ function CoachPanels({
 
 	const runs = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
 	const many = runs.length > 1;
+	const allHaveFeel = runs.length > 0 && runs.every((r) => r.hasFeel);
+
+	async function refreshDebrief() {
+		const next = await getDebriefPrompt({ data: { slug, includePlan } });
+		setDebrief(next);
+		setDebriefPrompt(next.prompt);
+		await router.invalidate();
+	}
+
+	function setIncludePlan(next: boolean) {
+		router.navigate({
+			to: '/coach',
+			search: withCoachSearch(search, { tab: 'debrief', includePlan: next }),
+			replace: true,
+			resetScroll: false
+		});
+	}
 	const planningNext = planData.generateWeek > planData.currentWeek;
 	const weekPhrase = planningNext ? 'next week' : 'this week';
 	const weekPhraseCap = planningNext ? 'Next week' : 'This week';
@@ -711,17 +741,59 @@ function CoachPanels({
 								.
 							</p>
 						</li>
-						<li className={runs.length && debriefPrompt ? 'current' : undefined}>
-							<strong>2. Copy the prompt</strong>
+						<li className={runs.length ? (allHaveFeel ? 'done' : 'current') : undefined}>
+							<strong>2. How it felt</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
-								In ChatGPT: attach the Strava general + pace screenshots, paste this, and say how
-								{many ? ' each one' : ' it'} felt.
+								Log this here — it goes into the prompt so the AI coaches from your scores and
+								notes, not from a description in the chat.
+							</span>
+							{runs.length > 0 &&
+								runs.map((r) => (
+									<DebriefFeelForm
+										key={r.slug}
+										run={r}
+										heading={
+											many
+												? `${r.date}${r.day ? ` · ${r.day}` : ''}${r.distance_km != null ? ` · ${r.distance_km} km` : ''}`
+												: undefined
+										}
+										onSaved={refreshDebrief}
+									/>
+								))}
+							{!runs.length && (
+								<p className={cn(ui.muted, 'mt-[0.4rem]')}>
+									Import a GPX (or log manually) first.
+								</p>
+							)}
+						</li>
+						<li className={runs.length && debriefPrompt ? 'current' : undefined}>
+							<strong>3. Copy the prompt</strong>
+							<span className={cn(ui.muted, 'block mt-1')}>
+								{`Paste into ChatGPT. It will give advice first${includePlan ? ', then JSON for the rest of the week' : ''}. Attach Strava screenshots if you want extra context.`}
+								{runs.length > 0 && !allHaveFeel
+									? ' Save how it felt first so the prompt includes your scores.'
+									: ''}
 							</span>
 							{debrief.error && !debriefPrompt && (
 								<p className={cn(ui.muted, 'mt-[0.4rem]')}>{debrief.error}</p>
 							)}
 							{debriefPrompt && (
 								<div className={cn(ui.panel, ui.form, 'mt-3')}>
+									<label className="flex items-start gap-3 cursor-pointer m-0 select-none">
+										<input
+											className="mt-1 size-5 shrink-0 accent-[var(--accent,#c8f25a)]"
+											type="checkbox"
+											checked={includePlan}
+											onChange={(e) => setIncludePlan(e.target.checked)}
+										/>
+										<span>
+											<span className="block text-fg font-semibold">Include this week’s plan</span>
+											<span className={cn(ui.muted, 'block font-normal')}>
+												The AI sees remaining sessions and can return an updated week. Uncheck
+												for advice only.
+											</span>
+										</span>
+									</label>
 									<label className={ui.field}>
 										<textarea
 											className={ui.editor}
@@ -739,11 +811,12 @@ function CoachPanels({
 								</div>
 							)}
 						</li>
+						{includePlan && (
 						<li>
-							<strong>3. Paste ChatGPT’s JSON</strong>
+							<strong>4. Paste ChatGPT’s JSON</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
-								Feelings for {many ? 'these activities' : 'this activity'} plus the updated rest of
-								the week. Days can change.
+								The updated rest of the week. Days can change. Advice stays in the chat — only
+								the JSON is saved.
 							</span>
 							{authed ? (
 							<div className={cn(ui.panel, ui.form, 'mt-3')}>
@@ -751,7 +824,7 @@ function CoachPanels({
 									<textarea
 										className={ui.editor}
 										rows={8}
-										placeholder='{ "feelings": [{ "slug": "…" }], "week": { "week": 3, "sessions": [ … ] } }'
+										placeholder='{ "week": { "week": 3, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] } }'
 										value={debriefJson}
 										onChange={(e) => setDebriefJson(e.target.value)}
 									/>
@@ -764,12 +837,13 @@ function CoachPanels({
 										disabled={!debriefJson.trim()}
 									>
 										<Icon name="check" size={16} />
-										Save debrief
+										Save week
 									</button>
 								</div>
 							</div>
 							) : null}
 						</li>
+						)}
 					</ol>
 				</>
 			)}

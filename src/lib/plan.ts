@@ -540,19 +540,57 @@ ${JSON.stringify(json, null, 2)}
 `;
 }
 
-/** Attach planned-route refs to a week view. Key is lowercase weekday. */
+/** Match key for a plan session's planned route. */
+export function planSessionRouteKey(
+	day: string,
+	label: string,
+	activityType: string | null | undefined
+): string {
+	return `${day.trim().toLowerCase()}|${label}|${normalizeActivityType(activityType ?? 'run')}`;
+}
+
+/** Attach planned-route refs to a week view. */
 export function withSessionRoutes(
 	view: WeekView,
-	byDay: Map<string, SessionRouteRef>
+	bySession: Map<string, SessionRouteRef>,
+	legacyByDay: Map<string, SessionRouteRef> = new Map()
 ): WeekView {
-	const sessions = view.sessions.map((s) => ({
-		...s,
-		route: byDay.get(s.day.trim().toLowerCase()) ?? null
-	}));
+	const legacyUsed = new Set<string>();
+	const sessions = view.sessions.map((s) => {
+		const exact = bySession.get(planSessionRouteKey(s.day, s.label, s.activity_type));
+		if (exact) return { ...s, route: exact };
+
+		const dayKey = s.day.trim().toLowerCase();
+		const legacy = legacyByDay.get(dayKey);
+		if (
+			legacy &&
+			sessionActivityType(s) !== 'strength' &&
+			!legacyUsed.has(dayKey)
+		) {
+			legacyUsed.add(dayKey);
+			return { ...s, route: legacy };
+		}
+		return { ...s, route: null };
+	});
 	const next = view.next
 		? (sessions.find((s) => s.isNext) ?? {
 				...view.next,
-				route: byDay.get(view.next.day.trim().toLowerCase()) ?? null
+				route:
+					bySession.get(
+						planSessionRouteKey(view.next.day, view.next.label, view.next.activity_type)
+					) ??
+					(() => {
+						const dayKey = view.next!.day.trim().toLowerCase();
+						if (
+							legacyByDay.has(dayKey) &&
+							sessionActivityType(view.next!) !== 'strength' &&
+							!legacyUsed.has(dayKey)
+						) {
+							legacyUsed.add(dayKey);
+							return legacyByDay.get(dayKey)!;
+						}
+						return null;
+					})()
 			})
 		: null;
 	return { ...view, sessions, next };

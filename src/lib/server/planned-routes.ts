@@ -284,9 +284,16 @@ export type RouteLinkRow = {
 	activity_slug: string | null;
 	plan_week: number | null;
 	plan_day: string | null;
+	plan_label: string | null;
+	plan_activity_type: string | null;
 };
 
-export type PlanRouteRef = SessionRouteRef & { week: number; day: string };
+export type PlanRouteRef = SessionRouteRef & {
+	week: number;
+	day: string;
+	label: string | null;
+	activity_type: string | null;
+};
 
 function canonicalDay(day: string): string {
 	const found = WEEKDAYS.find((d) => d.toLowerCase() === day.trim().toLowerCase());
@@ -302,7 +309,9 @@ function rowToLink(row: Record<string, unknown>): RouteLinkRow {
 		kind,
 		activity_slug: toStr(row.activity_slug) || null,
 		plan_week: toNum(row.plan_week),
-		plan_day: toStr(row.plan_day) || null
+		plan_day: toStr(row.plan_day) || null,
+		plan_label: toStr(row.plan_label) || null,
+		plan_activity_type: toStr(row.plan_activity_type) || null
 	};
 }
 
@@ -311,15 +320,15 @@ export async function listRouteLinks(routeSlug?: string): Promise<RouteLinkRow[]
 	const rows = (
 		routeSlug
 			? await sql`
-				SELECT id, route_slug, kind, activity_slug, plan_week, plan_day
+				SELECT id, route_slug, kind, activity_slug, plan_week, plan_day, plan_label, plan_activity_type
 				FROM planned_route_links
 				WHERE route_slug = ${routeSlug}
-				ORDER BY kind, plan_week, plan_day, activity_slug
+				ORDER BY kind, plan_week, plan_day, plan_label, activity_slug
 			`
 			: await sql`
-				SELECT id, route_slug, kind, activity_slug, plan_week, plan_day
+				SELECT id, route_slug, kind, activity_slug, plan_week, plan_day, plan_label, plan_activity_type
 				FROM planned_route_links
-				ORDER BY kind, plan_week, plan_day, activity_slug
+				ORDER BY kind, plan_week, plan_day, plan_label, activity_slug
 			`
 	) as Record<string, unknown>[];
 	return rows.map(rowToLink);
@@ -328,7 +337,7 @@ export async function listRouteLinks(routeSlug?: string): Promise<RouteLinkRow[]
 export async function listPlanRouteRefs(): Promise<PlanRouteRef[]> {
 	const sql = getSql();
 	const rows = (await sql`
-		SELECT l.plan_week, l.plan_day, r.slug, r.name, r.distance_km
+		SELECT l.plan_week, l.plan_day, l.plan_label, l.plan_activity_type, r.slug, r.name, r.distance_km
 		FROM planned_route_links l
 		JOIN planned_routes r ON r.slug = l.route_slug
 		WHERE l.kind = 'plan'
@@ -337,6 +346,8 @@ export async function listPlanRouteRefs(): Promise<PlanRouteRef[]> {
 		.map((row) => ({
 			week: toNum(row.plan_week) ?? 0,
 			day: toStr(row.plan_day),
+			label: toStr(row.plan_label) || null,
+			activity_type: toStr(row.plan_activity_type) || null,
 			slug: toStr(row.slug),
 			name: toStr(row.name),
 			distance_km: toNum(row.distance_km)
@@ -362,20 +373,34 @@ export async function getActivityRouteRef(activitySlug: string): Promise<Session
 export async function attachRouteToPlan(
 	routeSlug: string,
 	week: number,
-	day: string
+	day: string,
+	label: string,
+	activityType: string
 ): Promise<RouteLinkRow> {
 	const route = await getPlannedRoute(routeSlug);
 	if (!route) throw new Error('Route not found.');
 	const planDay = canonicalDay(day);
+	const planLabel = label.trim();
+	if (!planLabel) throw new Error('Session label is required.');
+	const planActivityType = activityType.trim();
+	if (!planActivityType) throw new Error('Session activity type is required.');
 	const sql = getSql();
 	await sql`
 		DELETE FROM planned_route_links
-		WHERE kind = 'plan' AND plan_week = ${week} AND plan_day = ${planDay}
+		WHERE kind = 'plan'
+			AND plan_week = ${week}
+			AND plan_day = ${planDay}
+			AND IFNULL(plan_label, '') = ${planLabel}
+			AND IFNULL(plan_activity_type, '') = ${planActivityType}
 	`;
 	const rows = (await sql`
-		INSERT INTO planned_route_links (route_slug, kind, activity_slug, plan_week, plan_day, created_on)
-		VALUES (${routeSlug}, 'plan', NULL, ${week}, ${planDay}, ${isoDateLocal()})
-		RETURNING id, route_slug, kind, activity_slug, plan_week, plan_day
+		INSERT INTO planned_route_links (
+			route_slug, kind, activity_slug, plan_week, plan_day, plan_label, plan_activity_type, created_on
+		)
+		VALUES (
+			${routeSlug}, 'plan', NULL, ${week}, ${planDay}, ${planLabel}, ${planActivityType}, ${isoDateLocal()}
+		)
+		RETURNING id, route_slug, kind, activity_slug, plan_week, plan_day, plan_label, plan_activity_type
 	`) as Record<string, unknown>[];
 	return rowToLink(rows[0]!);
 }
@@ -392,9 +417,9 @@ export async function attachRouteToActivity(
 		WHERE kind = 'activity' AND activity_slug = ${activitySlug}
 	`;
 	const rows = (await sql`
-		INSERT INTO planned_route_links (route_slug, kind, activity_slug, plan_week, plan_day, created_on)
-		VALUES (${routeSlug}, 'activity', ${activitySlug}, NULL, NULL, ${isoDateLocal()})
-		RETURNING id, route_slug, kind, activity_slug, plan_week, plan_day
+		INSERT INTO planned_route_links (route_slug, kind, activity_slug, plan_week, plan_day, plan_label, plan_activity_type, created_on)
+		VALUES (${routeSlug}, 'activity', ${activitySlug}, NULL, NULL, NULL, NULL, ${isoDateLocal()})
+		RETURNING id, route_slug, kind, activity_slug, plan_week, plan_day, plan_label, plan_activity_type
 	`) as Record<string, unknown>[];
 	return rowToLink(rows[0]!);
 }

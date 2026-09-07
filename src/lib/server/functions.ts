@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPES, activityLabel, activityPlural, metricText, normalizeActivityType, showsField } from '$lib/activity';
+import { ACTIVITY_TYPES, activityLabel, activityPlural, metricText, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
 import { combinedActivityGpx, combinedActivityTcx, memberActivityGpx, safeFilename } from '$lib/activity-export';
 import {
     computeBestEffortsFromSplits,
@@ -39,6 +39,7 @@ import {
     mondayIso,
     pickBannerWeekView,
     plannedSessionFor,
+    planSessionRouteKey,
     planWeekDateRange,
     planWeekEndIso,
     planWeekIndex,
@@ -166,16 +167,22 @@ const withMap = (runs: RunRecord[], routeIds: Set<string>): RunWithMap[] =>
 
 function attachPlanRoutes(weekView: WeekView | null, planRefs: Awaited<ReturnType<typeof listPlanRouteRefs>>): WeekView | null {
 	if (!weekView) return null;
-	const byDay = new Map<string, SessionRouteRef>();
+	const bySession = new Map<string, SessionRouteRef>();
+	const legacyByDay = new Map<string, SessionRouteRef>();
 	for (const ref of planRefs) {
 		if (ref.week !== weekView.week.week) continue;
-		byDay.set(ref.day.trim().toLowerCase(), {
+		const routeRef: SessionRouteRef = {
 			slug: ref.slug,
 			name: ref.name,
 			distance_km: ref.distance_km
-		});
+		};
+		if (ref.label && ref.activity_type) {
+			bySession.set(planSessionRouteKey(ref.day, ref.label, ref.activity_type), routeRef);
+		} else {
+			legacyByDay.set(ref.day.trim().toLowerCase(), routeRef);
+		}
 	}
-	return withSessionRoutes(weekView, byDay);
+	return withSessionRoutes(weekView, bySession, legacyByDay);
 }
 
 async function hydrateBestEfforts(runs: RunRecord[]): Promise<RunRecord[]> {
@@ -933,35 +940,51 @@ function debriefRunSummary(r: RunRecord) {
 		day: r.day,
 		distance_km: r.distance_km,
 		avg_pace: r.avg_pace,
-		hasFeel: hasFeel(r)
+		hasFeel: hasFeel(r),
+		activity_type: r.activity_type,
+		effort: r.effort,
+		shins: r.shins,
+		legs: r.legs,
+		energy: r.energy,
+		wanted_faster: r.wanted_faster,
+		surface: r.surface,
+		notes: r.notes
 	};
 }
 
-function formatFeelingsExample(runs: RunRecord[]): string {
-	const fields = (r: RunRecord, pad: string) =>
-		[
-			`${pad}"slug": ${JSON.stringify(r.slug)},`,
-			`${pad}"effort": 6,`,
-			`${pad}"shins": 3,`,
-			`${pad}"legs": 7,`,
-			`${pad}"energy": 7,`,
-			`${pad}"wanted_faster": false,`,
-			`${pad}"surface": "asphalt",`,
-			`${pad}"notes": "Short first-person note."`
-		].join('\n');
-	const r = runs[0];
-	if (!r || runs.length === 1) {
-		if (!r) return `  "feelings": { "slug": "…" }`;
-		return `  "feelings": {\n${fields(r, '    ')}\n  }`;
+function formatFeelLogged(r: RunRecord): string {
+	const scores = [
+		`effort ${r.effort ?? '–'}`,
+		`shins ${r.shins ?? '–'}`,
+		`legs ${r.legs ?? '–'}`,
+		`energy ${r.energy ?? '–'}`
+	];
+	if (showsFeel(r.activity_type, 'wanted_faster')) {
+		scores.push(
+			`wanted faster ${r.wanted_faster === true ? 'yes' : r.wanted_faster === false ? 'no' : '–'}`
+		);
 	}
-	return `  "feelings": [\n${runs
-		.map((row) => `    {\n${fields(row, '      ')}\n    }`)
-		.join(',\n')}\n  ]`;
+	const surface = (r.surface ?? '').trim();
+	const notesRaw = (r.notes ?? '').trim();
+	const notes = notesRaw && !isImportNote(notesRaw) ? notesRaw : '';
+	if (!hasFeel(r) && !notes) {
+		return `- \`${r.slug}\`: not logged yet — do not invent scores.`;
+	}
+	return `- \`${r.slug}\`: ${scores.join(' · ')}${surface ? ` · surface ${surface}` : ''}${
+		notes ? `\n  ${notes}` : ''
+	}`;
 }
 
 export const getDebriefPrompt = createServerFn({ method: 'GET' })
-	.validator((slug: string) => (typeof slug === 'string' ? slug : ''))
-	.handler(async ({ data: slug }) => {
+	.validator((d: { slug?: string; includePlan?: boolean } | string) => {
+		if (typeof d === 'string') return { slug: d, includePlan: true };
+		return {
+			slug: typeof d?.slug === 'string' ? d.slug : '',
+			includePlan: d?.includePlan !== false
+		};
+	})
+	.handler(async ({ data }) => {
+		const { slug, includePlan } = data;
 		const [allRuns, week, injury, settings, training] = await Promise.all([
 			listRuns(),
 			currentPlanWeek(),
@@ -1030,38 +1053,23 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const sessionWord = many ? 'these sessions' : 'this session';
 		const sessionHeading = many ? 'These sessions' : 'This session';
 		const sessionBlock = featured.map(formatRunBriefLine).join('\n');
-		const feelingsRule = many
-			? `- \`feelings\` is an array with one object per session above. Each \`slug\` must be exactly one of: ${featured.map((r) => `\`${r.slug}\``).join(', ')}. effort and energy 1–10; shins and legs 0–10. Omit fields you don't know. Do not invent scores from GPS or screenshots. Omit a session entirely if I said nothing about it. Do not copy example numbers.`
-			: `- \`feelings.slug\` must be exactly \`${featured[0]!.slug}\`. effort and energy 1–10; shins and legs 0–10. Omit fields you don't know. Do not invent scores from GPS or screenshots. Omit the feelings object if I said nothing about this session. Do not copy example numbers.`;
-
-		const prompt = `# The Long Run — debrief ${sessionWord}
-
-You are my coach for the sports I train, not a running-only coach. GPS numbers are below. I'll attach Strava screenshots and say how ${many ? 'each one' : 'it'} felt.
-${FEEL_SCALE}
-
-Update **this week** from ${sessionWord}. Keep remaining sessions on their planned days unless recovery requires a shift — and if you move a day, say why. Keep non-run sessions unless recovery says otherwise.
-
-## Usual weekdays
-${formatPatternLines(settings.weekPattern)}
-
-## ${sessionHeading}
-${sessionBlock}
-
-## Other activities already logged this week
-${otherThisWeek.length ? otherThisWeek.map(formatRunBriefLine).join('\n') : `- (none besides ${many ? 'these' : 'this one'})`}
-
+		const feelBlock = featured.map(formatFeelLogged).join('\n');
+		const job = includePlan
+			? `Coach from ${sessionWord}: how it went, recovery, and what to watch. Then update **this week** only if remaining sessions should change. Keep remaining sessions on their planned days unless recovery requires a shift — and if you move a day, say why. Keep non-run sessions unless recovery says otherwise.`
+			: `Coach from ${sessionWord}: how it went, recovery, and what to watch next. Do not rewrite my week plan — this chat is advice only.`;
+		const planSections = includePlan
+			? `
 ## Current week plan${week ? ` — week ${week.week} (${week.dates}) · ${week.phase} · ${week.focus}` : ''}
 ${sessionLines}
 
-${unplannedLines ? `## Unplanned activities this week\nThese logs did not match a planned session — extra load, already done. Do not add a plan row just to file them.\n${unplannedLines}\n` : ''}## Injury rules
-${injury.trim() || '(none)'}
-
-## When you reply
-Short assessment in prose. Then one fenced JSON object I can paste back — the JSON is what I save; the assessment is not.
+${unplannedLines ? `## Unplanned activities this week\nThese logs did not match a planned session — extra load, already done. Do not add a plan row just to file them.\n${unplannedLines}\n` : ''}`
+			: '';
+		const reply = includePlan
+			? `## When you reply
+Lead with coaching advice in prose (how ${sessionWord} went, recovery, and whether anything ahead should change). After the advice, output one fenced JSON object I can paste back — the JSON is what I save; the advice is not.
 
 \`\`\`json
 {
-${formatFeelingsExample(featured)},
   "week": {
     "week": ${week?.week ?? 0},
     "dates": ${JSON.stringify(week?.dates ?? '')},
@@ -1075,11 +1083,38 @@ ${formatFeelingsExample(featured)},
 \`\`\`
 
 Rules:
-${feelingsRule}
+- Do not return a \`feelings\` object — I already logged how ${sessionWord} felt in the app.
 - \`week.sessions\` is the **full week** from Current week plan: keep completed/skipped rows as they were, rewrite what's still ahead. Every session needs \`"activity_type"\`. Only move a day if you must, and say why.
 - To drop a session, set \`"status": "skipped"\` (and why in \`detail\`). Unlogged ≠ skipped.
 - If the week is finished, return the same session rows unchanged — do not invent a completed status (\`status\` is only \`"skipped"\`).
+`
+			: `## When you reply
+Lead with coaching advice in prose (how ${sessionWord} went, recovery, and the next session). Do not return JSON or a week plan.
 `;
+
+		const prompt = `# The Long Run — debrief ${sessionWord}
+
+You are my coach for the sports I train, not a running-only coach. GPS numbers and how I felt are below. I may attach Strava screenshots for extra context.
+${FEEL_SCALE}
+
+${job}
+
+## Usual weekdays
+${formatPatternLines(settings.weekPattern)}
+
+## ${sessionHeading}
+${sessionBlock}
+
+## How I felt (logged in the app — treat as ground truth)
+${feelBlock}
+
+## Other activities already logged this week
+${otherThisWeek.length ? otherThisWeek.map(formatRunBriefLine).join('\n') : `- (none besides ${many ? 'these' : 'this one'})`}
+${planSections}
+## Injury rules
+${injury.trim() || '(none)'}
+
+${reply}`;
 		const runs = featured.map(debriefRunSummary);
 		return {
 			prompt,
@@ -1088,6 +1123,34 @@ ${feelingsRule}
 			weekView,
 			error: null as string | null
 		};
+	});
+
+export type ActivityFeelInput = {
+	slug: string;
+	effort: number | null;
+	shins: number | null;
+	legs: number | null;
+	energy: number | null;
+	wanted_faster: boolean | null;
+	surface?: string;
+	notes?: string;
+};
+
+export const saveActivityFeel = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: ActivityFeelInput) => d)
+	.handler(async ({ data }) => {
+		const patch: FeelingsPatch = {
+			effort: data.effort,
+			shins: data.shins,
+			legs: data.legs,
+			energy: data.energy,
+			wanted_faster: data.wanted_faster
+		};
+		if (data.surface !== undefined) patch.surface = data.surface.trim();
+		if (data.notes !== undefined) patch.notes = data.notes.trim();
+		const ok = await updateRunFeelings(data.slug, patch);
+		if (!ok) throw new Error('Activity not found.');
+		return { ok: true as const, slug: data.slug };
 	});
 
 // ---------- mutations ----------
@@ -2247,16 +2310,25 @@ export const getPlannedRouteDetail = createServerFn({ method: 'GET' })
 		for (const link of mine) {
 			if (link.kind !== 'plan' || link.plan_week == null || !link.plan_day) continue;
 			const week = plan.find((w) => w.week === link.plan_week);
-			const session = week?.sessions.find(
-				(s) => s.day.toLowerCase() === link.plan_day!.toLowerCase()
-			);
+			const session = week?.sessions.find((s) => {
+				if (s.day.toLowerCase() !== link.plan_day!.toLowerCase()) return false;
+				if (link.plan_label && s.label !== link.plan_label) return false;
+				if (
+					link.plan_activity_type &&
+					normalizeActivityType(s.activity_type ?? 'run') !==
+						normalizeActivityType(link.plan_activity_type)
+				) {
+					return false;
+				}
+				return true;
+			});
 			planLinks.push({
 				id: link.id,
 				week: link.plan_week,
 				day: link.plan_day,
 				date: dateForSessionDay(planWeekStartIso(link.plan_week, calendar), link.plan_day),
-				label: session?.label || 'Planned session',
-				activity_type: session?.activity_type || 'run',
+				label: session?.label || link.plan_label || 'Planned session',
+				activity_type: session?.activity_type || link.plan_activity_type || 'run',
 				distance_km: session?.distance_km ?? null
 			});
 		}
@@ -2281,21 +2353,29 @@ export const getPlannedRouteDetail = createServerFn({ method: 'GET' })
 			if (link.kind !== 'plan' || link.plan_week == null || !link.plan_day) continue;
 			const name = names.get(link.route_slug);
 			if (!name) continue;
-			planTaken.set(`${link.plan_week}|${link.plan_day.toLowerCase()}`, {
-				slug: link.route_slug,
-				name
-			});
+			const taken = { slug: link.route_slug, name };
+			if (link.plan_label && link.plan_activity_type) {
+				planTaken.set(
+					`${link.plan_week}|${planSessionRouteKey(link.plan_day, link.plan_label, link.plan_activity_type)}`,
+					taken
+				);
+			} else {
+				planTaken.set(`${link.plan_week}|legacy|${link.plan_day.toLowerCase()}`, taken);
+			}
 		}
-		const activityTaken = new Map<string, { slug: string; name: string }>();
-		for (const link of allLinks) {
-			if (link.kind !== 'activity' || !link.activity_slug) continue;
-			const name = names.get(link.route_slug);
-			if (!name) continue;
-			activityTaken.set(link.activity_slug, { slug: link.route_slug, name });
-		}
+		const planSessionTakenKey = (s: {
+			week: number;
+			day: string;
+			label: string;
+			activity_type?: string | null;
+		}) => `${s.week}|${planSessionRouteKey(s.day, s.label, s.activity_type ?? 'run')}`;
 
 		const planOptions: PlanAttachOption[] = upcomingPlanSessions(plan, calendar)
-			.filter((s) => planTaken.get(`${s.week}|${s.day.trim().toLowerCase()}`)?.slug !== slug)
+			.filter((s) => {
+				if (planTaken.get(planSessionTakenKey(s))?.slug === slug) return false;
+				const legacyKey = `${s.week}|legacy|${s.day.trim().toLowerCase()}`;
+				return planTaken.get(legacyKey)?.slug !== slug;
+			})
 			.map((s) => ({
 				week: s.week,
 				day: s.day,
@@ -2303,8 +2383,19 @@ export const getPlannedRouteDetail = createServerFn({ method: 'GET' })
 				label: s.label,
 				activity_type: s.activity_type ?? 'run',
 				distance_km: s.distance_km,
-				taken_by: planTaken.get(`${s.week}|${s.day.trim().toLowerCase()}`) ?? null
+				taken_by:
+					planTaken.get(planSessionTakenKey(s)) ??
+					planTaken.get(`${s.week}|legacy|${s.day.trim().toLowerCase()}`) ??
+					null
 			}));
+
+		const activityTaken = new Map<string, { slug: string; name: string }>();
+		for (const link of allLinks) {
+			if (link.kind !== 'activity' || !link.activity_slug) continue;
+			const name = names.get(link.route_slug);
+			if (!name) continue;
+			activityTaken.set(link.activity_slug, { slug: link.route_slug, name });
+		}
 
 		const linkedActivity = new Set(activityLinks.map((a) => a.slug));
 		const activityOptions: ActivityAttachOption[] = runs
@@ -2396,7 +2487,16 @@ export const deletePlannedRoute = createServerFn({ method: 'POST' }).middleware(
 	});
 
 export const attachPlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
-	.validator((d: { slug: string; week?: number; day?: string; activity_slug?: string }) => d)
+	.validator(
+		(d: {
+			slug: string;
+			week?: number;
+			day?: string;
+			label?: string;
+			activity_type?: string;
+			activity_slug?: string;
+		}) => d
+	)
 	.handler(async ({ data }) => {
 		if (data.activity_slug) {
 			const run = await getRun(data.activity_slug);
@@ -2409,7 +2509,9 @@ export const attachPlannedRoute = createServerFn({ method: 'POST' }).middleware(
 		}
 		const week = data.week;
 		const day = data.day?.trim() ?? '';
-		if (week == null || !day) throw new Error('Pick a plan day or an activity.');
+		const label = data.label?.trim() ?? '';
+		const activityType = normalizeActivityType(data.activity_type ?? 'run');
+		if (week == null || !day || !label) throw new Error('Pick a plan day or an activity.');
 		if (!Number.isInteger(week) || week < 1) {
 			throw new Error('That plan week is out of range.');
 		}
@@ -2419,9 +2521,14 @@ export const attachPlannedRoute = createServerFn({ method: 'POST' }).middleware(
 		}
 		const found = plan
 			.find((w) => w.week === week)
-			?.sessions.find((s) => s.day.toLowerCase() === day.toLowerCase());
-		if (!found) throw new Error('That day is not on the plan.');
-		await dbAttachRouteToPlan(data.slug, week, day);
+			?.sessions.find(
+				(s) =>
+					s.day.toLowerCase() === day.toLowerCase() &&
+					s.label === label &&
+					normalizeActivityType(s.activity_type ?? 'run') === activityType
+			);
+		if (!found) throw new Error('That session is not on the plan.');
+		await dbAttachRouteToPlan(data.slug, week, day, label, activityType);
 		return { ok: true as const };
 	});
 

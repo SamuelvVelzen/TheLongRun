@@ -1,4 +1,4 @@
-import { activityLabel } from '$lib/activity';
+import { activityLabel, normalizeActivityType } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
 import { attachPlannedRoute, detachPlannedRoute } from '$lib/server/functions';
 import type {
@@ -21,8 +21,8 @@ function shortDate(iso: string | null): string {
 	return `${Number(iso.slice(8, 10))} ${month}`;
 }
 
-function planKey(week: number, day: string) {
-	return `${week}|${day}`;
+function planKey(week: number, day: string, label: string, activityType: string) {
+	return JSON.stringify([week, day, label, normalizeActivityType(activityType)]);
 }
 
 export function RouteAttach({
@@ -133,17 +133,31 @@ export function RouteAttach({
 									const value = event.target.value;
 									event.target.value = '';
 									if (!value) return;
-									const [week, day] = value.split('|');
+									const [week, day, label, activityType] = JSON.parse(value) as [
+										number,
+										string,
+										string,
+										string
+									];
 									void run(() =>
 										attachPlannedRoute({
-											data: { slug, week: Number(week), day }
+											data: {
+												slug,
+												week: Number(week),
+												day,
+												label,
+												activity_type: activityType
+											}
 										})
 									);
 								}}
 							>
 								<option value="">Upcoming session…</option>
 								{planOptions.map((opt) => (
-									<option key={planKey(opt.week, opt.day)} value={planKey(opt.week, opt.day)}>
+									<option
+										key={planKey(opt.week, opt.day, opt.label, opt.activity_type)}
+										value={planKey(opt.week, opt.day, opt.label, opt.activity_type)}
+									>
 										{`W${opt.week} · ${opt.day}${opt.date ? ` ${shortDate(opt.date)}` : ''} · ${opt.label}${opt.distance_km != null ? ` ${opt.distance_km} km` : ''}${opt.taken_by ? ` · now ${opt.taken_by.name}` : ''}`}
 									</option>
 								))}

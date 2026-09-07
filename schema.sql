@@ -78,17 +78,19 @@ CREATE TABLE IF NOT EXISTS planned_routes (
 );
 
 CREATE TABLE IF NOT EXISTS planned_route_links (
-	id             INTEGER PRIMARY KEY AUTOINCREMENT,
-	route_slug     TEXT NOT NULL REFERENCES planned_routes(slug) ON DELETE CASCADE,
-	kind           TEXT NOT NULL,
-	activity_slug  TEXT REFERENCES runs(slug) ON DELETE CASCADE,
-	plan_week      INTEGER,
-	plan_day       TEXT,
-	created_on     TEXT NOT NULL
+	id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+	route_slug         TEXT NOT NULL REFERENCES planned_routes(slug) ON DELETE CASCADE,
+	kind               TEXT NOT NULL,
+	activity_slug      TEXT REFERENCES runs(slug) ON DELETE CASCADE,
+	plan_week          INTEGER,
+	plan_day           TEXT,
+	plan_label         TEXT,
+	plan_activity_type TEXT,
+	created_on         TEXT NOT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS planned_route_links_plan_uniq
-	ON planned_route_links (plan_week, plan_day)
+	ON planned_route_links (plan_week, plan_day, IFNULL(plan_label, ''), IFNULL(plan_activity_type, ''))
 	WHERE kind = 'plan';
 CREATE UNIQUE INDEX IF NOT EXISTS planned_route_links_activity_uniq
 	ON planned_route_links (activity_slug)

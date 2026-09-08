@@ -2,7 +2,12 @@ import { AuthProvider, SignInLink, useAuthed } from '$lib/auth';
 import { getAuthState } from '$lib/server/functions';
 import { applyTheme, getTheme, themeInitScript } from '$lib/theme';
 import { cn } from '$lib/ui';
-import { useVisualViewportChrome } from '$lib/viewport';
+import {
+    appCanScrollTo,
+    getAppScrollElement,
+    scrollAppTo,
+    useKeyboardOpen
+} from '$lib/viewport';
 import {
     createRootRoute,
     HeadContent,
@@ -113,7 +118,7 @@ function RootComponent() {
 function RootShell() {
 	const authed = useAuthed();
 	const extra = moreLinks.filter((l) => authed || l.href !== '/import');
-	useVisualViewportChrome();
+	useKeyboardOpen();
 	useEffect(() => {
 		applyTheme(getTheme());
 		if ('serviceWorker' in navigator) {
@@ -125,8 +130,8 @@ function RootShell() {
 			<SnackbarProvider>
 			<ScrollRestore />
 			<ScrollToTop />
-			<div className="app-shell relative z-1 flex flex-1 flex-col w-[min(1120px,calc(100%-2rem))] min-h-dvh mx-auto pt-5 pr-[env(safe-area-inset-right,0px)] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] max-sm:w-[min(1120px,calc(100%-1.25rem))] max-sm:pt-[var(--app-shell-pad-top)] max-sm:pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]">
-				<header className="app-header flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-8 pt-[calc(0.85rem+env(safe-area-inset-top,0px))] pb-[0.85rem] border-b border-line max-sm:mb-0">
+			<div className="app-shell relative z-1 flex flex-1 flex-col w-[min(1120px,calc(100%-2rem))] min-h-dvh mx-auto pt-5 pr-[env(safe-area-inset-right,0px)] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] max-sm:w-[min(1120px,calc(100%-1.25rem))] max-sm:h-dvh max-sm:min-h-0 max-sm:overflow-hidden max-sm:pt-0 max-sm:pb-0">
+				<header className="app-header flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-8 pt-[calc(0.85rem+env(safe-area-inset-top,0px))] pb-[0.85rem] border-b border-line max-sm:mb-5">
 					<Link
 						to="/"
 						className="shrink-0 font-display font-extrabold text-[1.35rem] tracking-[-0.04em] max-sm:text-[1.15rem] max-sm:py-[0.15rem] [&_span]:text-accent-fg"
@@ -164,9 +169,11 @@ function RootShell() {
 						)}
 					</div>
 				</header>
-				<Outlet />
+				<main className="app-main min-w-0 flex-1 max-sm:min-h-0">
+					<Outlet />
+				</main>
 				<nav
-					className="tab-bar hidden max-sm:flex items-stretch justify-around fixed inset-x-0 z-40 gap-[0.15rem] min-h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pt-[0.3rem] pl-[max(0.35rem,env(safe-area-inset-left,0px))] pr-[max(0.35rem,env(safe-area-inset-right,0px))] pb-[calc(0.3rem+env(safe-area-inset-bottom,0px))] border-t border-line"
+					className="tab-bar hidden max-sm:flex flex-none items-stretch justify-around z-40 gap-[0.15rem] min-h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pt-[0.3rem] pl-[max(0.35rem,env(safe-area-inset-left,0px))] pr-[max(0.35rem,env(safe-area-inset-right,0px))] pb-[calc(0.3rem+env(safe-area-inset-bottom,0px))] border-t border-line"
 					aria-label="Primary"
 				>
 					{tabs.map((tab) => (
@@ -204,7 +211,7 @@ function RootShell() {
 							onClick={closeDetails}
 							aria-hidden="true"
 						/>
-						<div className="fixed left-3 right-3 bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px)+var(--vv-offset-bottom,0px))] z-[41] grid gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">
+						<div className="fixed left-3 right-3 bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] z-[41] grid gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">
 							{extra.map((l) => (
 								<Link
 									key={l.href}
@@ -338,13 +345,17 @@ function ScrollRestore() {
 		select: (s) => s.location.state.__TSR_key ?? s.location.href
 	});
 	const entry = useElementScrollRestoration({
-		getElement: () => (typeof window === 'undefined' ? null : window)
+		getElement: () => getAppScrollElement()
 	});
 	const x = entry?.scrollX ?? 0;
 	const y = entry?.scrollY ?? 0;
 
 	useLayoutEffect(() => {
 		if ((!x && !y) || typeof window === 'undefined' || window.location.hash) return;
+
+		const found = getAppScrollElement();
+		if (!found) return;
+		const scrollTarget = found;
 
 		let applying = false;
 		let userMoved = false;
@@ -355,9 +366,9 @@ function ScrollRestore() {
 		const apply = () => {
 			if (stopped || userMoved) return true;
 			applying = true;
-			window.scrollTo({ top: y, left: x, behavior: 'instant' });
+			scrollAppTo({ top: y, left: x, behavior: 'instant' }, scrollTarget);
 			applying = false;
-			return document.documentElement.scrollHeight - window.innerHeight >= y - 2;
+			return appCanScrollTo(y, scrollTarget);
 		};
 
 		if (apply()) return;
@@ -365,13 +376,17 @@ function ScrollRestore() {
 		const onScroll = () => {
 			if (!applying) userMoved = true;
 		};
-		window.addEventListener('scroll', onScroll, { passive: true });
+		scrollTarget.addEventListener('scroll', onScroll, { passive: true });
 
 		const ro = new ResizeObserver(() => {
 			if (apply()) cleanup();
 		});
-		ro.observe(document.documentElement);
-		if (document.body) ro.observe(document.body);
+		if (scrollTarget === window) {
+			ro.observe(document.documentElement);
+			if (document.body) ro.observe(document.body);
+		} else {
+			ro.observe(scrollTarget as HTMLElement);
+		}
 		if (stopped) return cleanup;
 
 		const tick = () => {
@@ -391,7 +406,7 @@ function ScrollRestore() {
 			if (stopped) return;
 			stopped = true;
 			ro.disconnect();
-			window.removeEventListener('scroll', onScroll);
+			scrollTarget.removeEventListener('scroll', onScroll);
 			cancelAnimationFrame(raf);
 			window.clearTimeout(timeout);
 		}

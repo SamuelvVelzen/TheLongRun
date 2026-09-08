@@ -24,53 +24,62 @@ function isTextEntry(el: EventTarget | null): boolean {
 	return el.isContentEditable;
 }
 
-function applyChromeViewport() {
-	const root = document.documentElement;
-	const vv = window.visualViewport;
-	const inputOpen = isTextEntry(document.activeElement);
-	let top = 0;
-	let bottom = 0;
-	if (inputOpen && vv) {
-		top = Math.max(0, vv.offsetTop);
-		bottom = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+/** Scrollport: inner `.app-main` on mobile, the window on desktop. */
+export function getAppScrollElement(): Window | HTMLElement | null {
+	if (typeof document === 'undefined') return null;
+	const main = document.querySelector<HTMLElement>('.app-main');
+	if (main) {
+		const { overflowY } = getComputedStyle(main);
+		if (overflowY === 'auto' || overflowY === 'scroll') return main;
 	}
-	root.style.setProperty('--vv-offset-top', `${Math.round(top)}px`);
-	root.style.setProperty('--vv-offset-bottom', `${Math.round(bottom)}px`);
-	root.classList.toggle('keyboard-open', inputOpen && bottom > 40);
+	return typeof window === 'undefined' ? null : window;
 }
 
-/** Keep fixed header/tab bar glued to the visual viewport while the keyboard is open. */
-export function useVisualViewportChrome() {
+export function getAppScrollY(el: Window | HTMLElement | null = getAppScrollElement()): number {
+	if (!el) return 0;
+	return el === window ? window.scrollY : (el as HTMLElement).scrollTop;
+}
+
+export function scrollAppTo(
+	options: ScrollToOptions,
+	el: Window | HTMLElement | null = getAppScrollElement()
+) {
+	el?.scrollTo(options);
+}
+
+function appScrollHeight(el: Window | HTMLElement): number {
+	if (el === window) {
+		return document.documentElement.scrollHeight - window.innerHeight;
+	}
+	return (el as HTMLElement).scrollHeight - (el as HTMLElement).clientHeight;
+}
+
+export function appCanScrollTo(y: number, el: Window | HTMLElement | null = getAppScrollElement()): boolean {
+	if (!el) return false;
+	return appScrollHeight(el) >= y - 2;
+}
+
+/** Hide the tab bar while a text field is focused so iOS keyboard does not fight chrome. */
+export function useKeyboardOpen() {
 	useEffect(() => {
 		const root = document.documentElement;
-		let raf = 0;
-		const apply = () => applyChromeViewport();
-		const applySoon = () => {
-			cancelAnimationFrame(raf);
-			raf = requestAnimationFrame(apply);
+		const sync = () => {
+			root.classList.toggle('keyboard-open', isTextEntry(document.activeElement));
 		};
-		const onFocusOut = () => applySoon();
-
-		apply();
-		const vv = window.visualViewport;
-		vv?.addEventListener('resize', applySoon);
-		vv?.addEventListener('scroll', applySoon);
-		window.addEventListener('resize', applySoon);
-		window.addEventListener('scroll', applySoon, { passive: true });
-		window.addEventListener('orientationchange', applySoon);
-		document.addEventListener('focusin', apply);
+		const onFocusOut = () => {
+			requestAnimationFrame(sync);
+		};
+		const onFocusIn = (e: FocusEvent) => {
+			sync();
+			if (!isTextEntry(e.target) || !(e.target instanceof HTMLElement)) return;
+			e.target.scrollIntoView({ block: 'center', inline: 'nearest' });
+		};
+		sync();
+		document.addEventListener('focusin', onFocusIn);
 		document.addEventListener('focusout', onFocusOut);
 		return () => {
-			cancelAnimationFrame(raf);
-			vv?.removeEventListener('resize', applySoon);
-			vv?.removeEventListener('scroll', applySoon);
-			window.removeEventListener('resize', applySoon);
-			window.removeEventListener('scroll', applySoon);
-			window.removeEventListener('orientationchange', applySoon);
-			document.removeEventListener('focusin', apply);
+			document.removeEventListener('focusin', onFocusIn);
 			document.removeEventListener('focusout', onFocusOut);
-			root.style.removeProperty('--vv-offset-top');
-			root.style.removeProperty('--vv-offset-bottom');
 			root.classList.remove('keyboard-open');
 		};
 	}, []);

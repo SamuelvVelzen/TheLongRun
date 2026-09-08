@@ -1,16 +1,18 @@
 import { cn } from '$lib/ui';
+import { getAppScrollElement, getAppScrollY, scrollAppTo } from '$lib/viewport';
 import { useCallback, useSyncExternalStore } from 'react';
 import { Icon } from './Icon';
 
 const SHOW_AFTER = 400;
 
 function subscribe(onStoreChange: () => void) {
-	window.addEventListener('scroll', onStoreChange, { passive: true });
-	return () => window.removeEventListener('scroll', onStoreChange);
+	const el = getAppScrollElement() ?? window;
+	el.addEventListener('scroll', onStoreChange, { passive: true });
+	return () => el.removeEventListener('scroll', onStoreChange);
 }
 
 function getSnapshot() {
-	return window.scrollY > SHOW_AFTER;
+	return getAppScrollY() > SHOW_AFTER;
 }
 
 function getServerSnapshot() {
@@ -22,7 +24,7 @@ export function ScrollToTop() {
 
 	const scrollTop = useCallback(() => {
 		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-		window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+		scrollAppTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
 	}, []);
 
 	return (
@@ -35,8 +37,8 @@ export function ScrollToTop() {
 			onClick={scrollTop}
 			className={cn(
 				'fixed z-30 inline-flex items-center justify-center size-11 min-h-11 min-w-11 p-0 rounded-full border border-line bg-surface/92 text-fg shadow-lift backdrop-blur-[10px] cursor-pointer',
-				'right-[max(0.85rem,env(safe-area-inset-right,0px))] bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px)+var(--vv-offset-bottom,0px))]',
-				'max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px)+var(--vv-offset-bottom,0px))]',
+				'right-[max(0.85rem,env(safe-area-inset-right,0px))] bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px))]',
+				'max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))]',
 				'transition-[opacity,transform,border-color,color,visibility] duration-200',
 				'hover:border-accent/45 hover:text-accent-fg active:border-accent/45 active:text-accent-fg',
 				visible

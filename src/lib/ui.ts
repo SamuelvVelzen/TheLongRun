@@ -34,7 +34,7 @@ export const ui = {
 	heroQuiet: 'max-sm:mb-3 max-sm:gap-2 max-sm:[&>div:first-child>p]:hidden',
 	heroRoute: '[&_h1]:max-w-none [&_a]:text-accent-fg',
 	snackHost:
-		'fixed z-[60] inset-x-0 bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px)+var(--vv-offset-bottom,0px))] flex flex-col-reverse items-center gap-[0.45rem] px-4 pointer-events-none max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px)+var(--vv-offset-bottom,0px))] max-sm:px-3',
+		'fixed z-[60] inset-x-0 bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px))] flex flex-col-reverse items-center gap-[0.45rem] px-4 pointer-events-none max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:px-3',
 	snack:
 		'pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.7rem] pr-[0.55rem] pl-[0.95rem] rounded-[14px] border border-line bg-surface shadow-lift animate-rise max-sm:py-[0.65rem] max-sm:pr-[0.4rem] max-sm:pl-[0.85rem]',
 	snackSuccess: 'border-ok/35 bg-ok/10 text-ok',
@@ -49,7 +49,7 @@ export const ui = {
 	sectionTitle:
 		'flex items-end justify-between gap-4 mt-8 mb-[0.85rem] max-sm:flex-col max-sm:items-start max-sm:gap-[0.55rem] max-sm:mt-[1.45rem] max-sm:mb-[0.7rem] [&_h2]:text-[1.45rem] max-sm:[&_h2]:text-[1.28rem] [&_p]:text-muted',
 	stickyActions:
-		'sticky z-20 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex flex-wrap items-center justify-end gap-3 p-3 px-4 border border-line rounded-2xl bg-canvas/92 backdrop-blur-[10px] shadow-lift max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:gap-[0.55rem] max-sm:[&>a]:w-auto max-sm:[&>button]:w-auto max-sm:[&>a]:flex-none max-sm:[&>button]:flex-none',
+		'sticky z-20 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex flex-wrap items-center justify-end gap-3 p-3 px-4 border border-line rounded-2xl bg-canvas/92 backdrop-blur-[10px] shadow-lift max-sm:bottom-3 max-sm:gap-[0.55rem] max-sm:[&>a]:w-auto max-sm:[&>button]:w-auto max-sm:[&>a]:flex-none max-sm:[&>button]:flex-none',
 	stickyPrimary: 'max-sm:!flex-1 max-sm:!min-w-[min(100%,9rem)]',
 	editor:
 		'block w-full max-w-full font-mono text-[0.9rem] leading-[1.45] min-h-[22rem] max-sm:min-h-64 max-sm:text-base',
@@ -68,7 +68,7 @@ export const ui = {
 		'flex flex-col items-center justify-center gap-[0.35rem] p-[2.25rem_1.2rem] border-2 border-dashed border-line rounded-box bg-inset text-muted cursor-pointer text-center transition-[border-color,background-color,color] duration-150 ease-out hover:border-accent hover:text-fg active:border-accent active:text-fg max-sm:p-[1.5rem_0.85rem] [&_strong]:font-display [&_strong]:text-[1.02rem] [&_strong]:text-fg',
 	dropzoneOver: 'border-accent bg-accent/8 text-fg',
 	stickyBar: 'sticky-bar',
-	coachTabs: 'sticky-bar mb-4',
+	coachTabs: 'mb-4',
 	choiceChips: 'flex flex-wrap gap-[0.4rem]',
 	choiceChip:
 		'appearance-none inline-flex items-center justify-center gap-1.5 min-h-11 px-[0.95rem] py-2 rounded-full border border-solid border-line bg-transparent text-muted font-semibold cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:border-accent/35 disabled:opacity-35 disabled:cursor-not-allowed aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent',

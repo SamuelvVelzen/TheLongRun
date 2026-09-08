@@ -1,5 +1,11 @@
 import { activityLabel, normalizeActivityType } from '$lib/activity';
-import { weekDayGroups, sessionMeasureLabel, type UnplannedActivity, type WeekView } from '$lib/plan';
+import {
+	weekDayGroups,
+	sessionMeasureLabel,
+	type UnplannedActivity,
+	type WeekSessionView,
+	type WeekView
+} from '$lib/plan';
 import type { SessionRouteRef } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
@@ -135,6 +141,81 @@ function UnplannedRow({
 	);
 }
 
+function PlannedSessionRow({
+	session,
+	week,
+	routes,
+	divided
+}: {
+	session: WeekSessionView;
+	week: number;
+	routes: SessionRouteRef[];
+	divided: boolean;
+}) {
+	const logSlug = session.done ? session.logSlug : null;
+	const className = cn(
+		'flex flex-col gap-[0.2rem] min-w-0',
+		divided && 'pt-3 border-t border-line',
+		session.done && 'opacity-80',
+		session.skipped && 'opacity-55',
+		session.route &&
+			!session.done &&
+			'rounded-[10px] -mx-1 px-1 pb-1 border border-[color-mix(in_srgb,var(--color-accent)_28%,transparent)]',
+		logSlug && 'text-inherit no-underline rounded-[10px] -mx-1 px-1 py-1 hover:bg-accent/6'
+	);
+	const body = (
+		<>
+			<div className="flex items-center justify-between gap-2 min-w-0">
+				<span className="inline-flex items-center gap-1 text-[0.78rem] font-semibold text-muted min-w-0 [overflow-wrap:anywhere]">
+					<ActivityIcon type={session.activity_type ?? 'run'} size={13} />
+					{[activityLabel(session.activity_type ?? 'run'), sessionMeasureLabel(session)]
+						.filter(Boolean)
+						.join(' · ')}
+				</span>
+				<StatusBadge
+					done={session.done}
+					skipped={session.skipped}
+					unlogged={session.unlogged}
+					isNext={session.isNext}
+					isToday={session.isToday}
+				/>
+			</div>
+			<strong className="font-display text-[1.02rem] font-bold tracking-[-0.02em] leading-[1.25] [overflow-wrap:anywhere]">
+				{session.label}
+			</strong>
+			<p className="m-0 text-[0.9rem] leading-[1.45] text-fg/90 [overflow-wrap:anywhere]">
+				{session.detail}
+			</p>
+		</>
+	);
+	if (logSlug) {
+		return (
+			<Link to="/runs/$slug" params={{ slug: logSlug }} className={className}>
+				{body}
+			</Link>
+		);
+	}
+	return (
+		<div className={className}>
+			{body}
+			<LogPlannedStrengthLink session={session} />
+			{session.unlogged && normalizeActivityType(session.activity_type) !== 'strength' && (
+				<Link
+					className="inline-flex items-center gap-1 pt-1 text-[0.8rem] font-[650] text-accent-fg hover:underline"
+					to="/import"
+					search={{
+						mode: 'gpx'
+					}}
+				>
+					<Icon name="plus" size={13} />
+					Log this
+				</Link>
+			)}
+			<PlanSessionRoute week={week} session={session} routes={routes} />
+		</div>
+	);
+}
+
 export function WeekPlanBoard({
 	view,
 	title,
@@ -192,62 +273,13 @@ export function WeekPlanBoard({
 							</header>
 							<div className="flex flex-col gap-3">
 								{group.sessions.map((session, i) => (
-									<div
+									<PlannedSessionRow
 										key={`${session.day}-${session.label}-${i}`}
-										className={cn(
-											'flex flex-col gap-[0.2rem] min-w-0',
-											i > 0 && 'pt-3 border-t border-line',
-											session.done && 'opacity-80',
-											session.skipped && 'opacity-55',
-											session.route &&
-												!session.done &&
-												'rounded-[10px] -mx-1 px-1 pb-1 border border-[color-mix(in_srgb,var(--color-accent)_28%,transparent)]'
-										)}
-									>
-										<div className="flex items-center justify-between gap-2 min-w-0">
-											<span className="inline-flex items-center gap-1 text-[0.78rem] font-semibold text-muted min-w-0 [overflow-wrap:anywhere]">
-												<ActivityIcon type={session.activity_type ?? 'run'} size={13} />
-												{[
-													activityLabel(session.activity_type ?? 'run'),
-													sessionMeasureLabel(session)
-												]
-													.filter(Boolean)
-													.join(' · ')}
-											</span>
-											<StatusBadge
-												done={session.done}
-												skipped={session.skipped}
-												unlogged={session.unlogged}
-												isNext={session.isNext}
-												isToday={session.isToday}
-											/>
-										</div>
-										<strong className="font-display text-[1.02rem] font-bold tracking-[-0.02em] leading-[1.25] [overflow-wrap:anywhere]">
-											{session.label}
-										</strong>
-										<p className="m-0 text-[0.9rem] leading-[1.45] text-fg/90 [overflow-wrap:anywhere]">
-											{session.detail}
-										</p>
-										<LogPlannedStrengthLink session={session} />
-										{session.unlogged &&
-											normalizeActivityType(session.activity_type) !== 'strength' && (
-											<Link
-												className="inline-flex items-center gap-1 pt-1 text-[0.8rem] font-[650] text-accent-fg hover:underline"
-												to="/import"
-												search={{
-													mode: 'gpx'
-												}}
-											>
-												<Icon name="plus" size={13} />
-												Log this
-											</Link>
-										)}
-										<PlanSessionRoute
-											week={view.week.week}
-											session={session}
-											routes={routes}
-										/>
-									</div>
+										session={session}
+										week={view.week.week}
+										routes={routes}
+										divided={i > 0}
+									/>
 								))}
 								{group.unplanned.map((item, i) => (
 									<UnplannedRow

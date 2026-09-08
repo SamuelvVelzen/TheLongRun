@@ -292,39 +292,62 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 								{highlightHead.date ? ` · ${highlightHead.date.slice(5)}` : ''}
 							</h2>
 							<div className="grid gap-3 mt-[0.45rem]">
-								{highlightSessions.map((session, i) => (
-									<div
-										key={`${session.day}-${session.label}-${i}`}
-										className={cn(
-											i > 0 && 'pt-3 border-t border-line',
-											session.done && 'opacity-80',
-											session.skipped && 'opacity-55'
-										)}
-									>
-										<p className="m-0 inline-flex items-center gap-1.5 text-[0.82rem] font-semibold text-muted">
-											<ActivityIcon type={session.activity_type ?? 'run'} size={13} />
-											{[
-												activityLabel(session.activity_type ?? 'run'),
-												sessionMeasureLabel(session),
-												session.done ? 'completed' : session.isNext ? 'next' : ''
-											]
-												.filter(Boolean)
-												.join(' · ')}
-										</p>
-										<strong className="block font-display text-[1.15rem] tracking-[-0.02em]">
-											{session.label}
-										</strong>
-										<p className="m-0 mt-[0.2rem]">{session.detail}</p>
-										{session.route && !session.done && (
-											<RouteChip
-												slug={session.route.slug}
-												name={session.route.name}
-												distanceKm={session.route.distance_km}
-											/>
-										)}
-										<LogPlannedStrengthLink session={session} />
-									</div>
-								))}
+								{highlightSessions.map((session, i) => {
+									const logSlug = session.done ? session.logSlug : null;
+									const className = cn(
+										i > 0 && 'pt-3 border-t border-line',
+										session.done && 'opacity-80',
+										session.skipped && 'opacity-55',
+										logSlug &&
+											'text-inherit no-underline rounded-[10px] -mx-1 px-1 py-1 hover:bg-accent/6'
+									);
+									const body = (
+										<>
+											<p className="m-0 inline-flex items-center gap-1.5 text-[0.82rem] font-semibold text-muted">
+												<ActivityIcon type={session.activity_type ?? 'run'} size={13} />
+												{[
+													activityLabel(session.activity_type ?? 'run'),
+													sessionMeasureLabel(session),
+													session.done ? 'completed' : session.isNext ? 'next' : ''
+												]
+													.filter(Boolean)
+													.join(' · ')}
+											</p>
+											<strong className="block font-display text-[1.15rem] tracking-[-0.02em]">
+												{session.label}
+											</strong>
+											<p className="m-0 mt-[0.2rem]">{session.detail}</p>
+										</>
+									);
+									if (logSlug) {
+										return (
+											<Link
+												key={`${session.day}-${session.label}-${i}`}
+												to="/runs/$slug"
+												params={{ slug: logSlug }}
+												className={className}
+											>
+												{body}
+											</Link>
+										);
+									}
+									return (
+										<div
+											key={`${session.day}-${session.label}-${i}`}
+											className={className}
+										>
+											{body}
+											{session.route && !session.done && (
+												<RouteChip
+													slug={session.route.slug}
+													name={session.route.name}
+													distanceKm={session.route.distance_km}
+												/>
+											)}
+											<LogPlannedStrengthLink session={session} />
+										</div>
+									);
+								})}
 							</div>
 						</>
 					)}

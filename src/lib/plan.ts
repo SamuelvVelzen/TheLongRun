@@ -182,6 +182,8 @@ export type WeekSessionView = PlanSession & {
 	isToday: boolean;
 	isNext: boolean;
 	route: SessionRouteRef | null;
+	/** Activity slug when this planned session was matched to a log. */
+	logSlug: string | null;
 };
 
 /** Logged activity in this week that did not consume a planned session (date + sport). */
@@ -314,7 +316,8 @@ export function buildWeekView(
 			unlogged: isSessionUnlogged(s.label, date, done, skipped, todayIso),
 			isToday: date === todayIso,
 			isNext: false,
-			route: null
+			route: null,
+			logSlug: matched?.slug ?? null
 		};
 	});
 	const unplanned: UnplannedActivity[] = [];

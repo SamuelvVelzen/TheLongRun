@@ -35,8 +35,8 @@ export function ScrollToTop() {
 			onClick={scrollTop}
 			className={cn(
 				'fixed z-30 inline-flex items-center justify-center size-11 min-h-11 min-w-11 p-0 rounded-full border border-line bg-surface/92 text-fg shadow-lift backdrop-blur-[10px] cursor-pointer',
-				'right-[max(0.85rem,env(safe-area-inset-right,0px))] bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px))]',
-				'max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))]',
+				'right-[max(0.85rem,env(safe-area-inset-right,0px))] bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px)+var(--vv-offset-bottom,0px))]',
+				'max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px)+var(--vv-offset-bottom,0px))]',
 				'transition-[opacity,transform,border-color,color,visibility] duration-200',
 				'hover:border-accent/45 hover:text-accent-fg active:border-accent/45 active:text-accent-fg',
 				visible

@@ -2,6 +2,7 @@ import { AuthProvider, SignInLink, useAuthed } from '$lib/auth';
 import { getAuthState } from '$lib/server/functions';
 import { applyTheme, getTheme, themeInitScript } from '$lib/theme';
 import { cn } from '$lib/ui';
+import { useVisualViewportChrome } from '$lib/viewport';
 import {
     createRootRoute,
     HeadContent,
@@ -112,6 +113,7 @@ function RootComponent() {
 function RootShell() {
 	const authed = useAuthed();
 	const extra = moreLinks.filter((l) => authed || l.href !== '/import');
+	useVisualViewportChrome();
 	useEffect(() => {
 		applyTheme(getTheme());
 		if ('serviceWorker' in navigator) {
@@ -164,7 +166,7 @@ function RootShell() {
 				</header>
 				<Outlet />
 				<nav
-					className="tab-bar hidden max-sm:flex items-stretch justify-around fixed inset-x-0 bottom-0 z-40 gap-[0.15rem] min-h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pt-[0.3rem] pl-[max(0.35rem,env(safe-area-inset-left,0px))] pr-[max(0.35rem,env(safe-area-inset-right,0px))] pb-[calc(0.3rem+env(safe-area-inset-bottom,0px))] border-t border-line"
+					className="tab-bar hidden max-sm:flex items-stretch justify-around fixed inset-x-0 z-40 gap-[0.15rem] min-h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pt-[0.3rem] pl-[max(0.35rem,env(safe-area-inset-left,0px))] pr-[max(0.35rem,env(safe-area-inset-right,0px))] pb-[calc(0.3rem+env(safe-area-inset-bottom,0px))] border-t border-line"
 					aria-label="Primary"
 				>
 					{tabs.map((tab) => (
@@ -202,7 +204,7 @@ function RootShell() {
 							onClick={closeDetails}
 							aria-hidden="true"
 						/>
-						<div className="fixed left-3 right-3 bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] z-[41] grid gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">
+						<div className="fixed left-3 right-3 bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px)+var(--vv-offset-bottom,0px))] z-[41] grid gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">
 							{extra.map((l) => (
 								<Link
 									key={l.href}

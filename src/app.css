@@ -102,6 +102,8 @@
 	--app-header-height: calc(var(--app-header-inner) + env(safe-area-inset-top, 0px));
 	--app-content-inset: 1.25rem;
 	--app-shell-pad-top: calc(var(--app-header-height) + var(--app-content-inset));
+	--vv-offset-top: 0px;
+	--vv-offset-bottom: 0px;
 	--page-bg:
 		radial-gradient(1200px 600px at 80% -10%, var(--wash), transparent 55%),
 		radial-gradient(900px 500px at -10% 20%, var(--wash-ok), transparent 50%),
@@ -247,8 +249,10 @@
 
 @media (max-width: 640px) {
 	html {
-		scroll-padding-top: var(--app-header-height);
-		scroll-padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+		scroll-padding-top: calc(var(--app-header-height) + var(--vv-offset-top, 0px));
+		scroll-padding-bottom: calc(
+			5.75rem + env(safe-area-inset-bottom, 0px) + var(--vv-offset-bottom, 0px)
+		);
 	}
 
 	.app-shell {
@@ -257,7 +261,7 @@
 
 	.app-header {
 		position: fixed;
-		top: 0;
+		top: var(--vv-offset-top, 0px);
 		left: 0;
 		right: 0;
 		z-index: 50;
@@ -275,7 +279,7 @@
 	}
 
 	.sticky-bar {
-		--sticky-bar-top: var(--app-header-height);
+		--sticky-bar-top: calc(var(--app-header-height) + var(--vv-offset-top, 0px));
 	}
 }
 
@@ -503,6 +507,12 @@ body.overlay-open {
 	-webkit-touch-callout: none;
 	background: var(--canvas);
 	box-shadow: var(--shadow-tab);
+	bottom: var(--vv-offset-bottom, 0px);
+}
+
+html.keyboard-open .tab-bar {
+	min-height: 3.5rem;
+	padding-bottom: 0.3rem;
 }
 
 body.map-fs-active .tab-bar,

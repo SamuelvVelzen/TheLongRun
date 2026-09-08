@@ -34,7 +34,7 @@ export const ui = {
 	heroQuiet: 'max-sm:mb-3 max-sm:gap-2 max-sm:[&>div:first-child>p]:hidden',
 	heroRoute: '[&_h1]:max-w-none [&_a]:text-accent-fg',
 	snackHost:
-		'fixed z-[60] inset-x-0 bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px))] flex flex-col-reverse items-center gap-[0.45rem] px-4 pointer-events-none max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:px-3',
+		'fixed z-[60] inset-x-0 bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px)+var(--vv-offset-bottom,0px))] flex flex-col-reverse items-center gap-[0.45rem] px-4 pointer-events-none max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px)+var(--vv-offset-bottom,0px))] max-sm:px-3',
 	snack:
 		'pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.7rem] pr-[0.55rem] pl-[0.95rem] rounded-[14px] border border-line bg-surface shadow-lift animate-rise max-sm:py-[0.65rem] max-sm:pr-[0.4rem] max-sm:pl-[0.85rem]',
 	snackSuccess: 'border-ok/35 bg-ok/10 text-ok',

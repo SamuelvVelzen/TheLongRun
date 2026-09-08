@@ -7,12 +7,15 @@ import {
 } from '$lib/plan';
 import { goalIdFrom, pickSoonestOpenGoal, stampGoalsByDate } from '$lib/goals';
 import {
-	asShoeNameList,
-	emptyShoes,
-	normalizeShoeContext,
-	shoeKey,
-	type ShoeContext
-} from '$lib/shoes';
+	asGearNameList,
+	emptyGear,
+	normalizeGearCatalog,
+	normalizeGearContext,
+	gearKey,
+	gearKindForActivity,
+	type GearCatalog,
+	type GearContext
+} from '$lib/gear';
 import type { Goal, PlanWeek } from '$lib/types';
 import {
 	clonePattern,
@@ -287,44 +290,63 @@ export async function saveWeekPatternSetting(pattern: WeekPattern): Promise<Week
 	return next.weekPattern;
 }
 
-export async function loadShoes(): Promise<ShoeContext> {
-	const raw = await readContextFile('shoes.md');
-	if (!raw) return emptyShoes();
+const GEAR_FILE = 'gear-inventory.json';
+
+function catalogFromShoesMarkdown(raw: string): GearCatalog {
+	if (!raw.trim()) return normalizeGearCatalog({});
 	const { data, content } = matter(raw);
-	return normalizeShoeContext({
+	return normalizeGearCatalog({
 		active: String(data.active ?? ''),
-		rotation: asShoeNameList(data.rotation),
-		retired: asShoeNameList(data.retired),
+		rotation: asGearNameList(data.rotation),
+		retired: asGearNameList(data.retired),
 		notes: content.trim()
 	});
 }
 
-export async function persistShoes(shoes: ShoeContext): Promise<ShoeContext> {
-	const next = normalizeShoeContext(shoes);
-	await writeContextFile(
-		'shoes.md',
-		matter.stringify(next.notes ? `${next.notes}\n` : '', {
-			active: next.active,
-			rotation: next.rotation,
-			retired: next.retired
-		})
-	);
+export async function loadGear(): Promise<GearContext> {
+	const raw = await readContextFile(GEAR_FILE);
+	if (raw.trim()) {
+		try {
+			return normalizeGearContext(JSON.parse(raw));
+		} catch {
+			return normalizeGearContext(null);
+		}
+	}
+	const legacy = await readContextFile('shoes.md');
+	if (!legacy.trim()) return emptyGear();
+	const next = { ...emptyGear(), shoes: catalogFromShoesMarkdown(legacy) };
+	await persistGear(next);
 	return next;
 }
 
-/** Add a newly logged pair to rotation (or un-retire it). Does not change the daily trainer. */
-export async function rememberShoeName(name: string): Promise<void> {
+export async function persistGear(gear: GearContext): Promise<GearContext> {
+	const next = normalizeGearContext(gear);
+	await writeContextFile(GEAR_FILE, `${JSON.stringify(next, null, 2)}\n`);
+	return next;
+}
+
+/** Add a newly logged item to that sport's rotation. Does not change the default. */
+export async function rememberGearName(
+	name: string,
+	activityType: string | null | undefined
+): Promise<void> {
+	const kind = gearKindForActivity(activityType);
+	if (!kind) return;
 	const n = String(name ?? '')
 		.trim()
 		.replace(/\s+/g, ' ');
-	const k = shoeKey(n);
+	const k = gearKey(n);
 	if (!k) return;
-	const shoes = await loadShoes();
-	if (shoeKey(shoes.active) === k) return;
-	if (shoes.rotation.some((s) => shoeKey(s) === k)) return;
-	await persistShoes({
-		...shoes,
-		rotation: [...shoes.rotation, n],
-		retired: shoes.retired.filter((s) => shoeKey(s) !== k)
+	const gear = await loadGear();
+	const catalog = gear[kind];
+	if (gearKey(catalog.active) === k) return;
+	if (catalog.rotation.some((s) => gearKey(s) === k)) return;
+	await persistGear({
+		...gear,
+		[kind]: {
+			...catalog,
+			rotation: [...catalog.rotation, n],
+			retired: catalog.retired.filter((s) => gearKey(s) !== k)
+		}
 	});
 }

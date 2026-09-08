@@ -87,8 +87,8 @@ function AddActivity() {
 							{(data) => (
 								<LogForm
 									week={data.week}
-									shoes={data.shoes}
-									shoeWear={data.shoeWear}
+									gear={data.gear}
+									gearWear={data.gearWear}
 									calendar={data.calendar}
 								/>
 							)}

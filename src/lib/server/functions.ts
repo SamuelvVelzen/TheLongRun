@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPES, activityLabel, activityPlural, metricText, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
+import { ACTIVITY_TYPES, activityCount, activityLabel, activityPlural, metricText, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
 import { combinedActivityGpx, combinedActivityTcx, memberActivityGpx, safeFilename } from '$lib/activity-export';
 import {
     computeBestEffortsFromSplits,
@@ -55,11 +55,17 @@ import {
     type WeekView
 } from '$lib/plan';
 import {
-    formatShoeKm,
-    shoeKey,
-    wearByShoe,
-    type ShoeContext
-} from '$lib/shoes';
+    catalogHasItems,
+    formatGearKm,
+    GEAR_KINDS,
+    gearKey,
+    gearKindForActivity,
+    gearMeta,
+    wearByAllGear,
+    type GearCatalog,
+    type GearContext,
+    type GearKind
+} from '$lib/gear';
 import {
     analyticsFromProperties,
     analyticsToProperties,
@@ -98,11 +104,11 @@ import {
     loadGoalStore,
     loadPlan,
     loadSettings,
-    loadShoes,
+    loadGear,
     loadTrainingContext,
-    persistShoes,
+    persistGear,
     readContextFile,
-    rememberShoeName,
+    rememberGearName,
     saveGoalStore,
     saveHrMaxSetting,
     savePlan,
@@ -235,12 +241,11 @@ export const getAuthState = createServerFn({ method: 'GET' }).handler(async () =
 });
 
 export const getDashboardData = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, tracks, routeIds, training, shoes, planRefs, groupsRaw] = await Promise.all([
+	const [runs, tracks, routeIds, training, planRefs, groupsRaw] = await Promise.all([
 		listRuns(),
 		listRouteTracks(),
 		listRouteIds(),
 		loadTrainingContext(),
-		loadShoes(),
 		listPlanRouteRefs(),
 		listActivityGroups()
 	]);
@@ -258,8 +263,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 		streak: sessionStreak(runs, plan, calendar),
 		activeGoal,
 		lastMedal: medals[0] ?? null,
-		calendar,
-		shoes
+		calendar
 	} satisfies {
 		runs: RunWithMap[];
 		tracks: RouteTrack[];
@@ -270,7 +274,6 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 		activeGoal: Goal | null;
 		lastMedal: Goal | null;
 		calendar: PlanCalendar;
-		shoes: { active: string; notes: string; rotation: string[]; retired: string[] };
 	};
 });
 
@@ -331,11 +334,11 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 		const run = await getRun(slug);
 		if (!run) return null;
 		const routeId = routeIdForRun(run);
-		const [geo, routeIds, shoes, settings, allTimeMaxHr, allRuns, plannedRoute, training, group, plannedRoutes] =
+		const [geo, routeIds, gear, settings, allTimeMaxHr, allRuns, plannedRoute, training, group, plannedRoutes] =
 			await Promise.all([
 				routeId ? getRouteGeoJson(routeId) : Promise.resolve(null),
 				listRouteIds(),
-				loadShoes(),
+				loadGear(),
 				loadSettings(),
 				getMaxHrAllTime(),
 				listRuns(),
@@ -412,8 +415,8 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 			run: { ...current, has_map: runHasMap(current, routeIds) } as RunWithMap,
 			analytics: out,
 			gps,
-			shoes,
-			shoeWear: wearByShoe(allRuns),
+			gear,
+			gearWear: wearByAllGear(allRuns),
 			hrMaxManual,
 			hrMaxAllTime: allTimeMaxHr,
 			bestEfforts: highlights,
@@ -436,13 +439,13 @@ export const saveHrMax = createServerFn({ method: 'POST' }).middleware([requireA
 	});
 
 export const getLogDefaults = createServerFn({ method: 'GET' }).handler(async () => {
-	const [week, shoes, runs, training] = await Promise.all([
+	const [week, gear, runs, training] = await Promise.all([
 		currentPlanWeek(),
-		loadShoes(),
+		loadGear(),
 		listRuns(),
 		loadTrainingContext()
 	]);
-	return { week, shoes, shoeWear: wearByShoe(runs), calendar: training.calendar };
+	return { week, gear, gearWear: wearByAllGear(runs), calendar: training.calendar };
 });
 
 export const getRouteGeoJsonFn = createServerFn({ method: 'GET' })
@@ -459,21 +462,29 @@ export const getWeather = createServerFn({ method: 'GET' })
 
 const CONTEXT_FILES: { name: string; title: string }[] = [
 	{ name: 'profile.md', title: 'Runner profile' },
-	{ name: 'shoes.md', title: 'Shoes' },
 	{ name: 'injury.md', title: 'Injury rules' },
-	{ name: 'gear.md', title: 'Gear & fueling' },
+	{ name: 'gear.md', title: 'Fueling & checklist' },
 	{ name: 'training-plan.md', title: 'Training plan notes' },
 	{ name: 'race-strategy.md', title: 'Race strategy' }
 ];
 
 export type ContextFile = { name: string; title: string; body: string; html: string };
 
-function shoesAsMarkdown(shoes: ShoeContext) {
-	return matter.stringify(shoes.notes ? `${shoes.notes}\n` : '', {
-		active: shoes.active,
-		rotation: shoes.rotation,
-		retired: shoes.retired
-	});
+function gearAsMarkdown(gear: GearContext) {
+	const parts: string[] = [];
+	for (const kind of GEAR_KINDS) {
+		const catalog = gear[kind];
+		const meta = gearMeta(kind);
+		const yaml = {
+			active: catalog.active,
+			rotation: catalog.rotation,
+			retired: catalog.retired
+		};
+		parts.push(
+			`## ${meta.section} — ${meta.label}\n\n${matter.stringify(catalog.notes ? `${catalog.notes}\n` : '', yaml)}`
+		);
+	}
+	return parts.join('\n');
 }
 
 function historyWindowPhrase(range: DateRange): string {
@@ -578,47 +589,63 @@ function notesForBriefRow(r: RunRecord): string {
 		.slice(0, isStrength ? 400 : 140);
 }
 
-function shoesNotesForBrief(notes: string): string {
+function gearNotesForBrief(notes: string): string {
 	const t = notes.trim();
 	if (!t) return '';
 	if (/track shoe rotation here/i.test(t)) return '';
 	return t;
 }
 
-function shoesSectionForBrief(shoes: ShoeContext, runs: RunRecord[]): string {
-	const wear = wearByShoe(runs);
+function catalogLinesForBrief(catalog: GearCatalog, kind: GearKind, runs: RunRecord[]): string[] {
+	const wear = wearByAllGear(runs)[kind];
+	const meta = gearMeta(kind);
 	const line = (name: string) => {
-		const w = wear[shoeKey(name)];
+		const w = wear[gearKey(name)];
 		if (!w || w.count <= 0) return name;
-		const runsLabel = w.count === 1 ? '1 run' : `${w.count} runs`;
-		return `${name} — ${formatShoeKm(w.km)} (${runsLabel})`;
+		return `${name} — ${formatGearKm(w.km)} (${activityCount(w.count, meta.wearSport)})`;
 	};
-	const rotationRest = shoes.rotation.filter((n) => shoeKey(n) !== shoeKey(shoes.active));
-	const lines = [
-		`- Daily: ${shoes.active ? line(shoes.active) : '—'}`,
+	const rotationRest = catalog.rotation.filter((n) => gearKey(n) !== gearKey(catalog.active));
+	return [
+		`- ${meta.activeLabel}: ${catalog.active ? line(catalog.active) : '—'}`,
 		rotationRest.length ? `- Rotation: ${rotationRest.map(line).join('; ')}` : '',
-		shoes.retired.length ? `- Retired: ${shoes.retired.map(line).join('; ')}` : ''
+		catalog.retired.length ? `- Retired: ${catalog.retired.map(line).join('; ')}` : ''
 	].filter(Boolean);
-	const notes = shoesNotesForBrief(shoes.notes ?? '');
-	return `## Shoes
+}
+
+function gearSectionForBrief(gear: GearContext, runs: RunRecord[]): string {
+	const blocks: string[] = [];
+	for (const kind of GEAR_KINDS) {
+		const catalog = gear[kind];
+		if (!catalogHasItems(catalog) && !catalog.notes.trim()) continue;
+		const meta = gearMeta(kind);
+		const notes = gearNotesForBrief(catalog.notes);
+		blocks.push(
+			`### ${meta.section} — ${meta.label}\n${catalogLinesForBrief(catalog, kind, runs).join('\n')}${notes ? `\n\n${notes}` : ''}`
+		);
+	}
+	if (!blocks.length) {
+		return `## Gear
+No kit logged yet. Mileage is counted from logged activities. Strava GPX exports do not include gear.`;
+	}
+	return `## Gear
 Mileage is counted from logged activities. Strava GPX exports do not include gear.
-${lines.join('\n')}${notes ? `\n\n${notes}` : ''}`;
+
+${blocks.join('\n\n')}`;
 }
 
 export const getContextData = createServerFn({ method: 'GET' }).handler(async () => {
-	const [shoes, runs] = await Promise.all([loadShoes(), listRuns()]);
-	const raw = await Promise.all(
-		CONTEXT_FILES.map((f) =>
-			f.name === 'shoes.md' ? Promise.resolve('') : readContextFile(f.name)
-		)
-	);
+	const [gear, runs] = await Promise.all([loadGear(), listRuns()]);
+	const raw = await Promise.all(CONTEXT_FILES.map((f) => readContextFile(f.name)));
 	const files: ContextFile[] = CONTEXT_FILES.map((f, i) => {
-		const body = f.name === 'shoes.md' ? shoesAsMarkdown(shoes) : raw[i]!;
+		const body = raw[i]!;
 		const html = f.name.endsWith('.json') ? renderJsonPretty(body) : renderMarkdown(body);
 		return { name: f.name, title: f.title, body, html };
 	});
-	const allContext = files.map((f) => `# ===== ${f.name} =====\n\n${f.body.trim()}`).join('\n\n');
-	return { shoes, shoeWear: wearByShoe(runs), files, allContext };
+	const allContext = [
+		`# ===== gear-inventory.json =====\n\n${gearAsMarkdown(gear).trim()}`,
+		...files.map((f) => `# ===== ${f.name} =====\n\n${f.body.trim()}`)
+	].join('\n\n');
+	return { gear, gearWear: wearByAllGear(runs), files, allContext };
 });
 
 export const getCoachBrief = createServerFn({ method: 'GET' })
@@ -644,11 +671,11 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 	})
 	.handler(async ({ data }) => {
 		const range = data.range;
-		const [allRuns, training, shoes, profile, injury, gear, raceStrategy, settings] =
+		const [allRuns, training, gearInventory, profile, injury, gear, raceStrategy, settings] =
 			await Promise.all([
 				listRuns(),
 				loadTrainingContext(),
-				loadShoes(),
+				loadGear(),
 				readContextFile('profile.md'),
 				readContextFile('injury.md'),
 				readContextFile('gear.md'),
@@ -865,7 +892,7 @@ ${rows}
 ## Training plan
 ${plan.length ? formatTrainingPlanBrief(plan, targetWeek, calendar) : '(no plan set)'}
 
-${unplannedSection}${unplannedSection ? '\n' : ''}${alreadyLoggedSection}${alreadyLoggedSection ? '\n' : ''}${shoesSectionForBrief(shoes, allRuns)}
+${unplannedSection}${unplannedSection ? '\n' : ''}${alreadyLoggedSection}${alreadyLoggedSection ? '\n' : ''}${gearSectionForBrief(gearInventory, allRuns)}
 
 ## Runner profile
 ${profile.trim() || '(none)'}
@@ -873,7 +900,7 @@ ${profile.trim() || '(none)'}
 ## Injury rules
 ${injury.trim() || '(none)'}
 
-## Gear & fueling
+## Fueling & checklist
 ${gear.trim() || '(none)'}
 
 ## Race strategy
@@ -1184,7 +1211,7 @@ export type CreateRunInput = {
 	max_hr: number | null;
 	elev_gain: number | null;
 	cadence: number | null;
-	shoes: string;
+	gear: string;
 	notes: string;
 };
 
@@ -1224,13 +1251,13 @@ export const createRun = createServerFn({ method: 'POST' }).middleware([requireA
 			max_hr: data.max_hr,
 			elev_gain: data.elev_gain,
 			cadence: data.cadence,
-			shoes: data.shoes.trim(),
+			gear: data.gear.trim(),
 			summary_image: '',
 			splits_image: '',
 			strava_id: '',
 			notes: data.notes
 		});
-		await rememberShoeName(run.shoes);
+		await rememberGearName(run.gear, run.activity_type);
 		return { slug: run.slug };
 	});
 
@@ -1337,9 +1364,8 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 				? await reverseGeocode(parsed.startLat, parsed.startLng)
 				: { country: '', province: '', place: '' };
 
-		const importedShoes = showsField(activity_type, 'shoes')
-			? (await loadShoes()).active
-			: '';
+		const kind = gearKindForActivity(activity_type);
+		const importedGear = kind ? (await loadGear())[kind].active : '';
 
 		const run = await saveRun({
 			date: parsed.date,
@@ -1364,7 +1390,7 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 			elev_gain: parsed.elevGain,
 			max_speed: parsed.maxSpeed,
 			cadence: null,
-			shoes: importedShoes,
+			gear: importedGear,
 			summary_image: '',
 			splits_image: '',
 			strava_id: '',
@@ -1550,7 +1576,7 @@ export type UpdateRunInput = {
 	max_hr: number | null;
 	elev_gain: number | null;
 	cadence: number | null;
-	shoes: string;
+	gear: string;
 	notes: string;
 };
 
@@ -1584,11 +1610,11 @@ export const updateRun = createServerFn({ method: 'POST' }).middleware([requireA
 			max_hr: data.max_hr,
 			elev_gain: data.elev_gain,
 			cadence: data.cadence,
-			shoes: data.shoes.trim(),
+			gear: data.gear.trim(),
 			notes: data.notes
 		};
 		const run = await dbUpdateRun(data.slug, fields);
-		await rememberShoeName(run.shoes);
+		await rememberGearName(run.gear, run.activity_type);
 		return { slug: run.slug };
 	});
 
@@ -2047,10 +2073,10 @@ export const saveFeelings = createServerFn({ method: 'POST' }).middleware([requi
 		return applyFeelingsRows(rows);
 	});
 
-export const saveShoes = createServerFn({ method: 'POST' }).middleware([requireAuth])
-	.validator((d: ShoeContext) => d)
+export const saveGear = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: GearContext) => d)
 	.handler(async ({ data }) => {
-		await persistShoes(data);
+		await persistGear(data);
 		return { ok: true };
 	});
 

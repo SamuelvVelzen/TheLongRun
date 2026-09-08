@@ -35,7 +35,8 @@ export interface RunRecord {
 	/** Max speed in km/h. */
 	max_speed: number | null;
 	cadence: number | null;
-	shoes: string;
+	/** Named kit for the sport (shoes, bike, swim kit). Stored as `runs.shoes`. */
+	gear: string;
 	summary_image: string;
 	splits_image: string;
 	strava_id: string;

@@ -124,7 +124,7 @@ export type ActivityField =
 	| 'hr'
 	| 'elevation'
 	| 'cadence'
-	| 'shoes'
+	| 'gear'
 	| 'surface'
 	| 'weather';
 
@@ -144,8 +144,8 @@ export function showsField(activity: string | null | undefined, field: ActivityF
 			return t === 'run' || t === 'walk' || t === 'ride';
 		case 'cadence':
 			return t === 'run';
-		case 'shoes':
-			return t === 'run' || t === 'walk';
+		case 'gear':
+			return t === 'run' || t === 'walk' || t === 'ride' || t === 'swim';
 		case 'surface':
 			return t === 'run' || t === 'walk';
 		case 'weather':

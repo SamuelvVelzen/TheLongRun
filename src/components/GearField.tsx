@@ -1,42 +1,50 @@
-import { formatShoeKm, shoeKey, type ShoeChipOption, type ShoeWear } from '$lib/shoes';
+import { formatGearKm, gearKey, type GearChipOption, type GearWear } from '$lib/gear';
 import { cn, ui } from '$lib/ui';
 import { useEffect, useId, useMemo, useState } from 'react';
 
 const OTHER = '__other__';
 
-function wearHint(name: string, wear?: Record<string, ShoeWear>): string {
-	const w = wear?.[shoeKey(name)];
+function wearHint(name: string, wear?: Record<string, GearWear>): string {
+	const w = wear?.[gearKey(name)];
 	if (!w || w.km <= 0) return '';
-	return formatShoeKm(w.km);
+	return formatGearKm(w.km);
 }
 
-function optionLabel(opt: ShoeChipOption, wear?: Record<string, ShoeWear>): string {
+function optionLabel(
+	opt: GearChipOption,
+	wear?: Record<string, GearWear>,
+	activeHint = 'daily'
+): string {
 	const bits: string[] = [];
-	if (opt.role === 'active') bits.push('daily');
+	if (opt.role === 'active') bits.push(activeHint);
 	const hint = wearHint(opt.name, wear);
 	if (hint) bits.push(hint);
 	return bits.length ? `${opt.name} (${bits.join(' · ')})` : opt.name;
 }
 
-/** Native select of inventory pairs, with Other… for a new name. */
-export function ShoesField({
+/** Native select of inventory items, with Other… for a new name. */
+export function GearField({
 	options,
 	wear,
 	defaultValue,
-	name = 'shoes',
-	label = 'Shoes',
+	name = 'gear',
+	label = 'Gear',
+	placeholder = 'Name',
+	activeHint = 'daily',
 	onChange,
 	immediate = false
 }: {
-	options: ShoeChipOption[] | string[];
-	wear?: Record<string, ShoeWear>;
+	options: GearChipOption[] | string[];
+	wear?: Record<string, GearWear>;
 	defaultValue?: string;
 	name?: string;
 	label?: string;
+	placeholder?: string;
+	activeHint?: string;
 	onChange?: (value: string) => void;
 	immediate?: boolean;
 }) {
-	const catalog = useMemo<ShoeChipOption[]>(
+	const catalog = useMemo<GearChipOption[]>(
 		() =>
 			options.map((o) => (typeof o === 'string' ? { name: o, role: 'rotation' as const } : o)),
 		[options]
@@ -54,10 +62,10 @@ export function ShoesField({
 
 	const list = useMemo(() => {
 		const seen = new Set<string>();
-		const out: ShoeChipOption[] = [];
-		const push = (name: string, role: ShoeChipOption['role']) => {
+		const out: GearChipOption[] = [];
+		const push = (name: string, role: GearChipOption['role']) => {
 			const n = name.trim().replace(/\s+/g, ' ');
-			const k = shoeKey(n);
+			const k = gearKey(n);
 			if (!n || !k || seen.has(k)) return;
 			seen.add(k);
 			out.push({ name: n, role });
@@ -81,7 +89,7 @@ export function ShoesField({
 			setCustomOpen(false);
 			return;
 		}
-		const match = list.find((c) => shoeKey(c.name) === shoeKey(n));
+		const match = list.find((c) => gearKey(c.name) === gearKey(n));
 		if (match) {
 			setCustom('');
 			select(match.name);
@@ -92,8 +100,8 @@ export function ShoesField({
 		select(n);
 	}
 
-	const selectedKey = shoeKey(value);
-	const matched = list.find((c) => shoeKey(c.name) === selectedKey);
+	const selectedKey = gearKey(value);
+	const matched = list.find((c) => gearKey(c.name) === selectedKey);
 	const selectValue = customOpen ? OTHER : (matched?.name ?? '');
 
 	return (
@@ -101,7 +109,7 @@ export function ShoesField({
 			{label ? <span>{label}</span> : null}
 			<select
 				value={selectValue}
-				aria-label={label || 'Shoes'}
+				aria-label={label || 'Gear'}
 				aria-expanded={customOpen}
 				aria-controls={customOpen ? customId : undefined}
 				onChange={(e) => {
@@ -116,8 +124,8 @@ export function ShoesField({
 			>
 				<option value="">—</option>
 				{list.map((opt) => (
-					<option key={shoeKey(opt.name)} value={opt.name}>
-						{optionLabel(opt, wear)}
+					<option key={gearKey(opt.name)} value={opt.name}>
+						{optionLabel(opt, wear, activeHint)}
 					</option>
 				))}
 				<option value={OTHER}>Other…</option>
@@ -134,7 +142,7 @@ export function ShoesField({
 					<input
 						className="flex-1 min-w-0"
 						value={custom}
-						placeholder="Pair name"
+						placeholder={placeholder}
 						autoFocus
 						onChange={(e) => setCustom(e.target.value)}
 						onKeyDown={(e) => {

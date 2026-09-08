@@ -47,7 +47,7 @@ function rowToRun(row: Record<string, unknown>): RunRecord {
 		kilojoules: toNum(row.kilojoules),
 		max_speed: toNum(row.max_speed),
 		cadence: toNum(row.cadence),
-		shoes: toStr(row.shoes),
+		gear: toStr(row.gear ?? row.shoes),
 		summary_image: toStr(row.summary_image),
 		splits_image: toStr(row.splits_image),
 		strava_id: toStr(row.strava_id),
@@ -80,7 +80,7 @@ async function upsertRun(r: RunColumns): Promise<RunRecord> {
 			${r.slug}, ${r.date}, ${r.week}, ${r.day}, ${r.activity_type}, ${r.session}, ${r.effort}, ${r.shins},
 			${r.legs}, ${r.energy}, ${r.weather}, ${r.surface}, ${r.wanted_faster}, ${r.distance_km},
 			${r.start_time}, ${r.time}, ${r.elapsed_time}, ${r.avg_pace}, ${r.avg_hr}, ${r.max_hr},
-			${r.elev_gain}, ${r.calories}, ${r.kilojoules}, ${r.max_speed}, ${r.cadence}, ${r.shoes},
+			${r.elev_gain}, ${r.calories}, ${r.kilojoules}, ${r.max_speed}, ${r.cadence}, ${r.gear},
 			${r.summary_image}, ${r.splits_image}, ${r.strava_id}, ${r.route}, ${r.notes}, ${r.country},
 			${r.province}, ${r.place}, ${efforts}
 		)
@@ -158,7 +158,7 @@ export interface SaveRunInput {
 	kilojoules?: number | null;
 	max_speed?: number | null;
 	cadence: number | null;
-	shoes: string;
+	gear: string;
 	summary_image: string;
 	splits_image: string;
 	strava_id?: string;
@@ -297,7 +297,7 @@ export async function saveRun(input: SaveRunInput): Promise<RunRecord> {
 		kilojoules: input.kilojoules ?? null,
 		max_speed: input.max_speed ?? null,
 		cadence: input.cadence,
-		shoes: input.shoes,
+		gear: input.gear,
 		summary_image: input.summary_image,
 		splits_image: input.splits_image,
 		strava_id: input.strava_id || '',
@@ -371,7 +371,7 @@ export async function writeRun(run: RunRecord): Promise<RunRecord> {
 		kilojoules: run.kilojoules,
 		max_speed: run.max_speed,
 		cadence: run.cadence,
-		shoes: run.shoes,
+		gear: run.gear,
 		summary_image: run.summary_image,
 		splits_image: run.splits_image,
 		strava_id: run.strava_id || '',
@@ -406,7 +406,7 @@ export type UpdateRunFields = {
 	max_hr: number | null;
 	elev_gain: number | null;
 	cadence: number | null;
-	shoes: string;
+	gear: string;
 	notes: string;
 };
 
@@ -454,7 +454,7 @@ export async function updateRun(slug: string, fields: UpdateRunFields): Promise<
 		kilojoules: existing.kilojoules,
 		max_speed: existing.max_speed,
 		cadence: fields.cadence,
-		shoes: fields.shoes,
+		gear: fields.gear,
 		summary_image: existing.summary_image,
 		splits_image: existing.splits_image,
 		strava_id: existing.strava_id,

@@ -44,7 +44,7 @@ export type CombinedRunStats = {
 	elev_gain: number | null;
 	calories: number | null;
 	max_speed: number | null;
-	shoes: string;
+	gear: string;
 };
 
 export type TimelineItem =
@@ -95,7 +95,7 @@ export function combineRunStats(
 			| 'elev_gain'
 			| 'calories'
 			| 'max_speed'
-			| 'shoes'
+			| 'gear'
 			| 'slug'
 		>
 	>
@@ -134,7 +134,7 @@ export function combineRunStats(
 	const elevs = ordered.map((m) => m.elev_gain).filter((n): n is number => n != null);
 	const cals = ordered.map((m) => m.calories).filter((n): n is number => n != null);
 	const speeds = ordered.map((m) => m.max_speed).filter((n): n is number => n != null);
-	const shoeSet = new Set(ordered.map((m) => m.shoes.trim()).filter(Boolean));
+	const gearSet = new Set(ordered.map((m) => m.gear.trim()).filter(Boolean));
 
 	const distance_km = dist > 0 ? Math.round(dist * 100) / 100 : null;
 	const time = moving > 0 ? formatDuration(moving) : '';
@@ -157,7 +157,7 @@ export function combineRunStats(
 		elev_gain: elevs.length ? Math.round(elevs.reduce((a, b) => a + b, 0) * 10) / 10 : null,
 		calories: cals.length ? cals.reduce((a, b) => a + b, 0) : null,
 		max_speed: speeds.length ? Math.max(...speeds) : null,
-		shoes: shoeSet.size === 1 ? [...shoeSet][0]! : ''
+		gear: gearSet.size === 1 ? [...gearSet][0]! : ''
 	};
 }
 

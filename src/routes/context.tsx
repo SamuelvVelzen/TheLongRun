@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
 import { PageHero } from '../components/PageHero';
 import { Icon } from '../components/Icon';
-import { ShoesInventory } from '../components/ShoesInventory';
+import { GearInventory } from '../components/GearInventory';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 
 export const Route = createFileRoute('/context')({
@@ -83,7 +83,7 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 
 	return (
 		<>
-			<ShoesInventory initial={data.shoes} wear={data.shoeWear} authed={authed} />
+			<GearInventory initial={data.gear} wear={data.gearWear} authed={authed} />
 
 			<div className={ui.grid}>
 				{data.files.map((file) => (

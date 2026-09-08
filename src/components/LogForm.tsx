@@ -2,7 +2,7 @@ import { ACTIVITY_TYPES, activityLabel, normalizeActivityType, paceFieldLabel, s
 import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate, type PlanCalendar } from '$lib/plan';
 import { createRun, type CreateRunInput } from '$lib/server/functions';
-import { shoePickerOptions, type ShoeContext, type ShoeWear } from '$lib/shoes';
+import { gearKindForActivity, gearMetaForActivity, gearPickerOptions, type GearContext, type GearKind, type GearWear } from '$lib/gear';
 import type { PlanWeek } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { ChoiceChips } from './ChoiceChips';
 import { FeelChips, WantedFasterChips } from './FeelChips';
 import { Icon, sportChipLabel } from './Icon';
-import { ShoesField } from './ShoesField';
+import { GearField } from './GearField';
 import { errorMessage, useSnackbar } from './Snackbar';
 import { StrengthEditor } from './StrengthEditor';
 import { WeatherField } from './WeatherField';
@@ -19,13 +19,13 @@ const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'rac
 
 export function LogForm({
 	week,
-	shoes,
-	shoeWear,
+	gear,
+	gearWear,
 	calendar
 }: {
 	week: PlanWeek | null;
-	shoes: ShoeContext;
-	shoeWear?: Record<string, ShoeWear>;
+	gear: GearContext;
+	gearWear?: Record<GearKind, Record<string, GearWear>>;
 	calendar: PlanCalendar;
 }) {
 	const router = useRouter();
@@ -40,6 +40,8 @@ export function LogForm({
 
 	const derivedDay = dayFromIsoDate(dateValue || todayIso);
 	const derivedWeek = weekNumberForDate(dateValue || todayIso, calendar);
+	const gearKind = gearKindForActivity(activityType);
+	const gearKindMeta = gearMetaForActivity(activityType);
 
 	const planSession =
 		week?.sessions.find(
@@ -85,7 +87,7 @@ export function LogForm({
 			max_hr: num('max_hr'),
 			elev_gain: num('elev_gain'),
 			cadence: num('cadence'),
-			shoes: String(fd.get('shoes') ?? ''),
+			gear: String(fd.get('gear') ?? ''),
 			notes: activityType === 'strength' ? strengthNotes : String(fd.get('notes') ?? '')
 		};
 		try {
@@ -237,7 +239,7 @@ export function LogForm({
 					<h3 className={ui.formSectionTitle}>Details</h3>
 					{(showsField(activityType, 'weather') ||
 						showsField(activityType, 'surface') ||
-						showsField(activityType, 'shoes')) && (
+						showsField(activityType, 'gear')) && (
 						<div className={ui.formGrid}>
 							{showsField(activityType, 'weather') && (
 								<WeatherField
@@ -258,11 +260,15 @@ export function LogForm({
 									/>
 								</label>
 							)}
-							{showsField(activityType, 'shoes') && (
-								<ShoesField
-									options={shoePickerOptions(shoes)}
-									wear={shoeWear}
-									defaultValue={shoes.active}
+							{showsField(activityType, 'gear') && gearKind && gearKindMeta && (
+								<GearField
+									key={gearKind}
+									options={gearPickerOptions(gear[gearKind])}
+									wear={gearWear?.[gearKind]}
+									defaultValue={gear[gearKind].active}
+									label={gearKindMeta.label}
+									placeholder={gearKindMeta.customPlaceholder}
+									activeHint={gearKindMeta.activeLabel.toLowerCase()}
 								/>
 							)}
 						</div>

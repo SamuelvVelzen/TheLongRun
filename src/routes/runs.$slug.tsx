@@ -18,7 +18,7 @@ import {
     updateRun,
     type UpdateRunInput
 } from '$lib/server/functions';
-import { shoePickerOptions } from '$lib/shoes';
+import { gearKindForActivity, gearMetaForActivity, gearPickerOptions } from '$lib/gear';
 import {
     exerciseTotalLabel,
     formatSetDisplay,
@@ -39,7 +39,7 @@ import { MoreMenu } from '../components/MoreMenu';
 import { PageHero } from '../components/PageHero';
 import { RouteChip } from '../components/RouteChip';
 import { RouteMap } from '../components/RouteMap';
-import { ShoesField } from '../components/ShoesField';
+import { GearField } from '../components/GearField';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 import { SplitsPanel } from '../components/SplitsPanel';
 import { StrengthEditor } from '../components/StrengthEditor';
@@ -300,8 +300,8 @@ function RunDetail() {
 		run: r,
 		analytics,
 		gps,
-		shoes,
-		shoeWear,
+		gear,
+		gearWear,
 		hrMaxManual,
 		hrMaxAllTime,
 		bestEfforts,
@@ -350,6 +350,10 @@ function RunDetail() {
 
 	const derivedDay = dayFromIsoDate(editDate || r.date);
 	const derivedWeek = weekNumberForDate(editDate || r.date, calendar);
+	const editGearKind = gearKindForActivity(editActivity);
+	const editGearMeta = gearMetaForActivity(editActivity);
+	const viewGearKind = gearKindForActivity(r.activity_type);
+	const viewGearMeta = gearMetaForActivity(r.activity_type);
 
 	const hrFill =
 		r.avg_hr != null && r.max_hr != null && r.max_hr > 0
@@ -444,7 +448,7 @@ function RunDetail() {
 			max_hr: num('max_hr'),
 			elev_gain: num('elev_gain'),
 			cadence: num('cadence'),
-			shoes: String(fd.get('shoes') ?? ''),
+			gear: String(fd.get('gear') ?? ''),
 			notes: editActivity === 'strength' ? editNotes : String(fd.get('notes') ?? '')
 		};
 		try {
@@ -484,7 +488,7 @@ function RunDetail() {
 			max_hr: r.max_hr,
 			elev_gain: r.elev_gain,
 			cadence: r.cadence,
-			shoes: r.shoes || '',
+			gear: r.gear || '',
 			notes: r.notes || ''
 		};
 	}
@@ -777,11 +781,15 @@ function RunDetail() {
 								/>
 							</label>
 						)}
-						{showsField(editActivity, 'shoes') && (
-							<ShoesField
-								options={shoePickerOptions(shoes, [r.shoes])}
-								wear={shoeWear}
-								defaultValue={r.shoes || ''}
+						{showsField(editActivity, 'gear') && editGearKind && editGearMeta && (
+							<GearField
+								key={editGearKind}
+								options={gearPickerOptions(gear[editGearKind], [r.gear])}
+								wear={gearWear[editGearKind]}
+								defaultValue={r.gear || ''}
+								label={editGearMeta.label}
+								placeholder={editGearMeta.customPlaceholder}
+								activeHint={editGearMeta.activeLabel.toLowerCase()}
 							/>
 						)}
 					</div>
@@ -1015,22 +1023,27 @@ function RunDetail() {
 									onSave={(v) => patchRun({ surface: v })}
 								/>
 							)}
-							{showsField(r.activity_type, 'shoes') &&
+							{showsField(r.activity_type, 'gear') &&
+								viewGearKind &&
+								viewGearMeta &&
 								(authed ? (
-									<ShoesField
-										options={shoePickerOptions(shoes, [r.shoes])}
-										wear={shoeWear}
-										defaultValue={r.shoes || ''}
+									<GearField
+										options={gearPickerOptions(gear[viewGearKind], [r.gear])}
+										wear={gearWear[viewGearKind]}
+										defaultValue={r.gear || ''}
+										label={viewGearMeta.label}
+										placeholder={viewGearMeta.customPlaceholder}
+										activeHint={viewGearMeta.activeLabel.toLowerCase()}
 										immediate
 										onChange={(v) => {
-											void patchRun({ shoes: v });
+											void patchRun({ gear: v });
 										}}
 									/>
 								) : (
 									<InlineText
-										label="Shoes"
-										value={r.shoes || ''}
-										placeholder="Shoe"
+										label={viewGearMeta.label}
+										value={r.gear || ''}
+										placeholder={viewGearMeta.customPlaceholder}
 										editable={false}
 										onSave={async () => {}}
 									/>

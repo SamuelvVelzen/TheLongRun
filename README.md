@@ -62,7 +62,7 @@ schema.sql           same schema, for reading
 |-------|-------|
 | `runs` | one row per run |
 | `routes` | `id` + GeoJSON track + downsampled `polyline` for heatmaps |
-| `context` | goals.json, shoes, plan.json, profile, injury, gear, race strategy |
+| `context` | goals.json, gear inventory, plan.json, profile, injury, fueling, race strategy |
 | `planned_routes` | BRouter exports (not activity GPS) |
 | `planned_route_links` | plan-day / activity attachments |
 

@@ -168,3 +168,60 @@ export function strengthSummary(exercises: StrengthExercise[]): string {
 		})
 		.join('; ');
 }
+
+export type StrengthLogLike = {
+	date: string;
+	time?: string;
+	notes?: string | null;
+};
+
+function exerciseKey(name: string): string {
+	return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * Lift book for the generate-plan brief: recent sessions plus the newest top of each lift.
+ * `logs` should already be strength-only, newest first.
+ */
+export function formatStrengthHistoryBrief(
+	logs: StrengthLogLike[],
+	opts: { maxSessions?: number; maxTopsFrom?: number } = {}
+): string {
+	const maxSessions = opts.maxSessions ?? 8;
+	const maxTopsFrom = opts.maxTopsFrom ?? 20;
+	if (!logs.length) return '';
+
+	const lines = [
+		'## Recent strength',
+		'Use **these lifts and loads** when you prescribe gym sessions. Match the program I actually do — do not invent a different split or machine list. Progress or back off from the tops below given recovery and the rest of the week.'
+	];
+	for (const r of logs.slice(0, maxSessions)) {
+		const parsed = parseStrengthNotes(r.notes);
+		const extra = parsed.extra.replace(/\s+/g, ' ').trim().slice(0, 180);
+		const body = [strengthSummary(parsed.exercises), extra].filter(Boolean).join(' — ');
+		const dur = r.time?.trim() ? ` (${r.time.trim()})` : '';
+		lines.push(`- ${r.date}${dur}: ${body || '(no lifts logged)'}`);
+	}
+
+	const tops: { name: string; date: string; label: string }[] = [];
+	const seen = new Set<string>();
+	for (const r of logs.slice(0, maxTopsFrom)) {
+		for (const ex of parseStrengthNotes(r.notes).exercises) {
+			const key = exerciseKey(ex.name);
+			if (!key || seen.has(key)) continue;
+			const t = topSet(ex);
+			if (!t) continue;
+			seen.add(key);
+			tops.push({
+				name: ex.name.trim(),
+				date: r.date,
+				label: formatSetTop(t, inferExerciseKind(ex))
+			});
+		}
+	}
+	if (tops.length) {
+		lines.push('', 'Recent tops (newest log of each lift):');
+		for (const t of tops) lines.push(`- ${t.name}: ${t.label} (${t.date})`);
+	}
+	return lines.join('\n');
+}

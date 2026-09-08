@@ -15,7 +15,7 @@ import {
     type RangeKind
 } from '$lib/date-range';
 import { collapseRuns, groupedSessionTitle } from '$lib/group';
-import { buildDashboardStats, daysUntil, weekToPlan, weekViewIsClosed, type DashboardStats } from '$lib/plan';
+import { buildDashboardStats, daysUntil, sessionMeasureLabel, weekToPlan, weekViewIsClosed, type DashboardStats } from '$lib/plan';
 import { getDashboardData } from '$lib/server/functions';
 import { buildTrainingTrends } from '$lib/trends';
 import { cn, ui } from '$lib/ui';
@@ -298,9 +298,13 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 									>
 										<p className="m-0 inline-flex items-center gap-1.5 text-[0.82rem] font-semibold text-muted">
 											<ActivityIcon type={session.activity_type ?? 'run'} size={13} />
-											{activityLabel(session.activity_type ?? 'run')}
-											{session.distance_km != null ? ` · ${session.distance_km} km` : ''}
-											{session.done ? ' · completed' : session.isNext ? ' · next' : ''}
+											{[
+												activityLabel(session.activity_type ?? 'run'),
+												sessionMeasureLabel(session),
+												session.done ? 'completed' : session.isNext ? 'next' : ''
+											]
+												.filter(Boolean)
+												.join(' · ')}
 										</p>
 										<strong className="block font-display text-[1.15rem] tracking-[-0.02em]">
 											{session.label}

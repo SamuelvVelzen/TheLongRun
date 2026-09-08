@@ -1,5 +1,5 @@
 import { activityLabel, normalizeActivityType } from '$lib/activity';
-import { weekDayGroups, type UnplannedActivity, type WeekView } from '$lib/plan';
+import { weekDayGroups, sessionMeasureLabel, type UnplannedActivity, type WeekView } from '$lib/plan';
 import type { SessionRouteRef } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
@@ -206,8 +206,12 @@ export function WeekPlanBoard({
 										<div className="flex items-center justify-between gap-2 min-w-0">
 											<span className="inline-flex items-center gap-1 text-[0.78rem] font-semibold text-muted min-w-0 [overflow-wrap:anywhere]">
 												<ActivityIcon type={session.activity_type ?? 'run'} size={13} />
-												{activityLabel(session.activity_type ?? 'run')}
-												{session.distance_km != null ? ` · ${session.distance_km} km` : ''}
+												{[
+													activityLabel(session.activity_type ?? 'run'),
+													sessionMeasureLabel(session)
+												]
+													.filter(Boolean)
+													.join(' · ')}
 											</span>
 											<StatusBadge
 												done={session.done}

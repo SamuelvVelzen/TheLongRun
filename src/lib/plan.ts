@@ -220,6 +220,18 @@ export function sessionCanLinkRoute(
 	return !isRestLike(session.label) && sessionActivityType(session) !== 'strength';
 }
 
+const LEADING_MIN = /^(\d+(?:\.\d+)?)\s*(?:min(?:ute)?s?)\b/i;
+
+/** Distance for run/ride/walk; leading minutes from `detail` for strength. */
+export function sessionMeasureLabel(
+	session: Pick<PlanSession, 'activity_type' | 'distance_km' | 'detail'>
+): string {
+	if (session.distance_km != null) return `${session.distance_km} km`;
+	if (sessionActivityType(session) !== 'strength') return '';
+	const m = String(session.detail ?? '').trim().match(LEADING_MIN);
+	return m ? `${m[1]} min` : '';
+}
+
 export function isSkippedStatus(status: unknown): status is PlanSessionStatus {
 	return typeof status === 'string' && status.trim().toLowerCase() === 'skipped';
 }
@@ -484,7 +496,8 @@ export function formatWeekPlanMarkdown(view: WeekView): string {
 		const date = g.date ? ` (${g.date})` : '';
 		for (const s of g.sessions) {
 			const type = activityLabel(s.activity_type ?? 'run');
-			const km = s.distance_km != null ? ` · ${s.distance_km} km` : '';
+			const measure = sessionMeasureLabel(s);
+			const km = measure ? ` · ${measure}` : '';
 			lines.push(
 				`- ${s.day}${date}: ${type}${km} · ${s.label} — ${s.detail} [${sessionCopyState(s)}]`
 			);

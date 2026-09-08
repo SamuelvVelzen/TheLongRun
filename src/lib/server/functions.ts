@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPES, activityCount, activityLabel, activityPlural, metricText, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
+import { ACTIVITY_TYPES, activityCount, activityLabel, activityPlural, metricText, normalizeActivityType, showsFeel } from '$lib/activity';
 import { combinedActivityGpx, combinedActivityTcx, memberActivityGpx, safeFilename } from '$lib/activity-export';
 import {
     computeBestEffortsFromSplits,
@@ -13,6 +13,18 @@ import {
 import { combinedAnalytics, trackFromGeoJson } from '$lib/combine-track';
 import { dateRangeFromSearch, filterRunsByRange, type DateRange, type RangeKind } from '$lib/date-range';
 import { dayFromIsoDate, formatDuration, guessSession, localDateTimeToUtcMs, normalizeStartTime, parseDurationSeconds } from '$lib/format';
+import {
+    catalogHasItems,
+    formatGearKm,
+    GEAR_KINDS,
+    gearKey,
+    gearKindForActivity,
+    gearMeta,
+    wearByAllGear,
+    type GearCatalog,
+    type GearContext,
+    type GearKind
+} from '$lib/gear';
 import { canPinRaceResult, normalizeGoalInput, pickSoonestOpenGoal, pinCandidatesForGoal, resultFromActivity, type GoalInput } from '$lib/goals';
 import {
     attachHrSeries,
@@ -55,18 +67,6 @@ import {
     type WeekView
 } from '$lib/plan';
 import {
-    catalogHasItems,
-    formatGearKm,
-    GEAR_KINDS,
-    gearKey,
-    gearKindForActivity,
-    gearMeta,
-    wearByAllGear,
-    type GearCatalog,
-    type GearContext,
-    type GearKind
-} from '$lib/gear';
-import {
     analyticsFromProperties,
     analyticsToProperties,
     computeRouteAnalytics,
@@ -107,10 +107,10 @@ import { requireAuth } from './auth';
 import { brouterAlongPins } from './brouter';
 import {
     currentPlanWeek,
+    loadGear,
     loadGoalStore,
     loadPlan,
     loadSettings,
-    loadGear,
     loadTrainingContext,
     persistGear,
     readContextFile,
@@ -1019,14 +1019,53 @@ function formatFeelLogged(r: RunRecord): string {
 		);
 	}
 	const surface = (r.surface ?? '').trim();
-	const notesRaw = (r.notes ?? '').trim();
-	const notes = notesRaw && !isImportNote(notesRaw) ? notesRaw : '';
-	if (!hasFeel(r) && !notes) {
-		return `- \`${r.slug}\`: not logged yet — do not invent scores.`;
+	return `- \`${r.slug}\`: ${scores.join(' · ')}${surface ? ` · surface ${surface}` : ''}`;
+}
+
+function debriefWriteupText(r: RunRecord): string {
+	const notes = (r.notes ?? '').trim();
+	if (!notes || isImportNote(notes)) return '';
+	if (normalizeActivityType(r.activity_type) === 'strength') return '';
+	return notes;
+}
+
+function formatDebriefWriteup(runs: RunRecord[]): string {
+	const many = runs.length > 1;
+	const blocks = runs
+		.map((r) => {
+			const text = debriefWriteupText(r);
+			if (!text) return '';
+			if (!many) return text;
+			const km = r.distance_km != null ? ` · ${r.distance_km} km` : '';
+			return `### ${r.date}${r.day ? ` · ${r.day}` : ''}${km} (\`${r.slug}\`)\n${text}`;
+		})
+		.filter(Boolean);
+	if (!blocks.length) {
+		return '(nothing written yet — I may still attach screenshots.)';
 	}
-	return `- \`${r.slug}\`: ${scores.join(' · ')}${surface ? ` · surface ${surface}` : ''}${
-		notes ? `\n  ${notes}` : ''
-	}`;
+	return blocks.join('\n\n');
+}
+
+function formatFeelingsNotesExample(runs: RunRecord[]): string {
+	const fields = (r: RunRecord, pad: string) =>
+		[
+			`${pad}"slug": ${JSON.stringify(r.slug)},`,
+			`${pad}"effort": 6,`,
+			`${pad}"shins": 2,`,
+			`${pad}"legs": 4,`,
+			`${pad}"energy": 7,`,
+			`${pad}"wanted_faster": false,`,
+			`${pad}"surface": "asphalt",`,
+			`${pad}"notes": "Short first-person summary of What I wrote — not the whole dump."`
+		].join('\n');
+	const r = runs[0];
+	if (!r || runs.length === 1) {
+		if (!r) return `  "feelings": { "slug": "…", "notes": "…" }`;
+		return `  "feelings": {\n${fields(r, '    ')}\n  }`;
+	}
+	return `  "feelings": [\n${runs
+		.map((row) => `    {\n${fields(row, '      ')}\n    }`)
+		.join(',\n')}\n  ]`;
 }
 
 export const getDebriefPrompt = createServerFn({ method: 'GET' })
@@ -1108,9 +1147,10 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const sessionHeading = many ? 'These sessions' : 'This session';
 		const sessionBlock = featured.map(formatRunBriefLine).join('\n');
 		const feelBlock = featured.map(formatFeelLogged).join('\n');
+		const writeup = formatDebriefWriteup(featured);
 		const job = includePlan
-			? `Coach from ${sessionWord}: how it went, recovery, and what to watch. Then update **this week** only if remaining sessions should change. Keep remaining sessions on their planned days unless recovery requires a shift — and if you move a day, say why. Keep non-run sessions unless recovery says otherwise.`
-			: `Coach from ${sessionWord}: how it went, recovery, and what to watch next. Do not rewrite my week plan — this chat is advice only.`;
+			? `Coach from ${sessionWord}: how it went, recovery, and what to watch. Answer any questions I asked in What I wrote. Then update **this week** only if remaining sessions should change. Keep remaining sessions on their planned days unless recovery requires a shift — and if you move a day, say why. Keep non-run sessions unless recovery says otherwise.`
+			: `Coach from ${sessionWord}: how it went, recovery, and what to watch next. Answer any questions I asked in What I wrote. Do not rewrite my week plan — this chat is advice only.`;
 		const planSections = includePlan
 			? `
 ## Current week plan${week ? ` — week ${week.week} (${week.dates}) · ${week.phase} · ${week.focus}` : ''}
@@ -1118,12 +1158,12 @@ ${sessionLines}
 
 ${unplannedLines ? `## Unplanned activities this week\nThese logs did not match a planned session — extra load, already done. Do not add a plan row just to file them.\n${unplannedLines}\n` : ''}`
 			: '';
-		const reply = includePlan
-			? `## When you reply
-Lead with coaching advice in prose (how ${sessionWord} went, recovery, and whether anything ahead should change). After the advice, output one fenced JSON object I can paste back — the JSON is what I save; the advice is not.
-
-\`\`\`json
-{
+		const notesRule =
+			'- `feelings.notes` is a **short** first-person summary of What I wrote (about 2–5 sentences) for the activity log. Keep my voice. Keep the useful specifics (shins after, shoes, questions you answered). Do **not** paste the whole write-up. Omit `notes` if I wrote nothing.';
+		const scoresRule =
+			'- Scores marked – were not tapped in the app. Infer effort/shins/legs/energy (and wanted_faster / surface) from What I wrote when the text is clear enough for a number. Omit a field if the write-up does not support it. Do not invent from GPS or screenshots. If How I felt already has a number, omit that field — keep mine. Do not copy example numbers.';
+		const weekJson = includePlan
+			? `,
   "week": {
     "week": ${week?.week ?? 0},
     "dates": ${JSON.stringify(week?.dates ?? '')},
@@ -1132,19 +1172,27 @@ Lead with coaching advice in prose (how ${sessionWord} went, recovery, and wheth
     "sessions": [
       { "day": "Friday", "activity_type": "run", "label": "Easy", "distance_km": 7, "detail": "copy each day from Current week plan — do not use this Friday row as-is" }
     ]
-  }
+  }`
+			: '';
+		const weekRules = includePlan
+			? `- \`week.sessions\` is the **full week** from Current week plan: keep completed/skipped rows as they were, rewrite what's still ahead. Every session needs \`"activity_type"\`. Only move a day if you must, and say why.
+- To drop a session, set \`"status": "skipped"\` (and why in \`detail\`). Unlogged ≠ skipped.
+- If the week is finished, return the same session rows unchanged — do not invent a completed status (\`status\` is only \`"skipped"\`).
+`
+			: '';
+		const reply = `## When you reply
+Lead with coaching advice in prose (how ${sessionWord} went, recovery,${includePlan ? ' and whether anything ahead should change' : ' and the next session'}). Answer any questions from What I wrote there. After the advice, output one fenced JSON object I can paste back — the JSON is what I save; the advice is not.
+
+\`\`\`json
+{
+${formatFeelingsNotesExample(featured)}${weekJson}
 }
 \`\`\`
 
 Rules:
-- Do not return a \`feelings\` object — I already logged how ${sessionWord} felt in the app.
-- \`week.sessions\` is the **full week** from Current week plan: keep completed/skipped rows as they were, rewrite what's still ahead. Every session needs \`"activity_type"\`. Only move a day if you must, and say why.
-- To drop a session, set \`"status": "skipped"\` (and why in \`detail\`). Unlogged ≠ skipped.
-- If the week is finished, return the same session rows unchanged — do not invent a completed status (\`status\` is only \`"skipped"\`).
-`
-			: `## When you reply
-Lead with coaching advice in prose (how ${sessionWord} went, recovery, and the next session). Do not return JSON or a week plan.
-`;
+${notesRule}
+${scoresRule}
+${weekRules}`;
 
 		const prompt = `# The Long Run — debrief ${sessionWord}
 
@@ -1159,8 +1207,14 @@ ${formatPatternLines(settings.weekPattern)}
 ## ${sessionHeading}
 ${sessionBlock}
 
-## How I felt (logged in the app — treat as ground truth)
+## How I felt
+– means I did not tap a number. Infer those from What I wrote when the text is clear; keep any number already here.
 ${feelBlock}
+
+## What I wrote
+This is my own account of ${sessionWord} — as long as I needed, including questions I want answered. Treat it as ground truth. GPS is the device record; if they disagree, mention it but trust how I said it felt.
+
+${writeup}
 
 ## Other activities already logged this week
 ${otherThisWeek.length ? otherThisWeek.map(formatRunBriefLine).join('\n') : `- (none besides ${many ? 'these' : 'this one'})`}
@@ -1181,11 +1235,11 @@ ${reply}`;
 
 export type ActivityFeelInput = {
 	slug: string;
-	effort: number | null;
-	shins: number | null;
-	legs: number | null;
-	energy: number | null;
-	wanted_faster: boolean | null;
+	effort?: number | null;
+	shins?: number | null;
+	legs?: number | null;
+	energy?: number | null;
+	wanted_faster?: boolean | null;
 	surface?: string;
 	notes?: string;
 };
@@ -1193,13 +1247,12 @@ export type ActivityFeelInput = {
 export const saveActivityFeel = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((d: ActivityFeelInput) => d)
 	.handler(async ({ data }) => {
-		const patch: FeelingsPatch = {
-			effort: data.effort,
-			shins: data.shins,
-			legs: data.legs,
-			energy: data.energy,
-			wanted_faster: data.wanted_faster
-		};
+		const patch: FeelingsPatch = {};
+		if (data.effort !== undefined) patch.effort = data.effort;
+		if (data.shins !== undefined) patch.shins = data.shins;
+		if (data.legs !== undefined) patch.legs = data.legs;
+		if (data.energy !== undefined) patch.energy = data.energy;
+		if (data.wanted_faster !== undefined) patch.wanted_faster = data.wanted_faster;
 		if (data.surface !== undefined) patch.surface = data.surface.trim();
 		if (data.notes !== undefined) patch.notes = data.notes.trim();
 		const ok = await updateRunFeelings(data.slug, patch);

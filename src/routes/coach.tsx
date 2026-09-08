@@ -745,8 +745,9 @@ function CoachPanels({
 						<li className={runs.length ? (allHaveFeel ? 'done' : 'current') : undefined}>
 							<strong>2. How it felt</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
-								Log this here — it goes into the prompt so the AI coaches from your scores and
-								notes, not from a description in the chat.
+								Write the session here the way you would in chat — as long as you want, including
+								questions for this week. Skip the numbers if that is easier; the AI will read
+								them from the write-up. It then summarises into the activity notes.
 							</span>
 							{runs.length > 0 &&
 								runs.map((r) => (
@@ -770,9 +771,9 @@ function CoachPanels({
 						<li className={runs.length && debriefPrompt ? 'current' : undefined}>
 							<strong>3. Copy the prompt</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
-								{`Paste into ChatGPT. It will give advice first${includePlan ? ', then JSON for the rest of the week' : ''}. Attach Strava screenshots if you want extra context.`}
+								{`Paste into ChatGPT. It will give advice first (including any questions you asked)${includePlan ? ', then JSON with a notes summary, any scores it read from your write-up, and the rest of the week' : ', then JSON with a notes summary and any scores it read from your write-up'}. Attach Strava screenshots if you want extra context.`}
 								{runs.length > 0 && !allHaveFeel
-									? ' Save how it felt first so the prompt includes your scores.'
+									? ' Save how it felt first so the prompt includes what you wrote.'
 									: ''}
 							</span>
 							{debrief.error && !debriefPrompt && (
@@ -812,12 +813,12 @@ function CoachPanels({
 								</div>
 							)}
 						</li>
-						{includePlan && (
 						<li>
 							<strong>4. Paste ChatGPT’s JSON</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
-								The updated rest of the week. Days can change. Advice stays in the chat — only
-								the JSON is saved.
+								{includePlan
+									? 'A short notes summary for this activity plus the updated rest of the week. Days can change. Advice stays in the chat — only the JSON is saved.'
+									: 'A short notes summary for this activity. Advice stays in the chat — only the JSON is saved.'}
 							</span>
 							{authed ? (
 							<div className={cn(ui.panel, ui.form, 'mt-3')}>
@@ -825,7 +826,11 @@ function CoachPanels({
 									<textarea
 										className={ui.editor}
 										rows={8}
-										placeholder='{ "week": { "week": 3, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] } }'
+										placeholder={
+											includePlan
+												? '{ "feelings": { "slug": "…", "notes": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
+												: '{ "feelings": { "slug": "…", "notes": "…" } }'
+										}
 										value={debriefJson}
 										onChange={(e) => setDebriefJson(e.target.value)}
 									/>
@@ -838,13 +843,12 @@ function CoachPanels({
 										disabled={!debriefJson.trim()}
 									>
 										<Icon name="check" size={16} />
-										Save week
+										Save reply
 									</button>
 								</div>
 							</div>
 							) : null}
 						</li>
-						)}
 					</ol>
 				</>
 			)}

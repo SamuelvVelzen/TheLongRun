@@ -34,7 +34,7 @@ export const ui = {
 	heroQuiet: 'max-sm:mb-3 max-sm:gap-2 max-sm:[&>div:first-child>p]:hidden',
 	heroRoute: '[&_h1]:max-w-none [&_a]:text-accent-fg',
 	snackHost:
-		'fixed z-[60] inset-x-0 bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px))] flex flex-col-reverse items-center gap-[0.45rem] px-4 pointer-events-none max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:px-3',
+		'fixed z-[60] inset-x-0 bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px)+var(--vv-offset-bottom,0px))] flex flex-col-reverse items-center gap-[0.45rem] px-4 pointer-events-none max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px)+var(--vv-offset-bottom,0px))] max-sm:px-3',
 	snack:
 		'pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.7rem] pr-[0.55rem] pl-[0.95rem] rounded-[14px] border border-line bg-surface shadow-lift animate-rise max-sm:py-[0.65rem] max-sm:pr-[0.4rem] max-sm:pl-[0.85rem]',
 	snackSuccess: 'border-ok/35 bg-ok/10 text-ok',
@@ -49,10 +49,11 @@ export const ui = {
 	sectionTitle:
 		'flex items-end justify-between gap-4 mt-8 mb-[0.85rem] max-sm:flex-col max-sm:items-start max-sm:gap-[0.55rem] max-sm:mt-[1.45rem] max-sm:mb-[0.7rem] [&_h2]:text-[1.45rem] max-sm:[&_h2]:text-[1.28rem] [&_p]:text-muted',
 	stickyActions:
-		'sticky z-20 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex flex-wrap items-center justify-end gap-3 p-3 px-4 border border-line rounded-2xl bg-canvas/92 backdrop-blur-[10px] shadow-lift max-sm:bottom-3 max-sm:gap-[0.55rem] max-sm:[&>a]:w-auto max-sm:[&>button]:w-auto max-sm:[&>a]:flex-none max-sm:[&>button]:flex-none',
+		'sticky z-20 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex flex-wrap items-center justify-end gap-3 p-3 px-4 border border-line rounded-2xl bg-canvas/92 backdrop-blur-[10px] shadow-lift max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:gap-[0.55rem] max-sm:[&>a]:w-auto max-sm:[&>button]:w-auto max-sm:[&>a]:flex-none max-sm:[&>button]:flex-none',
 	stickyPrimary: 'max-sm:!flex-1 max-sm:!min-w-[min(100%,9rem)]',
 	editor:
 		'block w-full max-w-full font-mono text-[0.9rem] leading-[1.45] min-h-[22rem] max-sm:min-h-64 max-sm:text-base',
+	debriefWrite: 'block w-full min-h-[18rem]! max-sm:min-h-[16rem]! leading-[1.5]',
 	runRow:
 		'grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr] gap-3 items-center p-4 px-[1.1rem] border border-line rounded-[14px] bg-fg/[0.02] transition-[border-color,background-color,transform] duration-150 ease-out animate-rise hover:border-accent/35 hover:bg-accent/4 hover:-translate-y-px active:border-accent/35 active:bg-accent/4 active:-translate-y-px max-[760px]:grid-cols-2 max-sm:grid-cols-1 max-sm:gap-[0.3rem] max-sm:p-[0.85rem_0.95rem]',
 	runRowCompact:

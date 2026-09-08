@@ -1,9 +1,10 @@
 import { activityLabel, normalizeActivityType } from '$lib/activity';
 import { weekDayGroups, type UnplannedActivity, type WeekView } from '$lib/plan';
+import type { SessionRouteRef } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 import { ActivityIcon, Icon } from './Icon';
-import { RouteChip } from './RouteChip';
+import { PlanSessionRoute } from './PlanSessionRoute';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -135,10 +136,12 @@ function UnplannedRow({
 
 export function WeekPlanBoard({
 	view,
-	title
+	title,
+	routes = []
 }: {
 	view: WeekView;
 	title?: string;
+	routes?: SessionRouteRef[];
 }) {
 	const days = weekDayGroups(view);
 
@@ -236,13 +239,11 @@ export function WeekPlanBoard({
 												Log this
 											</Link>
 										)}
-										{session.route && !session.done && (
-											<RouteChip
-												slug={session.route.slug}
-												name={session.route.name}
-												distanceKm={session.route.distance_km}
-											/>
-										)}
+										<PlanSessionRoute
+											week={view.week.week}
+											session={session}
+											routes={routes}
+										/>
 									</div>
 								))}
 								{group.unplanned.map((item, i) => (

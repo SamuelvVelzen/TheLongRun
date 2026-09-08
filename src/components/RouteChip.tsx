@@ -1,4 +1,4 @@
-import { ui } from '$lib/ui';
+import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 
 export function MapPinIcon({ size = 14 }: { size?: number }) {
@@ -16,17 +16,24 @@ export function RouteChip({
 	slug,
 	name,
 	distanceKm,
-	prefix
+	prefix,
+	className
 }: {
 	slug: string;
 	name: string;
 	distanceKm?: number | null;
 	prefix?: string;
+	className?: string;
 }) {
 	const distance =
 		distanceKm != null && !/\bkm\b/i.test(name) ? ` · ${distanceKm} km` : '';
 	return (
-		<Link className={ui.routeChip} to="/routes/$slug" params={{ slug }} title={`Open route ${name}`}>
+		<Link
+			className={cn(ui.routeChip, className)}
+			to="/routes/$slug"
+			params={{ slug }}
+			title={`Open route ${name}`}
+		>
 			<MapPinIcon />
 			<span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
 				{prefix ? `${prefix} · ` : ''}

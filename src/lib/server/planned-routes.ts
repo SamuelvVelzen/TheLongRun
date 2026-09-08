@@ -289,6 +289,7 @@ export type RouteLinkRow = {
 };
 
 export type PlanRouteRef = SessionRouteRef & {
+	id: number;
 	week: number;
 	day: string;
 	label: string | null;
@@ -337,22 +338,24 @@ export async function listRouteLinks(routeSlug?: string): Promise<RouteLinkRow[]
 export async function listPlanRouteRefs(): Promise<PlanRouteRef[]> {
 	const sql = getSql();
 	const rows = (await sql`
-		SELECT l.plan_week, l.plan_day, l.plan_label, l.plan_activity_type, r.slug, r.name, r.distance_km
+		SELECT l.id, l.plan_week, l.plan_day, l.plan_label, l.plan_activity_type, r.slug, r.name, r.distance_km
 		FROM planned_route_links l
 		JOIN planned_routes r ON r.slug = l.route_slug
 		WHERE l.kind = 'plan'
 	`) as Record<string, unknown>[];
 	return rows
 		.map((row) => ({
+			id: toNum(row.id) ?? 0,
 			week: toNum(row.plan_week) ?? 0,
 			day: toStr(row.plan_day),
 			label: toStr(row.plan_label) || null,
 			activity_type: toStr(row.plan_activity_type) || null,
 			slug: toStr(row.slug),
 			name: toStr(row.name),
-			distance_km: toNum(row.distance_km)
+			distance_km: toNum(row.distance_km),
+			link_id: toNum(row.id) ?? undefined
 		}))
-		.filter((r) => r.week > 0 && r.day);
+		.filter((r) => r.id > 0 && r.week > 0 && r.day);
 }
 
 export async function getActivityRouteRef(activitySlug: string): Promise<SessionRouteRef | null> {

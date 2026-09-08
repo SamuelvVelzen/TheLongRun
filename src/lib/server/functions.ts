@@ -44,6 +44,7 @@ import {
     planWeekEndIso,
     planWeekIndex,
     planWeekStartIso,
+    sessionCanLinkRoute,
     sessionStreak,
     upcomingPlanSessions,
     weekNumberForDate,
@@ -174,7 +175,8 @@ function attachPlanRoutes(weekView: WeekView | null, planRefs: Awaited<ReturnTyp
 		const routeRef: SessionRouteRef = {
 			slug: ref.slug,
 			name: ref.name,
-			distance_km: ref.distance_km
+			distance_km: ref.distance_km,
+			link_id: ref.id
 		};
 		if (ref.label && ref.activity_type) {
 			bySession.set(planSessionRouteKey(ref.day, ref.label, ref.activity_type), routeRef);
@@ -282,10 +284,11 @@ export const getCurrentWeekView = createServerFn({ method: 'GET' }).handler(asyn
 });
 
 export const getCoachPlan = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, training, planRefs] = await Promise.all([
+	const [runs, training, planRefs, plannedRoutes] = await Promise.all([
 		listRuns(),
 		loadTrainingContext(),
-		listPlanRouteRefs()
+		listPlanRouteRefs(),
+		listPlannedRoutes()
 	]);
 	const { plan, calendar, activeGoal } = training;
 	const views = keepSoonestNext(
@@ -300,7 +303,14 @@ export const getCoachPlan = createServerFn({ method: 'GET' }).handler(async () =
 		currentWeek: weekToPlan(calendar),
 		generateWeek: weekToGenerate(plan, runs, calendar),
 		calendar,
-		activeGoal
+		activeGoal,
+		routes: plannedRoutes.map(
+			(r): SessionRouteRef => ({
+				slug: r.slug,
+				name: r.name,
+				distance_km: r.distance_km
+			})
+		)
 	};
 });
 
@@ -2528,6 +2538,13 @@ export const attachPlannedRoute = createServerFn({ method: 'POST' }).middleware(
 					normalizeActivityType(s.activity_type ?? 'run') === activityType
 			);
 		if (!found) throw new Error('That session is not on the plan.');
+		if (!sessionCanLinkRoute(found)) {
+			throw new Error(
+				normalizeActivityType(found.activity_type ?? 'run') === 'strength'
+					? 'Strength sessions do not use a route.'
+					: 'Rest days do not use a route.'
+			);
+		}
 		await dbAttachRouteToPlan(data.slug, week, day, label, activityType);
 		return { ok: true as const };
 	});

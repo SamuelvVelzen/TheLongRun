@@ -213,6 +213,13 @@ export function isRestLike(label: string): boolean {
 	return REST_LIKE_RE.test(label.trim());
 }
 
+/** Rest and strength sessions never get a planned route. */
+export function sessionCanLinkRoute(
+	session: Pick<PlanSession, 'label' | 'activity_type'>
+): boolean {
+	return !isRestLike(session.label) && sessionActivityType(session) !== 'strength';
+}
+
 export function isSkippedStatus(status: unknown): status is PlanSessionStatus {
 	return typeof status === 'string' && status.trim().toLowerCase() === 'skipped';
 }

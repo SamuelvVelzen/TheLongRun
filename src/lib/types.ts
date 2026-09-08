@@ -152,6 +152,8 @@ export type SessionRouteRef = {
 	slug: string;
 	name: string;
 	distance_km: number | null;
+	/** `planned_route_links.id` — needed to unlink from the plan. */
+	link_id?: number;
 };
 
 /** A planned route attached to an upcoming (or current) plan day. */

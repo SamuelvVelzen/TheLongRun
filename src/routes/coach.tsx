@@ -266,6 +266,7 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 			{view ? (
 				<WeekPlanBoard
 					view={view}
+					routes={planData.routes}
 					title={
 						selected === current
 							? 'This week'

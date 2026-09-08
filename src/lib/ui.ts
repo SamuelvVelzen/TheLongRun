@@ -67,7 +67,8 @@ export const ui = {
 	dropzone:
 		'flex flex-col items-center justify-center gap-[0.35rem] p-[2.25rem_1.2rem] border-2 border-dashed border-line rounded-box bg-inset text-muted cursor-pointer text-center transition-[border-color,background-color,color] duration-150 ease-out hover:border-accent hover:text-fg active:border-accent active:text-fg max-sm:p-[1.5rem_0.85rem] [&_strong]:font-display [&_strong]:text-[1.02rem] [&_strong]:text-fg',
 	dropzoneOver: 'border-accent bg-accent/8 text-fg',
-	coachTabs: 'coach-tabs mb-4',
+	stickyBar: 'sticky-bar',
+	coachTabs: 'sticky-bar mb-4',
 	choiceChips: 'flex flex-wrap gap-[0.4rem]',
 	choiceChip:
 		'appearance-none inline-flex items-center justify-center gap-1.5 min-h-11 px-[0.95rem] py-2 rounded-full border border-solid border-line bg-transparent text-muted font-semibold cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:border-accent/35 disabled:opacity-35 disabled:cursor-not-allowed aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent',

@@ -30,7 +30,7 @@ export function filterSummary(
 /**
  * Desktop: children sit inline in the filter bar.
  * Mobile: a summary chip opens a bottom sheet portaled to document.body.
- * `actions` (optional) sit on the right of the bar.
+ * Sticks under the header like coach/goals tabs. `actions` sit on the right.
  */
 export function FilterSheet({
 	summary,
@@ -64,7 +64,12 @@ export function FilterSheet({
 	}, [open]);
 
 	return (
-		<div className="flex items-start gap-3 mt-4 mb-2 pt-[0.85rem] pb-[0.35rem] border-t border-line">
+		<div
+			className={cn(
+				ui.stickyBar,
+				'flex items-start gap-3 mt-4 mb-2 pt-[0.85rem] pb-[0.55rem] border-t border-line -mx-2 px-2 bg-canvas/92 backdrop-blur-[10px]'
+			)}
+		>
 			<div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-6 gap-y-[0.55rem]">
 				<button
 					type="button"

@@ -238,10 +238,10 @@
 	}
 }
 
-.coach-tabs {
-	--coach-tabs-top: env(safe-area-inset-top, 0px);
+.sticky-bar {
+	--sticky-bar-top: env(safe-area-inset-top, 0px);
 	position: sticky;
-	top: calc(var(--coach-tabs-top) + 1rem);
+	top: calc(var(--sticky-bar-top) + 1rem);
 	z-index: 30;
 }
 
@@ -274,8 +274,8 @@
 		border-bottom: 1px solid var(--line);
 	}
 
-	.coach-tabs {
-		--coach-tabs-top: var(--app-header-height);
+	.sticky-bar {
+		--sticky-bar-top: var(--app-header-height);
 	}
 }
 

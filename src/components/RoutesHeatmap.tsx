@@ -1,19 +1,30 @@
+import {
+	ACTIVITY_MAP_COLORS,
+	ACTIVITY_TYPES,
+	activityLabel,
+	activityMapLineStyle,
+	normalizeActivityType,
+	type ActivityType
+} from '$lib/activity';
 import { loadLeaflet } from '$lib/leaflet';
 import {
-    addBasemap,
-    addRouteEndpoints,
-    addRoutePolyline,
-    attachMapChrome,
-    leafletMapOptions,
-    type MapChromeHandle
+	addBasemap,
+	addRouteEndpoints,
+	addRoutePolyline,
+	attachMapChrome,
+	leafletMapOptions,
+	type MapChromeHandle
 } from '$lib/map-chrome';
 import type { RouteTrack } from '$lib/types';
 import { useNavigate } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SegmentedToggle } from './SegmentedToggle';
 
 /** Per-track hover/click metadata, keyed by route id. */
-export type RouteMeta = Record<string, { slug: string; title: string; sub: string }>;
+export type RouteMeta = Record<
+	string,
+	{ slug: string; title: string; sub: string; activityType?: string }
+>;
 
 export function RoutesHeatmap({
 	tracks,
@@ -49,6 +60,18 @@ export function RoutesHeatmap({
 	const hasFocus = focusIds.length > 0;
 	const markEnds = showEndpoints ?? detailPath === '/routes/$slug';
 
+	const legendTypes = useMemo(() => {
+		const present = new Set<ActivityType>();
+		for (const track of tracks) {
+			const type = meta[track.id]?.activityType;
+			if (type) present.add(normalizeActivityType(type));
+		}
+		const types = ACTIVITY_TYPES.filter((t) => present.has(t));
+		if (types.length > 1) return types;
+		if (types.length === 1 && types[0] !== 'run') return types;
+		return [];
+	}, [tracks, meta]);
+
 	useEffect(() => {
 		if (!tracks.length) {
 			setStatus('');
@@ -70,12 +93,22 @@ export function RoutesHeatmap({
 				const allBounds = L.latLngBounds([]);
 				const focusSet = new Set(focusIds);
 				const focusBounds = L.latLngBounds([]);
-				for (const track of tracks) {
+				// Other sports first so runs paint last and stay on top.
+				const isRun = (id: string) => {
+					const type = meta[id]?.activityType;
+					return Boolean(type) && normalizeActivityType(type) === 'run';
+				};
+				const ordered = [...tracks].sort((a, b) => Number(isRun(a.id)) - Number(isRun(b.id)));
+				for (const track of ordered) {
 					if (track.coords.length < 2) continue;
 					const info = meta[track.id];
+					const style = info?.activityType
+						? activityMapLineStyle(info.activityType)
+						: { color: undefined as string | undefined, weight: 3.5, opacity: 0.82 };
 					const route = addRoutePolyline(L, map, track.coords, {
-						weight: 3.5,
-						opacity: 0.82
+						color: style.color,
+						weight: style.weight,
+						opacity: style.opacity
 					});
 					const line = route.line;
 					if (info) {
@@ -83,8 +116,10 @@ export function RoutesHeatmap({
 							sticky: true,
 							opacity: 0.95
 						});
-						line.on('mouseover', () => route.setStyle({ weight: 6, opacity: 1 }));
-						line.on('mouseout', () => route.setStyle({ weight: 3.5, opacity: 0.82 }));
+						line.on('mouseover', () => route.setStyle({ weight: style.weight + 2.5, opacity: 1 }));
+						line.on('mouseout', () =>
+							route.setStyle({ weight: style.weight, opacity: style.opacity })
+						);
 						line.on('click', () => {
 							const handler = onRouteClickRef.current;
 							if (handler) handler(info.slug);
@@ -158,6 +193,22 @@ export function RoutesHeatmap({
 						{ value: 'all', label: 'All' }
 					]}
 				/>
+			)}
+			{legendTypes.length > 0 && !status && (
+				<div
+					className="heatmap-legend absolute z-[2] right-[0.85rem] bottom-[0.85rem] flex flex-wrap items-center gap-x-2.5 gap-y-1 px-[0.55rem] py-[0.3rem] rounded-full bg-[rgba(16,20,15,0.85)] border border-line text-muted text-[0.72rem]"
+					aria-label="Activity colours"
+				>
+					{legendTypes.map((type) => (
+						<span key={type} className="inline-flex items-center gap-1.5">
+							<span
+								className="block size-2 rounded-full shrink-0"
+								style={{ background: ACTIVITY_MAP_COLORS[type] }}
+							/>
+							{activityLabel(type)}
+						</span>
+					))}
+				</div>
 			)}
 			<div className="heatmap-map h-[min(360px,42vh)] w-full z-0 max-sm:h-[50vh] max-sm:min-h-[280px]" ref={containerRef}></div>
 		</div>

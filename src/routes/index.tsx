@@ -190,7 +190,8 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 				title: `${run.date} · ${activityLabel(run.activity_type)}`,
 				sub: showsField(run.activity_type, 'distance')
 					? `${run.distance_km ?? '—'} km · ${metricText(run)}`
-					: metricText(run)
+					: metricText(run),
+				activityType: normalizeActivityType(run.activity_type)
 			};
 		}
 		return m;

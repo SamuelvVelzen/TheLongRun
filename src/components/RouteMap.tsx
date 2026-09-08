@@ -1,3 +1,4 @@
+import { activityMapColor, normalizeActivityType } from '$lib/activity';
 import { loadLeaflet } from '$lib/leaflet';
 import {
     addBasemap,
@@ -39,6 +40,17 @@ function paceColor(t: number): string {
 
 const PART_COLORS = ['#c8f25a', '#6ec8ff', '#ffb36b', '#d4a5ff', '#ff8aa8'];
 
+/** Sport colour when known; extra same-sport parts cycle the palette so they stay distinct. */
+function partColor(index: number, type: string | undefined, mixed: boolean, count: number): string {
+	if (type && (mixed || count === 1)) return activityMapColor(type);
+	if (type) {
+		const own = activityMapColor(type);
+		const rest = PART_COLORS.filter((c) => c !== own);
+		return [own, ...rest][index % (rest.length + 1)]!;
+	}
+	return PART_COLORS[index % PART_COLORS.length]!;
+}
+
 function coordsFromGeo(geo: { geometry?: { coordinates?: number[][] } } | null): [number, number][] {
 	const raw = geo?.geometry?.coordinates;
 	if (!Array.isArray(raw) || raw.length < 2) return [];
@@ -51,10 +63,14 @@ function coordsFromGeo(geo: { geometry?: { coordinates?: number[][] } } | null):
 export function RouteMap({
 	routeId,
 	routeIds,
+	activityType,
+	activityTypes,
 	kmMarkers = null
 }: {
 	routeId?: string;
 	routeIds?: string[];
+	activityType?: string;
+	activityTypes?: string[];
 	kmMarkers?: KmMarker[] | null;
 }) {
 	const wrapRef = useRef<HTMLDivElement>(null);
@@ -64,6 +80,9 @@ export function RouteMap({
 	const [colored, setColored] = useState(false);
 	const ids = routeIds?.length ? routeIds : routeId ? [routeId] : [];
 	const idsKey = ids.join(',');
+	const types = activityTypes?.length ? activityTypes : activityType ? [activityType] : [];
+	const typesKey = types.join(',');
+	const mixed = new Set(types.map((t) => normalizeActivityType(t))).size > 1;
 
 	useEffect(() => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,17 +100,24 @@ export function RouteMap({
 					const tracks = geos
 						.map((geo, i) => ({
 							coords: coordsFromGeo(geo as { geometry?: { coordinates?: number[][] } } | null),
-							color: PART_COLORS[i % PART_COLORS.length]!
+							color: partColor(i, types[i], mixed, ids.length),
+							run: normalizeActivityType(types[i]) === 'run'
 						}))
 						.filter((t) => t.coords.length >= 2);
+					tracks.sort((a, b) => Number(a.run) - Number(b.run));
 					if (!tracks.length) throw new Error('Route has no GPS points');
 
 					map = L.map(containerRef.current, leafletMapOptions());
 					addBasemap(L, map);
 					let bounds: ReturnType<typeof L.latLngBounds> | null = null;
 					for (const track of tracks) {
-						addRouteCasing(L, map, track.coords, 5);
-						addRoutePolyline(L, map, track.coords, { color: track.color, casing: false });
+						const weight = mixed && track.run ? 6 : 5;
+						addRouteCasing(L, map, track.coords, weight);
+						addRoutePolyline(L, map, track.coords, {
+							color: track.color,
+							weight,
+							casing: false
+						});
 						addRouteEndpoints(L, map, track.coords);
 						const b = L.latLngBounds(track.coords);
 						bounds = bounds ? bounds.extend(b) : b;
@@ -176,7 +202,9 @@ export function RouteMap({
 					}
 					setColored(true);
 				} else {
-					addRoutePolyline(L, map, coords);
+					addRoutePolyline(L, map, coords, {
+						color: activityType ? activityMapColor(activityType) : undefined
+					});
 				}
 				const bounds = L.latLngBounds(coords);
 				addRouteEndpoints(L, map, coords);
@@ -208,7 +236,7 @@ export function RouteMap({
 			chrome?.destroy();
 			map?.remove?.();
 		};
-	}, [idsKey, kmMarkers]);
+	}, [idsKey, typesKey, mixed, activityType, kmMarkers]);
 
 	return (
 		<div className="route-map-wrap map-wrap relative rounded-box overflow-hidden border border-line bg-inset" ref={wrapRef}>

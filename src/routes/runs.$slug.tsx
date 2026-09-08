@@ -962,7 +962,11 @@ function RunDetail() {
 							<div className="p-[1.1rem_1.2rem_0.6rem]">
 								<h3 className="m-0">Route</h3>
 							</div>
-							<RouteMap routeId={routeId} kmMarkers={analytics?.kmMarkers ?? null} />
+							<RouteMap
+								routeId={routeId}
+								activityType={r.activity_type}
+								kmMarkers={analytics?.kmMarkers ?? null}
+							/>
 						</div>
 					)}
 

@@ -12,6 +12,29 @@ const LABELS: Record<ActivityType, string> = {
 	strength: 'Strength'
 };
 
+/** GPS track colours. Run stays the lime accent so it reads first on overlay maps. */
+export const ACTIVITY_MAP_COLORS: Record<ActivityType, string> = {
+	run: '#c8f25a',
+	walk: '#6ec8ff',
+	ride: '#ffb36b',
+	swim: '#5ee0d0',
+	strength: '#d4a5ff'
+};
+
+export function activityMapColor(type: string | null | undefined): string {
+	return ACTIVITY_MAP_COLORS[normalizeActivityType(type)];
+}
+
+export type ActivityMapLineStyle = { color: string; weight: number; opacity: number };
+
+/** Overlay-map line: runs sit thicker and more opaque than other sports. */
+export function activityMapLineStyle(type: string | null | undefined): ActivityMapLineStyle {
+	const t = normalizeActivityType(type);
+	const color = ACTIVITY_MAP_COLORS[t];
+	if (t === 'run') return { color, weight: 4.2, opacity: 0.94 };
+	return { color, weight: 2.8, opacity: 0.62 };
+}
+
 /** Coerce any stored/imported value to one of the supported activity types. */
 export function normalizeActivityType(v: string | null | undefined): ActivityType {
 	const t = String(v ?? '')
@@ -122,6 +145,7 @@ export function showsField(activity: string | null | undefined, field: ActivityF
 		case 'cadence':
 			return t === 'run';
 		case 'shoes':
+			return t === 'run' || t === 'walk';
 		case 'surface':
 			return t === 'run' || t === 'walk';
 		case 'weather':

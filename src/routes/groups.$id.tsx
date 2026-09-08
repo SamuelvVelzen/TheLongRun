@@ -181,7 +181,11 @@ function GroupDetail() {
 							{routeIds.length} GPS parts — pause between files is not drawn as a line
 						</p>
 					</div>
-					<RouteMap routeIds={routeIds} kmMarkers={analytics?.kmMarkers ?? null} />
+					<RouteMap
+						routeIds={routeIds}
+						activityTypes={segments.filter((s) => s.route_id).map((s) => s.activity_type)}
+						kmMarkers={analytics?.kmMarkers ?? null}
+					/>
 				</div>
 			)}
 

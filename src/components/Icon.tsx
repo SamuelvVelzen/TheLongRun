@@ -31,6 +31,7 @@ export type IconName =
 	| 'skip'
 	| 'circle'
 	| 'arrow'
+	| 'arrowUp'
 	| 'sun'
 	| 'moon'
 	| 'unplanned'
@@ -239,6 +240,13 @@ function Paths({ name }: { name: IconName }) {
 				<>
 					<path d="M5 12h14" />
 					<path d="m13 6 6 6-6 6" />
+				</>
+			);
+		case 'arrowUp':
+			return (
+				<>
+					<path d="M12 19V5" />
+					<path d="m6 11 6-6 6 6" />
 				</>
 			);
 		case 'sun':

@@ -21,6 +21,7 @@ import {
 import '../app.css';
 import { Icon } from '../components/Icon';
 import { PwaInstall } from '../components/PwaInstall';
+import { ScrollToTop } from '../components/ScrollToTop';
 import { SnackbarProvider } from '../components/Snackbar';
 import { ThemeToggle } from '../components/ThemeToggle';
 
@@ -121,6 +122,7 @@ function RootShell() {
 		<RootDocument>
 			<SnackbarProvider>
 			<ScrollRestore />
+			<ScrollToTop />
 			<div className="app-shell relative z-1 flex flex-1 flex-col w-[min(1120px,calc(100%-2rem))] min-h-dvh mx-auto pt-5 pr-[env(safe-area-inset-right,0px)] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] max-sm:w-[min(1120px,calc(100%-1.25rem))] max-sm:pt-[var(--app-shell-pad-top)] max-sm:pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]">
 				<header className="app-header flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-8 pt-[calc(0.85rem+env(safe-area-inset-top,0px))] pb-[0.85rem] border-b border-line max-sm:mb-0">
 					<Link

@@ -3,6 +3,7 @@ import { dayFromIsoDate } from '$lib/format';
 import { weekNumberForDate, type PlanCalendar } from '$lib/plan';
 import { createRun, type CreateRunInput } from '$lib/server/functions';
 import { gearKindForActivity, gearMetaForActivity, gearPickerOptions, type GearContext, type GearKind, type GearWear } from '$lib/gear';
+import { fillStrengthNotesFromTops, type RecentLiftTop } from '$lib/strength';
 import type { PlanWeek } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
@@ -17,26 +18,40 @@ import { WeatherField } from './WeatherField';
 
 const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'race', 'other'];
 
+export type LogFormPrefill = {
+	activityType?: ActivityType;
+	date?: string;
+	time?: string;
+	notes?: string;
+};
+
 export function LogForm({
 	week,
 	gear,
 	gearWear,
-	calendar
+	calendar,
+	prefill,
+	strengthTops = []
 }: {
 	week: PlanWeek | null;
 	gear: GearContext;
 	gearWear?: Record<GearKind, Record<string, GearWear>>;
 	calendar: PlanCalendar;
+	prefill?: LogFormPrefill;
+	strengthTops?: RecentLiftTop[];
 }) {
 	const router = useRouter();
 	const snack = useSnackbar();
 	const todayIso = new Date().toISOString().slice(0, 10);
-	const [dateValue, setDateValue] = useState(todayIso);
+	const fromPlan = prefill?.activityType === 'strength';
+	const [dateValue, setDateValue] = useState(prefill?.date || todayIso);
 	const [startTimeValue, setStartTimeValue] = useState('');
-	const [durationValue, setDurationValue] = useState('');
+	const [durationValue, setDurationValue] = useState(prefill?.time || '');
 	const [weather, setWeather] = useState('');
-	const [activityType, setActivityType] = useState<ActivityType>('run');
-	const [strengthNotes, setStrengthNotes] = useState('');
+	const [activityType, setActivityType] = useState<ActivityType>(prefill?.activityType ?? 'run');
+	const [strengthNotes, setStrengthNotes] = useState(() =>
+		fromPlan ? fillStrengthNotesFromTops(prefill?.notes ?? '', strengthTops) : ''
+	);
 
 	const derivedDay = dayFromIsoDate(dateValue || todayIso);
 	const derivedWeek = weekNumberForDate(dateValue || todayIso, calendar);
@@ -110,6 +125,11 @@ export function LogForm({
 
 	return (
 		<form className={ui.form} method="POST" onSubmit={onSubmit}>
+			{fromPlan && (
+				<p className={cn(ui.muted, 'm-0 text-[0.9rem]')}>
+					Prefilling this gym session from the plan — change anything that was different.
+				</p>
+			)}
 			<div className={ui.panel}>
 				<div className={ui.formSection}>
 					<h3 className={ui.formSectionTitle}>Activity</h3>

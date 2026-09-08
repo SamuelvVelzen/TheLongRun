@@ -1,3 +1,5 @@
+import { formatDuration } from '$lib/format';
+
 export type StrengthKind = 'weighted' | 'reps' | 'time';
 export type StrengthSet = { reps: number; kg: number | null; sec: number | null };
 export type StrengthExercise = { name: string; sets: StrengthSet[]; kind?: StrengthKind };
@@ -203,9 +205,31 @@ export function formatStrengthHistoryBrief(
 		lines.push(`- ${r.date}${dur}: ${body || '(no lifts logged)'}`);
 	}
 
-	const tops: { name: string; date: string; label: string }[] = [];
+	const tops = recentExerciseTops(logs, maxTopsFrom);
+	if (tops.length) {
+		lines.push('', 'Recent tops (newest log of each lift):');
+		for (const t of tops) {
+			lines.push(
+				`- ${t.name}: ${formatSetTop({ reps: t.reps, kg: t.kg, sec: t.sec }, t.kind)} (${t.date})`
+			);
+		}
+	}
+	return lines.join('\n');
+}
+
+export type RecentLiftTop = {
+	name: string;
+	date: string;
+	kg: number | null;
+	reps: number;
+	sec: number | null;
+	kind: StrengthKind;
+};
+
+export function recentExerciseTops(logs: StrengthLogLike[], maxFrom = 20): RecentLiftTop[] {
+	const tops: RecentLiftTop[] = [];
 	const seen = new Set<string>();
-	for (const r of logs.slice(0, maxTopsFrom)) {
+	for (const r of logs.slice(0, maxFrom)) {
 		for (const ex of parseStrengthNotes(r.notes).exercises) {
 			const key = exerciseKey(ex.name);
 			if (!key || seen.has(key)) continue;
@@ -215,13 +239,156 @@ export function formatStrengthHistoryBrief(
 			tops.push({
 				name: ex.name.trim(),
 				date: r.date,
-				label: formatSetTop(t, inferExerciseKind(ex))
+				kg: t.kg,
+				reps: t.reps,
+				sec: t.sec,
+				kind: inferExerciseKind(ex)
 			});
 		}
 	}
-	if (tops.length) {
-		lines.push('', 'Recent tops (newest log of each lift):');
-		for (const t of tops) lines.push(`- ${t.name}: ${t.label} (${t.date})`);
+	return tops;
+}
+
+/** Fill missing kg on planned sets from the newest logged top of that lift. */
+export function fillStrengthNotesFromTops(notes: string, tops: RecentLiftTop[]): string {
+	if (!notes.trim() || !tops.length) return notes;
+	const parsed = parseStrengthNotes(notes);
+	const byKey = new Map(tops.map((t) => [exerciseKey(t.name), t]));
+	let changed = false;
+	const exercises = parsed.exercises.map((ex) => {
+		if (ex.sets.some((s) => s.kg != null || s.sec != null)) return ex;
+		const top = byKey.get(exerciseKey(ex.name));
+		if (top?.kg == null) return ex;
+		changed = true;
+		return {
+			...ex,
+			kind: 'weighted' as const,
+			sets: ex.sets.map((s) => ({ ...s, kg: top.kg }))
+		};
+	});
+	return changed ? formatStrengthNotes(exercises, parsed.extra) : notes;
+}
+
+const PLAN_MIN_RE = /^(\d+(?:\.\d+)?)\s*(?:min(?:ute)?s?)\b[.\s,:]*/i;
+const PLAN_HOUR_RE =
+	/^(\d+)\s*h(?:ours?)?(?:\s*(\d+)\s*m(?:in(?:ute)?s?)?)?\b[.\s,:]*/i;
+const PLAN_TRIPLE_RE =
+	/^(.+?)\s+(\d+)\s*[x×]\s*(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:kgs?)?$/i;
+const PLAN_TIMED_RE =
+	/^(.+?)\s+(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*s(?:ecs?|econds?)?$/i;
+const PLAN_SETS_RE =
+	/^(.+?)\s+(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)(?:\s*(?:at|@)\s*(.+))?$/i;
+const PLAN_CUE_RE =
+	/^(?:(?:\d+(?:\.\d+)?\s*(?:s|secs?|seconds?)?\s+)?rest(?:s)?|controlled(?:\s+tempo)?|straight sets|not a circuit|not rushed|circuit(?:s)?|warmup|warm-up|cool-?down)$/i;
+
+function stripPlanDuration(detail: string): { minutes: number | null; rest: string } {
+	const raw = detail.trim();
+	const hour = raw.match(PLAN_HOUR_RE);
+	if (hour) {
+		const minutes = Number(hour[1]) * 60 + (hour[2] ? Number(hour[2]) : 0);
+		return { minutes, rest: raw.slice(hour[0].length).trim() };
 	}
-	return lines.join('\n');
+	const min = raw.match(PLAN_MIN_RE);
+	if (min) return { minutes: Number(min[1]), rest: raw.slice(min[0].length).trim() };
+	return { minutes: null, rest: raw };
+}
+
+function planClauses(text: string): string[] {
+	return text
+		.split(/[;•]/)
+		.flatMap((part) => part.split(/\.\s+/))
+		.flatMap((part) => part.split(','))
+		.map((s) => s.replace(/\.+$/, '').trim())
+		.filter(Boolean);
+}
+
+function parsePlanLoad(raw: string): { kg: number | null; cue: string } {
+	const t = raw.trim();
+	if (!t) return { kg: null, cue: '' };
+	if (/last\s+top|rpe/i.test(t) && !/\d+(?:\.\d+)?\s*(?:kgs?)/i.test(t)) {
+		return { kg: null, cue: t };
+	}
+	const kg = t.match(/(\d+(?:\.\d+)?)\s*(?:kgs?)/i);
+	if (kg) {
+		const leftover = t.replace(kg[0], '').trim();
+		return { kg: Number(kg[1]), cue: leftover };
+	}
+	if (/^\d+(?:\.\d+)?$/.test(t)) return { kg: Number(t), cue: '' };
+	return { kg: null, cue: t };
+}
+
+function expandSets(n: number, set: StrengthSet): StrengthExercise['sets'] {
+	const count = Math.max(1, Math.min(8, n));
+	return Array.from({ length: count }, () => ({ ...set }));
+}
+
+function parsePlanClause(clause: string): { exercise: StrengthExercise; cue: string } | 'cue' | null {
+	if (PLAN_CUE_RE.test(clause) || (/\brest\b/i.test(clause) && !PLAN_SETS_RE.test(clause))) {
+		return 'cue';
+	}
+	const triple = clause.match(PLAN_TRIPLE_RE);
+	if (triple) {
+		const n = Number(triple[2]);
+		return {
+			exercise: {
+				name: triple[1]!.trim(),
+				kind: 'weighted',
+				sets: expandSets(n, { reps: Number(triple[3]), kg: Number(triple[4]), sec: null })
+			},
+			cue: ''
+		};
+	}
+	const timed = clause.match(PLAN_TIMED_RE);
+	if (timed) {
+		const n = Number(timed[2]);
+		return {
+			exercise: {
+				name: timed[1]!.trim(),
+				kind: 'time',
+				sets: expandSets(n, { reps: 0, kg: null, sec: Number(timed[3]) })
+			},
+			cue: ''
+		};
+	}
+	const sets = clause.match(PLAN_SETS_RE);
+	if (sets) {
+		const n = Number(sets[2]);
+		const load = parsePlanLoad(sets[4] ?? '');
+		const weighted = load.kg != null;
+		return {
+			exercise: {
+				name: sets[1]!.trim(),
+				kind: weighted ? 'weighted' : 'reps',
+				sets: expandSets(n, { reps: Number(sets[3]), kg: load.kg, sec: null })
+			},
+			cue: load.cue
+		};
+	}
+	return null;
+}
+
+/**
+ * Turn a planned strength `detail` into a log prefill: duration as `MM:SS` / `H:MM:SS`,
+ * and notes in the StrengthEditor format.
+ */
+export function strengthLogFromPlan(detail: string): { time: string; notes: string } {
+	const { minutes, rest } = stripPlanDuration(detail);
+	const time = minutes != null && minutes > 0 ? formatDuration(Math.round(minutes * 60)) : '';
+	const exercises: StrengthExercise[] = [];
+	const extra: string[] = [];
+	for (const clause of planClauses(rest)) {
+		const parsed = parsePlanClause(clause);
+		if (parsed === 'cue') {
+			extra.push(clause);
+			continue;
+		}
+		if (parsed) {
+			exercises.push(parsed.exercise);
+			if (parsed.cue) extra.push(parsed.cue);
+			continue;
+		}
+		extra.push(clause);
+	}
+	if (!exercises.length && rest) return { time, notes: rest };
+	return { time, notes: formatStrengthNotes(exercises, extra.join('. ')) };
 }

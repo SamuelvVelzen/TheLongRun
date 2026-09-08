@@ -72,7 +72,12 @@ import {
     computeRouteAnalytics,
     type RouteAnalytics
 } from '$lib/splits';
-import { formatStrengthHistoryBrief, parseStrengthNotes, strengthSummary } from '$lib/strength';
+import {
+    formatStrengthHistoryBrief,
+    parseStrengthNotes,
+    recentExerciseTops,
+    strengthSummary
+} from '$lib/strength';
 import type {
     ActivityAttachOption,
     ActivityGroupInfo,
@@ -446,7 +451,10 @@ export const getLogDefaults = createServerFn({ method: 'GET' }).handler(async ()
 		listRuns(),
 		loadTrainingContext()
 	]);
-	return { week, gear, gearWear: wearByAllGear(runs), calendar: training.calendar };
+	const strengthTops = recentExerciseTops(
+		runs.filter((r) => normalizeActivityType(r.activity_type) === 'strength').sort(byDateNewestFirst)
+	);
+	return { week, gear, gearWear: wearByAllGear(runs), calendar: training.calendar, strengthTops };
 });
 
 export const getRouteGeoJsonFn = createServerFn({ method: 'GET' })

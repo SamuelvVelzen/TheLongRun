@@ -26,6 +26,7 @@ import { rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
 import { FeelBadge } from '../components/FeelBadge';
 import { ActivityIcon, ActivityMark, Icon } from '../components/Icon';
+import { LogPlannedStrengthLink } from '../components/LogPlannedStrength';
 import { PageHero } from '../components/PageHero';
 import { RouteChip } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
@@ -279,6 +280,10 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 									distanceKm={highlightHead.route.distance_km}
 								/>
 							)}
+							<LogPlannedStrengthLink
+								session={highlightHead}
+								className={cn(ui.btnGhost, ui.btnSm, 'mt-3')}
+							/>
 						</>
 					) : (
 						<>
@@ -317,6 +322,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 												distanceKm={session.route.distance_km}
 											/>
 										)}
+										<LogPlannedStrengthLink session={session} />
 									</div>
 								))}
 							</div>

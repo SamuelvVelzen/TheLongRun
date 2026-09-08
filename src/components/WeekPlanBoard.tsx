@@ -4,6 +4,7 @@ import type { SessionRouteRef } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 import { ActivityIcon, Icon } from './Icon';
+import { LogPlannedStrengthLink } from './LogPlannedStrength';
 import { PlanSessionRoute } from './PlanSessionRoute';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -227,16 +228,14 @@ export function WeekPlanBoard({
 										<p className="m-0 text-[0.9rem] leading-[1.45] text-fg/90 [overflow-wrap:anywhere]">
 											{session.detail}
 										</p>
-										{session.unlogged && (
+										<LogPlannedStrengthLink session={session} />
+										{session.unlogged &&
+											normalizeActivityType(session.activity_type) !== 'strength' && (
 											<Link
 												className="inline-flex items-center gap-1 pt-1 text-[0.8rem] font-[650] text-accent-fg hover:underline"
 												to="/import"
 												search={{
-													mode:
-														normalizeActivityType(session.activity_type) ===
-														'strength'
-															? 'manual'
-															: 'gpx'
+													mode: 'gpx'
 												}}
 											>
 												<Icon name="plus" size={13} />

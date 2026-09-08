@@ -35,7 +35,7 @@ export interface RunRecord {
 	/** Max speed in km/h. */
 	max_speed: number | null;
 	cadence: number | null;
-	/** Named kit for the sport (shoes, bike, swim kit). Stored as `runs.shoes`. */
+	/** Named kit for the sport (shoes, bike). Stored as `runs.shoes`. */
 	gear: string;
 	summary_image: string;
 	splits_image: string;
@@ -89,7 +89,7 @@ export type PlanSessionStatus = 'skipped';
 export interface PlanSession {
 	day: string;
 	label: string;
-	/** run | walk | ride | swim | strength — omitted on older plan rows (treat as run). */
+	/** run | walk | ride | strength — omitted on older plan rows (treat as run). */
 	activity_type?: string;
 	distance_km: number | null;
 	detail: string;

@@ -27,7 +27,6 @@ export type IconName =
 	| 'run'
 	| 'walk'
 	| 'ride'
-	| 'swim'
 	| 'strength'
 	| 'skip'
 	| 'circle'
@@ -217,15 +216,6 @@ function Paths({ name }: { name: IconName }) {
 					<circle cx="14.6" cy="7.2" r="1.35" fill="currentColor" stroke="none" />
 				</>
 			);
-		case 'swim':
-			return (
-				<>
-					<circle cx="16.8" cy="5.8" r="1.55" fill="currentColor" stroke="none" />
-					<path d="M13.8 7.4 11.6 11" />
-					<path d="M3.5 13.2c2.2-1.7 4.2-1.7 6.4 0s4.2 1.7 6.4 0 4.2-1.7 6.4 0" />
-					<path d="M3.5 18.2c2.2-1.7 4.2-1.7 6.4 0s4.2 1.7 6.4 0 4.2-1.7 6.4 0" />
-				</>
-			);
 		case 'strength':
 			return (
 				<>
@@ -351,7 +341,6 @@ const ACTIVITY_ICON: Record<ActivityType | 'all', IconName> = {
 	run: 'run',
 	walk: 'walk',
 	ride: 'ride',
-	swim: 'swim',
 	strength: 'strength'
 };
 

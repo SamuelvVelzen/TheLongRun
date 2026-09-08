@@ -369,9 +369,7 @@ function RunDetail() {
 			? 'duration'
 			: metric.unit === 'km/h'
 				? 'avg km/h'
-				: metric.unit === '/100m'
-					? 'pace /100m'
-					: 'pace /km';
+				: 'pace /km';
 
 	function startEditing() {
 		void router.navigate({

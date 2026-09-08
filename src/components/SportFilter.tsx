@@ -10,11 +10,7 @@ import { sportChipLabel } from './Icon';
 
 const OPTIONS: { value: 'all' | ActivityType; label: string }[] = [
 	{ value: 'all', label: 'All' },
-	{ value: 'run', label: 'Run' },
-	{ value: 'walk', label: 'Walk' },
-	{ value: 'ride', label: 'Ride' },
-	{ value: 'swim', label: 'Swim' },
-	{ value: 'strength', label: 'Strength' }
+	...ACTIVITY_TYPES.map((t) => ({ value: t, label: activityLabel(t) }))
 ];
 
 const TYPE_SET = new Set<string>(ACTIVITY_TYPES);

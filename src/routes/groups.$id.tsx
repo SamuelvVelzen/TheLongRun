@@ -57,9 +57,7 @@ function GroupDetail() {
 			? 'duration'
 			: metric.unit === 'km/h'
 				? 'avg km/h'
-				: metric.unit === '/100m'
-					? 'pace /100m'
-					: 'pace /km';
+				: 'pace /km';
 	const boardOwners = useMemo(
 		() => effortOwnersForBoard(allRuns, groups, new Map(allRuns.map((r) => [r.slug, r]))),
 		[allRuns, groups]

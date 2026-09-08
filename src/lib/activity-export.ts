@@ -11,7 +11,6 @@ const STRAVA_GPX_TYPE: Record<ActivityType, string> = {
 	run: 'running',
 	walk: 'walking',
 	ride: 'cycling',
-	swim: 'swimming',
 	strength: 'workout'
 };
 
@@ -19,7 +18,6 @@ const TCX_SPORT: Record<ActivityType, string> = {
 	run: 'Running',
 	walk: 'Walking',
 	ride: 'Biking',
-	swim: 'Other',
 	strength: 'Other'
 };
 

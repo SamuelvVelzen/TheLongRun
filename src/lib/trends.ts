@@ -46,12 +46,11 @@ export type TrainingTrends = {
 };
 
 const PACE_MAX_SECS = 60 * 20;
-const SWIM_PACE_MAX_SECS = 10 * 60;
 const RIDE_KPH_MAX = 80;
 const WEEK_COUNT = 12;
 const RUN_SERIES_LIMIT = 16;
 const EASY_SESSIONS = new Set(['easy', 'shakeout', 'steady']);
-const PACE_SPORT_ORDER: ActivityType[] = ['run', 'walk', 'ride', 'swim'];
+const PACE_SPORT_ORDER: ActivityType[] = ['run', 'walk', 'ride'];
 
 function mondayOf(isoDate: string): Date {
 	const d = new Date(`${isoDate}T12:00:00`);
@@ -182,17 +181,6 @@ function runPaceSecs(run: RunRecord): number | null {
 	return secs;
 }
 
-function swimPaceSecs(run: RunRecord): number | null {
-	const sec = parseDurationSeconds(run.time);
-	if (run.distance_km && sec && sec > 0) {
-		const per100 = sec / (run.distance_km * 10);
-		if (per100 > 0 && per100 < SWIM_PACE_MAX_SECS) return per100;
-	}
-	const stored = parseDurationSeconds(run.avg_pace);
-	if (stored != null && stored > 0 && stored < SWIM_PACE_MAX_SECS) return stored;
-	return null;
-}
-
 function rideKph(run: RunRecord): number | null {
 	const sec = parseDurationSeconds(run.time);
 	if (!run.distance_km || !sec || sec <= 0) return null;
@@ -204,7 +192,6 @@ function rideKph(run: RunRecord): number | null {
 function metricForSport(run: RunRecord, sport: ActivityType): number | null {
 	if (normalizeActivityType(run.activity_type) !== sport) return null;
 	if (sport === 'ride') return rideKph(run);
-	if (sport === 'swim') return swimPaceSecs(run);
 	if (sport === 'run' || sport === 'walk') return runPaceSecs(run);
 	return null;
 }
@@ -236,7 +223,7 @@ function buildPaceSeries(runs: RunRecord[]): TrendSeries | null {
 	if (rows.length < 2) return null;
 
 	const lowerIsBetter = sport !== 'ride';
-	const unit = sport === 'ride' ? 'km/h' : sport === 'swim' ? '/100m' : '/km';
+	const unit = sport === 'ride' ? 'km/h' : '/km';
 	const formatValue = (v: number) =>
 		sport === 'ride' ? v.toFixed(1).replace(/\.0$/, '') : formatDuration(v);
 
@@ -249,15 +236,13 @@ function buildPaceSeries(runs: RunRecord[]): TrendSeries | null {
 	const first = points[0]!;
 	const last = points[points.length - 1]!;
 	const noun =
-		sport === 'run' ? 'runs' : sport === 'walk' ? 'walks' : sport === 'ride' ? 'rides' : 'swims';
+		sport === 'run' ? 'runs' : sport === 'walk' ? 'walks' : 'rides';
 	const title =
 		sport === 'ride'
 			? 'Ride speed'
-			: sport === 'swim'
-				? 'Swim pace'
-				: useEasy && sport === 'run'
-					? 'Easy pace'
-					: 'Pace';
+			: useEasy && sport === 'run'
+				? 'Easy pace'
+				: 'Pace';
 	const subtitle = useEasy
 		? `Last ${points.length} easy ${noun}`
 		: `Last ${points.length} with ${sport === 'ride' ? 'speed' : 'pace'}`;

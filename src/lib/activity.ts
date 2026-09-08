@@ -1,14 +1,13 @@
 import { parseDurationSeconds } from '$lib/format';
 import type { RunRecord } from '$lib/types';
 
-export type ActivityType = 'run' | 'walk' | 'ride' | 'swim' | 'strength';
-export const ACTIVITY_TYPES: ActivityType[] = ['run', 'walk', 'ride', 'swim', 'strength'];
+export type ActivityType = 'run' | 'walk' | 'ride' | 'strength';
+export const ACTIVITY_TYPES: ActivityType[] = ['run', 'walk', 'ride', 'strength'];
 
 const LABELS: Record<ActivityType, string> = {
 	run: 'Run',
 	walk: 'Walk',
 	ride: 'Ride',
-	swim: 'Swim',
 	strength: 'Strength'
 };
 
@@ -17,7 +16,6 @@ export const ACTIVITY_MAP_COLORS: Record<ActivityType, string> = {
 	run: '#c8f25a',
 	walk: '#6ec8ff',
 	ride: '#ffb36b',
-	swim: '#5ee0d0',
 	strength: '#d4a5ff'
 };
 
@@ -44,7 +42,6 @@ export function normalizeActivityType(v: string | null | undefined): ActivityTyp
 	if (['walk', 'walking', 'hike', 'hiking'].includes(t)) return 'walk';
 	if (['ride', 'bike', 'biking', 'cycling', 'bicycle', 'cycle', 'ebikeride'].includes(t))
 		return 'ride';
-	if (['swim', 'swimming', 'openwaterswim', 'lapswimming'].includes(t)) return 'swim';
 	if (
 		['strength', 'strengthtraining', 'weighttraining', 'weights', 'weightlifting', 'gym', 'workout', 'crossfit'].includes(
 			t
@@ -67,8 +64,6 @@ export function activityPlural(sport: string | null | undefined): string {
 			return 'walks';
 		case 'ride':
 			return 'rides';
-		case 'swim':
-			return 'swims';
 		case 'strength':
 			return 'strength sessions';
 		default:
@@ -86,8 +81,6 @@ export function activityCount(n: number, sport: string | null | undefined): stri
 				return '1 walk';
 			case 'ride':
 				return '1 ride';
-			case 'swim':
-				return '1 swim';
 			case 'strength':
 				return '1 strength session';
 			default:
@@ -137,7 +130,7 @@ export function showsField(activity: string | null | undefined, field: ActivityF
 		case 'distance':
 			return t !== 'strength';
 		case 'pace':
-			return t === 'run' || t === 'walk' || t === 'swim';
+			return t === 'run' || t === 'walk';
 		case 'hr':
 			return t !== 'strength';
 		case 'elevation':
@@ -145,7 +138,7 @@ export function showsField(activity: string | null | undefined, field: ActivityF
 		case 'cadence':
 			return t === 'run';
 		case 'gear':
-			return t === 'run' || t === 'walk' || t === 'ride' || t === 'swim';
+			return t === 'run' || t === 'walk' || t === 'ride';
 		case 'surface':
 			return t === 'run' || t === 'walk';
 		case 'weather':
@@ -168,13 +161,13 @@ export function showsFeel(activity: string | null | undefined, field: FeelField)
 	}
 }
 
-export function paceFieldLabel(activity: string | null | undefined): string {
-	return normalizeActivityType(activity) === 'swim' ? 'Avg pace /100m' : 'Avg pace /km';
+export function paceFieldLabel(_activity: string | null | undefined): string {
+	return 'Avg pace /km';
 }
 
 export type HeadlineMetric = { value: string; unit: string };
 
-/** Sport-appropriate headline pace/speed: pace/km (run, walk), km/h (ride), /100m (swim). */
+/** Sport-appropriate headline pace/speed: pace/km (run, walk), km/h (ride). */
 export function headlineMetric(
 	run: Pick<RunRecord, 'activity_type' | 'avg_pace' | 'distance_km' | 'time'>
 ): HeadlineMetric {
@@ -193,20 +186,10 @@ export function headlineMetric(
 		return { value: run.avg_pace || '—', unit: '/km' };
 	}
 
-	if (t === 'swim') {
-		if (run.distance_km && sec) {
-			const per100 = sec / (run.distance_km * 10);
-			const m = Math.floor(per100 / 60);
-			const s = Math.round(per100 % 60);
-			return { value: `${m}:${String(s).padStart(2, '0')}`, unit: '/100m' };
-		}
-		return { value: run.avg_pace || '—', unit: '/100m' };
-	}
-
 	return { value: run.avg_pace || '—', unit: '/km' };
 }
 
-/** Compact one-string headline metric for list rows, e.g. "6:27/km", "24.3 km/h", "2:05/100m". */
+/** Compact one-string headline metric for list rows, e.g. "6:27/km", "24.3 km/h". */
 export function metricText(
 	run: Pick<RunRecord, 'activity_type' | 'avg_pace' | 'distance_km' | 'time'>
 ): string {

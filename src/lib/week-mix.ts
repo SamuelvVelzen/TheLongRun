@@ -30,7 +30,6 @@ export const ZERO_WEEK_MIX: WeekMix = {
 	run: 0,
 	walk: 0,
 	ride: 0,
-	swim: 0,
 	strength: 0
 };
 
@@ -88,8 +87,7 @@ const PREFERRED_DAYS: Record<ActivityType, Weekday[]> = {
 	run: ['Tuesday', 'Friday', 'Sunday', 'Thursday', 'Monday', 'Saturday', 'Wednesday'],
 	ride: ['Wednesday', 'Saturday', 'Monday', 'Thursday', 'Tuesday', 'Friday', 'Sunday'],
 	strength: ['Thursday', 'Monday', 'Wednesday', 'Tuesday', 'Friday', 'Saturday', 'Sunday'],
-	walk: ['Saturday', 'Monday', 'Wednesday', 'Thursday', 'Friday', 'Sunday', 'Tuesday'],
-	swim: ['Monday', 'Wednesday', 'Friday', 'Saturday', 'Tuesday', 'Thursday', 'Sunday']
+	walk: ['Saturday', 'Monday', 'Wednesday', 'Thursday', 'Friday', 'Sunday', 'Tuesday']
 };
 
 function pickDay(type: ActivityType, used: Set<Weekday>, index: number): Weekday {
@@ -130,11 +128,12 @@ function normalizeSlot(raw: unknown): WeekSlot | null {
 	const o = raw as Record<string, unknown>;
 	const day = normalizeWeekday(o.day);
 	if (!day) return null;
+	const rawType = typeof o.activity_type === 'string' ? o.activity_type : 'run';
+	const compact = rawType.trim().toLowerCase().replace(/[\s_-]/g, '');
+	if (['swim', 'swimming', 'openwaterswim', 'lapswimming'].includes(compact)) return null;
 	return {
 		day,
-		activity_type: normalizeActivityType(
-			typeof o.activity_type === 'string' ? o.activity_type : 'run'
-		)
+		activity_type: normalizeActivityType(rawType)
 	};
 }
 
@@ -194,7 +193,6 @@ function exampleDistance(type: ActivityType, index: number, total: number): numb
 	}
 	if (type === 'ride') return 25;
 	if (type === 'walk') return 5;
-	if (type === 'swim') return 1;
 	return 6;
 }
 
@@ -240,7 +238,7 @@ export function formatPatternPromptSection(opts: {
 			: `For **${opts.weekPhrase}** use this skeleton instead:\n${now}`,
 		count
 			? `**Keep these days and sports.** You choose the session kind (\`label\`: Easy, Quality, Long, tempo, easy spin, endurance ride, Gym, …), plus distance (put duration in \`detail\` — there is no duration field) and intent. The skeleton has no kinds — do not copy placeholder labels. Do not invent a different weekday pattern (do not move a Tuesday run to Wednesday just because a template prefers other days). Only shift a session if recovery, heat, life, or the notes below require it — and if you move a day, say why in prose.`
-			: `I did not pin a usual week — plan whatever the week needs across the sports I do (run, ride, walk, swim, strength). Do not default to a 3-run template.`
+			: `I did not pin a usual week — plan whatever the week needs across the sports I do (run, ride, walk, strength). Do not default to a 3-run template.`
 	];
 	lines.push(
 		'Logged extras that did not match a plan session appear under **Unplanned activities** when there are any. They are already done — extra load, not slots to tidy into the JSON. Notes below are for extras that have not happened yet (or that I am considering). You may add sessions for those proposed extras if you recommend them — say why. Do not invent bonus days otherwise.'

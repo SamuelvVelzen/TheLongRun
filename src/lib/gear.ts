@@ -5,10 +5,10 @@ import {
 } from './activity';
 import type { RunRecord } from './types';
 
-export type GearKind = 'shoes' | 'bike' | 'swim';
+export type GearKind = 'shoes' | 'bike';
 export type GearRole = 'active' | 'rotation' | 'retired' | 'logged';
 
-export const GEAR_KINDS: GearKind[] = ['shoes', 'bike', 'swim'];
+export const GEAR_KINDS: GearKind[] = ['shoes', 'bike'];
 
 export type GearCatalog = {
 	active: string;
@@ -83,22 +83,6 @@ export const GEAR_KIND_META: Record<GearKind, GearKindMeta> = {
 		emptyLabel: 'No bikes in the inventory yet.',
 		notesPlaceholder: 'Which bike for what, service notes…',
 		wearSport: 'ride'
-	},
-	swim: {
-		kind: 'swim',
-		activityTypes: ['swim'],
-		label: 'Swim kit',
-		section: 'Swim',
-		itemSingular: 'kit',
-		itemPlural: 'kits',
-		activeLabel: 'Primary',
-		setActiveLabel: 'Set primary',
-		addLabel: 'Add kit',
-		addPlaceholder: 'e.g. Orca wetsuit / Arena goggles',
-		customPlaceholder: 'Kit name',
-		emptyLabel: 'No swim kit in the inventory yet.',
-		notesPlaceholder: 'Wetsuit, goggles, pool vs open water…',
-		wearSport: 'swim'
 	}
 };
 
@@ -106,7 +90,6 @@ export function gearKindForActivity(activity: string | null | undefined): GearKi
 	const t = normalizeActivityType(activity);
 	if (t === 'run' || t === 'walk') return 'shoes';
 	if (t === 'ride') return 'bike';
-	if (t === 'swim') return 'swim';
 	return null;
 }
 
@@ -124,7 +107,7 @@ export function emptyCatalog(): GearCatalog {
 }
 
 export function emptyGear(): GearContext {
-	return { shoes: emptyCatalog(), bike: emptyCatalog(), swim: emptyCatalog() };
+	return { shoes: emptyCatalog(), bike: emptyCatalog() };
 }
 
 export function gearKey(name: string | null | undefined): string {
@@ -201,11 +184,10 @@ function catalogFromUnknown(value: unknown): GearCatalog {
 export function normalizeGearContext(input: unknown): GearContext {
 	if (!input || typeof input !== 'object') return emptyGear();
 	const o = input as Record<string, unknown>;
-	if (o.shoes != null || o.bike != null || o.swim != null) {
+	if (o.shoes != null || o.bike != null) {
 		return {
 			shoes: catalogFromUnknown(o.shoes),
-			bike: catalogFromUnknown(o.bike),
-			swim: catalogFromUnknown(o.swim)
+			bike: catalogFromUnknown(o.bike)
 		};
 	}
 	if ('active' in o || 'rotation' in o || 'retired' in o) {
@@ -249,8 +231,7 @@ export function wearByAllGear(
 ): Record<GearKind, Record<string, GearWear>> {
 	return {
 		shoes: wearByGearKind(runs, 'shoes'),
-		bike: wearByGearKind(runs, 'bike'),
-		swim: wearByGearKind(runs, 'swim')
+		bike: wearByGearKind(runs, 'bike')
 	};
 }
 

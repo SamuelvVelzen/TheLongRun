@@ -9,8 +9,8 @@ Personal run tracker. **React + TanStack Start**, **Cloudflare D1**, deployed to
 - **Cloudflare Workers** via `@cloudflare/vite-plugin` + Wrangler
 - Maps: Leaflet (loaded from CDN); charts/sparklines are hand-rolled SVG
 
-Activities are typed (**run / walk / ride / swim**) with sport-appropriate headline metrics
-(pace/km, km/h, /100m). Add them via the **Log run** form or **Import GPX** (parses the track and
+Activities are typed (**run / walk / ride / strength**) with sport-appropriate headline metrics
+(pace/km, km/h). Add them via the **Log run** form or **Import GPX** (parses the track and
 computes distance / pace / HR / elevation / per-km splits). The dashboard has a sport toggle
 (defaults to running). Automatic **Strava sync** is the planned next step.
 

@@ -131,7 +131,7 @@ function RootShell() {
 			<ScrollRestore />
 			<ScrollToTop />
 			<div className="app-shell relative z-1 flex flex-1 flex-col w-[min(1120px,calc(100%-2rem))] min-h-dvh mx-auto pt-5 pr-[env(safe-area-inset-right,0px)] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] max-sm:w-[min(1120px,calc(100%-1.25rem))] max-sm:h-dvh max-sm:min-h-0 max-sm:overflow-hidden max-sm:pt-0 max-sm:pb-0">
-				<header className="app-header flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-8 pt-[calc(0.85rem+env(safe-area-inset-top,0px))] pb-[0.85rem] border-b border-line max-sm:mb-5">
+				<header className="app-header flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-8 max-sm:mb-5 sm:pt-[calc(0.85rem+env(safe-area-inset-top,0px))] sm:pb-[0.85rem] sm:border-b sm:border-line">
 					<Link
 						to="/"
 						className="shrink-0 font-display font-extrabold text-[1.35rem] tracking-[-0.04em] max-sm:text-[1.15rem] max-sm:py-[0.15rem] [&_span]:text-accent-fg"

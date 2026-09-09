@@ -90,14 +90,7 @@
 	color-scheme: light;
 }
 
-/* Aliases used by JS (Leaflet markers, sparkline default color). */
 :root {
-	--bg: var(--canvas);
-	--bg-2: var(--surface);
-	--text: var(--fg);
-	--radius: var(--radius-box);
-	--font-display: 'Syne', sans-serif;
-	--font-body: 'IBM Plex Sans', system-ui, sans-serif;
 	--app-header-inner: 3.65rem;
 	--app-header-height: calc(var(--app-header-inner) + env(safe-area-inset-top, 0px));
 	--page-bg:

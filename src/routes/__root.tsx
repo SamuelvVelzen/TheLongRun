@@ -2,12 +2,7 @@ import { AuthProvider, SignInLink, useAuthed } from '$lib/auth';
 import { getAuthState } from '$lib/server/functions';
 import { applyTheme, getTheme, themeInitScript } from '$lib/theme';
 import { cn } from '$lib/ui';
-import {
-    appCanScrollTo,
-    getAppScrollElement,
-    scrollAppTo,
-    useKeyboardOpen
-} from '$lib/viewport';
+import { appCanScrollTo, getAppScrollElement, scrollAppTo } from '$lib/viewport';
 import {
     createRootRoute,
     HeadContent,
@@ -37,8 +32,7 @@ export const Route = createRootRoute({
 			{ charSet: 'utf-8' },
 			{
 				name: 'viewport',
-				content:
-					'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content'
+				content: 'width=device-width, initial-scale=1, viewport-fit=cover'
 			},
 			{ title: 'The Long Run' },
 			{ name: 'description', content: 'Personal run log' },
@@ -118,7 +112,6 @@ function RootComponent() {
 function RootShell() {
 	const authed = useAuthed();
 	const extra = moreLinks.filter((l) => authed || l.href !== '/import');
-	useKeyboardOpen();
 	useEffect(() => {
 		applyTheme(getTheme());
 		if ('serviceWorker' in navigator) {

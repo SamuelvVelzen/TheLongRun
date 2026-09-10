@@ -517,10 +517,6 @@ body.overlay-open {
 	box-shadow: var(--shadow-tab);
 }
 
-html.keyboard-open .tab-bar {
-	display: none;
-}
-
 body.map-fs-active .tab-bar,
 body.overlay-open .tab-bar {
 	visibility: hidden !important;

@@ -98,6 +98,8 @@ import {
     formatPatternLines,
     formatPatternPromptSection,
     normalizeWeekPattern,
+    patternHasSlotMeta,
+    SLOT_CONSTRAINT_PROMPT,
     STRENGTH_SESSION_PROMPT,
     type WeekPattern
 } from '$lib/week-mix';
@@ -840,8 +842,8 @@ ${thisWeekLogs.map(formatRunBriefLine).join('\n')}
 			? `Week ${targetWeek} already has a saved plan (see Training plan). **Revise remaining sessions** given what is already logged, including any unplanned extras. Start from the saved week JSON — do not rebuild from the usual-week skeleton. Keep completed planned sessions in the JSON as they were (a matching Activity log date + sport means done; do not add \`"status": "completed"\` — \`status\` is only for skipped). You may add sessions for extras I propose in the notes — say why. Flag any red flags (injury risk, overtraining, under-recovery).`
 			: `Please assess how my training is going and give me a concrete plan for **${weekPhrase}** covering **every session in my usual-week skeleton** (runs, rides, walks, strength — whatever I pinned), keeping those days and sports. ${ladderLine} If a log ${weekPhrase} already matches a skeleton day and sport, that slot is done — keep it in the JSON to match what I did, and plan the remaining days. Flag any red flags (injury risk, overtraining, under-recovery).`;
 		const replyRules = revising
-			? `Start from the saved week JSON — do not replace it with the usual-week skeleton. Keep completed sessions as they were (do not add \`"status": "completed"\`). Revise what's still ahead, same days and sports unless notes or recovery require a shift. You may add a session for an extra I declared in the notes. If you drop a session, set \`"status": "skipped"\` — a missing log is unlogged, not skipped. Only move a day if you must, and say why in prose. ${STRENGTH_SESSION_PROMPT}`
-			: `Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, …), \`"distance_km"\` (null for strength), and \`"detail"\`. ${STRENGTH_SESSION_PROMPT} The example labels and distances below are placeholders, not prescriptions. If you drop a session, set \`"status": "skipped"\`. Unlogged ≠ skipped. Only move a day if recovery, heat, life, or the notes require it — and say why in prose.`;
+			? `Start from the saved week JSON — do not replace it with the usual-week skeleton. Keep completed sessions as they were (do not add \`"status": "completed"\`). Revise what's still ahead, same days and sports unless notes or recovery require a shift. Never move or skip a slot marked **can't change**. Optional slots may be skipped with \`"status": "skipped"\`. You may add a session for an extra I declared in the notes. If you drop a session, set \`"status": "skipped"\` — a missing log is unlogged, not skipped. Only move a usual day if you must, and say why in prose. ${STRENGTH_SESSION_PROMPT}`
+			: `Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, …), \`"distance_km"\` (null for strength), and \`"detail"\`. ${STRENGTH_SESSION_PROMPT} The example labels and distances below are placeholders, not prescriptions. Never move or skip a slot marked **can't change**. Optional slots may be skipped with \`"status": "skipped"\`. Unlogged ≠ skipped. Only move a usual day if recovery, heat, life, or the notes require it — and say why in prose.`;
 
 		const laterRaces = store.goals
 			.filter((g) => g.status !== 'done' && g.id !== activeGoal?.id)
@@ -948,7 +950,9 @@ function hasFeel(r: RunRecord): boolean {
 		r.energy != null ||
 		r.wanted_faster != null ||
 		(r.surface ?? '').trim() !== '' ||
-		((r.notes ?? '').trim() !== '' && !isImportNote(r.notes))
+		(normalizeActivityType(r.activity_type) !== 'strength' &&
+			(r.notes ?? '').trim() !== '' &&
+			!isImportNote(r.notes))
 	);
 }
 
@@ -1179,7 +1183,9 @@ ${FEEL_SCALE}
 ${job}
 
 ## Usual weekdays
-${formatPatternLines(settings.weekPattern)}
+${formatPatternLines(settings.weekPattern)}${
+			patternHasSlotMeta(settings.weekPattern) ? `\n${SLOT_CONSTRAINT_PROMPT}` : ''
+		}
 
 ## ${sessionHeading}
 ${sessionBlock}

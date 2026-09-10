@@ -8,13 +8,15 @@ export function Dialog({
 	title,
 	onClose,
 	children,
-	actions
+	actions,
+	className
 }: {
 	open: boolean;
 	title: string;
 	onClose: () => void;
 	children?: ReactNode;
 	actions?: ReactNode;
+	className?: string;
 }) {
 	const titleId = useId();
 	useOverlayLock(open);
@@ -36,7 +38,7 @@ export function Dialog({
 		<OverlayPortal>
 			<div className={ui.dialogRoot} role="dialog" aria-modal="true" aria-labelledby={titleId}>
 				<div className={ui.dialogBackdrop} onClick={onClose} aria-hidden="true" />
-				<div className={ui.dialogPanel}>
+				<div className={cn(ui.dialogPanel, className)}>
 					<div className="flex items-start justify-between gap-3">
 						<strong id={titleId} className="font-display text-[1.2rem] tracking-[-0.03em]">
 							{title}

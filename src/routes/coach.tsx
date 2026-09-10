@@ -697,9 +697,10 @@ function CoachPanels({
 					<div className={ui.field}>
 						<span>Usual week</span>
 						<span className={cn(ui.muted, 'font-normal')}>
-							Day and sport only — the AI chooses easy / quality / long / etc. plus distance.
-							Change days for this week without saving; Generate will use them. Save only if this
-							should become your default.
+							Day and sport — the AI chooses easy / quality / long / etc. plus distance. Mark a
+							session can't change (commute) or optional, and add notes the coach will see. Change
+							days for this week without saving; Generate will use them. Save only if this should
+							become your default.
 						</span>
 						<span className={cn(ui.muted, 'font-normal')}>
 							Saved default is {formatPatternProse(savedPattern)}.

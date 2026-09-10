@@ -1,5 +1,6 @@
 import { useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
+import { composeDebriefPrompt } from '$lib/debrief';
 import {
     formatAllWeeksClipboard,
     formatWeekPlanClipboard,
@@ -462,7 +463,18 @@ function CoachPanels({
 	const [planJson, setPlanJson] = useState('');
 
 	const [debrief, setDebrief] = useState(initialDebrief);
-	const [debriefPrompt, setDebriefPrompt] = useState(initialDebrief.prompt);
+	const [writeups, setWriteups] = useState<Record<string, string>>({});
+	const [debriefPrompt, setDebriefPrompt] = useState(() =>
+		composeDebriefPrompt(
+			initialDebrief.prompt,
+			initialDebrief.runs?.length
+				? initialDebrief.runs
+				: initialDebrief.run
+					? [initialDebrief.run]
+					: [],
+			{}
+		)
+	);
 	const [debriefJson, setDebriefJson] = useState('');
 	const [debriefCopied, setDebriefCopied] = useState(false);
 
@@ -476,8 +488,23 @@ function CoachPanels({
 	// Fresh loader data (e.g. after save) replaces the debrief prompt.
 	useEffect(() => {
 		setDebrief(initialDebrief);
-		setDebriefPrompt(initialDebrief.prompt);
 	}, [initialDebrief]);
+
+	useEffect(() => {
+		try {
+			const raw = sessionStorage.getItem('coach-debrief-writeups');
+			if (!raw) return;
+			const parsed = JSON.parse(raw) as unknown;
+			if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+			const stored: Record<string, string> = {};
+			for (const [k, v] of Object.entries(parsed)) {
+				if (typeof v === 'string') stored[k] = v;
+			}
+			setWriteups((prev) => ({ ...stored, ...prev }));
+		} catch {
+			/* ignore */
+		}
+	}, []);
 
 	// Soft slug updates (e.g. after GPX import) refresh the prompt without remounting the page.
 	const slugHydrated = useRef<string | null>(null);
@@ -493,12 +520,16 @@ function CoachPanels({
 		getDebriefPrompt({ data: { slug, includePlan } }).then((next) => {
 			if (cancelled) return;
 			setDebrief(next);
-			setDebriefPrompt(next.prompt);
 		});
 		return () => {
 			cancelled = true;
 		};
 	}, [slug, includePlan]);
+
+	useEffect(() => {
+		const featured = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
+		setDebriefPrompt(composeDebriefPrompt(debrief.prompt, featured, writeups));
+	}, [debrief, writeups]);
 
 	async function savePlan() {
 		try {
@@ -526,6 +557,23 @@ function CoachPanels({
 				: '';
 			snack.success(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
 			setDebriefJson('');
+			if (res.feelingsUpdated) {
+				setWriteups((prev) => {
+					const next = { ...prev };
+					const featured = debrief.runs?.length
+						? debrief.runs
+						: debrief.run
+							? [debrief.run]
+							: [];
+					for (const r of featured) delete next[r.slug];
+					try {
+						sessionStorage.setItem('coach-debrief-writeups', JSON.stringify(next));
+					} catch {
+						/* ignore */
+					}
+					return next;
+				});
+			}
 			router.invalidate();
 		} catch (e) {
 			snack.error(errorMessage(e, 'Could not save debrief.'));
@@ -534,12 +582,24 @@ function CoachPanels({
 
 	const runs = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
 	const many = runs.length > 1;
-	const allHaveFeel = runs.length > 0 && runs.every((r) => r.hasFeel);
+	const allWrote =
+		runs.length > 0 && runs.every((r) => (writeups[r.slug] ?? '').trim() !== '');
+
+	function setWriteup(slugKey: string, text: string) {
+		setWriteups((prev) => {
+			const next = { ...prev, [slugKey]: text };
+			try {
+				sessionStorage.setItem('coach-debrief-writeups', JSON.stringify(next));
+			} catch {
+				/* ignore */
+			}
+			return next;
+		});
+	}
 
 	async function refreshDebrief() {
 		const next = await getDebriefPrompt({ data: { slug, includePlan } });
 		setDebrief(next);
-		setDebriefPrompt(next.prompt);
 		await router.invalidate();
 	}
 
@@ -742,12 +802,13 @@ function CoachPanels({
 								.
 							</p>
 						</li>
-						<li className={runs.length ? (allHaveFeel ? 'done' : 'current') : undefined}>
+						<li className={runs.length ? (allWrote ? 'done' : 'current') : undefined}>
 							<strong>2. How it felt</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
 								Write the session here the way you would in chat — as long as you want, including
-								questions for this week. Skip the numbers if that is easier; the AI will read
-								them from the write-up. It then summarises into the activity notes.
+								questions for this week. It goes into the prompt as you type. Skip the numbers if
+								that is easier; the AI will read them from the write-up, then summarise into the
+								activity notes.
 							</span>
 							{runs.length > 0 &&
 								runs.map((r) => (
@@ -759,6 +820,8 @@ function CoachPanels({
 												? `${r.date}${r.day ? ` · ${r.day}` : ''}${r.distance_km != null ? ` · ${r.distance_km} km` : ''}`
 												: undefined
 										}
+										writeup={writeups[r.slug] ?? ''}
+										onWriteupChange={(text) => setWriteup(r.slug, text)}
 										onSaved={refreshDebrief}
 									/>
 								))}
@@ -771,10 +834,7 @@ function CoachPanels({
 						<li className={runs.length && debriefPrompt ? 'current' : undefined}>
 							<strong>3. Copy the prompt</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
-								{`Paste into ChatGPT. It will give advice first (including any questions you asked)${includePlan ? ', then JSON with a notes summary, any scores it read from your write-up, and the rest of the week' : ', then JSON with a notes summary and any scores it read from your write-up'}. Attach Strava screenshots if you want extra context.`}
-								{runs.length > 0 && !allHaveFeel
-									? ' Save how it felt first so the prompt includes what you wrote.'
-									: ''}
+								{`Paste into ChatGPT. It will give advice first (including any questions you asked)${includePlan ? ', then JSON with a notes summary, any scores it read from your write-up, and the rest of the week' : ', then JSON with a notes summary and any scores it read from your write-up (and an updated week if remaining sessions should change)'}. Attach Strava screenshots if you want extra context.`}
 							</span>
 							{debrief.error && !debriefPrompt && (
 								<p className={cn(ui.muted, 'mt-[0.4rem]')}>{debrief.error}</p>
@@ -791,8 +851,9 @@ function CoachPanels({
 										<span>
 											<span className="block text-fg font-semibold">Include this week’s plan</span>
 											<span className={cn(ui.muted, 'block font-normal')}>
-												The AI sees remaining sessions and can return an updated week. Uncheck
-												for advice only.
+												Turn on for a new chat so the coach sees this week’s sessions (and can
+												return an updated week). Leave off if you are continuing a chat that
+												already has the plan — that keeps the prompt smaller.
 											</span>
 										</span>
 									</label>
@@ -818,7 +879,7 @@ function CoachPanels({
 							<span className={cn(ui.muted, 'block mt-1')}>
 								{includePlan
 									? 'A short notes summary for this activity plus the updated rest of the week. Days can change. Advice stays in the chat — only the JSON is saved.'
-									: 'A short notes summary for this activity. Advice stays in the chat — only the JSON is saved.'}
+									: 'A short notes summary for this activity, and an updated week if remaining sessions should change. Advice stays in the chat — only the JSON is saved.'}
 							</span>
 							{authed ? (
 							<div className={cn(ui.panel, ui.form, 'mt-3')}>

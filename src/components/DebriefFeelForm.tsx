@@ -1,4 +1,4 @@
-import { normalizeActivityType, showsFeel, showsField } from '$lib/activity';
+import { activityLabel, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
 import { saveActivityFeel } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import { useState } from 'react';
@@ -22,24 +22,24 @@ export type DebriefFeelRun = {
 	hasFeel?: boolean;
 };
 
-function isImportNote(n: string): boolean {
-	return /^imported from/i.test(n.trim());
-}
-
 export function DebriefFeelForm({
 	run,
 	heading,
+	writeup,
+	onWriteupChange,
 	onSaved
 }: {
 	run: DebriefFeelRun;
 	heading?: string;
+	writeup: string;
+	onWriteupChange: (text: string) => void;
 	onSaved: () => void | Promise<void>;
 }) {
 	const snack = useSnackbar();
 	const [busy, setBusy] = useState(false);
 	const [scoresOpen, setScoresOpen] = useState(false);
 	const activityType = normalizeActivityType(run.activity_type ?? 'run');
-	const notesStart = run.notes && !isImportNote(run.notes) ? run.notes : '';
+	const sport = activityLabel(activityType).toLowerCase();
 	const wantedStart =
 		run.wanted_faster === true ? 'Y' : run.wanted_faster === false ? 'N' : '';
 	const hasScores =
@@ -52,6 +52,7 @@ export function DebriefFeelForm({
 
 	async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
 		e.preventDefault();
+		if (!scoresOpen) return;
 		const fd = new FormData(e.currentTarget);
 		const num = (k: string) => {
 			const v = String(fd.get(k) ?? '').trim();
@@ -60,34 +61,24 @@ export function DebriefFeelForm({
 			return Number.isFinite(n) ? n : null;
 		};
 		const wanted = String(fd.get('wanted_faster') ?? '');
-		const notes = String(fd.get('notes') ?? '').trim();
 		const surface = String(fd.get('surface') ?? '');
 		setBusy(true);
 		try {
 			await saveActivityFeel({
 				data: {
 					slug: run.slug,
-					...(scoresOpen
-						? {
-								effort: num('effort'),
-								shins: num('shins'),
-								legs: num('legs'),
-								energy: num('energy'),
-								wanted_faster: wanted === 'Y' ? true : wanted === 'N' ? false : null,
-								...(showsField(activityType, 'surface') ? { surface } : {})
-							}
-						: {}),
-					...(activityType === 'strength'
-						? {}
-						: notes || !isImportNote(run.notes ?? '')
-							? { notes }
-							: {})
+					effort: num('effort'),
+					shins: num('shins'),
+					legs: num('legs'),
+					energy: num('energy'),
+					wanted_faster: wanted === 'Y' ? true : wanted === 'N' ? false : null,
+					...(showsField(activityType, 'surface') ? { surface } : {})
 				}
 			});
-			snack.success('Saved — the prompt now includes what you wrote.');
+			snack.success('Saved scores.');
 			await onSaved();
 		} catch (err) {
-			snack.error(errorMessage(err, 'Could not save how it felt.'));
+			snack.error(errorMessage(err, 'Could not save scores.'));
 		} finally {
 			setBusy(false);
 		}
@@ -96,23 +87,23 @@ export function DebriefFeelForm({
 	return (
 		<form className={cn(ui.panel, ui.form, 'mt-3')} onSubmit={onSubmit}>
 			{heading ? <h3 className="m-0">{heading}</h3> : null}
-			{activityType !== 'strength' && (
-				<label className={ui.field}>
-					<span>What happened</span>
-					<span className={cn(ui.muted, 'font-normal')}>
-						Write it like you would in chat — as long as you want. Wind, surfaces, after-run
-						checks, questions for this week. You do not have to pick numbers; the AI will read
-						scores from this when you mention them, then summarise it into the activity notes.
-					</span>
-					<textarea
-						name="notes"
-						className={ui.debriefWrite}
-						placeholder="Today’s run was… After: shins when pressing… Should I…?"
-						defaultValue={notesStart}
-						rows={12}
-					/>
-				</label>
-			)}
+			<label className={ui.field}>
+				<span>What happened</span>
+				<span className={cn(ui.muted, 'font-normal')}>
+					Write it like you would in chat — as long as you want. Wind, surfaces, after-session
+					checks, questions for this week. It goes into the prompt as you type. You do not have
+					to pick numbers; the AI will read scores from this when you mention them, then
+					summarise it into the activity notes.
+				</span>
+				<textarea
+					name="writeup"
+					className={ui.debriefWrite}
+					placeholder={`Today’s ${activityType === 'strength' ? 'session' : sport} was… After: … Should I…?`}
+					value={writeup}
+					onChange={(e) => onWriteupChange(e.target.value)}
+					rows={12}
+				/>
+			</label>
 			<button
 				type="button"
 				className="appearance-none self-start bg-transparent border-0 p-0 min-h-11 text-accent-fg font-semibold cursor-pointer text-left"
@@ -182,14 +173,14 @@ export function DebriefFeelForm({
 							/>
 						</label>
 					)}
+					<div className={ui.actions}>
+						<button className={ui.btnPrimary} type="submit" disabled={busy} aria-busy={busy}>
+							<Icon name="check" size={16} />
+							{busy ? 'Saving…' : 'Save scores'}
+						</button>
+					</div>
 				</>
 			)}
-			<div className={ui.actions}>
-				<button className={ui.btnPrimary} type="submit" disabled={busy} aria-busy={busy}>
-					<Icon name="check" size={16} />
-					{busy ? 'Saving…' : run.hasFeel ? 'Update how it felt' : 'Save how it felt'}
-				</button>
-			</div>
 		</form>
 	);
 }

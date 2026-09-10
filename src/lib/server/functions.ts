@@ -12,6 +12,7 @@ import {
 } from '$lib/best-efforts';
 import { combinedAnalytics, trackFromGeoJson } from '$lib/combine-track';
 import { dateRangeFromSearch, filterRunsByRange, type DateRange, type RangeKind } from '$lib/date-range';
+import { DEBRIEF_WRITEUP_TOKEN } from '$lib/debrief';
 import { dayFromIsoDate, formatDuration, guessSession, localDateTimeToUtcMs, normalizeStartTime, parseDurationSeconds } from '$lib/format';
 import {
     catalogHasItems,
@@ -1022,30 +1023,6 @@ function formatFeelLogged(r: RunRecord): string {
 	return `- \`${r.slug}\`: ${scores.join(' · ')}${surface ? ` · surface ${surface}` : ''}`;
 }
 
-function debriefWriteupText(r: RunRecord): string {
-	const notes = (r.notes ?? '').trim();
-	if (!notes || isImportNote(notes)) return '';
-	if (normalizeActivityType(r.activity_type) === 'strength') return '';
-	return notes;
-}
-
-function formatDebriefWriteup(runs: RunRecord[]): string {
-	const many = runs.length > 1;
-	const blocks = runs
-		.map((r) => {
-			const text = debriefWriteupText(r);
-			if (!text) return '';
-			if (!many) return text;
-			const km = r.distance_km != null ? ` · ${r.distance_km} km` : '';
-			return `### ${r.date}${r.day ? ` · ${r.day}` : ''}${km} (\`${r.slug}\`)\n${text}`;
-		})
-		.filter(Boolean);
-	if (!blocks.length) {
-		return '(nothing written yet — I may still attach screenshots.)';
-	}
-	return blocks.join('\n\n');
-}
-
 function formatFeelingsNotesExample(runs: RunRecord[]): string {
 	const fields = (r: RunRecord, pad: string) =>
 		[
@@ -1147,10 +1124,9 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const sessionHeading = many ? 'These sessions' : 'This session';
 		const sessionBlock = featured.map(formatRunBriefLine).join('\n');
 		const feelBlock = featured.map(formatFeelLogged).join('\n');
-		const writeup = formatDebriefWriteup(featured);
 		const job = includePlan
 			? `Coach from ${sessionWord}: how it went, recovery, and what to watch. Answer any questions I asked in What I wrote. Then update **this week** only if remaining sessions should change. Keep remaining sessions on their planned days unless recovery requires a shift — and if you move a day, say why. Keep non-run sessions unless recovery says otherwise.`
-			: `Coach from ${sessionWord}: how it went, recovery, and what to watch next. Answer any questions I asked in What I wrote. Do not rewrite my week plan — this chat is advice only.`;
+			: `Coach from ${sessionWord}: how it went, recovery, and what to watch. Answer any questions I asked in What I wrote. This chat already has my week plan — use that, do not repeat it here. Update remaining sessions only if they should change.`;
 		const planSections = includePlan
 			? `
 ## Current week plan${week ? ` — week ${week.week} (${week.dates}) · ${week.phase} · ${week.focus}` : ''}
@@ -1159,7 +1135,7 @@ ${sessionLines}
 ${unplannedLines ? `## Unplanned activities this week\nThese logs did not match a planned session — extra load, already done. Do not add a plan row just to file them.\n${unplannedLines}\n` : ''}`
 			: '';
 		const notesRule =
-			'- `feelings.notes` is a **short** first-person summary of What I wrote (about 2–5 sentences) for the activity log. Keep my voice. Keep the useful specifics (shins after, shoes, questions you answered). Do **not** paste the whole write-up. Omit `notes` if I wrote nothing.';
+			'- `feelings.notes` is a **short** first-person summary of What I wrote (about 2–5 sentences) for the activity log. Keep my voice. Keep the useful specifics (shins after, shoes, questions you answered). Do **not** paste the whole write-up. Omit `notes` if I wrote nothing. For strength, notes are extra commentary only — never rewrite the lift list.';
 		const scoresRule =
 			'- Scores marked – were not tapped in the app. Infer effort/shins/legs/energy (and wanted_faster / surface) from What I wrote when the text is clear enough for a number. Omit a field if the write-up does not support it. Do not invent from GPS or screenshots. If How I felt already has a number, omit that field — keep mine. Do not copy example numbers.';
 		const weekJson = includePlan
@@ -1179,9 +1155,10 @@ ${unplannedLines ? `## Unplanned activities this week\nThese logs did not match 
 - To drop a session, set \`"status": "skipped"\` (and why in \`detail\`). Unlogged ≠ skipped.
 - If the week is finished, return the same session rows unchanged — do not invent a completed status (\`status\` is only \`"skipped"\`).
 `
-			: '';
+			: `- If remaining sessions should change, include \`week\` using the format already in this chat (full week, \`activity_type\` on every session). Omit \`week\` if nothing ahead changes.
+`;
 		const reply = `## When you reply
-Lead with coaching advice in prose (how ${sessionWord} went, recovery,${includePlan ? ' and whether anything ahead should change' : ' and the next session'}). Answer any questions from What I wrote there. After the advice, output one fenced JSON object I can paste back — the JSON is what I save; the advice is not.
+Lead with coaching advice in prose (how ${sessionWord} went, recovery, and whether anything ahead should change). Answer any questions from What I wrote there. After the advice, output one fenced JSON object I can paste back — the JSON is what I save; the advice is not.
 
 \`\`\`json
 {
@@ -1214,7 +1191,7 @@ ${feelBlock}
 ## What I wrote
 This is my own account of ${sessionWord} — as long as I needed, including questions I want answered. Treat it as ground truth. GPS is the device record; if they disagree, mention it but trust how I said it felt.
 
-${writeup}
+${DEBRIEF_WRITEUP_TOKEN}
 
 ## Other activities already logged this week
 ${otherThisWeek.length ? otherThisWeek.map(formatRunBriefLine).join('\n') : `- (none besides ${many ? 'these' : 'this one'})`}

@@ -1,4 +1,5 @@
 import { AuthProvider, SignInLink, useAuthed } from '$lib/auth';
+import { registerPwa } from '$lib/pwa';
 import { getAuthState } from '$lib/server/functions';
 import { applyTheme, getTheme, themeInitScript } from '$lib/theme';
 import { cn } from '$lib/ui';
@@ -121,9 +122,7 @@ function RootShell() {
 	useKeyboardOpen();
 	useEffect(() => {
 		applyTheme(getTheme());
-		if ('serviceWorker' in navigator) {
-			void navigator.serviceWorker.register('/sw.js');
-		}
+		registerPwa();
 	}, []);
 	return (
 		<RootDocument>

@@ -1,5 +1,7 @@
+import { normalizeActivityType } from '$lib/activity';
 import { parseBestEfforts, type BestEffort } from '$lib/best-efforts';
 import { normalizeStartTime } from '$lib/format';
+import { formatStrengthNotes, parseStrengthNotes } from '$lib/strength';
 import type { RunRecord } from '$lib/types';
 import { getSql } from './db';
 
@@ -203,12 +205,18 @@ export type FeelingsPatch = {
 
 /**
  * Update only the subjective "feel" columns of a run, leaving device data untouched. Fields not
- * present in the patch keep their current value. Returns false if the slug does not exist.
+ * present in the patch keep their current value. Strength lift logs in notes are kept; a notes
+ * patch becomes the extra commentary. Returns false if the slug does not exist.
  */
 export async function updateRunFeelings(slug: string, p: FeelingsPatch): Promise<boolean> {
 	const run = await getRun(slug);
 	if (!run) return false;
 	const pick = <T>(v: T | undefined, cur: T): T => (v === undefined ? cur : v);
+	let notes = pick(p.notes, run.notes);
+	if (p.notes !== undefined && normalizeActivityType(run.activity_type) === 'strength') {
+		const parsed = parseStrengthNotes(run.notes);
+		notes = formatStrengthNotes(parsed.exercises, p.notes);
+	}
 	const merged = {
 		effort: pick(p.effort, run.effort),
 		shins: pick(p.shins, run.shins),
@@ -216,7 +224,7 @@ export async function updateRunFeelings(slug: string, p: FeelingsPatch): Promise
 		energy: pick(p.energy, run.energy),
 		wanted_faster: pick(p.wanted_faster, run.wanted_faster),
 		surface: pick(p.surface, run.surface),
-		notes: pick(p.notes, run.notes)
+		notes
 	};
 	const sql = getSql();
 	await sql`

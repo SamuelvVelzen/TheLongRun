@@ -3,12 +3,7 @@ import { registerPwa } from '$lib/pwa';
 import { getAuthState } from '$lib/server/functions';
 import { applyTheme, getTheme, themeInitScript } from '$lib/theme';
 import { cn } from '$lib/ui';
-import {
-    appCanScrollTo,
-    getAppScrollElement,
-    scrollAppTo,
-    useKeyboardOpen
-} from '$lib/viewport';
+import { appCanScrollTo, getAppScrollElement, scrollAppTo } from '$lib/viewport';
 import {
     createRootRoute,
     HeadContent,
@@ -38,8 +33,7 @@ export const Route = createRootRoute({
 			{ charSet: 'utf-8' },
 			{
 				name: 'viewport',
-				content:
-					'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content'
+				content: 'width=device-width, initial-scale=1, viewport-fit=cover'
 			},
 			{ title: 'The Long Run' },
 			{ name: 'description', content: 'Personal run log' },
@@ -119,7 +113,6 @@ function RootComponent() {
 function RootShell() {
 	const authed = useAuthed();
 	const extra = moreLinks.filter((l) => authed || l.href !== '/import');
-	useKeyboardOpen();
 	useEffect(() => {
 		applyTheme(getTheme());
 		registerPwa();
@@ -130,7 +123,7 @@ function RootShell() {
 			<ScrollRestore />
 			<ScrollToTop />
 			<div className="app-shell relative z-1 flex flex-1 flex-col w-[min(1120px,calc(100%-2rem))] min-h-dvh mx-auto pt-5 pr-[env(safe-area-inset-right,0px)] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] max-sm:w-[min(1120px,calc(100%-1.25rem))] max-sm:h-dvh max-sm:min-h-0 max-sm:overflow-hidden max-sm:pt-0 max-sm:pb-0">
-				<header className="app-header flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-8 pt-[calc(0.85rem+env(safe-area-inset-top,0px))] pb-[0.85rem] border-b border-line max-sm:mb-5">
+				<header className="app-header flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-8 max-sm:mb-5 sm:pt-[calc(0.85rem+env(safe-area-inset-top,0px))] sm:pb-[0.85rem] sm:border-b sm:border-line">
 					<Link
 						to="/"
 						className="shrink-0 font-display font-extrabold text-[1.35rem] tracking-[-0.04em] max-sm:text-[1.15rem] max-sm:py-[0.15rem] [&_span]:text-accent-fg"

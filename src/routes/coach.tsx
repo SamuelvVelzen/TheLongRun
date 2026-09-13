@@ -838,8 +838,8 @@ function CoachPanels({
 							<strong>3. Copy the prompt</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
 								{includePlan
-									? 'Paste into ChatGPT. It will give advice first (including any questions you asked), then JSON with a notes summary, any scores it read from your write-up, and the rest of the week. Attach Strava screenshots if you want extra context.'
-									: 'Paste into ChatGPT. It will give advice first (including any questions you asked), then JSON with a notes summary and any scores it read from your write-up. The prompt also tells ChatGPT to return an updated week if remaining sessions should change — even with “Include this week’s plan” off. Attach Strava screenshots if you want extra context.'}
+									? 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary, any scores it read from your write-up, and the rest of the week. Attach Strava screenshots if you want extra context.'
+									: 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary and any scores it read from your write-up. The prompt also tells the AI to return an updated week if remaining sessions should change — even with “Include this week’s plan” off. Attach Strava screenshots if you want extra context.'}
 							</span>
 							{debrief.error && !debriefPrompt && (
 								<p className={cn(ui.muted, 'mt-[0.4rem]')}>{debrief.error}</p>
@@ -880,7 +880,7 @@ function CoachPanels({
 							)}
 						</li>
 						<li>
-							<strong>4. Paste ChatGPT’s JSON</strong>
+							<strong>4. Paste the AI’s JSON</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
 								{includePlan
 									? 'A short notes summary for this activity plus the updated rest of the week. Days can change. Advice stays in the chat — only the JSON is saved.'

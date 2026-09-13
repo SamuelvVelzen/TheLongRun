@@ -441,7 +441,7 @@ function canonicalWeekday(day: string): string {
 }
 
 /** Sessions and leftover logs grouped by weekday. Days with only unplanned logs still appear. */
-export function weekDayGroups(view: WeekView): WeekDayGroup[] {
+export function weekDayGroups(view: WeekView, today = new Date()): WeekDayGroup[] {
 	const byDay = new Map<string, { sessions: WeekSessionView[]; unplanned: UnplannedActivity[] }>();
 	const bucket = (day: string) => {
 		const key = canonicalWeekday(day);
@@ -454,7 +454,7 @@ export function weekDayGroups(view: WeekView): WeekDayGroup[] {
 	};
 	for (const s of view.sessions) bucket(s.day).sessions.push(s);
 	for (const u of view.unplanned) bucket(u.day).unplanned.push(u);
-	return WEEKDAYS.filter((d) => byDay.has(d)).map((day) => {
+	const groups = WEEKDAYS.filter((d) => byDay.has(d)).map((day) => {
 		const g = byDay.get(day)!;
 		return {
 			day,
@@ -464,6 +464,28 @@ export function weekDayGroups(view: WeekView): WeekDayGroup[] {
 			unplanned: g.unplanned
 		};
 	});
+	if (groups.length <= 1) return groups;
+
+	const jsDay = today.getDay();
+	const todayWeekdayIdx = jsDay === 0 ? 6 : jsDay - 1;
+	const todayName = WEEKDAYS[todayWeekdayIdx];
+
+	let rotateFrom = groups.findIndex((g) => g.isToday);
+	if (rotateFrom < 0) {
+		rotateFrom = groups.findIndex((g) => g.day === todayName);
+	}
+	if (rotateFrom < 0) {
+		for (let i = 0; i < 7; i++) {
+			const day = WEEKDAYS[(todayWeekdayIdx + i) % 7];
+			const idx = groups.findIndex((g) => g.day === day);
+			if (idx >= 0) {
+				rotateFrom = idx;
+				break;
+			}
+		}
+	}
+	if (rotateFrom <= 0) return groups;
+	return [...groups.slice(rotateFrom), ...groups.slice(0, rotateFrom)];
 }
 
 export function formatUnplannedBrief(items: UnplannedActivity[]): string {

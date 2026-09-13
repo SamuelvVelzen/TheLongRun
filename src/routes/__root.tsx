@@ -5,20 +5,20 @@ import { applyTheme, getTheme, themeInitScript } from '$lib/theme';
 import { cn } from '$lib/ui';
 import { appCanScrollTo, getAppScrollElement, scrollAppTo } from '$lib/viewport';
 import {
-    createRootRoute,
-    HeadContent,
-    Link,
-    Outlet,
-    Scripts,
-    useElementScrollRestoration,
-    useRouterState
+	createRootRoute,
+	HeadContent,
+	Link,
+	Outlet,
+	Scripts,
+	useElementScrollRestoration,
+	useRouterState
 } from '@tanstack/react-router';
 import {
-    useEffect,
-    useLayoutEffect,
-    type MouseEvent,
-    type MouseEventHandler,
-    type ReactNode
+	useEffect,
+	useLayoutEffect,
+	type MouseEvent,
+	type MouseEventHandler,
+	type ReactNode
 } from 'react';
 import '../app.css';
 import { Icon } from '../components/Icon';
@@ -120,122 +120,122 @@ function RootShell() {
 	return (
 		<RootDocument>
 			<SnackbarProvider>
-			<ScrollRestore />
-			<ScrollToTop />
-			<div className="app-shell relative z-1 flex flex-1 flex-col w-[min(1120px,calc(100%-2rem))] min-h-dvh mx-auto pt-5 pr-[env(safe-area-inset-right,0px)] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] max-sm:w-full max-sm:h-dvh max-sm:min-h-0 max-sm:overflow-hidden max-sm:pt-0 max-sm:pb-0 max-sm:pl-0 max-sm:pr-0 sm:pt-2">
-				<header className="app-header sticky-chrome flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-2 max-sm:mb-0 sm:mb-2 sm:pt-[calc(0.75rem+env(safe-area-inset-top,0px))] sm:pb-3">
-					<Link
-						to="/"
-						className="shrink-0 font-display font-extrabold text-[1.35rem] tracking-[-0.04em] max-sm:text-[1.15rem] max-sm:py-[0.15rem] [&_span]:text-accent-fg"
-					>
-						The Long <span>Run</span>
-					</Link>
-					<nav className="flex flex-1 flex-wrap items-center justify-end gap-[0.35rem] max-sm:hidden" aria-label="Primary">
-						{headerLinks.map((l) => (
-							<Link
-								key={l.href}
-								to={l.href}
-								className={l.href === '/coach' ? navCoach : navLink}
-								activeOptions={{ exact: l.href === '/', includeSearch: false }}
-							>
-								<Icon name={l.icon} size={15} />
-								{l.label}
-							</Link>
-						))}
-						<DesktopMore />
-					</nav>
-					<div className="flex items-center gap-[0.35rem] shrink-0">
-						<ThemeToggle className={navAuth} />
-						{authed ? (
-							<Link
-								to="/import"
-								className={navAdd}
-								aria-label="Add activity"
-								title="Add activity"
-								activeOptions={{ includeSearch: false }}
-							>
-								<Icon name="plus" size={20} />
-							</Link>
-						) : (
-							<AuthNavIcon />
-						)}
-					</div>
-				</header>
-				<main className="app-main min-w-0 flex-1 max-sm:min-h-0">
-					<Outlet />
-				</main>
-				<nav
-					className="tab-bar hidden max-sm:flex flex-none items-stretch justify-around z-40 gap-[0.15rem] min-h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pt-[0.3rem] pl-[max(0.35rem,env(safe-area-inset-left,0px))] pr-[max(0.35rem,env(safe-area-inset-right,0px))] pb-[calc(0.3rem+env(safe-area-inset-bottom,0px))] border-t border-line"
-					aria-label="Primary"
-				>
-					{tabs.map((tab) => (
+				<ScrollRestore />
+				<ScrollToTop />
+				<div className="app-shell relative z-1 flex flex-1 flex-col w-[min(1120px,calc(100%-2rem))] min-h-dvh mx-auto pt-5 pr-[env(safe-area-inset-right,0px)] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] max-sm:w-full max-sm:h-dvh max-sm:min-h-0 max-sm:overflow-hidden max-sm:pt-0 max-sm:pb-0 max-sm:pl-0 max-sm:pr-0 sm:pt-2">
+					<header className="app-header sticky-chrome flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-2 sm:pt-[calc(0.75rem+env(safe-area-inset-top,0px))] sm:pb-3">
 						<Link
-							key={tab.href}
-							to={tab.href}
-							className={tab.primary ? tabItemPrimary : tabItem}
-							activeOptions={{ exact: tab.href === '/', includeSearch: false }}
+							to="/"
+							className="shrink-0 font-display font-extrabold text-[1.35rem] tracking-[-0.04em] max-sm:text-[1.15rem] max-sm:py-[0.15rem] [&_span]:text-accent-fg"
 						>
-							<span
-								className={cn(
-									'flex items-center justify-center size-6 leading-[0]',
-									tab.primary &&
-									'size-11 -mt-[1.15rem] rounded-full bg-accent text-accent-ink shadow-[0_8px_18px_rgba(0,0,0,0.35)] group-data-[status=active]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_22%,transparent),0_8px_18px_rgba(0,0,0,0.35)]'
-								)}
-							>
-								<Icon name={tab.icon} size={22} />
-							</span>
-							<span className="text-[0.68rem] font-semibold tracking-[0.01em] leading-none whitespace-nowrap">
-								{tab.label}
-							</span>
+							The Long <span>Run</span>
 						</Link>
-					))}
-					<details className="relative flex-1 min-w-0 group">
-						<summary className={cn(tabItem, 'list-none w-full [&::-webkit-details-marker]:hidden group-has-[a[data-status=active]]:text-accent-fg')}>
-							<span className="flex items-center justify-center size-6 leading-[0]">
-								<Icon name="more" size={22} />
-							</span>
-							<span className="text-[0.68rem] font-semibold tracking-[0.01em] leading-none whitespace-nowrap">
-								More
-							</span>
-						</summary>
-						<div
-							className="fixed inset-0 z-40 bg-black/45 cursor-pointer"
-							onClick={closeDetails}
-							aria-hidden="true"
-						/>
-						<div className="fixed left-3 right-3 bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] z-[41] grid gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">
-							{extra.map((l) => (
+						<nav className="flex flex-1 flex-wrap items-center justify-end gap-[0.35rem] max-sm:hidden" aria-label="Primary">
+							{headerLinks.map((l) => (
 								<Link
 									key={l.href}
 									to={l.href}
-									className={tabMoreLink}
-									activeOptions={{ includeSearch: false }}
-									onClick={closeDetails}
+									className={l.href === '/coach' ? navCoach : navLink}
+									activeOptions={{ exact: l.href === '/', includeSearch: false }}
 								>
-									<Icon name={l.icon} size={18} />
+									<Icon name={l.icon} size={15} />
 									{l.label}
 								</Link>
 							))}
-							<Link
-								to="/routes"
-								search={{ draw: true }}
-								className={tabMoreLink}
-								onClick={closeDetails}
-							>
-								<Icon name="map" size={18} />
-								Plan route
-							</Link>
-							<PwaInstall className={tabMoreLink} />
+							<DesktopMore />
+						</nav>
+						<div className="flex items-center gap-[0.35rem] shrink-0">
+							<ThemeToggle className={navAuth} />
 							{authed ? (
-								<>
-									<div className="my-[0.15rem] border-t border-line" />
-									<SignOutLink className={tabMoreLink} onClick={closeDetails} />
-								</>
-							) : null}
+								<Link
+									to="/import"
+									className={navAdd}
+									aria-label="Add activity"
+									title="Add activity"
+									activeOptions={{ includeSearch: false }}
+								>
+									<Icon name="plus" size={20} />
+								</Link>
+							) : (
+								<AuthNavIcon />
+							)}
 						</div>
-					</details>
-				</nav>
-			</div>
+					</header>
+					<main className="app-main min-w-0 flex-1 max-sm:min-h-0">
+						<Outlet />
+					</main>
+					<nav
+						className="tab-bar hidden max-sm:flex flex-none items-stretch justify-around z-40 gap-[0.15rem] min-h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pt-[0.3rem] pl-[max(0.35rem,env(safe-area-inset-left,0px))] pr-[max(0.35rem,env(safe-area-inset-right,0px))] pb-[calc(0.3rem+env(safe-area-inset-bottom,0px))] border-t border-line"
+						aria-label="Primary"
+					>
+						{tabs.map((tab) => (
+							<Link
+								key={tab.href}
+								to={tab.href}
+								className={tab.primary ? tabItemPrimary : tabItem}
+								activeOptions={{ exact: tab.href === '/', includeSearch: false }}
+							>
+								<span
+									className={cn(
+										'flex items-center justify-center size-6 leading-[0]',
+										tab.primary &&
+										'size-11 -mt-[1.15rem] rounded-full bg-accent text-accent-ink shadow-[0_8px_18px_rgba(0,0,0,0.35)] group-data-[status=active]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_22%,transparent),0_8px_18px_rgba(0,0,0,0.35)]'
+									)}
+								>
+									<Icon name={tab.icon} size={22} />
+								</span>
+								<span className="text-[0.68rem] font-semibold tracking-[0.01em] leading-none whitespace-nowrap">
+									{tab.label}
+								</span>
+							</Link>
+						))}
+						<details className="relative flex-1 min-w-0 group">
+							<summary className={cn(tabItem, 'list-none w-full [&::-webkit-details-marker]:hidden group-has-[a[data-status=active]]:text-accent-fg')}>
+								<span className="flex items-center justify-center size-6 leading-[0]">
+									<Icon name="more" size={22} />
+								</span>
+								<span className="text-[0.68rem] font-semibold tracking-[0.01em] leading-none whitespace-nowrap">
+									More
+								</span>
+							</summary>
+							<div
+								className="fixed inset-0 z-40 bg-black/45 cursor-pointer"
+								onClick={closeDetails}
+								aria-hidden="true"
+							/>
+							<div className="fixed left-3 right-3 bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] z-[41] grid gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">
+								{extra.map((l) => (
+									<Link
+										key={l.href}
+										to={l.href}
+										className={tabMoreLink}
+										activeOptions={{ includeSearch: false }}
+										onClick={closeDetails}
+									>
+										<Icon name={l.icon} size={18} />
+										{l.label}
+									</Link>
+								))}
+								<Link
+									to="/routes"
+									search={{ draw: true }}
+									className={tabMoreLink}
+									onClick={closeDetails}
+								>
+									<Icon name="map" size={18} />
+									Plan route
+								</Link>
+								<PwaInstall className={tabMoreLink} />
+								{authed ? (
+									<>
+										<div className="my-[0.15rem] border-t border-line" />
+										<SignOutLink className={tabMoreLink} onClick={closeDetails} />
+									</>
+								) : null}
+							</div>
+						</details>
+					</nav>
+				</div>
 			</SnackbarProvider>
 		</RootDocument>
 	);

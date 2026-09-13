@@ -33,8 +33,10 @@ export function ActivityFilters({
 			summary={filterSummary(sport, range, { country, province, place })}
 			actions={actions}
 		>
-			<SportFilter sport={sport} to={to} defaultSport="all" available={availableSports} />
-			<DateRangeFilter range={range} to={to} />
+			<div className="inline-flex items-center gap-3 shrink-0 max-sm:contents sm:gap-2">
+				<SportFilter sport={sport} to={to} defaultSport="all" available={availableSports} />
+				<DateRangeFilter range={range} to={to} />
+			</div>
 			<PlaceFilter to={to} runs={runs} country={country} province={province} place={place} />
 		</FilterSheet>
 	);

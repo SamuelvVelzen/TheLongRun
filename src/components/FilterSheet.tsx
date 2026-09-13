@@ -67,11 +67,17 @@ export function FilterSheet({
 		<div
 			className={cn(
 				ui.stickyBar,
-				'flex items-start gap-3 mt-4 mb-2 pt-[0.85rem] pb-[0.55rem] border-t border-line -mx-2 px-2 bg-canvas/92 backdrop-blur-[10px]',
-				'max-sm:mt-0 max-sm:border-t-0 max-sm:bg-canvas'
+				'flex items-center gap-3 mt-4 mb-2 pt-[0.85rem] pb-[0.55rem] border-t border-line -mx-2 px-2 bg-canvas/92 backdrop-blur-[10px]',
+				'max-sm:items-start max-sm:mt-0 max-sm:border-t-0 max-sm:bg-canvas'
 			)}
 		>
-			<div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-6 gap-y-[0.55rem]">
+			<div
+				className={cn(
+					'flex min-w-0 flex-1 items-center',
+					'max-sm:flex-wrap max-sm:gap-x-6 max-sm:gap-y-[0.55rem]',
+					'sm:flex-nowrap sm:gap-x-3 sm:overflow-x-auto sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden'
+				)}
+			>
 				<button
 					type="button"
 					className="hidden w-full justify-between max-sm:inline-flex items-center gap-[0.55rem] max-w-full min-h-11 px-[0.95rem] py-[0.45rem] border border-line rounded-full bg-canvas/85 text-fg cursor-pointer aria-[expanded=true]:border-accent"

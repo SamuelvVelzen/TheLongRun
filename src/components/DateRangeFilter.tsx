@@ -16,10 +16,10 @@ export function rangeToSearch(kind: RangeKind, from?: string, to?: string): Rang
 	return { range: kind, from: undefined, to: undefined };
 }
 
-const presets: { kind: RangeKind; label: string }[] = [
-	{ kind: 'all', label: 'All time' },
-	{ kind: '30d', label: '30 days' },
-	{ kind: '7d', label: '7 days' }
+const presets: { kind: RangeKind; label: string; shortLabel: string }[] = [
+	{ kind: 'all', label: 'All time', shortLabel: 'All' },
+	{ kind: '30d', label: '30 days', shortLabel: '30d' },
+	{ kind: '7d', label: '7 days', shortLabel: '7d' }
 ];
 
 export function DateRangeFilter({ range, to }: { range: DateRange; to: string }) {
@@ -62,6 +62,7 @@ export function DateRangeFilter({ range, to }: { range: DateRange; to: string })
 	return (
 		<div className="contents" role="group" aria-label="Date range">
 			<SegmentedToggle
+				className="sm:[&_button]:min-h-9 sm:[&_button]:px-2.5 sm:[&_button]:text-[0.82rem] sm:[&_button]:gap-1"
 				value={range.kind === 'custom' || customOpen ? 'custom' : range.kind}
 				onChange={(kind) => {
 					if (kind === 'custom') openCustom();
@@ -69,45 +70,66 @@ export function DateRangeFilter({ range, to }: { range: DateRange; to: string })
 				options={[
 					...presets.map((preset) => ({
 						value: preset.kind,
-						label: preset.label,
+						label: (
+							<>
+								<span className="sm:hidden">{preset.label}</span>
+								<span className="hidden sm:inline">{preset.shortLabel}</span>
+							</>
+						),
 						to,
 						search: (prev: Record<string, unknown>) => ({
 							...prev,
 							...rangeToSearch(preset.kind)
 						})
 					})),
-					{ value: 'custom' as const, label: (
-						<>
-							<Icon name="calendar" size={14} />
-							Custom
-						</>
-					) }
+					{
+						value: 'custom' as const,
+						label: (
+							<>
+								<Icon name="calendar" size={14} />
+								<span className="sm:hidden">Custom</span>
+							</>
+						)
+					}
 				]}
 			/>
 
 			{(customOpen || range.kind === 'custom') && (
-				<form className="flex flex-wrap items-end gap-3 basis-full max-[720px]:grid max-[720px]:grid-cols-2" onSubmit={applyCustom}>
-					<label className={cn(ui.field, 'flex-1 basis-36 min-w-0 max-[720px]:flex-none')}>
+				<form
+					className={cn(
+						'flex items-end gap-2 shrink-0',
+						'max-sm:basis-full max-sm:flex-wrap max-sm:grid max-sm:grid-cols-2 max-sm:gap-3',
+						'sm:flex-nowrap'
+					)}
+					onSubmit={applyCustom}
+				>
+					<label className={cn(ui.field, 'min-w-0 max-sm:flex-none sm:[&_span]:text-[0.78rem]')}>
 						<span>From</span>
 						<input
 							type="date"
 							name="from"
-							className="min-h-11"
+							className="min-h-11 sm:min-h-9 sm:px-2 sm:text-[0.82rem]"
 							value={customFrom}
 							onChange={(e) => setCustomFrom(e.target.value)}
 						/>
 					</label>
-					<label className={cn(ui.field, 'flex-1 basis-36 min-w-0 max-[720px]:flex-none')}>
+					<label className={cn(ui.field, 'min-w-0 max-sm:flex-none sm:[&_span]:text-[0.78rem]')}>
 						<span>To</span>
 						<input
 							type="date"
 							name="to"
-							className="min-h-11"
+							className="min-h-11 sm:min-h-9 sm:px-2 sm:text-[0.82rem]"
 							value={customTo}
 							onChange={(e) => setCustomTo(e.target.value)}
 						/>
 					</label>
-					<button className={cn(ui.btnPrimary, 'shrink-0 min-h-11 max-[720px]:col-span-full max-[720px]:w-full')} type="submit">
+					<button
+						className={cn(
+							ui.btnPrimary,
+							'shrink-0 min-h-11 max-sm:col-span-full max-sm:w-full sm:min-h-9 sm:px-3 sm:text-[0.82rem]'
+						)}
+						type="submit"
+					>
 						Apply
 					</button>
 				</form>

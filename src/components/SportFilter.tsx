@@ -4,7 +4,7 @@ import {
     normalizeActivityType,
     type ActivityType
 } from '$lib/activity';
-import { ui } from '$lib/ui';
+import { cn, ui } from '$lib/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { sportChipLabel } from './Icon';
 
@@ -103,7 +103,14 @@ export function SportFilter({
 
 	return (
 		<div className="contents">
-			<div className={ui.segToggle} role="group" aria-label="Activity type">
+			<div
+				className={cn(
+					ui.segToggle,
+					'sm:[&_button]:min-h-9 sm:[&_button]:px-2.5 sm:[&_button]:text-[0.82rem] sm:[&_button]:gap-1'
+				)}
+				role="group"
+				aria-label="Activity type"
+			>
 				{options.map((o) => {
 					const pressed =
 						o.value === 'all' ? allSelected : selected.includes(o.value as ActivityType);

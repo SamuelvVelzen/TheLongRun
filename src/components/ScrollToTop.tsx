@@ -36,9 +36,12 @@ export function ScrollToTop() {
 			aria-hidden={!visible}
 			onClick={scrollTop}
 			className={cn(
-				'fixed z-30 inline-flex items-center justify-center size-11 min-h-11 min-w-11 p-0 rounded-full border border-line bg-surface/92 text-fg shadow-lift backdrop-blur-[10px] cursor-pointer',
+				'fixed z-30 inline-flex items-center justify-center p-0 rounded-full border border-line bg-surface/92 text-fg shadow-lift backdrop-blur-[10px] cursor-pointer',
+				'size-11 min-h-11 min-w-11',
 				'right-[max(0.85rem,env(safe-area-inset-right,0px))] bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px))]',
-				'max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))]',
+				'max-sm:size-9 max-sm:min-h-9 max-sm:min-w-9',
+				'max-sm:left-[max(0.85rem,env(safe-area-inset-left,0px))] max-sm:right-auto',
+				'max-sm:bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))]',
 				'transition-[opacity,transform,border-color,color,visibility] duration-200',
 				'hover:border-accent/45 hover:text-accent-fg active:border-accent/45 active:text-accent-fg',
 				visible
@@ -46,7 +49,8 @@ export function ScrollToTop() {
 					: 'opacity-0 translate-y-2 pointer-events-none'
 			)}
 		>
-			<Icon name="arrowUp" size={20} />
+			<Icon name="arrowUp" size={20} className="max-sm:hidden" />
+			<Icon name="arrowUp" size={16} className="hidden max-sm:block" />
 		</button>
 	);
 }

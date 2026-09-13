@@ -68,12 +68,23 @@ function EffortDate({
 	const year = showYear ? formatEffortYear2(iso) : '';
 	return (
 		<span
-			className={cn(ui.muted, 'leading-snug')}
+			className={cn(
+				ui.muted,
+				'leading-snug',
+				'max-[720px]:flex max-[720px]:flex-col max-[720px]:gap-[0.05rem]'
+			)}
 			title={pace ? `${iso} · ${pace}/km` : iso}
 		>
-			<span className="whitespace-nowrap">{dayMonth}</span>
-			{year ? <span className="tabular-nums"> {year}</span> : null}
-			{pace ? <span className="max-[720px]:hidden">{` · ${pace}/km`}</span> : null}
+			<span className="whitespace-nowrap">
+				{dayMonth}
+				{year ? <span className="tabular-nums"> {year}</span> : null}
+				{pace ? <span className="hidden min-[721px]:inline">{` · ${pace}/km`}</span> : null}
+			</span>
+			{pace ? (
+				<span className="tabular-nums whitespace-nowrap text-[0.75rem] min-[721px]:hidden">
+					{pace}/km
+				</span>
+			) : null}
 		</span>
 	);
 }

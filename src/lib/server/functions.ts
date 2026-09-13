@@ -26,7 +26,16 @@ import {
     type GearContext,
     type GearKind
 } from '$lib/gear';
-import { canPinRaceResult, normalizeGoalInput, pickSoonestOpenGoal, pinCandidatesForGoal, resultFromActivity, type GoalInput } from '$lib/goals';
+import {
+	canPinRaceResult,
+	normalizeGoalInput,
+	normalizeGoalUrl,
+	pickSoonestOpenGoal,
+	pinCandidatesForGoal,
+	resultFromActivity,
+	type GoalInput,
+	type MedalDetailsInput
+} from '$lib/goals';
 import {
     attachHrSeries,
     densifyWaypoints,
@@ -2302,11 +2311,53 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 	const runBySlug = new Map(runs.map((r) => [r.slug, r]));
 	const trackById = new Map(tracks.map((t) => [t.id, t.coords]));
 	const medalTracks: Record<string, [number, number][]> = {};
+	const medalActivities: Record<
+		string,
+		Pick<
+			RunRecord,
+			| 'slug'
+			| 'activity_type'
+			| 'avg_hr'
+			| 'max_hr'
+			| 'elev_gain'
+			| 'cadence'
+			| 'calories'
+			| 'gear'
+			| 'weather'
+			| 'surface'
+			| 'place'
+			| 'province'
+			| 'country'
+			| 'effort'
+			| 'strava_id'
+			| 'start_time'
+			| 'elapsed_time'
+		>
+	> = {};
 	for (const g of medals) {
 		const slug = g.result?.activity_slug;
 		if (!slug) continue;
 		const run = runBySlug.get(slug);
 		if (!run) continue;
+		medalActivities[g.id] = {
+			slug: run.slug,
+			activity_type: run.activity_type,
+			avg_hr: run.avg_hr,
+			max_hr: run.max_hr,
+			elev_gain: run.elev_gain,
+			cadence: run.cadence,
+			calories: run.calories,
+			gear: run.gear,
+			weather: run.weather,
+			surface: run.surface,
+			place: run.place,
+			province: run.province,
+			country: run.country,
+			effort: run.effort,
+			strava_id: run.strava_id,
+			start_time: run.start_time,
+			elapsed_time: run.elapsed_time
+		};
 		const id = routeIdForRun(run);
 		if (!id) continue;
 		const coords = trackById.get(id);
@@ -2318,9 +2369,29 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 		medals,
 		calendar,
 		candidatesByGoalId,
-		medalTracks
+		medalTracks,
+		medalActivities
 	};
 });
+
+export const saveMedalDetails = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: MedalDetailsInput) => d)
+	.handler(async ({ data }) => {
+		const store = await loadGoalStore();
+		const target = store.goals.find((g) => g.id === data.goalId);
+		if (!target) throw new Error('That medal was not found.');
+		if (target.status !== 'done') throw new Error('Only finished races can be updated here.');
+		const next: Goal = {
+			...target,
+			bib_number: String(data.bib_number ?? target.bib_number ?? '').trim(),
+			result_url: normalizeGoalUrl(data.result_url ?? target.result_url ?? ''),
+			medal_notes: String(data.medal_notes ?? target.medal_notes ?? '').trim()
+		};
+		await saveGoalStore({
+			goals: store.goals.map((g) => (g.id === next.id ? next : g))
+		});
+		return { id: next.id };
+	});
 
 export const saveActiveGoal = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((d: GoalInput) => d)

@@ -22,6 +22,7 @@ import {
 	savePlanWeeks,
 	saveWeekPattern
 } from '$lib/server/functions';
+import type { GearContext, GearKind, GearWear } from '$lib/gear';
 import { cn, ui } from '$lib/ui';
 import {
 	formatPatternProse,
@@ -32,6 +33,7 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
 import { DebriefFeelForm } from '../components/DebriefFeelForm';
+import { DebriefRacePanel } from '../components/DebriefRacePanel';
 import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
@@ -434,6 +436,8 @@ function Coach() {
 						debrief={data.debrief}
 						initialPattern={data.weekPattern}
 						planData={data.planData}
+						gear={data.debrief.gear}
+						gearWear={data.debrief.gearWear}
 					/>
 				)}
 			</DeferredData>
@@ -444,11 +448,15 @@ function Coach() {
 function CoachPanels({
 	debrief: initialDebrief,
 	initialPattern,
-	planData
+	planData,
+	gear,
+	gearWear
 }: {
 	debrief: DebriefPrompt;
 	initialPattern: WeekPattern;
 	planData: CoachPlanData;
+	gear: GearContext;
+	gearWear: Record<GearKind, Record<string, GearWear>>;
 }) {
 	const search = Route.useSearch();
 	const router = useRouter();
@@ -778,25 +786,37 @@ function CoachPanels({
 						<li className={runs.length ? (allWrote ? 'done' : 'current') : undefined}>
 							<strong>2. How it felt</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
-								Write the session here the way you would in chat — as long as you want, including
-								questions for this week. It goes into the prompt as you type. Skip the numbers if
-								that is easier; the AI will read them from the write-up, then summarise into the
-								activity notes.
+								Write how it felt — GPS numbers are already in the prompt. Under each activity,
+								add session, cadence, and gear when Strava did not (or tap scores yourself). For
+								races, pin the result and add bib / results when prompted.
 							</span>
 							{runs.length > 0 &&
 								runs.map((r) => (
-									<DebriefFeelForm
-										key={r.slug}
-										run={r}
-										heading={
-											many
-												? `${r.date}${r.day ? ` · ${r.day}` : ''}${r.distance_km != null ? ` · ${r.distance_km} km` : ''}`
-												: undefined
-										}
-										writeup={writeups[r.slug] ?? ''}
-										onWriteupChange={(text) => setWriteup(r.slug, text)}
-										onSaved={refreshDebrief}
-									/>
+									<div key={r.slug}>
+										<DebriefFeelForm
+											run={r}
+											heading={
+												many
+													? `${r.date}${r.day ? ` · ${r.day}` : ''}${r.distance_km != null ? ` · ${r.distance_km} km` : ''}`
+													: undefined
+											}
+											writeup={writeups[r.slug] ?? ''}
+											gear={gear}
+											gearWear={gearWear}
+											onWriteupChange={(text) => setWriteup(r.slug, text)}
+											onSaved={refreshDebrief}
+										/>
+										{(() => {
+											const raceHint = debrief.raceBySlug[r.slug];
+											return raceHint ? (
+												<DebriefRacePanel
+													hint={raceHint}
+													runSlug={r.slug}
+													onSaved={refreshDebrief}
+												/>
+											) : null;
+										})()}
+									</div>
 								))}
 							{!runs.length && (
 								<p className={cn(ui.muted, 'mt-[0.4rem]')}>
@@ -808,8 +828,8 @@ function CoachPanels({
 							<strong>3. Copy the prompt</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
 								{includePlan
-									? 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary, any scores it read from your write-up, and the rest of the week. Attach Strava screenshots if you want extra context.'
-									: 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary and any scores it read from your write-up. The prompt also tells the AI to return an updated week if remaining sessions should change — even with “Include this week’s plan” off. Attach Strava screenshots if you want extra context.'}
+									? 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary, any scores it read from your write-up, and the rest of the week. Distance, time, elevation, and pace per km are already in the prompt — no screenshots.'
+									: 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary and any scores it read from your write-up. The prompt also tells the AI to return an updated week if remaining sessions should change — even with “Include this week’s plan” off. Distance, time, elevation, and pace per km are already in the prompt — no screenshots.'}
 							</span>
 							{debrief.error && !debriefPrompt && (
 								<p className={cn(ui.muted, 'mt-[0.4rem]')}>{debrief.error}</p>

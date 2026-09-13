@@ -1,11 +1,16 @@
 import { activityLabel, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
+import { gearKindForActivity, gearMetaForActivity, gearPickerOptions, type GearContext, type GearKind, type GearWear } from '$lib/gear';
 import { saveActivityFeel } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import { useState } from 'react';
 import { DeleteButton } from './DeleteButton';
 import { FeelChips, WantedFasterChips } from './FeelChips';
+import { GearField } from './GearField';
 import { Icon } from './Icon';
+import { Select } from './Select';
 import { errorMessage, useSnackbar } from './Snackbar';
+
+const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'race', 'other'];
 
 export type DebriefFeelRun = {
 	slug: string;
@@ -13,6 +18,9 @@ export type DebriefFeelRun = {
 	day?: string | null;
 	distance_km?: number | null;
 	activity_type?: string;
+	session?: string;
+	cadence?: number | null;
+	gear?: string;
 	effort?: number | null;
 	shins?: number | null;
 	legs?: number | null;
@@ -27,20 +35,27 @@ export function DebriefFeelForm({
 	run,
 	heading,
 	writeup,
+	gear,
+	gearWear,
 	onWriteupChange,
 	onSaved
 }: {
 	run: DebriefFeelRun;
 	heading?: string;
 	writeup: string;
+	gear: GearContext;
+	gearWear: Record<GearKind, Record<string, GearWear>>;
 	onWriteupChange: (text: string) => void;
 	onSaved: () => void | Promise<void>;
 }) {
 	const snack = useSnackbar();
 	const [busy, setBusy] = useState(false);
+	const [detailsOpen, setDetailsOpen] = useState(false);
 	const [scoresOpen, setScoresOpen] = useState(false);
 	const activityType = normalizeActivityType(run.activity_type ?? 'run');
 	const sport = activityLabel(activityType).toLowerCase();
+	const gearKind = gearKindForActivity(activityType);
+	const gearKindMeta = gearMetaForActivity(activityType);
 	const wantedStart =
 		run.wanted_faster === true ? 'Y' : run.wanted_faster === false ? 'N' : '';
 	const hasScores =
@@ -50,10 +65,16 @@ export function DebriefFeelForm({
 		run.energy != null ||
 		run.wanted_faster != null ||
 		(run.surface ?? '').trim() !== '';
+	const needsDetails =
+		(activityType === 'run' && (!run.session || run.session === 'other' || run.cadence == null)) ||
+		(showsField(activityType, 'gear') && !(run.gear ?? '').trim());
+	const hasDetails =
+		(activityType === 'run' && Boolean(run.session) && run.cadence != null) ||
+		(showsField(activityType, 'gear') && Boolean((run.gear ?? '').trim()));
 
 	async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
 		e.preventDefault();
-		if (!scoresOpen) return;
+		if (!detailsOpen && !scoresOpen) return;
 		const fd = new FormData(e.currentTarget);
 		const num = (k: string) => {
 			const v = String(fd.get(k) ?? '').trim();
@@ -68,18 +89,31 @@ export function DebriefFeelForm({
 			await saveActivityFeel({
 				data: {
 					slug: run.slug,
-					effort: num('effort'),
-					shins: num('shins'),
-					legs: num('legs'),
-					energy: num('energy'),
-					wanted_faster: wanted === 'Y' ? true : wanted === 'N' ? false : null,
-					...(showsField(activityType, 'surface') ? { surface } : {})
+					...(detailsOpen && activityType === 'run'
+						? {
+								session: String(fd.get('session') ?? run.session ?? 'other'),
+								cadence: num('cadence')
+							}
+						: {}),
+					...(detailsOpen && showsField(activityType, 'gear')
+						? { gear: String(fd.get('gear') ?? '') }
+						: {}),
+					...(scoresOpen
+						? {
+								effort: num('effort'),
+								shins: num('shins'),
+								legs: num('legs'),
+								energy: num('energy'),
+								wanted_faster: wanted === 'Y' ? true : wanted === 'N' ? false : null,
+								...(showsField(activityType, 'surface') ? { surface } : {})
+							}
+						: {})
 				}
 			});
-			snack.success('Saved scores.');
+			snack.success('Saved.');
 			await onSaved();
 		} catch (err) {
-			snack.error(errorMessage(err, 'Could not save scores.'));
+			snack.error(errorMessage(err, 'Could not save.'));
 		} finally {
 			setBusy(false);
 		}
@@ -100,9 +134,8 @@ export function DebriefFeelForm({
 				</span>
 				<span className={cn(ui.muted, 'font-normal')}>
 					Write it like you would in chat — as long as you want. Wind, surfaces, after-session
-					checks, questions for this week. It goes into the prompt as you type. You do not have
-					to pick numbers; the AI will read scores from this when you mention them, then
-					summarise it into the activity notes.
+					checks, questions for this week. GPS numbers are already in the prompt. The AI will read
+					scores from this when you mention them, then summarise it into the activity notes.
 				</span>
 				<textarea
 					name="writeup"
@@ -113,6 +146,64 @@ export function DebriefFeelForm({
 					rows={12}
 				/>
 			</label>
+
+			{(activityType === 'run' || showsField(activityType, 'gear')) && (
+				<>
+					<button
+						type="button"
+						className="appearance-none self-start bg-transparent border-0 p-0 min-h-11 text-accent-fg font-semibold cursor-pointer text-left"
+						aria-expanded={detailsOpen}
+						onClick={() => setDetailsOpen((open) => !open)}
+					>
+						{detailsOpen
+							? 'Hide details'
+							: needsDetails
+								? 'Add session, cadence, gear'
+								: hasDetails
+									? 'Change session, cadence, gear'
+									: 'Add session, cadence, gear'}
+					</button>
+					{detailsOpen && (
+						<div className={ui.formGrid}>
+							{activityType === 'run' && (
+								<label className={ui.field}>
+									<span>Session</span>
+									<Select
+										name="session"
+										defaultValue={run.session || 'other'}
+										aria-label="Session"
+										options={SESSIONS.map((s) => ({ value: s, label: s }))}
+									/>
+								</label>
+							)}
+							{activityType === 'run' && (
+								<label className={ui.field}>
+									<span>Cadence</span>
+									<input
+										name="cadence"
+										type="text"
+										inputMode="numeric"
+										placeholder="176"
+										defaultValue={run.cadence ?? ''}
+									/>
+								</label>
+							)}
+							{showsField(activityType, 'gear') && gearKind && gearKindMeta && (
+								<GearField
+									key={gearKind}
+									options={gearPickerOptions(gear[gearKind], run.gear ? [run.gear] : [])}
+									wear={gearWear[gearKind]}
+									defaultValue={run.gear ?? ''}
+									label={gearKindMeta.label}
+									placeholder={gearKindMeta.customPlaceholder}
+									activeHint={gearKindMeta.activeLabel.toLowerCase()}
+								/>
+							)}
+						</div>
+					)}
+				</>
+			)}
+
 			<button
 				type="button"
 				className="appearance-none self-start bg-transparent border-0 p-0 min-h-11 text-accent-fg font-semibold cursor-pointer text-left"
@@ -182,13 +273,16 @@ export function DebriefFeelForm({
 							/>
 						</label>
 					)}
-					<div className={ui.actions}>
-						<button className={ui.btnPrimary} type="submit" disabled={busy} aria-busy={busy}>
-							<Icon name="check" size={16} />
-							{busy ? 'Saving…' : 'Save scores'}
-						</button>
-					</div>
 				</>
+			)}
+
+			{(detailsOpen || scoresOpen) && (
+				<div className={ui.actions}>
+					<button className={ui.btnPrimary} type="submit" disabled={busy} aria-busy={busy}>
+						<Icon name="check" size={16} />
+						{busy ? 'Saving…' : 'Save'}
+					</button>
+				</div>
 			)}
 		</form>
 	);

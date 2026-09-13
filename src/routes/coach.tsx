@@ -835,7 +835,9 @@ function CoachPanels({
 						<li className={runs.length && debriefPrompt ? 'current' : undefined}>
 							<strong>3. Copy the prompt</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
-								{`Paste into ChatGPT. It will give advice first (including any questions you asked)${includePlan ? ', then JSON with a notes summary, any scores it read from your write-up, and the rest of the week' : ', then JSON with a notes summary and any scores it read from your write-up (and an updated week if remaining sessions should change)'}. Attach Strava screenshots if you want extra context.`}
+								{includePlan
+									? 'Paste into ChatGPT. It will give advice first (including any questions you asked), then JSON with a notes summary, any scores it read from your write-up, and the rest of the week. Attach Strava screenshots if you want extra context.'
+									: 'Paste into ChatGPT. It will give advice first (including any questions you asked), then JSON with a notes summary and any scores it read from your write-up. The prompt also tells ChatGPT to return an updated week if remaining sessions should change — even with “Include this week’s plan” off. Attach Strava screenshots if you want extra context.'}
 							</span>
 							{debrief.error && !debriefPrompt && (
 								<p className={cn(ui.muted, 'mt-[0.4rem]')}>{debrief.error}</p>

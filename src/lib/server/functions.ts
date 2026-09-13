@@ -1130,7 +1130,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const feelBlock = featured.map(formatFeelLogged).join('\n');
 		const job = includePlan
 			? `Coach from ${sessionWord}: how it went, recovery, and what to watch. Answer any questions I asked in What I wrote. Then update **this week** only if remaining sessions should change. Keep remaining sessions on their planned days unless recovery requires a shift — and if you move a day, say why. Keep non-run sessions unless recovery says otherwise.`
-			: `Coach from ${sessionWord}: how it went, recovery, and what to watch. Answer any questions I asked in What I wrote. This chat already has my week plan — use that, do not repeat it here. Update remaining sessions only if they should change.`;
+			: `Coach from ${sessionWord}: how it went, recovery, and what to watch. Answer any questions I asked in What I wrote. This chat already has my week plan — use that, do not repeat it here. If remaining sessions should change, include an updated \`week\` in your JSON reply (see When you reply).`;
 		const planSections = includePlan
 			? `
 ## Current week plan${week ? ` — week ${week.week} (${week.dates}) · ${week.phase} · ${week.focus}` : ''}
@@ -1159,7 +1159,7 @@ ${unplannedLines ? `## Unplanned activities this week\nThese logs did not match 
 - To drop a session, set \`"status": "skipped"\` (and why in \`detail\`). Unlogged ≠ skipped.
 - If the week is finished, return the same session rows unchanged — do not invent a completed status (\`status\` is only \`"skipped"\`).
 `
-			: `- If remaining sessions should change, include \`week\` using the format already in this chat (full week, \`activity_type\` on every session). Omit \`week\` if nothing ahead changes.
+			: `- **Week updates:** if anything still ahead should change, include \`week\` in the JSON (full week from this chat, \`activity_type\` on every session, keep completed/skipped rows as they were). Omit \`week\` only when nothing ahead changes.
 `;
 		const reply = `## When you reply
 Lead with coaching advice in prose (how ${sessionWord} went, recovery, and whether anything ahead should change). Answer any questions from What I wrote there. After the advice, output one fenced JSON object I can paste back — the JSON is what I save; the advice is not.

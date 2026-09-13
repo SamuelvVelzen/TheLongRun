@@ -2,26 +2,26 @@ import { useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
 import { composeDebriefPrompt } from '$lib/debrief';
 import {
-    formatAllWeeksClipboard,
-    formatWeekPlanClipboard,
-    isoDateLocal,
-    planWeekDateRange,
-    planWeekDateRangeShort
+	formatAllWeeksClipboard,
+	formatWeekPlanClipboard,
+	isoDateLocal,
+	planWeekDateRange,
+	planWeekDateRangeShort
 } from '$lib/plan';
 import {
-    getCoachBrief,
-    getCoachPlan,
-    getDebriefPrompt,
-    getWeekPattern,
-    saveDebrief,
-    savePlanWeeks,
-    saveWeekPattern
+	getCoachBrief,
+	getCoachPlan,
+	getDebriefPrompt,
+	getWeekPattern,
+	saveDebrief,
+	savePlanWeeks,
+	saveWeekPattern
 } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import {
-    formatPatternProse,
-    patternsEqual,
-    type WeekPattern
+	formatPatternProse,
+	patternsEqual,
+	type WeekPattern
 } from '$lib/week-mix';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
@@ -34,10 +34,10 @@ import { PageHero } from '../components/PageHero';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 import {
-    rowsFrom,
-    toPattern,
-    WeekPatternEditor,
-    type SlotRow
+	rowsFrom,
+	toPattern,
+	WeekPatternEditor,
+	type SlotRow
 } from '../components/WeekPatternEditor';
 import { WeekPlanBoard } from '../components/WeekPlanBoard';
 
@@ -168,19 +168,19 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 								value={selected}
 								onChange={(e) => setWeek(Number(e.target.value))}
 							>
-							{Array.from({ length: weekCount }, (_, i) => {
-								const n = i + 1;
-								const tag = weekTag(n, current, upcomingWeek);
-								const dates = planWeekDateRangeShort(n, planData.calendar);
-								const planned = byWeek.has(n);
-								return (
-									<option key={n} value={n}>
-										Week {n}
-										{tag ? ` · ${tag}` : ''} · {dates}
-										{planned ? '' : ' · no plan'}
-									</option>
-								);
-							})}
+								{Array.from({ length: weekCount }, (_, i) => {
+									const n = i + 1;
+									const tag = weekTag(n, current, upcomingWeek);
+									const dates = planWeekDateRangeShort(n, planData.calendar);
+									const planned = byWeek.has(n);
+									return (
+										<option key={n} value={n}>
+											Week {n}
+											{tag ? ` · ${tag}` : ''} · {dates}
+											{planned ? '' : ' · no plan'}
+										</option>
+									);
+								})}
 							</select>
 							<button
 								type="button"
@@ -380,16 +380,16 @@ function Coach() {
 						},
 						...(authed
 							? [
-									{
-										value: 'generate' as const,
-										label: (
-											<>
-												<Icon name="sparkle" size={15} />
-												Generate
-											</>
-										)
-									}
-								]
+								{
+									value: 'generate' as const,
+									label: (
+										<>
+											<Icon name="sparkle" size={15} />
+											Generate
+										</>
+									)
+								}
+							]
 							: []),
 						{
 							value: 'plan' as const,
@@ -402,17 +402,17 @@ function Coach() {
 						},
 						...(authed
 							? [
-									{
-										value: 'debrief' as const,
-										label: (
-											<>
-												<Icon name="flag" size={15} />
-												<span className="max-sm:hidden">After an activity</span>
-												<span className="hidden max-sm:inline">Activity</span>
-											</>
-										)
-									}
-								]
+								{
+									value: 'debrief' as const,
+									label: (
+										<>
+											<Icon name="flag" size={15} />
+											<span className="max-sm:hidden">After an activity</span>
+											<span className="hidden max-sm:inline">Activity</span>
+										</>
+									)
+								}
+							]
 							: [])
 					]}
 				/>
@@ -722,6 +722,14 @@ function CoachPanels({
 							</p>
 							<div className={cn(ui.actions, 'mt-[0.35rem]')}>
 								<button
+									className={ui.btnGhost}
+									type="button"
+									onClick={() => setUsual(rowsFrom(savedPattern))}
+									disabled={mixBusy}
+								>
+									Revert to saved
+								</button>
+								<button
 									className={ui.btnPrimary}
 									type="button"
 									onClick={saveDefaultMix}
@@ -730,14 +738,6 @@ function CoachPanels({
 								>
 									<Icon name={mixBusy ? 'calendar' : 'check'} size={16} />
 									{mixBusy ? 'Saving…' : 'Save as my default week'}
-								</button>
-								<button
-									className={ui.btnGhost}
-									type="button"
-									onClick={() => setUsual(rowsFrom(savedPattern))}
-									disabled={mixBusy}
-								>
-									Revert to saved
 								</button>
 							</div>
 						</>
@@ -887,32 +887,32 @@ function CoachPanels({
 									: 'A short notes summary for this activity, and an updated week if remaining sessions should change. Advice stays in the chat — only the JSON is saved.'}
 							</span>
 							{authed ? (
-							<div className={cn(ui.panel, ui.form, 'mt-3')}>
-								<label className={ui.field}>
-									<textarea
-										className={ui.editor}
-										rows={8}
-										placeholder={
-											includePlan
-												? '{ "feelings": { "slug": "…", "notes": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
-												: '{ "feelings": { "slug": "…", "notes": "…" } }'
-										}
-										value={debriefJson}
-										onChange={(e) => setDebriefJson(e.target.value)}
-									/>
-								</label>
-								<div className={ui.actions}>
-									<button
-										className={ui.btnPrimary}
-										type="button"
-										onClick={saveDebriefReply}
-										disabled={!debriefJson.trim()}
-									>
-										<Icon name="check" size={16} />
-										Save reply
-									</button>
+								<div className={cn(ui.panel, ui.form, 'mt-3')}>
+									<label className={ui.field}>
+										<textarea
+											className={ui.editor}
+											rows={8}
+											placeholder={
+												includePlan
+													? '{ "feelings": { "slug": "…", "notes": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
+													: '{ "feelings": { "slug": "…", "notes": "…" } }'
+											}
+											value={debriefJson}
+											onChange={(e) => setDebriefJson(e.target.value)}
+										/>
+									</label>
+									<div className={ui.actions}>
+										<button
+											className={ui.btnPrimary}
+											type="button"
+											onClick={saveDebriefReply}
+											disabled={!debriefJson.trim()}
+										>
+											<Icon name="check" size={16} />
+											Save reply
+										</button>
+									</div>
 								</div>
-							</div>
 							) : null}
 						</li>
 					</ol>

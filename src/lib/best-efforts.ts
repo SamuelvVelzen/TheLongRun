@@ -364,3 +364,34 @@ export function formatEffortTime(seconds: number): string {
 export function formatEffortPace(meters: number, seconds: number): string {
 	return formatPace(meters, seconds);
 }
+
+function parseEffortDate(iso: string): Date | null {
+	const d = new Date(`${iso}T12:00:00`);
+	return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** True when the board's ranked efforts are not all in the same calendar year. */
+export function effortBoardHasMixedYears(rows: BestEffortBoardRow[]): boolean {
+	const years = new Set<string>();
+	for (const row of rows) {
+		for (const entry of row.entries) {
+			const year = entry.date.slice(0, 4);
+			if (/^\d{4}$/.test(year)) years.add(year);
+		}
+	}
+	return years.size > 1;
+}
+
+/** Day + month, e.g. `14 Aug`. Year is omitted so a shared year does not steal space. */
+export function formatEffortDayMonth(iso: string): string {
+	const d = parseEffortDate(iso);
+	if (!d) return iso;
+	return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+/** Two-digit year, e.g. `26`, for boards that span more than one year. */
+export function formatEffortYear2(iso: string): string {
+	const d = parseEffortDate(iso);
+	if (!d) return '';
+	return d.toLocaleDateString('en-GB', { year: '2-digit' });
+}

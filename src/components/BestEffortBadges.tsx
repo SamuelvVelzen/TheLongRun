@@ -1,5 +1,10 @@
 import type { BestEffortBoardRow, EffortHighlight } from '$lib/best-efforts';
-import { formatEffortTime } from '$lib/best-efforts';
+import {
+	effortBoardHasMixedYears,
+	formatEffortDayMonth,
+	formatEffortTime,
+	formatEffortYear2
+} from '$lib/best-efforts';
 import { groupIdFromOwnerSlug, isGroupOwnerSlug as isGroupEffortSlug } from '$lib/group';
 import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
@@ -50,6 +55,29 @@ export function BestEffortBadges({
 	);
 }
 
+function EffortDate({
+	iso,
+	pace,
+	showYear
+}: {
+	iso: string;
+	pace?: string;
+	showYear: boolean;
+}) {
+	const dayMonth = formatEffortDayMonth(iso);
+	const year = showYear ? formatEffortYear2(iso) : '';
+	return (
+		<span
+			className={cn(ui.muted, 'leading-snug')}
+			title={pace ? `${iso} · ${pace}/km` : iso}
+		>
+			<span className="whitespace-nowrap">{dayMonth}</span>
+			{year ? <span className="tabular-nums"> {year}</span> : null}
+			{pace ? <span className="max-[720px]:hidden">{` · ${pace}/km`}</span> : null}
+		</span>
+	);
+}
+
 export function BestEffortBoard({
 	rows,
 	caption
@@ -58,6 +86,7 @@ export function BestEffortBoard({
 	caption?: string;
 }) {
 	if (!rows.length) return null;
+	const showYear = effortBoardHasMixedYears(rows);
 	return (
 		<div className={cn(ui.panel, 'mb-5')}>
 			<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
@@ -90,40 +119,34 @@ export function BestEffortBoard({
 										—
 									</span>
 								);
-							return (
-								isGroupEffortSlug(entry.slug) ? (
+							const body = (
+								<>
+									<b className="tabular-nums">{formatEffortTime(entry.seconds)}</b>
+									<EffortDate iso={entry.date} pace={entry.pace} showYear={showYear} />
+								</>
+							);
+							const className = cn(
+								'flex flex-col gap-[0.1rem] text-inherit no-underline min-w-0 hover:[&_b]:underline',
+								rankCell[rank]
+							);
+							return isGroupEffortSlug(entry.slug) ? (
 								<Link
 									key={rank}
-									className={cn(
-										'flex flex-col gap-[0.1rem] text-inherit no-underline min-w-0 hover:[&_b]:underline',
-										rankCell[rank]
-									)}
+									className={className}
 									to="/groups/$id"
 									params={{ id: groupIdFromOwnerSlug(entry.slug)! }}
 								>
-									<b className="tabular-nums">{formatEffortTime(entry.seconds)}</b>
-									<span className={cn(ui.muted, 'truncate')}>
-										{entry.date}
-										{entry.pace ? ` · ${entry.pace}/km` : ''}
-									</span>
+									{body}
 								</Link>
-								) : (
+							) : (
 								<Link
 									key={rank}
-									className={cn(
-										'flex flex-col gap-[0.1rem] text-inherit no-underline min-w-0 hover:[&_b]:underline',
-										rankCell[rank]
-									)}
+									className={className}
 									to="/runs/$slug"
 									params={{ slug: entry.slug }}
 								>
-									<b className="tabular-nums">{formatEffortTime(entry.seconds)}</b>
-									<span className={cn(ui.muted, 'truncate')}>
-										{entry.date}
-										{entry.pace ? ` · ${entry.pace}/km` : ''}
-									</span>
+									{body}
 								</Link>
-								)
 							);
 						})}
 					</div>

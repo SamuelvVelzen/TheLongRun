@@ -1,6 +1,7 @@
 import { formatGearKm, gearKey, type GearChipOption, type GearWear } from '$lib/gear';
 import { cn, ui } from '$lib/ui';
 import { useEffect, useId, useMemo, useState } from 'react';
+import { Select } from './Select';
 
 const OTHER = '__other__';
 
@@ -107,13 +108,10 @@ export function GearField({
 	return (
 		<label className={ui.field}>
 			{label ? <span>{label}</span> : null}
-			<select
+			<Select
 				value={selectValue}
 				aria-label={label || 'Gear'}
-				aria-expanded={customOpen}
-				aria-controls={customOpen ? customId : undefined}
-				onChange={(e) => {
-					const next = e.target.value;
+				onChange={(next) => {
 					if (next === OTHER) {
 						setCustomOpen(true);
 						setCustom('');
@@ -121,15 +119,15 @@ export function GearField({
 					}
 					select(next);
 				}}
-			>
-				<option value="">—</option>
-				{list.map((opt) => (
-					<option key={gearKey(opt.name)} value={opt.name}>
-						{optionLabel(opt, wear, activeHint)}
-					</option>
-				))}
-				<option value={OTHER}>Other…</option>
-			</select>
+				options={[
+					{ value: '', label: '—' },
+					...list.map((opt) => ({
+						value: opt.name,
+						label: optionLabel(opt, wear, activeHint)
+					})),
+					{ value: OTHER, label: 'Other…' }
+				]}
+			/>
 			{!immediate && (
 				<input
 					type="hidden"

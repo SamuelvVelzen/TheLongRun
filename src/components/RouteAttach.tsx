@@ -12,6 +12,7 @@ import { Link, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
 import { errorMessage, useSnackbar } from './Snackbar';
+import { Select } from './Select';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -126,12 +127,12 @@ export function RouteAttach({
 					{authed && planOptions.length > 0 && (
 						<label className={ui.field}>
 							<span>Add a plan day</span>
-							<select
+							<Select
 								disabled={busy}
-								defaultValue=""
-								onChange={(event) => {
-									const value = event.target.value;
-									event.target.value = '';
+								value=""
+								aria-label="Add a plan day"
+								placeholder="Upcoming session…"
+								onChange={(value) => {
 									if (!value) return;
 									const [week, day, label, activityType] = JSON.parse(value) as [
 										number,
@@ -151,17 +152,14 @@ export function RouteAttach({
 										})
 									);
 								}}
-							>
-								<option value="">Upcoming session…</option>
-								{planOptions.map((opt) => (
-									<option
-										key={planKey(opt.week, opt.day, opt.label, opt.activity_type)}
-										value={planKey(opt.week, opt.day, opt.label, opt.activity_type)}
-									>
-										{`W${opt.week} · ${opt.day}${opt.date ? ` ${shortDate(opt.date)}` : ''} · ${opt.label}${opt.distance_km != null ? ` ${opt.distance_km} km` : ''}${opt.taken_by ? ` · now ${opt.taken_by.name}` : ''}`}
-									</option>
-								))}
-							</select>
+								options={[
+									{ value: '', label: 'Upcoming session…' },
+									...planOptions.map((opt) => ({
+										value: planKey(opt.week, opt.day, opt.label, opt.activity_type),
+										label: `W${opt.week} · ${opt.day}${opt.date ? ` ${shortDate(opt.date)}` : ''} · ${opt.label}${opt.distance_km != null ? ` ${opt.distance_km} km` : ''}${opt.taken_by ? ` · now ${opt.taken_by.name}` : ''}`
+									}))
+								]}
+							/>
 						</label>
 					)}
 				</section>
@@ -224,25 +222,26 @@ export function RouteAttach({
 							</label>
 							<label className={ui.field}>
 								<span>Link an activity</span>
-								<select
+								<Select
 									disabled={busy || !filteredActivities.length}
-									defaultValue=""
-									onChange={(event) => {
-										const activity_slug = event.target.value;
-										event.target.value = '';
+									value=""
+									aria-label="Link an activity"
+									placeholder={filteredActivities.length ? 'Choose an activity…' : 'No matches'}
+									onChange={(activity_slug) => {
 										if (!activity_slug) return;
 										void run(() => attachPlannedRoute({ data: { slug, activity_slug } }));
 									}}
-								>
-									<option value="">
-										{filteredActivities.length ? 'Choose an activity…' : 'No matches'}
-									</option>
-									{filteredActivities.map((opt) => (
-										<option key={opt.slug} value={opt.slug}>
-											{`${opt.date} · ${activityLabel(opt.activity_type)}${opt.distance_km != null ? ` · ${opt.distance_km} km` : ''}${opt.taken_by ? ` · now ${opt.taken_by.name}` : ''}`}
-										</option>
-									))}
-								</select>
+									options={[
+										{
+											value: '',
+											label: filteredActivities.length ? 'Choose an activity…' : 'No matches'
+										},
+										...filteredActivities.map((opt) => ({
+											value: opt.slug,
+											label: `${opt.date} · ${activityLabel(opt.activity_type)}${opt.distance_km != null ? ` · ${opt.distance_km} km` : ''}${opt.taken_by ? ` · now ${opt.taken_by.name}` : ''}`
+										}))
+									]}
+								/>
 							</label>
 						</div>
 					)}

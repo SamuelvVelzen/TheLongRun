@@ -7,6 +7,7 @@ import { Link, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
 import { RouteChip } from './RouteChip';
+import { Select } from './Select';
 import { errorMessage, useSnackbar } from './Snackbar';
 
 function sortRoutesForSession(routes: SessionRouteRef[], targetKm: number | null) {
@@ -98,13 +99,12 @@ export function PlanSessionRoute({
 				(choices.length ? (
 					<label className={ui.field}>
 						<span>Route</span>
-						<select
+						<Select
 							disabled={busy}
-							defaultValue=""
+							value=""
 							aria-label={`Link a route to ${session.label}`}
-							onChange={(event) => {
-								const slug = event.target.value;
-								event.target.value = '';
+							placeholder="Link a route…"
+							onChange={(slug) => {
 								if (!slug) return;
 								void run(() =>
 									attachPlannedRoute({
@@ -118,14 +118,14 @@ export function PlanSessionRoute({
 									})
 								);
 							}}
-						>
-							<option value="">Link a route…</option>
-							{choices.map((route) => (
-								<option key={route.slug} value={route.slug}>
-									{optionLabel(route)}
-								</option>
-							))}
-						</select>
+							options={[
+								{ value: '', label: 'Link a route…' },
+								...choices.map((route) => ({
+									value: route.slug,
+									label: optionLabel(route)
+								}))
+							]}
+						/>
 					</label>
 				) : (
 					<p className={cn(ui.muted, 'm-0 text-[0.82rem]')}>

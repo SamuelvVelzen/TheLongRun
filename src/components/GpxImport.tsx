@@ -7,6 +7,7 @@ import { BestEffortBadges } from './BestEffortBadges';
 import { DeleteButton } from './DeleteButton';
 import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
+import { Select } from './Select';
 import { errorMessage, useSnackbar } from './Snackbar';
 
 export type GpxImportResult = {
@@ -171,18 +172,20 @@ export function GpxImport({
 
 			<label className={ui.field}>
 				<span>Activity type</span>
-				<select
+				<Select
 					value={activityType}
-					onChange={(e) => setActivityType(e.target.value)}
+					onChange={setActivityType}
 					disabled={busy}
-				>
-					<option value="">Auto-detect from file</option>
-					{ACTIVITY_TYPES.map((t) => (
-						<option key={t} value={t}>
-							{activityLabel(t)}
-						</option>
-					))}
-				</select>
+					aria-label="Activity type"
+					placeholder="Auto-detect from file"
+					options={[
+						{ value: '', label: 'Auto-detect from file' },
+						...ACTIVITY_TYPES.map((t) => ({
+							value: t,
+							label: activityLabel(t)
+						}))
+					]}
+				/>
 			</label>
 
 			<div className={ui.actions}>

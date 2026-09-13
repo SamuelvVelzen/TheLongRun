@@ -25,6 +25,7 @@ import { MedalDialog } from '../components/MedalDialog';
 import { PageHero } from '../components/PageHero';
 import { RouteLine } from '../components/RouteLine';
 import { SegmentedToggle } from '../components/SegmentedToggle';
+import { Select } from '../components/Select';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 
 type GoalsTab = 'races' | 'medals';
@@ -534,16 +535,19 @@ function PinRaceResult({
 			{candidates.length ? (
 				<label className={ui.field}>
 					<span>Activity</span>
-					<select value={pinSlug} onChange={(e) => setPinSlug(e.target.value)}>
-						{!pinSlug && <option value="">Pick the activity…</option>}
-						{candidates.map((c) => (
-							<option key={c.slug} value={c.slug}>
-								{c.date}
-								{c.time ? ` · ${c.time}` : ''}
-								{c.distance_km != null ? ` · ${c.distance_km} km` : ''}
-							</option>
-						))}
-					</select>
+					<Select
+						value={pinSlug}
+						onChange={setPinSlug}
+						aria-label="Activity"
+						placeholder="Pick the activity…"
+						options={[
+							...(!pinSlug ? [{ value: '', label: 'Pick the activity…' }] : []),
+							...candidates.map((c) => ({
+								value: c.slug,
+								label: `${c.date}${c.time ? ` · ${c.time}` : ''}${c.distance_km != null ? ` · ${c.distance_km} km` : ''}`
+							}))
+						]}
+					/>
 				</label>
 			) : (
 				<p className={cn(ui.muted, 'm-0')}>

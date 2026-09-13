@@ -1,5 +1,6 @@
 import { cn, ui } from '$lib/ui';
 import { useNavigate } from '@tanstack/react-router';
+import { Select } from './Select';
 
 type PlaceRun = { country?: string; province?: string; place?: string };
 
@@ -8,7 +9,7 @@ function distinct(arr: (string | undefined)[]) {
 }
 
 const filterLabel =
-	'inline-flex items-center gap-1 shrink-0 text-[0.8rem] max-sm:grid max-sm:gap-[0.3rem] max-sm:w-full [&_select]:w-auto [&_select]:min-h-11 [&_select]:px-3 [&_select]:py-2 [&_select]:rounded-lg [&_select]:text-[0.88rem] sm:[&_select]:min-h-9 sm:[&_select]:px-2 sm:[&_select]:py-1 sm:[&_select]:text-[0.82rem] max-sm:[&_select]:w-full';
+	'inline-flex items-center gap-1 shrink-0 text-[0.8rem] max-sm:grid max-sm:gap-[0.3rem] max-sm:w-full';
 
 /**
  * Cascading country / province / place selects. Options shrink as parents are chosen.
@@ -50,29 +51,28 @@ export function PlaceFilter({
 			{showCountry && (
 				<label className={filterLabel}>
 					<span className={ui.muted}>Country</span>
-					<select
+					<Select
+						size="compact"
 						value={country}
-						onChange={(e) =>
+						aria-label="Country"
+						onChange={(next) =>
 							navigate({
 								to,
 								replace: true,
 								resetScroll: false,
 								search: (prev: Record<string, unknown>) => ({
 									...prev,
-									country: e.target.value === 'all' ? undefined : e.target.value,
+									country: next === 'all' ? undefined : next,
 									province: undefined,
 									place: undefined
 								})
 							})
 						}
-					>
-						<option value="all">All countries</option>
-						{availableCountries.map((c) => (
-							<option key={c} value={c}>
-								{c}
-							</option>
-						))}
-					</select>
+						options={[
+							{ value: 'all', label: 'All countries' },
+							...availableCountries.map((c) => ({ value: c, label: c }))
+						]}
+					/>
 				</label>
 			)}
 			{showProvince && (
@@ -81,54 +81,52 @@ export function PlaceFilter({
 						<span className="sm:hidden">Province</span>
 						<span className="hidden sm:inline">Prov.</span>
 					</span>
-					<select
+					<Select
+						size="compact"
 						value={province}
-						onChange={(e) =>
+						aria-label="Province"
+						onChange={(next) =>
 							navigate({
 								to,
 								replace: true,
 								resetScroll: false,
 								search: (prev: Record<string, unknown>) => ({
 									...prev,
-									province: e.target.value === 'all' ? undefined : e.target.value,
+									province: next === 'all' ? undefined : next,
 									place: undefined
 								})
 							})
 						}
-					>
-						<option value="all">All provinces</option>
-						{availableProvinces.map((p) => (
-							<option key={p} value={p}>
-								{p}
-							</option>
-						))}
-					</select>
+						options={[
+							{ value: 'all', label: 'All provinces' },
+							...availableProvinces.map((p) => ({ value: p, label: p }))
+						]}
+					/>
 				</label>
 			)}
 			{showPlace && (
 				<label className={filterLabel}>
 					<span className={ui.muted}>Place</span>
-					<select
+					<Select
+						size="compact"
 						value={place}
-						onChange={(e) =>
+						aria-label="Place"
+						onChange={(next) =>
 							navigate({
 								to,
 								replace: true,
 								resetScroll: false,
 								search: (prev: Record<string, unknown>) => ({
 									...prev,
-									place: e.target.value === 'all' ? undefined : e.target.value
+									place: next === 'all' ? undefined : next
 								})
 							})
 						}
-					>
-						<option value="all">All places</option>
-						{availablePlaces.map((p) => (
-							<option key={p} value={p}>
-								{p}
-							</option>
-						))}
-					</select>
+						options={[
+							{ value: 'all', label: 'All places' },
+							...availablePlaces.map((p) => ({ value: p, label: p }))
+						]}
+					/>
 				</label>
 			)}
 		</div>

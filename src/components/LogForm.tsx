@@ -12,6 +12,7 @@ import { ChoiceChips } from './ChoiceChips';
 import { FeelChips, WantedFasterChips } from './FeelChips';
 import { Icon, sportChipLabel } from './Icon';
 import { GearField } from './GearField';
+import { Select } from './Select';
 import { errorMessage, useSnackbar } from './Snackbar';
 import { StrengthEditor } from './StrengthEditor';
 import { WeatherField } from './WeatherField';
@@ -163,13 +164,12 @@ export function LogForm({
 						{activityType === 'run' && (
 							<label className={ui.field}>
 								<span>Session</span>
-								<select name="session" defaultValue={defaultSession}>
-									{SESSIONS.map((s) => (
-										<option key={s} value={s}>
-											{s}
-										</option>
-									))}
-								</select>
+								<Select
+									name="session"
+									defaultValue={defaultSession}
+									aria-label="Session"
+									options={SESSIONS.map((s) => ({ value: s, label: s }))}
+								/>
 							</label>
 						)}
 					</div>

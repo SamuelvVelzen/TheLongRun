@@ -37,6 +37,7 @@ import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
 import { PageHero } from '../components/PageHero';
 import { SegmentedToggle } from '../components/SegmentedToggle';
+import { Select } from '../components/Select';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 import {
 	rowsFrom,
@@ -167,26 +168,22 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 							>
 								<Icon name="arrow" size={18} className="rotate-180" />
 							</button>
-							<select
+							<Select
 								aria-label="Plan week"
 								className="flex-1"
-								value={selected}
-								onChange={(e) => setWeek(Number(e.target.value))}
-							>
-								{Array.from({ length: weekCount }, (_, i) => {
+								value={String(selected)}
+								onChange={(next) => setWeek(Number(next))}
+								options={Array.from({ length: weekCount }, (_, i) => {
 									const n = i + 1;
 									const tag = weekTag(n, current, upcomingWeek);
 									const dates = planWeekDateRangeShort(n, planData.calendar);
 									const planned = byWeek.has(n);
-									return (
-										<option key={n} value={n}>
-											Week {n}
-											{tag ? ` · ${tag}` : ''} · {dates}
-											{planned ? '' : ' · no plan'}
-										</option>
-									);
+									return {
+										value: String(n),
+										label: `Week ${n}${tag ? ` · ${tag}` : ''} · ${dates}${planned ? '' : ' · no plan'}`
+									};
 								})}
-							</select>
+							/>
 							<button
 								type="button"
 								className={cn(ui.btnGhost, ui.btnIcon)}

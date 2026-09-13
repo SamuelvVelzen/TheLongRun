@@ -7,6 +7,7 @@ import { cn, ui } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { errorMessage, useSnackbar } from './Snackbar';
+import { Select } from './Select';
 import { WaypointEditor } from './WaypointEditor';
 
 export type GpsRepairRouteOption = {
@@ -177,19 +178,23 @@ export function GpsRepair({
 								<div className="mt-3 grid gap-3">
 									<label className={ui.field}>
 										<span>Planned route</span>
-										<select
+										<Select
 											value={plannedSlug}
 											disabled={busy}
-											onChange={(event) => setPlannedSlug(event.target.value)}
-										>
-											<option value="">Choose a route…</option>
-											{repairRoutes.map((route) => (
-												<option key={route.slug} value={route.slug}>
-													{route.name}
-													{route.distance_km != null ? ` · ${route.distance_km} km` : ''}
-												</option>
-											))}
-										</select>
+											aria-label="Planned route"
+											placeholder="Choose a route…"
+											onChange={setPlannedSlug}
+											options={[
+												{ value: '', label: 'Choose a route…' },
+												...repairRoutes.map((route) => ({
+													value: route.slug,
+													label:
+														route.distance_km != null
+															? `${route.name} · ${route.distance_km} km`
+															: route.name
+												}))
+											]}
+										/>
 									</label>
 									<button
 										className={cn(ui.btnGhost, ui.btnSm)}

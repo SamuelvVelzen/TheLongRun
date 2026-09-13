@@ -40,6 +40,7 @@ import { PageHero } from '../components/PageHero';
 import { RouteChip } from '../components/RouteChip';
 import { RouteMap } from '../components/RouteMap';
 import { GearField } from '../components/GearField';
+import { Select } from '../components/Select';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 import { SplitsPanel } from '../components/SplitsPanel';
 import { StrengthEditor } from '../components/StrengthEditor';
@@ -629,28 +630,26 @@ function RunDetail() {
 						</label>
 						<label className={ui.field}>
 							<span className={ui.req}>Activity</span>
-							<select
+							<Select
 								name="activity_type"
 								value={editActivity}
-								onChange={(e) => setEditActivity(e.target.value)}
-							>
-								{ACTIVITY_TYPES.map((t) => (
-									<option key={t} value={t}>
-										{activityLabel(t)}
-									</option>
-								))}
-							</select>
+								onChange={setEditActivity}
+								aria-label="Activity"
+								options={ACTIVITY_TYPES.map((t) => ({
+									value: t,
+									label: activityLabel(t)
+								}))}
+							/>
 						</label>
 						{editActivity === 'run' && (
 							<label className={ui.field}>
 								<span>Session</span>
-								<select name="session" defaultValue={r.session}>
-									{sessions.map((s) => (
-										<option key={s} value={s}>
-											{s}
-										</option>
-									))}
-								</select>
+								<Select
+									name="session"
+									defaultValue={r.session || 'easy'}
+									aria-label="Session"
+									options={sessions.map((s) => ({ value: s, label: s }))}
+								/>
 							</label>
 						)}
 					</div>

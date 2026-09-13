@@ -19,8 +19,9 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { ChoiceChips } from '../components/ChoiceChips';
 import { DeferredData } from '../components/DeferredData';
-import { ConfirmDialog, Dialog } from '../components/Dialog';
+import { ConfirmDialog } from '../components/Dialog';
 import { Icon, sportChipLabel } from '../components/Icon';
+import { MedalDialog } from '../components/MedalDialog';
 import { PageHero } from '../components/PageHero';
 import { RouteLine } from '../components/RouteLine';
 import { SegmentedToggle } from '../components/SegmentedToggle';
@@ -443,48 +444,15 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 				</>
 			)}
 
-			<Dialog
+			<MedalDialog
 				open={openMedal != null}
-				title={openMedal?.name ?? 'Medal'}
+				goal={openMedal}
+				track={openMedal ? data.medalTracks[openMedal.id] : undefined}
+				activity={openMedal ? data.medalActivities[openMedal.id] : undefined}
+				authed={authed}
 				onClose={() => setOpenMedal(null)}
-			>
-				{openMedal && (
-					<div className="grid gap-3">
-						<p className="font-display font-bold text-[2.4rem] tracking-[-0.04em] text-accent-fg m-0 leading-none">
-							{openMedal.result?.time || '—'}
-						</p>
-						<p className={cn(ui.muted, 'm-0')}>
-							{formatRaceDate(openMedal.date)}
-							{openMedal.result?.distance_km != null
-								? ` · ${openMedal.result.distance_km} km`
-								: ` · ${openMedal.distance_km} km`}
-							{openMedal.result?.pace ? ` · ${openMedal.result.pace}/km` : ''}
-						</p>
-						<GoalUrlLinks url={openMedal.url} itineraryUrl={openMedal.itinerary_url} />
-						{openMedal.time_goal ? <p className="m-0">Time goal was {openMedal.time_goal}.</p> : null}
-						{openMedal.primary.length > 0 && (
-							<ul className="m-0 pl-[1.1rem]">
-								{openMedal.primary.map((p) => (
-									<li key={p}>{p}</li>
-								))}
-							</ul>
-						)}
-						{openMedal.notes ? <p className={cn(ui.muted, 'm-0 whitespace-pre-wrap')}>{openMedal.notes}</p> : null}
-						{openMedal.result?.activity_slug && (
-							<div className={ui.actions}>
-								<Link
-									className={ui.btnPrimary}
-									to="/runs/$slug"
-									params={{ slug: openMedal.result.activity_slug }}
-									onClick={() => setOpenMedal(null)}
-								>
-									Open activity
-								</Link>
-							</div>
-						)}
-					</div>
-				)}
-			</Dialog>
+				onSaved={() => router.invalidate()}
+			/>
 
 			<ConfirmDialog
 				open={pendingRemove != null}

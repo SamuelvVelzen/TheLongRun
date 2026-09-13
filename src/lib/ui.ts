@@ -78,6 +78,8 @@ export const ui = {
 	dialogBackdrop: 'absolute inset-0 bg-black/55',
 	dialogPanel:
 		'relative z-[1] flex w-full max-h-[min(88dvh,100%)] flex-col gap-4 overflow-y-auto [overscroll-behavior:contain] border border-line border-b-0 rounded-t-box bg-surface p-[1.15rem_1.2rem_calc(1.15rem+env(safe-area-inset-bottom,0px))] shadow-lift sm:max-w-[26rem] sm:border-b sm:rounded-box sm:p-[1.25rem_1.35rem]',
+	dialogPanelMedal:
+		'sm:max-w-[min(34rem,100%)]! sm:p-[1.35rem_1.5rem]!',
 	statusPill:
 		'inline-flex items-center gap-1 shrink-0 px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] tracking-[0.06em] uppercase font-bold',
 	routeChip:

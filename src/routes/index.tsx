@@ -2,6 +2,7 @@ import {
     activityLabel,
     activityListHeading,
     activityPlural,
+    activitySub,
     hasContext,
     metricText,
     normalizeActivityType,
@@ -72,25 +73,6 @@ export const Route = createFileRoute('/')({
 function fmt(n: number | null, digits = 1) {
 	if (n == null) return '—';
 	return n.toFixed(digits);
-}
-
-function compactRunSub(run: {
-	day: string;
-	session: string;
-	week: number | null;
-	avg_hr: number | null;
-	elev_gain: number | null;
-	activity_type: string;
-}) {
-	const parts: string[] = [];
-	if (run.day) parts.push(run.day.slice(0, 3));
-	if (run.session && run.session !== 'other') parts.push(run.session);
-	if (run.week != null) parts.push(`W${run.week}`);
-	if (run.avg_hr != null) parts.push(`HR ${run.avg_hr}`);
-	if (run.elev_gain != null && showsField(run.activity_type, 'elevation')) {
-		parts.push(`↑ ${run.elev_gain} m`);
-	}
-	return parts.join(' · ');
 }
 
 function shinLabel(s: DashboardStats) {
@@ -652,7 +634,7 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 													: metricText(item.run)}
 											</span>
 											<span className={cn(ui.muted, 'text-[0.8rem] col-span-full max-sm:text-[0.76rem]')}>
-												{compactRunSub(item.run)}
+												{activitySub(item.run)}
 											</span>
 										</span>
 									</Link>

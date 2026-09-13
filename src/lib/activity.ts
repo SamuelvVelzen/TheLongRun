@@ -1,4 +1,5 @@
 import { parseDurationSeconds } from '$lib/format';
+import { parseStrengthNotes } from '$lib/strength';
 import type { RunRecord } from '$lib/types';
 
 export type ActivityType = 'run' | 'walk' | 'ride' | 'strength';
@@ -167,16 +168,86 @@ export function paceFieldLabel(_activity: string | null | undefined): string {
 
 export type HeadlineMetric = { value: string; unit: string };
 
+type HeadlineRun = Pick<
+	RunRecord,
+	'activity_type' | 'avg_pace' | 'distance_km' | 'time' | 'elapsed_time'
+> & {
+	notes?: string;
+};
+
+function strengthDuration(run: Pick<RunRecord, 'time' | 'elapsed_time'>): string {
+	return run.time?.trim() || run.elapsed_time?.trim() || '';
+}
+
+function strengthHeadlineFallback(run: { notes?: string }): string {
+	const { exercises } = parseStrengthNotes(run.notes);
+	if (exercises.length === 1) return exercises[0]!.name;
+	if (exercises.length > 1) return `${exercises.length} lifts`;
+	return '';
+}
+
+function feelSubParts(
+	run: Pick<RunRecord, 'activity_type' | 'effort' | 'legs' | 'energy'>
+): string[] {
+	const parts: string[] = [];
+	if (showsFeel(run.activity_type, 'effort') && run.effort != null) {
+		parts.push(`effort ${run.effort}`);
+	}
+	if (showsFeel(run.activity_type, 'legs') && run.legs != null) {
+		parts.push(`legs ${run.legs}`);
+	}
+	if (showsFeel(run.activity_type, 'energy') && run.energy != null) {
+		parts.push(`energy ${run.energy}`);
+	}
+	return parts;
+}
+
+/** Compact subtitle for dashboard / list rows, e.g. "Wed · easy · W6 · HR 156". */
+export function activitySub(
+	run: Pick<
+		RunRecord,
+		| 'day'
+		| 'session'
+		| 'week'
+		| 'avg_hr'
+		| 'elev_gain'
+		| 'activity_type'
+		| 'effort'
+		| 'legs'
+		| 'energy'
+		| 'notes'
+	>
+): string {
+	const parts: string[] = [];
+	if (run.day) parts.push(String(run.day).slice(0, 3));
+	if (run.session && run.session !== 'other') parts.push(run.session);
+	if (run.week != null) parts.push(`W${run.week}`);
+
+	if (normalizeActivityType(run.activity_type) === 'strength') {
+		parts.push(...feelSubParts(run));
+		const { exercises } = parseStrengthNotes(run.notes);
+		if (exercises.length === 1) parts.push(exercises[0]!.name);
+		else if (exercises.length > 1) parts.push(`${exercises.length} lifts`);
+		return parts.join(' · ');
+	}
+
+	if (run.avg_hr != null) parts.push(`HR ${run.avg_hr}`);
+	if (run.elev_gain != null && showsField(run.activity_type, 'elevation')) {
+		parts.push(`↑ ${run.elev_gain} m`);
+	}
+	return parts.join(' · ');
+}
+
 /** Sport-appropriate headline pace/speed: pace/km (run, walk), km/h (ride). */
-export function headlineMetric(
-	run: Pick<RunRecord, 'activity_type' | 'avg_pace' | 'distance_km' | 'time'>
-): HeadlineMetric {
+export function headlineMetric(run: HeadlineRun): HeadlineMetric {
 	const t = normalizeActivityType(run.activity_type);
 	const sec = parseDurationSeconds(run.time);
 
 	if (t === 'strength') {
-		// No distance/pace — the headline is the session duration.
-		return { value: run.time || '—', unit: '' };
+		const dur = strengthDuration(run);
+		if (dur) return { value: dur, unit: '' };
+		const fallback = strengthHeadlineFallback(run);
+		return { value: fallback || '—', unit: '' };
 	}
 
 	if (t === 'ride') {
@@ -190,9 +261,7 @@ export function headlineMetric(
 }
 
 /** Compact one-string headline metric for list rows, e.g. "6:27/km", "24.3 km/h". */
-export function metricText(
-	run: Pick<RunRecord, 'activity_type' | 'avg_pace' | 'distance_km' | 'time'>
-): string {
+export function metricText(run: HeadlineRun): string {
 	const m = headlineMetric(run);
 	return m.unit === 'km/h' ? `${m.value} km/h` : `${m.value}${m.unit}`;
 }

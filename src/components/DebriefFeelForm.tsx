@@ -2,6 +2,7 @@ import { activityLabel, normalizeActivityType, showsFeel, showsField } from '$li
 import { saveActivityFeel } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import { useState } from 'react';
+import { DeleteButton } from './DeleteButton';
 import { FeelChips, WantedFasterChips } from './FeelChips';
 import { Icon } from './Icon';
 import { errorMessage, useSnackbar } from './Snackbar';
@@ -88,7 +89,15 @@ export function DebriefFeelForm({
 		<form className={cn(ui.panel, ui.form, 'mt-3')} onSubmit={onSubmit}>
 			{heading ? <h3 className="m-0">{heading}</h3> : null}
 			<label className={ui.field}>
-				<span>What happened</span>
+				<span className="flex items-center justify-between gap-2">
+					What happened
+					<DeleteButton
+						label="Clear write-up"
+						compact
+						disabled={!writeup}
+						onClick={() => onWriteupChange('')}
+					/>
+				</span>
 				<span className={cn(ui.muted, 'font-normal')}>
 					Write it like you would in chat — as long as you want. Wind, surfaces, after-session
 					checks, questions for this week. It goes into the prompt as you type. You do not have

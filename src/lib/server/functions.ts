@@ -1966,7 +1966,7 @@ async function mergePlanWeeks(incoming: PlanWeek[]): Promise<{ weeks: number; up
 
 async function applyFeelingsRows(
 	rows: Record<string, unknown>[]
-): Promise<{ updated: number; missing: string[] }> {
+): Promise<{ updated: number; updatedSlugs: string[]; missing: string[] }> {
 	const score = (v: unknown, lo: number, hi: number): number | null => {
 		const n = Number(v);
 		if (!Number.isFinite(n)) return null;
@@ -1989,7 +1989,7 @@ async function applyFeelingsRows(
 		const ok = await updateRunFeelings(slug, patch);
 		(ok ? updated : missing).push(slug);
 	}
-	return { updated: updated.length, missing };
+	return { updated: updated.length, updatedSlugs: updated, missing };
 }
 
 function feelingsRowsFrom(parsed: unknown): Record<string, unknown>[] {
@@ -2036,10 +2036,11 @@ export const saveDebrief = createServerFn({ method: 'POST' }).middleware([requir
 		}
 		const feelings = rows.length
 			? await applyFeelingsRows(rows)
-			: { updated: 0, missing: [] as string[] };
+			: { updated: 0, updatedSlugs: [] as string[], missing: [] as string[] };
 		const plan = weeks.length ? await mergePlanWeeks(weeks) : { weeks: 0, updated: [] as number[] };
 		return {
 			feelingsUpdated: feelings.updated,
+			feelingsUpdatedSlugs: feelings.updatedSlugs,
 			feelingsMissing: feelings.missing,
 			planWeeks: plan.weeks,
 			planUpdated: plan.updated

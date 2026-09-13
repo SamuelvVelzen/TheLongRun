@@ -109,8 +109,9 @@ export function GpxImport({
 			snack.error(fail[0]?.message ?? 'Import failed');
 		}
 		if (ok.length) {
-			await router.invalidate();
+			// Update route search (Coach debrief slug) before invalidating cached loaders.
 			onImported?.(ok);
+			void router.invalidate();
 		}
 	}
 

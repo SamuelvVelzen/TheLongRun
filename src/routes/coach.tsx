@@ -2,6 +2,11 @@ import { useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
 import { composeDebriefPrompt } from '$lib/debrief';
 import {
+	clearDebriefWriteups,
+	readDebriefWriteups,
+	writeDebriefWriteups
+} from '$lib/debrief-writeups';
+import {
 	formatAllWeeksClipboard,
 	formatWeekPlanClipboard,
 	isoDateLocal,
@@ -465,7 +470,7 @@ function CoachPanels({
 	const [planJson, setPlanJson] = useState('');
 
 	const [debrief, setDebrief] = useState(initialDebrief);
-	const [writeups, setWriteups] = useState<Record<string, string>>({});
+	const [writeups, setWriteups] = useState(readDebriefWriteups);
 	const [debriefPrompt, setDebriefPrompt] = useState(() =>
 		composeDebriefPrompt(
 			initialDebrief.prompt,
@@ -491,22 +496,6 @@ function CoachPanels({
 	useEffect(() => {
 		setDebrief(initialDebrief);
 	}, [initialDebrief]);
-
-	useEffect(() => {
-		try {
-			const raw = sessionStorage.getItem('coach-debrief-writeups');
-			if (!raw) return;
-			const parsed = JSON.parse(raw) as unknown;
-			if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
-			const stored: Record<string, string> = {};
-			for (const [k, v] of Object.entries(parsed)) {
-				if (typeof v === 'string') stored[k] = v;
-			}
-			setWriteups((prev) => ({ ...stored, ...prev }));
-		} catch {
-			/* ignore */
-		}
-	}, []);
 
 	// Soft slug updates (e.g. after GPX import) refresh the prompt without remounting the page.
 	const slugHydrated = useRef<string | null>(null);
@@ -559,22 +548,8 @@ function CoachPanels({
 				: '';
 			snack.success(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
 			setDebriefJson('');
-			if (res.feelingsUpdated) {
-				setWriteups((prev) => {
-					const next = { ...prev };
-					const featured = debrief.runs?.length
-						? debrief.runs
-						: debrief.run
-							? [debrief.run]
-							: [];
-					for (const r of featured) delete next[r.slug];
-					try {
-						sessionStorage.setItem('coach-debrief-writeups', JSON.stringify(next));
-					} catch {
-						/* ignore */
-					}
-					return next;
-				});
+			if (res.feelingsUpdatedSlugs.length) {
+				setWriteups((prev) => clearDebriefWriteups(res.feelingsUpdatedSlugs, prev));
 			}
 			router.invalidate();
 		} catch (e) {
@@ -589,12 +564,10 @@ function CoachPanels({
 
 	function setWriteup(slugKey: string, text: string) {
 		setWriteups((prev) => {
-			const next = { ...prev, [slugKey]: text };
-			try {
-				sessionStorage.setItem('coach-debrief-writeups', JSON.stringify(next));
-			} catch {
-				/* ignore */
-			}
+			const next = { ...prev };
+			if (text) next[slugKey] = text;
+			else delete next[slugKey];
+			writeDebriefWriteups(next);
 			return next;
 		});
 	}

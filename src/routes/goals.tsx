@@ -22,6 +22,7 @@ import { DeferredData } from '../components/DeferredData';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { Icon, sportChipLabel } from '../components/Icon';
 import { PageHero } from '../components/PageHero';
+import { RouteLine } from '../components/RouteLine';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 
@@ -390,31 +391,44 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 				<>
 					{data.medals.length ? (
 						<div className="grid gap-3 min-[640px]:grid-cols-2">
-							{data.medals.map((g) => (
-								<button
-									key={g.id}
-									type="button"
-									className={cn(
-										ui.panel,
-										'text-left cursor-pointer transition-[border-color,transform] duration-150 hover:border-accent/40 hover:-translate-y-px'
-									)}
-									onClick={() => setOpenMedal(g)}
-								>
-									<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
-										<Icon name="trophy" size={14} />
-										Medal
-									</p>
-									<h3 className="font-display text-[1.35rem] tracking-[-0.03em] m-0 mt-1">{g.name}</h3>
-									<p className="font-display font-bold text-[2.1rem] tracking-[-0.04em] text-accent-fg m-0 mt-2 leading-none">
-										{g.result?.time || '—'}
-									</p>
-									<p className={cn(ui.muted, 'm-0 mt-2')}>
-										{formatRaceDate(g.date)}
-										{g.result?.distance_km != null ? ` · ${g.result.distance_km} km` : ` · ${g.distance_km} km`}
-										{g.result?.pace ? ` · ${g.result.pace}/km` : ''}
-									</p>
-								</button>
-							))}
+							{data.medals.map((g) => {
+								const track = data.medalTracks[g.id];
+								return (
+									<button
+										key={g.id}
+										type="button"
+										className={cn(
+											ui.panel,
+											'text-left cursor-pointer transition-[border-color,transform] duration-150 hover:border-accent/40 hover:-translate-y-px flex items-stretch justify-between gap-3'
+										)}
+										onClick={() => setOpenMedal(g)}
+									>
+										<div className="min-w-0 flex-1">
+											<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
+												<Icon name="trophy" size={14} />
+												Medal
+											</p>
+											<h3 className="font-display text-[1.35rem] tracking-[-0.03em] m-0 mt-1">{g.name}</h3>
+											<p className="font-display font-bold text-[2.1rem] tracking-[-0.04em] text-accent-fg m-0 mt-2 leading-none">
+												{g.result?.time || '—'}
+											</p>
+											<p className={cn(ui.muted, 'm-0 mt-2')}>
+												{formatRaceDate(g.date)}
+												{g.result?.distance_km != null
+													? ` · ${g.result.distance_km} km`
+													: ` · ${g.distance_km} km`}
+												{g.result?.pace ? ` · ${g.result.pace}/km` : ''}
+											</p>
+										</div>
+										{track && (
+											<RouteLine
+												coords={track}
+												className="shrink-0 self-center text-accent/35"
+											/>
+										)}
+									</button>
+								);
+							})}
 						</div>
 					) : (
 						<section className={ui.panel}>

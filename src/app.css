@@ -39,6 +39,31 @@
 	}
 }
 
+@keyframes confetti-fall {
+	0% {
+		opacity: 1;
+		transform: translate3d(0, -8%, 0) rotate(0deg);
+	}
+	100% {
+		opacity: 0;
+		transform: translate3d(0, 110vh, 0) rotate(540deg);
+	}
+}
+
+.confetti-burst {
+	z-index: 2;
+}
+
+.confetti-piece {
+	position: absolute;
+	top: -0.5rem;
+	border-radius: 1px;
+	opacity: 0;
+	animation-name: confetti-fall;
+	animation-timing-function: cubic-bezier(0.22, 0.55, 0.35, 1);
+	animation-fill-mode: forwards;
+}
+
 :root,
 [data-theme='dark'] {
 	--canvas: #10140f;

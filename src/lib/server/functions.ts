@@ -1,9 +1,11 @@
-import { ACTIVITY_TYPES, activityCount, activityLabel, activityPlural, metricText, normalizeActivityType, showsFeel } from '$lib/activity';
+import { ACTIVITY_TYPES, activityCount, activityLabel, activityPlural, metricText, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
 import { combinedActivityGpx, combinedActivityTcx, memberActivityGpx, safeFilename } from '$lib/activity-export';
 import {
     computeBestEffortsFromSplits,
     computeBestEffortsFromTrack,
+    distanceLabel,
     effortsEqual,
+    formatEffortTime,
     highlightsForActivity,
     mergeMissingBestEfforts,
     missingEffortKeys,
@@ -27,6 +29,7 @@ import {
     type GearKind
 } from '$lib/gear';
 import {
+	activityLooksLikeRace,
 	canPinRaceResult,
 	normalizeGoalInput,
 	normalizeGoalUrl,
@@ -168,6 +171,7 @@ import {
 import {
     getRouteGeoJson,
     listRouteEffortSources,
+    loadRouteAnalytics,
     routeIdForRun,
     saveRouteGeoJson
 } from './route-analytics';
@@ -1007,6 +1011,70 @@ function formatRunBriefLine(r: RunRecord): string {
 	return `- ${r.date} (${r.day || '—'}) ${activityLabel(r.activity_type)}${km} · ${metricText(r)} · HR ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} · feel ${feel}${notes ? ` · ${notes}` : ''} · slug \`${r.slug}\``;
 }
 
+function formatKmSplitsLine(splits: RouteAnalytics['splits']): string {
+	if (!splits.length) return '';
+	const bits = splits.map((s) => {
+		const km = s.isPartial ? s.distanceKm.toFixed(2) : String(s.km);
+		const pace = s.pace || '—';
+		const hr = s.avgHr != null ? ` HR${s.avgHr}` : '';
+		return `${km} ${pace}${hr}`;
+	});
+	return `Pace per km: ${bits.join(' · ')}`;
+}
+
+function formatHrZonesLine(analytics: RouteAnalytics | null): string {
+	const zones = analytics?.hrZones;
+	const dist = zones?.distribution;
+	if (!zones || !dist?.length) return '';
+	const bits = dist.filter((z) => z.pct > 0).map((z) => `Z${z.zone} ${z.pct}%`);
+	if (!bits.length) return '';
+	return `HR zones (HRmax ${zones.hrMax}): ${bits.join(' · ')}`;
+}
+
+function formatBestEffortsLine(r: RunRecord): string {
+	if (!supportsBestEfforts(r.activity_type) || !r.best_efforts?.length) return '';
+	const bits = [...r.best_efforts]
+		.sort((a, b) => a.meters - b.meters)
+		.map((e) => `${distanceLabel(e.key)} ${formatEffortTime(e.seconds)}`);
+	return bits.length ? `Best efforts: ${bits.join(' · ')}` : '';
+}
+
+function formatDebriefGpsFacts(r: RunRecord): string {
+	const t = normalizeActivityType(r.activity_type);
+	const parts: string[] = [];
+	if (t !== 'strength' && r.distance_km != null) parts.push(`${r.distance_km} km`);
+	if (r.time) parts.push(`moving ${r.time}`);
+	if (r.elapsed_time && r.elapsed_time !== r.time) parts.push(`elapsed ${r.elapsed_time}`);
+	if (t === 'ride') {
+		const speed = metricText(r);
+		if (speed && !speed.startsWith('—')) parts.push(speed);
+	} else if (showsField(r.activity_type, 'pace') && r.avg_pace) {
+		parts.push(`${r.avg_pace}/km`);
+	}
+	if (showsField(r.activity_type, 'elevation') && r.elev_gain != null) {
+		parts.push(`+${r.elev_gain} m`);
+	}
+	if (showsField(r.activity_type, 'hr') && (r.avg_hr != null || r.max_hr != null)) {
+		parts.push(`HR ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'}`);
+	}
+	if (showsField(r.activity_type, 'cadence') && r.cadence != null) {
+		parts.push(`cadence ${r.cadence}`);
+	}
+	return parts.join(' · ');
+}
+
+function formatDebriefFeatured(r: RunRecord, analytics: RouteAnalytics | null): string {
+	const head = `- ${r.date} (${r.day || '—'}) ${activityLabel(r.activity_type)} · slug \`${r.slug}\``;
+	const extra = [
+		formatDebriefGpsFacts(r),
+		analytics ? formatKmSplitsLine(analytics.splits) : '',
+		formatHrZonesLine(analytics),
+		formatBestEffortsLine(r)
+	].filter(Boolean);
+	if (!extra.length) return head;
+	return [head, ...extra.map((line) => `  ${line}`)].join('\n');
+}
+
 function parseDebriefSlugs(raw: string): string[] {
 	return [...new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))];
 }
@@ -1031,6 +1099,54 @@ function expandDebriefToSameDays(seed: RunRecord[], pool: RunRecord[]): RunRecor
 	return [...bySlug.values()].sort(compareDebriefRuns);
 }
 
+export type DebriefRaceHint =
+	| {
+			kind: 'match';
+			goalId: string;
+			goalName: string;
+			pinned: boolean;
+			missingMedalDetails: boolean;
+			bib_number: string;
+			result_url: string;
+			medal_notes: string;
+	  }
+	| { kind: 'race_no_goal' };
+
+function debriefRaceHint(run: RunRecord, goals: import('$lib/types').Goal[]): DebriefRaceHint | null {
+	const open = goals.find(
+		(g) => g.status !== 'done' && activityLooksLikeRace(g, run) && canPinRaceResult(g)
+	);
+	if (open) {
+		return {
+			kind: 'match',
+			goalId: open.id,
+			goalName: open.name,
+			pinned: false,
+			missingMedalDetails: false,
+			bib_number: '',
+			result_url: '',
+			medal_notes: ''
+		};
+	}
+	const done = goals.find((g) => g.status === 'done' && g.result?.activity_slug === run.slug);
+	if (done) {
+		const missing =
+			!done.bib_number.trim() || !done.result_url.trim() || !done.medal_notes.trim();
+		return {
+			kind: 'match',
+			goalId: done.id,
+			goalName: done.name,
+			pinned: true,
+			missingMedalDetails: missing,
+			bib_number: done.bib_number,
+			result_url: done.result_url,
+			medal_notes: done.medal_notes
+		};
+	}
+	if (run.session === 'race') return { kind: 'race_no_goal' };
+	return null;
+}
+
 function debriefRunSummary(r: RunRecord) {
 	return {
 		slug: r.slug,
@@ -1040,6 +1156,9 @@ function debriefRunSummary(r: RunRecord) {
 		avg_pace: r.avg_pace,
 		hasFeel: hasFeel(r),
 		activity_type: r.activity_type,
+		session: r.session,
+		cadence: r.cadence,
+		gear: r.gear,
 		effort: r.effort,
 		shins: r.shins,
 		legs: r.legs,
@@ -1063,12 +1182,23 @@ function formatFeelLogged(r: RunRecord): string {
 		);
 	}
 	const surface = (r.surface ?? '').trim();
-	return `- \`${r.slug}\`: ${scores.join(' · ')}${surface ? ` · surface ${surface}` : ''}`;
+	const manual: string[] = [];
+	if (normalizeActivityType(r.activity_type) === 'run') {
+		manual.push(`session ${r.session || '–'}`);
+		manual.push(`cadence ${r.cadence ?? '–'}`);
+	}
+	if (showsField(r.activity_type, 'gear') && (r.gear ?? '').trim()) {
+		manual.push(`gear ${r.gear}`);
+	} else if (showsField(r.activity_type, 'gear')) {
+		manual.push('gear –');
+	}
+	const manualBit = manual.length ? ` · ${manual.join(' · ')}` : '';
+	return `- \`${r.slug}\`: ${scores.join(' · ')}${surface ? ` · surface ${surface}` : ''}${manualBit}`;
 }
 
 function formatFeelingsNotesExample(runs: RunRecord[]): string {
-	const fields = (r: RunRecord, pad: string) =>
-		[
+	const fields = (r: RunRecord, pad: string) => {
+		const lines = [
 			`${pad}"slug": ${JSON.stringify(r.slug)},`,
 			`${pad}"effort": 6,`,
 			`${pad}"shins": 2,`,
@@ -1077,7 +1207,20 @@ function formatFeelingsNotesExample(runs: RunRecord[]): string {
 			`${pad}"wanted_faster": false,`,
 			`${pad}"surface": "asphalt",`,
 			`${pad}"notes": "Short first-person summary of What I wrote — not the whole dump."`
-		].join('\n');
+		];
+		if (normalizeActivityType(r.activity_type) === 'run') {
+			lines.splice(
+				1,
+				0,
+				`${pad}"session": "long",`,
+				`${pad}"cadence": 176,`
+			);
+		}
+		if (showsField(r.activity_type, 'gear')) {
+			lines.splice(lines.length - 1, 0, `${pad}"gear": "shoe name",`);
+		}
+		return lines.join('\n');
+	};
 	const r = runs[0];
 	if (!r || runs.length === 1) {
 		if (!r) return `  "feelings": { "slug": "…", "notes": "…" }`;
@@ -1098,13 +1241,15 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 	})
 	.handler(async ({ data }) => {
 		const { slug, includePlan } = data;
-		const [allRuns, week, injury, settings, training] = await Promise.all([
+		const [allRuns, week, injury, settings, training, gearInventory] = await Promise.all([
 			listRuns(),
 			currentPlanWeek(),
 			readContextFile('injury.md'),
 			loadSettings(),
-			loadTrainingContext()
+			loadTrainingContext(),
+			loadGear()
 		]);
+		const { goals } = training.store;
 		const { calendar } = training;
 		const weekView = week ? buildWeekView(week, allRuns, calendar) : null;
 		const weekStart = week ? planWeekStartIso(week.week, calendar) : '';
@@ -1131,10 +1276,15 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 				prompt: '',
 				run: null,
 				runs: [],
+				raceBySlug: {} as Record<string, DebriefRaceHint | null>,
+				gear: gearInventory,
+				gearWear: wearByAllGear(allRuns),
 				weekView,
 				error: 'Import this session’s GPX first — the prompt needs those numbers.'
 			};
 		}
+
+		const featuredAnalytics = await Promise.all(featured.map((r) => loadRouteAnalytics(r)));
 
 		const weekRuns = weekStart
 			? allRuns
@@ -1165,7 +1315,9 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const many = featured.length > 1;
 		const sessionWord = many ? 'these sessions' : 'this session';
 		const sessionHeading = many ? 'These sessions' : 'This session';
-		const sessionBlock = featured.map(formatRunBriefLine).join('\n');
+		const sessionBlock = featured
+			.map((r, i) => formatDebriefFeatured(r, featuredAnalytics[i] ?? null))
+			.join('\n');
 		const feelBlock = featured.map(formatFeelLogged).join('\n');
 		const job = includePlan
 			? `Coach from ${sessionWord}: how it went, recovery, and what to watch. Answer any questions I asked in What I wrote. Then update **this week** only if remaining sessions should change. Keep remaining sessions on their planned days unless recovery requires a shift — and if you move a day, say why. Keep non-run sessions unless recovery says otherwise.`
@@ -1180,7 +1332,10 @@ ${unplannedLines ? `## Unplanned activities this week\nThese logs did not match 
 		const notesRule =
 			'- `feelings.notes` is a **short** first-person summary of What I wrote (about 2–5 sentences) for the activity log. Keep my voice. Keep the useful specifics (shins after, shoes, questions you answered). Do **not** paste the whole write-up. Omit `notes` if I wrote nothing. For strength, notes are extra commentary only — never rewrite the lift list.';
 		const scoresRule =
-			'- Scores marked – were not tapped in the app. Infer effort/shins/legs/energy (and wanted_faster / surface) from What I wrote when the text is clear enough for a number. Omit a field if the write-up does not support it. Do not invent from GPS or screenshots. If How I felt already has a number, omit that field — keep mine. Do not copy example numbers.';
+			'- Scores marked – were not tapped in the app. Infer effort/shins/legs/energy (and wanted_faster / surface) from What I wrote when the text is clear enough for a number. Omit a field if the write-up does not support it. Do not invent from GPS. If How I felt already has a number, omit that field — keep mine. Do not copy example numbers.\n' +
+			'- `session` (runs only): easy / quality / long / race / … — keep mine if already set; infer from What I wrote only when obvious.\n' +
+			'- `cadence` (runs only): average steps per minute — only if I gave a number in What I wrote or Details; never invent.\n' +
+			'- `gear`: shoes or bike name — only if I named it; never invent.';
 		const weekJson = includePlan
 			? `,
   "week": {
@@ -1216,7 +1371,7 @@ ${weekRules}`;
 
 		const prompt = `# The Long Run — debrief ${sessionWord}
 
-You are my coach for the sports I train, not a running-only coach. GPS numbers and how I felt are below. I may attach Strava screenshots for extra context.
+You are my coach for the sports I train, not a running-only coach. GPS numbers from the import (distance, moving and elapsed time, elevation, pace per km) and how I felt are below.
 ${FEEL_SCALE}
 
 ${job}
@@ -1246,10 +1401,15 @@ ${injury.trim() || '(none)'}
 
 ${reply}`;
 		const runs = featured.map(debriefRunSummary);
+		const raceBySlug: Record<string, DebriefRaceHint | null> = {};
+		for (const r of featured) raceBySlug[r.slug] = debriefRaceHint(r, goals);
 		return {
 			prompt,
 			run: runs[runs.length - 1] ?? null,
 			runs,
+			raceBySlug,
+			gear: gearInventory,
+			gearWear: wearByAllGear(allRuns),
 			weekView,
 			error: null as string | null
 		};
@@ -1264,6 +1424,9 @@ export type ActivityFeelInput = {
 	wanted_faster?: boolean | null;
 	surface?: string;
 	notes?: string;
+	session?: string;
+	cadence?: number | null;
+	gear?: string;
 };
 
 export const saveActivityFeel = createServerFn({ method: 'POST' }).middleware([requireAuth])
@@ -1277,8 +1440,15 @@ export const saveActivityFeel = createServerFn({ method: 'POST' }).middleware([r
 		if (data.wanted_faster !== undefined) patch.wanted_faster = data.wanted_faster;
 		if (data.surface !== undefined) patch.surface = data.surface.trim();
 		if (data.notes !== undefined) patch.notes = data.notes.trim();
+		if (data.session !== undefined) patch.session = data.session.trim();
+		if (data.cadence !== undefined) patch.cadence = data.cadence;
+		if (data.gear !== undefined) patch.gear = data.gear.trim();
 		const ok = await updateRunFeelings(data.slug, patch);
 		if (!ok) throw new Error('Activity not found.');
+		if (data.gear !== undefined) {
+			const run = await getRun(data.slug);
+			if (run) await rememberGearName(run.gear, run.activity_type);
+		}
 		return { ok: true as const, slug: data.slug };
 	});
 
@@ -2016,7 +2186,17 @@ async function applyFeelingsRows(
 				a.wanted_faster === true ? true : a.wanted_faster === false ? false : null;
 		if (typeof a.surface === 'string') patch.surface = a.surface.trim();
 		if (typeof a.notes === 'string') patch.notes = a.notes.trim();
+		if (typeof a.session === 'string') patch.session = a.session.trim();
+		if ('cadence' in a) {
+			const n = Number(a.cadence);
+			patch.cadence = Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+		}
+		if (typeof a.gear === 'string') patch.gear = a.gear.trim();
 		const ok = await updateRunFeelings(slug, patch);
+		if (ok && typeof a.gear === 'string') {
+			const run = await getRun(slug);
+			if (run) await rememberGearName(run.gear, run.activity_type);
+		}
 		(ok ? updated : missing).push(slug);
 	}
 	return { updated: updated.length, updatedSlugs: updated, missing };

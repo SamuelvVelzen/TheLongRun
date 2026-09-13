@@ -9,6 +9,7 @@ import {
 import type { SessionRouteRef } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
+import { useState } from 'react';
 import { ActivityIcon, Icon } from './Icon';
 import { LogPlannedStrengthLink } from './LogPlannedStrength';
 import { PlanSessionRoute } from './PlanSessionRoute';
@@ -216,6 +217,10 @@ function PlannedSessionRow({
 	);
 }
 
+function isFinishedSession(session: WeekSessionView): boolean {
+	return session.done || session.skipped;
+}
+
 export function WeekPlanBoard({
 	view,
 	title,
@@ -225,7 +230,17 @@ export function WeekPlanBoard({
 	title?: string;
 	routes?: SessionRouteRef[];
 }) {
+	const [showCompleted, setShowCompleted] = useState(false);
 	const days = weekDayGroups(view);
+	const finishedCount = view.sessions.filter(isFinishedSession).length;
+	const visibleDays = days
+		.map((group) => ({
+			...group,
+			sessions: showCompleted
+				? group.sessions
+				: group.sessions.filter((s) => !isFinishedSession(s))
+		}))
+		.filter((group) => group.sessions.length > 0 || group.unplanned.length > 0);
 
 	return (
 		<section className="mb-5" aria-labelledby="week-plan-heading">
@@ -236,10 +251,27 @@ export function WeekPlanBoard({
 					{view.unplanned.length
 						? ` · ${view.unplanned.length} unplanned logged`
 						: ''}
+					{finishedCount > 0 && (
+						<>
+							{' · '}
+							<button
+								type="button"
+								className="appearance-none bg-transparent border-0 p-0 m-0 text-accent-fg font-semibold font-inherit cursor-pointer hover:underline underline-offset-2"
+								aria-expanded={showCompleted}
+								onClick={() => setShowCompleted((prev) => !prev)}
+							>
+								{showCompleted
+									? 'Hide completed'
+									: finishedCount === 1
+										? 'Show 1 completed'
+										: `Show ${finishedCount} completed`}
+							</button>
+						</>
+					)}
 				</p>
 			</div>
 			<div className="grid grid-cols-1 gap-3 min-[720px]:grid-cols-2">
-				{days.map((group) => {
+				{visibleDays.map((group) => {
 								const onlyUnplanned = group.sessions.length === 0 && group.unplanned.length > 0;
 								const nextHere = group.sessions.some((s) => s.isNext);
 								return (

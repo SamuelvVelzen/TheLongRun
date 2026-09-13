@@ -1,8 +1,7 @@
 /** Marker in the server debrief prompt; the client fills this as you type. */
 export const DEBRIEF_WRITEUP_TOKEN = '<<<DEBRIEF_WRITEUP>>>';
 
-export const DEBRIEF_WRITEUP_PLACEHOLDER =
-	'(nothing written yet — I may still attach screenshots.)';
+export const DEBRIEF_WRITEUP_PLACEHOLDER = '(nothing written yet.)';
 
 export type DebriefWriteupRun = {
 	slug: string;

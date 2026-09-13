@@ -201,6 +201,10 @@ export type FeelingsPatch = {
 	wanted_faster?: boolean | null;
 	surface?: string;
 	notes?: string;
+	/** Run session kind — easy / quality / long / race / … */
+	session?: string;
+	cadence?: number | null;
+	gear?: string;
 };
 
 /**
@@ -224,7 +228,10 @@ export async function updateRunFeelings(slug: string, p: FeelingsPatch): Promise
 		energy: pick(p.energy, run.energy),
 		wanted_faster: pick(p.wanted_faster, run.wanted_faster),
 		surface: pick(p.surface, run.surface),
-		notes
+		notes,
+		session: p.session !== undefined ? p.session.trim() : run.session,
+		cadence: pick(p.cadence, run.cadence),
+		gear: p.gear !== undefined ? p.gear.trim() : run.gear
 	};
 	const sql = getSql();
 	await sql`
@@ -235,7 +242,10 @@ export async function updateRunFeelings(slug: string, p: FeelingsPatch): Promise
 			energy = ${merged.energy},
 			wanted_faster = ${merged.wanted_faster},
 			surface = ${merged.surface},
-			notes = ${merged.notes}
+			notes = ${merged.notes},
+			session = ${merged.session},
+			cadence = ${merged.cadence},
+			shoes = ${merged.gear}
 		WHERE slug = ${slug}
 	`;
 	return true;

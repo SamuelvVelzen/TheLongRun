@@ -236,6 +236,24 @@
 	z-index: 30;
 }
 
+@media (min-width: 641px) {
+	.app-header {
+		position: sticky;
+		top: 0;
+		z-index: 40;
+		background: color-mix(in srgb, var(--canvas) 92%, transparent);
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+	}
+
+	.sticky-bar {
+		--sticky-bar-top: calc(
+			0.85rem + var(--app-header-inner) + 0.85rem + env(safe-area-inset-top, 0px)
+		);
+		top: var(--sticky-bar-top);
+	}
+}
+
 @media (max-width: 640px) {
 	html,
 	body {
@@ -253,10 +271,7 @@
 	.app-header {
 		flex: 0 0 auto;
 		box-sizing: border-box;
-		width: 100vw;
-		max-width: none;
-		margin-left: calc(50% - 50vw);
-		margin-right: calc(50% - 50vw);
+		width: 100%;
 		min-height: var(--app-header-height);
 		padding-top: calc(env(safe-area-inset-top, 0px) + 0.45rem);
 		padding-right: max(0.625rem, env(safe-area-inset-right, 0px));
@@ -273,16 +288,17 @@
 		overflow-y: auto;
 		-webkit-overflow-scrolling: touch;
 		overscroll-behavior: contain;
-		scroll-padding-top: 1rem;
-		scroll-padding-bottom: 1rem;
+		padding-left: max(0.625rem, env(safe-area-inset-left, 0px));
+		padding-right: max(0.625rem, env(safe-area-inset-right, 0px));
+		padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+		scroll-padding-top: 0;
+		scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
 	}
 
 	.tab-bar {
 		flex: 0 0 auto;
 		position: relative;
-		width: 100vw;
-		margin-left: calc(50% - 50vw);
-		margin-right: calc(50% - 50vw);
+		width: 100%;
 	}
 
 	.sticky-bar {

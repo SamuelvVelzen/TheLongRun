@@ -58,7 +58,7 @@ function withCoachSearch(search: CoachSearch, extra: Partial<CoachSearch> = {}):
 		tab: extra.tab ?? search.tab,
 		slug: slug || undefined,
 		planWeek: extra.planWeek !== undefined ? extra.planWeek : search.planWeek,
-		includePlan: includePlan === false ? false : undefined,
+		includePlan: includePlan === true ? true : undefined,
 		range: extra.range !== undefined ? extra.range : search.range,
 		from: extra.from !== undefined ? extra.from : search.from,
 		to: extra.to !== undefined ? extra.to : search.to
@@ -322,14 +322,14 @@ export const Route = createFileRoute('/coach')({
 		tab: parseTab(s.tab),
 		slug: typeof s.slug === 'string' && s.slug ? s.slug : undefined,
 		planWeek: parsePlanWeek(s.planWeek),
-		includePlan: s.includePlan === false || s.includePlan === 'false' || s.includePlan === '0' ? false : undefined
+		includePlan: s.includePlan === true || s.includePlan === 'true' || s.includePlan === '1' ? true : undefined
 	}),
 	// Search (tab, range, slug) must not remount DeferredData/Await — that felt like a full refresh.
 	loaderDeps: () => ({}),
 	loader: ({ location }) => {
 		const search = location.search as CoachSearch;
 		const slug = search.slug ?? '';
-		const includePlan = search.includePlan !== false;
+		const includePlan = search.includePlan === true;
 		return {
 			page: Promise.all([
 				getDebriefPrompt({ data: { slug, includePlan } }),
@@ -453,7 +453,7 @@ function CoachPanels({
 	const authed = useAuthed();
 	const tab = visibleTab(search.tab, authed);
 	const slug = search.slug ?? '';
-	const includePlan = search.includePlan !== false;
+	const includePlan = search.includePlan === true;
 
 	const [question, setQuestion] = useState(() =>
 		defaultQuestion(planData.generateWeek > planData.currentWeek)

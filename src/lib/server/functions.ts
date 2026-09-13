@@ -1051,10 +1051,10 @@ function formatFeelingsNotesExample(runs: RunRecord[]): string {
 
 export const getDebriefPrompt = createServerFn({ method: 'GET' })
 	.validator((d: { slug?: string; includePlan?: boolean } | string) => {
-		if (typeof d === 'string') return { slug: d, includePlan: true };
+		if (typeof d === 'string') return { slug: d, includePlan: false };
 		return {
 			slug: typeof d?.slug === 'string' ? d.slug : '',
-			includePlan: d?.includePlan !== false
+			includePlan: d?.includePlan === true
 		};
 	})
 	.handler(async ({ data }) => {
@@ -2285,7 +2285,11 @@ ${exampleJson}
 	});
 
 export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () => {
-	const [training, runs] = await Promise.all([loadTrainingContext(), listRuns()]);
+	const [training, runs, tracks] = await Promise.all([
+		loadTrainingContext(),
+		listRuns(),
+		listRouteTracks()
+	]);
 	const { activeGoal, medals, calendar, store } = training;
 	const upcoming = store.goals
 		.filter((g) => g.status !== 'done' && g.id !== activeGoal?.id)
@@ -2295,12 +2299,26 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 		if (!canPinRaceResult(g)) continue;
 		candidatesByGoalId[g.id] = pinCandidatesForGoal(g, runs);
 	}
+	const runBySlug = new Map(runs.map((r) => [r.slug, r]));
+	const trackById = new Map(tracks.map((t) => [t.id, t.coords]));
+	const medalTracks: Record<string, [number, number][]> = {};
+	for (const g of medals) {
+		const slug = g.result?.activity_slug;
+		if (!slug) continue;
+		const run = runBySlug.get(slug);
+		if (!run) continue;
+		const id = routeIdForRun(run);
+		if (!id) continue;
+		const coords = trackById.get(id);
+		if (coords && coords.length >= 2) medalTracks[g.id] = coords;
+	}
 	return {
 		activeGoal,
 		upcoming,
 		medals,
 		calendar,
-		candidatesByGoalId
+		candidatesByGoalId,
+		medalTracks
 	};
 });
 

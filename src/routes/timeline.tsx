@@ -378,6 +378,36 @@ function TimelineBody({
 
 	return (
 		<>
+			<ActivityFilters
+				to="/timeline"
+				sport={sport}
+				range={range}
+				runs={allRuns}
+				country={country}
+				province={province}
+				place={place}
+				availableSports={availableSports}
+				actions={
+					authed && !selecting && items.length ? (
+						<TimelineMore
+							canGroup={items.filter((it) => it.kind === 'run').length >= 2}
+							onGroup={() => {
+								setPicked([]);
+								setSelectMode('group');
+							}}
+							onExport={() => {
+								setPicked([]);
+								setSelectMode('export');
+							}}
+							onDelete={() => {
+								setPicked([]);
+								setSelectMode('delete');
+							}}
+						/>
+					) : null
+				}
+			/>
+
 			<PageHero
 				variant="quiet"
 				kicker="Every session in order"
@@ -414,35 +444,6 @@ function TimelineBody({
 							)}
 						</button>
 					</>
-				}
-			/>
-			<ActivityFilters
-				to="/timeline"
-				sport={sport}
-				range={range}
-				runs={allRuns}
-				country={country}
-				province={province}
-				place={place}
-				availableSports={availableSports}
-				actions={
-					authed && !selecting && items.length ? (
-						<TimelineMore
-							canGroup={items.filter((it) => it.kind === 'run').length >= 2}
-							onGroup={() => {
-								setPicked([]);
-								setSelectMode('group');
-							}}
-							onExport={() => {
-								setPicked([]);
-								setSelectMode('export');
-							}}
-							onDelete={() => {
-								setPicked([]);
-								setSelectMode('delete');
-							}}
-						/>
-					) : null
 				}
 			/>
 

@@ -30,8 +30,8 @@ export const ui = {
 	actions:
 		'flex flex-wrap justify-end gap-3 max-sm:gap-[0.55rem] max-sm:w-full max-sm:[&>a]:flex-1 max-sm:[&>a]:min-w-[min(100%,9rem)] max-sm:[&>button]:flex-1 max-sm:[&>button]:min-w-[min(100%,9rem)]',
 	hero: 'grid gap-5 mb-8 max-sm:gap-[0.95rem] max-sm:mb-[1.35rem] [&_h1]:text-[clamp(2.4rem,6vw,4.2rem)] [&_h1]:max-w-[12ch] max-sm:[&_h1]:text-[clamp(1.55rem,8vw,2.1rem)] max-sm:[&_h1]:max-w-none [&_p]:max-w-[68ch] [&_p]:text-muted [&_p]:text-[1.05rem] max-sm:[&_p]:text-[0.98rem] max-sm:[&_p]:max-w-none',
-	heroHome: 'max-sm:hidden',
-	heroQuiet: 'max-sm:mb-3 max-sm:gap-2 max-sm:[&>div:first-child>p]:hidden',
+	heroHome: 'max-sm:hidden mt-3',
+	heroQuiet: 'mt-3 max-sm:mb-3 max-sm:gap-2 max-sm:[&>div:first-child>p]:hidden',
 	heroRoute: '[&_h1]:max-w-none [&_a]:text-accent-fg',
 	snackHost:
 		'fixed z-[60] inset-x-0 bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px))] flex flex-col-reverse items-center gap-[0.45rem] px-4 pointer-events-none max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:px-3',
@@ -70,7 +70,7 @@ export const ui = {
 	dropzoneOver: 'border-accent bg-accent/8 text-fg',
 	stickyBar: 'sticky-bar',
 	coachTabs:
-		'sticky-bar mb-4 pt-[0.85rem] pb-[0.55rem] -mx-2 px-2 bg-canvas/92 backdrop-blur-[10px] border-t border-line max-sm:mt-0 max-sm:border-t-0 max-sm:bg-canvas max-sm:pt-0 max-sm:pb-2',
+		'sticky-bar sticky-chrome mb-4 -mx-2 px-2 py-2 max-sm:pt-0 max-sm:pb-2 max-sm:mb-3',
 	choiceChips: 'flex flex-wrap gap-[0.4rem]',
 	choiceChip:
 		'appearance-none inline-flex items-center justify-center gap-1.5 min-h-11 px-[0.95rem] py-2 rounded-full border border-solid border-line bg-transparent text-muted font-semibold cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:border-accent/35 disabled:opacity-35 disabled:cursor-not-allowed aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent',

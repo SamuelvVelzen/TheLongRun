@@ -67,8 +67,9 @@ export function FilterSheet({
 		<div
 			className={cn(
 				ui.stickyBar,
-				'flex items-center gap-3 mt-4 mb-2 pt-[0.85rem] pb-[0.55rem] border-t border-line -mx-2 px-2 bg-canvas/92 backdrop-blur-[10px]',
-				'max-sm:items-start max-sm:mt-0 max-sm:mb-1 max-sm:pt-0 max-sm:pb-2 max-sm:border-t-0 max-sm:bg-canvas'
+				'sticky-chrome flex items-center gap-3 -mx-2 px-2 py-2',
+				'max-sm:items-start max-sm:pt-0 max-sm:pb-2 max-sm:mb-3',
+				'sm:mb-4'
 			)}
 		>
 			<div

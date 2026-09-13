@@ -107,16 +107,6 @@ function GoalsPage() {
 
 	return (
 		<>
-			<PageHero
-				variant="quiet"
-				kicker={tab === 'medals' ? 'On the wall' : 'Race on the calendar'}
-				title="Goals"
-				lead={
-					tab === 'medals'
-						? 'Finished races live here with the time you pinned. Open one for the goal you set and the activity you ran.'
-						: 'The soonest race is active — it drives the plan length and the generate prompt. Later races wait. Older past races stay hidden until you open them.'
-				}
-			/>
 			<div className={ui.coachTabs}>
 				<SegmentedToggle
 					fill
@@ -145,6 +135,19 @@ function GoalsPage() {
 					]}
 				/>
 			</div>
+
+			<PageHero
+				variant="quiet"
+				className="max-sm:hidden"
+				kicker={tab === 'medals' ? 'On the wall' : 'Race on the calendar'}
+				title="Goals"
+				lead={
+					tab === 'medals'
+						? 'Finished races live here with the time you pinned. Open one for the goal you set and the activity you ran.'
+						: 'The soonest race is active — it drives the plan length and the generate prompt. Later races wait. Older past races stay hidden until you open them.'
+				}
+			/>
+
 			<DeferredData promise={page}>
 				{(data) => <GoalsBody data={data} authed={authed} tab={tab} />}
 			</DeferredData>

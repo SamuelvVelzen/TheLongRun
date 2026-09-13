@@ -87,47 +87,19 @@ function Dashboard() {
 	const { page } = Route.useLoaderData();
 	const authed = useAuthed();
 	return (
-		<>
-			<PageHero
-				variant="home"
-				kicker="Personal training desk"
-				title="The Long Run"
-				lead={
-					<p>
-						Stats, maps, and this week’s plan live here.{' '}
-						<Link className="text-accent-fg font-semibold" to="/goals">
-							Goals
-						</Link>{' '}
-						hold the race — and the medals after.
-					</p>
-				}
-				actionsClassName="justify-start!"
-				actions={
-					<>
-						<Link className={ui.btnPrimary} to="/coach">
-							<Icon name="coach" size={16} />
-							Coach
-						</Link>
-						{authed ? (
-							<Link className={ui.btnGhost} to="/import">
-								<Icon name="plus" size={16} />
-								Add activity
-							</Link>
-						) : (
-							<SignInLink className={ui.btnGhost}>
-								<Icon name="signIn" size={16} />
-								Sign in to edit
-							</SignInLink>
-						)}
-					</>
-				}
-			/>
-			<DeferredData promise={page}>{(data) => <DashboardBody data={data} />}</DeferredData>
-		</>
+		<DeferredData promise={page}>
+			{(data) => <DashboardBody data={data} authed={authed} />}
+		</DeferredData>
 	);
 }
 
-function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardData>> }) {
+function DashboardBody({
+	data,
+	authed
+}: {
+	data: Awaited<ReturnType<typeof getDashboardData>>;
+	authed: boolean;
+}) {
 	const search = Route.useSearch();
 
 	const sp = new URLSearchParams();
@@ -238,6 +210,52 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 
 	return (
 		<>
+			<ActivityFilters
+				to="/"
+				sport={sport}
+				range={range}
+				runs={allRuns}
+				country={country}
+				province={province}
+				place={place}
+				availableSports={availableSports}
+			/>
+
+			<PageHero
+				variant="home"
+				kicker="Personal training desk"
+				title="The Long Run"
+				lead={
+					<p>
+						Stats, maps, and this week’s plan live here.{' '}
+						<Link className="text-accent-fg font-semibold" to="/goals">
+							Goals
+						</Link>{' '}
+						hold the race — and the medals after.
+					</p>
+				}
+				actionsClassName="justify-start!"
+				actions={
+					<>
+						<Link className={ui.btnPrimary} to="/coach">
+							<Icon name="coach" size={16} />
+							Coach
+						</Link>
+						{authed ? (
+							<Link className={ui.btnGhost} to="/import">
+								<Icon name="plus" size={16} />
+								Add activity
+							</Link>
+						) : (
+							<SignInLink className={ui.btnGhost}>
+								<Icon name="signIn" size={16} />
+								Sign in to edit
+							</SignInLink>
+						)}
+					</>
+				}
+			/>
+
 			{highlightHead && data.weekView && (
 				<section className={nextUp} aria-labelledby="next-up-heading">
 					<p className={cn(nextUpKicker, 'inline-flex items-center gap-1.5')}>
@@ -384,17 +402,6 @@ function DashboardBody({ data }: { data: Awaited<ReturnType<typeof getDashboardD
 					</p>
 				</section>
 			)}
-
-			<ActivityFilters
-				to="/"
-				sport={sport}
-				range={range}
-				runs={allRuns}
-				country={country}
-				province={province}
-				place={place}
-				availableSports={availableSports}
-			/>
 
 			{filteredEmpty ? (
 				<div className={cn(ui.panel, ui.muted, 'grid gap-[0.85rem] justify-items-start')}>

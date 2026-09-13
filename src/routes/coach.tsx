@@ -362,13 +362,6 @@ function Coach() {
 
 	return (
 		<>
-			<PageHero
-				variant="quiet"
-				kicker="This week"
-				title="Coach"
-				lead="Usual week and the plan. With a race on Goals, the block runs through race week. Without one, generate this week as base training."
-			/>
-
 			<div className={ui.coachTabs}>
 				<SegmentedToggle
 					fill
@@ -424,6 +417,15 @@ function Coach() {
 					]}
 				/>
 			</div>
+
+			<PageHero
+				variant="quiet"
+				className="max-sm:hidden"
+				kicker="This week"
+				title="Coach"
+				lead="Usual week and the plan. With a race on Goals, the block runs through race week. Without one, generate this week as base training."
+			/>
+
 			<DeferredData promise={page}>
 				{(data) => (
 					<CoachPanels

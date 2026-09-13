@@ -1013,15 +1013,33 @@ function formatRunBriefLine(r: RunRecord): string {
 	return `- ${r.date} (${r.day || '—'}) ${activityLabel(r.activity_type)}${km} · ${metricText(r)} · HR ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} · feel ${feel}${notes ? ` · ${notes}` : ''} · slug \`${r.slug}\``;
 }
 
-function formatKmSplitsLine(splits: RouteAnalytics['splits']): string {
-	if (!splits.length) return '';
-	const bits = splits.map((s) => {
-		const km = s.isPartial ? s.distanceKm.toFixed(2) : String(s.km);
-		const pace = s.pace || '—';
-		const hr = s.avgHr != null ? ` HR${s.avgHr}` : '';
-		return `${km} ${pace}${hr}`;
-	});
-	return `Pace per km: ${bits.join(' · ')}`;
+const DEBRIEF_SPLITS_CHUNK_KM = 5;
+
+function formatSplitBit(s: RouteAnalytics['splits'][number]): string {
+	const km = s.isPartial ? s.distanceKm.toFixed(2) : String(s.km);
+	const pace = s.pace || '—';
+	const hr = s.avgHr != null ? ` HR${s.avgHr}` : '';
+	return `${km} ${pace}${hr}`;
+}
+
+function splitKmLabel(s: RouteAnalytics['splits'][number]): string {
+	return s.isPartial ? s.distanceKm.toFixed(2) : String(s.km);
+}
+
+/** One line per 5 km — compact but scannable in the debrief prompt. */
+function formatKmSplitsLines(splits: RouteAnalytics['splits']): string[] {
+	if (!splits.length) return [];
+	const lines: string[] = [];
+	for (let i = 0; i < splits.length; i += DEBRIEF_SPLITS_CHUNK_KM) {
+		const chunk = splits.slice(i, i + DEBRIEF_SPLITS_CHUNK_KM);
+		const first = chunk[0]!;
+		const last = chunk[chunk.length - 1]!;
+		const start = splitKmLabel(first);
+		const end = splitKmLabel(last);
+		const range = start === end ? start : `${start}–${end}`;
+		lines.push(`Pace km ${range}: ${chunk.map(formatSplitBit).join(' · ')}`);
+	}
+	return lines;
 }
 
 function formatHrZonesLine(analytics: RouteAnalytics | null): string {
@@ -1069,7 +1087,7 @@ function formatDebriefFeatured(r: RunRecord, analytics: RouteAnalytics | null): 
 	const head = `- ${r.date} (${r.day || '—'}) ${activityLabel(r.activity_type)} · slug \`${r.slug}\``;
 	const extra = [
 		formatDebriefGpsFacts(r),
-		analytics ? formatKmSplitsLine(analytics.splits) : '',
+		...(analytics ? formatKmSplitsLines(analytics.splits) : []),
 		formatHrZonesLine(analytics),
 		formatBestEffortsLine(r)
 	].filter(Boolean);

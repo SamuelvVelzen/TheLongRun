@@ -132,7 +132,10 @@ function normalizeStoredGoal(item: unknown): Goal | null {
 		plan_start: planStart,
 		status,
 		result,
-		plan
+		plan,
+		bib_number: String(o.bib_number ?? '').trim(),
+		result_url: String(o.result_url ?? '').trim(),
+		medal_notes: String(o.medal_notes ?? '').trim()
 	};
 }
 
@@ -163,7 +166,10 @@ function parseLegacyGoalsMd(raw: string): Goal | null {
 		plan_start: '2026-08-03',
 		status: 'active',
 		result: null,
-		plan: null
+		plan: null,
+		bib_number: '',
+		result_url: '',
+		medal_notes: ''
 	};
 }
 

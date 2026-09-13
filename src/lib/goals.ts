@@ -27,7 +27,10 @@ export function emptyGoalDraft(today = new Date()): Omit<Goal, 'id' | 'status' |
 		notes: '',
 		url: '',
 		itinerary_url: '',
-		plan_start: date
+		plan_start: date,
+		bib_number: '',
+		result_url: '',
+		medal_notes: ''
 	};
 }
 
@@ -83,9 +86,19 @@ export function normalizeGoalInput(input: GoalInput, existing?: Goal | null): Go
 		plan_start,
 		status: existing?.status === 'done' ? 'done' : 'upcoming',
 		result: existing?.result ?? null,
-		plan: existing?.plan ?? null
+		plan: existing?.plan ?? null,
+		bib_number: String(existing?.bib_number ?? '').trim(),
+		result_url: normalizeGoalUrl(existing?.result_url ?? ''),
+		medal_notes: String(existing?.medal_notes ?? '').trim()
 	};
 }
+
+export type MedalDetailsInput = {
+	goalId: string;
+	bib_number?: string;
+	result_url?: string;
+	medal_notes?: string;
+};
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 

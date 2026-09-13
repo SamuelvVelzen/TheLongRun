@@ -81,6 +81,12 @@ export interface Goal {
 	result: GoalResult | null;
 	/** Snapshot of plan.json when the goal was completed. */
 	plan: PlanWeek[] | null;
+	/** Race bib number (medal wall). */
+	bib_number: string;
+	/** Official results page (medal wall). */
+	result_url: string;
+	/** Post-race notes — separate from pre-race `notes`. */
+	medal_notes: string;
 }
 
 /** Stored on a plan row only when the session is explicitly dropped. */

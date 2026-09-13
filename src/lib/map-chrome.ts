@@ -1,5 +1,14 @@
 /** Shared Leaflet map chrome: zoom, fit, fullscreen, scroll/touch polish. */
 import type { LeafletGlobal } from '$lib/leaflet';
+import {
+	LIVE_LOCATION_PING_MS,
+	LIVE_SHARE_EVENT,
+	liveShareAuthed,
+	liveShareOn,
+	requestLiveShare,
+	type LiveLocationPing
+} from '$lib/live-location';
+import { getLiveLocation } from '$lib/server/functions';
 import { cssColor, getTheme, THEME_EVENT } from '$lib/theme';
 
 export type MapChromeHandle = {
@@ -187,19 +196,24 @@ function iconBtn(label: string, title: string, svg: string): HTMLButtonElement {
 	return btn;
 }
 
+function textBtn(label: string, title: string): HTMLButtonElement {
+	const btn = document.createElement('button');
+	btn.type = 'button';
+	btn.className =
+		'map-chrome-text appearance-none inline-flex items-center justify-center min-h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted text-[0.72rem] font-semibold font-inherit cursor-pointer shrink-0 whitespace-nowrap transition-[color,background-color] duration-150 ease-out hover:text-fg hover:bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold max-sm:min-w-11 max-sm:px-[0.9rem] max-sm:text-[0.8rem]';
+	btn.textContent = label;
+	btn.title = title;
+	btn.setAttribute('aria-label', title);
+	btn.style.touchAction = 'manipulation';
+	return btn;
+}
+
 const SVG_PLUS =
 	'<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>';
 const SVG_MINUS =
 	'<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M5 11h14v2H5z"/></svg>';
-const SVG_FIT =
-	'<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 3h7v2H5v5H3V3zm11 0h7v7h-2V5h-5V3zM3 14h2v5h5v2H3v-7zm16 0h2v7h-7v-2h5v-5z"/></svg>';
 const SVG_LOCATE =
-	'<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0-6a1 1 0 0 1 1 1v1.07A8.001 8.001 0 0 1 20.93 11H22a1 1 0 1 1 0 2h-1.07A8.001 8.001 0 0 1 13 20.93V22a1 1 0 1 1-2 0v-1.07A8.001 8.001 0 0 1 3.07 13H2a1 1 0 1 1 0-2h1.07A8.001 8.001 0 0 1 11 3.07V2a1 1 0 0 1 1-1zm0 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/></svg>';
-/** Diagonal expand arrows — distinct from fit’s corner-brackets, and a bit smaller. */
-const SVG_FULL =
-	'<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M3 3h7l-2.2 2.2 4.1 4.1-1.4 1.4-4.1-4.1L3 10V3zm18 0v7l-2.2-2.2-4.1 4.1-1.4-1.4 4.1-4.1L14 3h7zM3 21v-7l2.2 2.2 4.1-4.1 1.4 1.4-4.1 4.1L10 21H3zm18 0h-7l2.2-2.2-4.1-4.1 1.4-1.4 4.1 4.1L21 14v7z"/></svg>';
-const SVG_EXIT =
-	'<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M10 3H3v7l2.2-2.2 4.1 4.1 1.4-1.4-4.1-4.1L10 3zm11 0h-7l2.2 2.2-4.1 4.1 1.4 1.4 4.1-4.1L21 10V3zM3 21h7l-2.2-2.2 4.1-4.1-1.4-1.4-4.1 4.1L3 14v7zm18 0v-7l-2.2 2.2-4.1-4.1-1.4 1.4 4.1 4.1L14 21h7z"/></svg>';
+	'<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0-6a1 1 0 0 1 1 1v1.07A8.001 8.001 0 0 1 20.93 11H22a1 1 0 1 1 0 2h-1.07A8.001 8.001 0 0 1 13 20.93V22a1 1 0 1 1-2 0v-1.07A8.001 8.001 0 0 1 11 3.07V2a1 1 0 0 1 1-1zm0 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/></svg>';
 
 /** Staggered invalidateSize — FS transition / address-bar resize settle slowly. */
 const SIZE_REFRESH_MS = [0, 50, 100, 250, 400] as const;
@@ -402,18 +416,30 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 
 	const bar = document.createElement('div');
 	bar.className =
-		'map-chrome absolute z-[1100] top-[0.65rem] right-[0.65rem] flex flex-col gap-[0.35rem] pointer-events-auto max-sm:top-2 max-sm:right-2 max-sm:gap-[0.3rem]';
+		'map-chrome absolute z-[1100] top-[0.65rem] right-[0.65rem] flex flex-col items-end gap-[0.35rem] pointer-events-auto max-sm:top-2 max-sm:right-2 max-sm:gap-[0.3rem]';
 	bar.setAttribute('role', 'toolbar');
 	bar.setAttribute('aria-label', 'Map controls');
 
 	const coarse = isCoarsePointer();
 	const btnPlus = iconBtn('Zoom in', 'Zoom in', SVG_PLUS);
 	const btnMinus = iconBtn('Zoom out', 'Zoom out', SVG_MINUS);
-	const btnFit = iconBtn('Fit', 'Fit route', SVG_FIT);
+	const btnFit = textBtn('Fit', 'Fit route');
 	const btnLocate = iconBtn('My location', 'My location', SVG_LOCATE);
-	const btnFull = iconBtn('Fullscreen', 'Fullscreen', SVG_FULL);
+	const btnFull = textBtn('Fullscreen', 'Fullscreen');
 	btnFull.classList.add('map-chrome-btn-fs');
 	btnLocate.classList.add('map-chrome-btn-loc');
+	const btnShare = liveShareAuthed() ? textBtn('Share', 'Share live location on the map') : null;
+	if (btnShare) btnShare.classList.add('map-chrome-btn-share');
+
+	const texts = document.createElement('div');
+	texts.className =
+		'map-chrome-texts inline-flex w-fit overflow-hidden border border-line rounded-full bg-surface/90 shadow-lift';
+	texts.append(btnFit, btnFull);
+	if (btnShare) texts.append(btnShare);
+
+	const icons = document.createElement('div');
+	icons.className = 'map-chrome-zoom flex flex-col gap-[0.35rem] max-sm:gap-[0.3rem]';
+	icons.append(btnPlus, btnMinus, btnLocate);
 
 	btnPlus.addEventListener('click', (e) => {
 		e.stopPropagation();
@@ -423,15 +449,19 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		e.stopPropagation();
 		map.zoomOut();
 	});
-	btnFit.addEventListener('click', (e) => {
-		e.stopPropagation();
-		onFit();
-	});
 
 	/** True when using fixed-position CSS fallback (no native FS). */
 	let cssFullscreen = false;
 	let placeholder: HTMLDivElement | null = null;
 	let sizeTimers: ReturnType<typeof setTimeout>[] = [];
+	let locFollow = false;
+	let locPanNext = false;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let locMarker: any = null;
+	let beginFollow = () => {
+		locFollow = true;
+		locPanNext = true;
+	};
 
 	const clearSizeTimers = () => {
 		for (const t of sizeTimers) clearTimeout(t);
@@ -439,13 +469,32 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	};
 
 	const syncFullButton = (on: boolean) => {
-		btnFull.innerHTML = `<span class="map-chrome-ico flex leading-[0] [&_svg]:size-3.5" aria-hidden="true">${on ? SVG_EXIT : SVG_FULL}</span><span class="sr-only">${on ? 'Exit' : 'Fullscreen'}</span>`;
+		btnFull.textContent = on ? 'Exit' : 'Fullscreen';
 		btnFull.title = on ? 'Exit fullscreen' : 'Fullscreen';
 		btnFull.setAttribute('aria-label', btnFull.title);
 		btnFull.setAttribute('aria-pressed', on ? 'true' : 'false');
 	};
 
+	const syncShareButton = () => {
+		if (!btnShare) return;
+		const on = liveShareOn();
+		btnShare.textContent = on ? 'Sharing' : 'Share';
+		btnShare.title = on ? 'Stop sharing live location' : 'Share live location on the map';
+		btnShare.setAttribute('aria-label', btnShare.title);
+		btnShare.setAttribute('aria-pressed', on ? 'true' : 'false');
+	};
+	syncShareButton();
+
 	const isOn = () => isNativeFullscreen(wrap) || cssFullscreen;
+
+	const panToLocation = (animate: boolean) => {
+		if (!locMarker) return false;
+		const here = locMarker.getLatLng?.();
+		if (!here) return false;
+		const z = map.getZoom?.() ?? 15;
+		map.setView(here, Math.max(z, 15), { animate });
+		return true;
+	};
 
 	/** Lift wrap to <body> so position:fixed is not trapped by the shell / overflow-x: clip. */
 	const parkWrap = () => {
@@ -515,8 +564,10 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		wrap.appendChild(hint);
 	}
 
-	const refreshMapSize = (refit: boolean) => {
+	const refreshMapSize = (mode: 'keep' | 'follow' = 'keep') => {
 		const on = isOn();
+		const center = map.getCenter?.();
+		const zoom = map.getZoom?.();
 		if (mapEl) applyFsBox(wrap, mapEl, on, isNativeFullscreen(wrap));
 		try {
 			map.invalidateSize?.({ animate: false, pan: false });
@@ -528,25 +579,26 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			}
 		}
 		resizeMaplibreLayers(map);
-		if (refit) {
+		if (mode === 'follow' && panToLocation(false)) return;
+		if (center) {
 			try {
-				onFit();
+				map.setView(center, zoom, { animate: false });
 			} catch {
 				/* ignore */
 			}
 		}
 	};
 
-	const scheduleSizeRefresh = (refitLast = true) => {
+	const scheduleSizeRefresh = (mode: 'keep' | 'follow' = 'keep') => {
 		clearSizeTimers();
 		// Immediate pass so pixels apply before paint
-		refreshMapSize(false);
+		refreshMapSize('keep');
 		for (let i = 0; i < SIZE_REFRESH_MS.length; i++) {
 			const ms = SIZE_REFRESH_MS[i];
 			const isLast = i === SIZE_REFRESH_MS.length - 1;
 			sizeTimers.push(
 				setTimeout(() => {
-					refreshMapSize(refitLast && isLast);
+					refreshMapSize(isLast ? mode : 'keep');
 				}, ms)
 			);
 		}
@@ -557,11 +609,18 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		if (mapEl) applyFsBox(wrap, mapEl, on, isNativeFullscreen(wrap));
 		syncFullButton(on);
 		applyCoarseGestures(on);
-		scheduleSizeRefresh(on);
+		if (on) {
+			beginFollow();
+			scheduleSizeRefresh('follow');
+		} else {
+			locFollow = false;
+			scheduleSizeRefresh('keep');
+		}
 	};
 
 	const applyFullscreen = async (wantOn: boolean) => {
 		if (wantOn) {
+			beginFollow();
 			// CSS overlay first on phones so a hanging requestFullscreen() cannot no-op the tap.
 			if (!nativeFullscreenSupported()) {
 				cssFullscreen = true;
@@ -569,7 +628,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 				if (mapEl) applyFsBox(wrap, mapEl, true, false);
 				syncFullButton(true);
 				applyCoarseGestures(true);
-				scheduleSizeRefresh(true);
+				scheduleSizeRefresh('follow');
 				return;
 			}
 			const ok = await enterNativeFullscreen(wrap);
@@ -579,15 +638,16 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			if (mapEl) applyFsBox(wrap, mapEl, true, ok);
 			syncFullButton(true);
 			applyCoarseGestures(true);
-			scheduleSizeRefresh(true);
+			scheduleSizeRefresh('follow');
 		} else {
+			locFollow = false;
 			cssFullscreen = false;
 			if (mapEl) applyFsBox(wrap, mapEl, false, false);
 			restoreWrap();
 			await exitNativeFullscreen();
 			syncFullButton(false);
 			applyCoarseGestures(false);
-			scheduleSizeRefresh(false);
+			scheduleSizeRefresh('keep');
 		}
 	};
 
@@ -619,7 +679,8 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		restoreWrap();
 		syncFullButton(false);
 		applyCoarseGestures(false);
-		scheduleSizeRefresh(false);
+		locFollow = false;
+		scheduleSizeRefresh('keep');
 	};
 	document.addEventListener('fullscreenchange', onFsEvent);
 	document.addEventListener('webkitfullscreenchange', onFsEvent);
@@ -627,7 +688,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	document.addEventListener('webkitfullscreenerror', onFsEvent);
 
 	const onResize = () => {
-		if (isOn()) scheduleSizeRefresh(false);
+		if (isOn()) scheduleSizeRefresh(locFollow ? 'follow' : 'keep');
 	};
 	window.addEventListener('resize', onResize);
 	window.visualViewport?.addEventListener('resize', onResize);
@@ -641,11 +702,13 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const L = (typeof window !== 'undefined' ? window.L : null) as LeafletGlobal | null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let locMarker: any = null;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let locAccuracy: any = null;
 	let locWatch: number | null = null;
-	let locPanNext = false;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let liveMarker: any = null;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let liveAccuracy: any = null;
+	let liveTimer: ReturnType<typeof setInterval> | null = null;
 
 	const setLocateActive = (on: boolean) => {
 		btnLocate.classList.toggle('is-active', on);
@@ -661,6 +724,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		locAccuracy?.remove?.();
 		locMarker = null;
 		locAccuracy = null;
+		locFollow = false;
 		setLocateActive(false);
 	};
 
@@ -675,10 +739,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		}
 		locPanNext = pan;
 		if (locWatch != null) {
-			if (pan && locMarker) {
-				const here = locMarker.getLatLng?.();
-				if (here) map.setView(here, Math.max(map.getZoom?.() ?? 14, 15));
-			}
+			if ((pan || locFollow) && locMarker) panToLocation(true);
 			return;
 		}
 		locWatch = navigator.geolocation.watchPosition(
@@ -707,7 +768,15 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 				}
 				setLocateActive(true);
 				btnLocate.title = 'My location';
-				if (locPanNext) {
+				if (locFollow) {
+					const z = map.getZoom?.() ?? 15;
+					if (locPanNext) {
+						map.setView(latlng, Math.max(z, 15), { animate: true });
+						locPanNext = false;
+					} else {
+						map.panTo(latlng, { animate: true });
+					}
+				} else if (locPanNext) {
 					map.setView(latlng, Math.max(map.getZoom?.() ?? 14, 15));
 					locPanNext = false;
 				}
@@ -721,10 +790,35 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		);
 	};
 
+	beginFollow = () => {
+		locFollow = true;
+		startLocate(true);
+	};
+
+	btnFit.addEventListener('click', (e) => {
+		e.stopPropagation();
+		locFollow = false;
+		onFit();
+	});
 	btnLocate.addEventListener('click', (e) => {
 		e.stopPropagation();
+		locFollow = isOn();
 		startLocate(true);
 	});
+	btnShare?.addEventListener(
+		'click',
+		(e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			requestLiveShare(!liveShareOn());
+		},
+		true
+	);
+
+	const onShareEvent = () => {
+		syncShareButton();
+	};
+	window.addEventListener(LIVE_SHARE_EVENT, onShareEvent);
 
 	try {
 		void navigator.permissions?.query?.({ name: 'geolocation' as PermissionName }).then((status) => {
@@ -733,6 +827,66 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	} catch {
 		/* ignore */
 	}
+
+	const clearLiveMarker = () => {
+		liveMarker?.remove?.();
+		liveAccuracy?.remove?.();
+		liveMarker = null;
+		liveAccuracy = null;
+	};
+
+	const nearOwnLocation = (lat: number, lng: number) => {
+		if (!locMarker) return false;
+		const here = locMarker.getLatLng?.();
+		if (!here) return false;
+		const dlat = here.lat - lat;
+		const dlng = here.lng - lng;
+		return dlat * dlat + dlng * dlng < 4e-7;
+	};
+
+	const showLivePing = (ping: LiveLocationPing | null) => {
+		if (!L || !ping || nearOwnLocation(ping.lat, ping.lng)) {
+			clearLiveMarker();
+			return;
+		}
+		const latlng = L.latLng(ping.lat, ping.lng);
+		const acc = ping.accuracy && ping.accuracy > 0 ? ping.accuracy : 0;
+		const tip = `Live · ${liveAgo(ping.updatedAt)}`;
+		if (!liveMarker) {
+			liveMarker = L.marker(latlng, {
+				icon: liveLocationIcon(L),
+				keyboard: false,
+				zIndexOffset: 1100
+			})
+				.bindTooltip(tip, { direction: 'top', offset: [0, -12] })
+				.addTo(map);
+			liveAccuracy = L.circle(latlng, {
+				radius: Math.max(18, acc),
+				color: cssColor('--accent', '#c8f25a'),
+				weight: 1,
+				fillColor: cssColor('--accent', '#c8f25a'),
+				fillOpacity: 0.12,
+				interactive: false
+			}).addTo(map);
+		} else {
+			liveMarker.setLatLng(latlng);
+			liveMarker.setTooltipContent?.(tip);
+			liveAccuracy?.setLatLng?.(latlng);
+			if (acc > 0) liveAccuracy?.setRadius?.(acc);
+		}
+	};
+
+	const pollLive = () => {
+		void getLiveLocation()
+			.then((ping) => {
+				showLivePing(ping);
+			})
+			.catch(() => {
+				/* ignore — map still works without the ping */
+			});
+	};
+	pollLive();
+	liveTimer = setInterval(pollLive, LIVE_LOCATION_PING_MS);
 
 	try {
 		L?.DomEvent?.disableClickPropagation?.(bar);
@@ -745,12 +899,16 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		/* ignore */
 	}
 
-	bar.append(btnPlus, btnMinus, btnFull, btnLocate, btnFit);
+	bar.append(texts);
+	bar.append(icons);
 	wrap.appendChild(bar);
 
 	return {
 		destroy: () => {
 			stopLocate();
+			clearLiveMarker();
+			if (liveTimer != null) clearInterval(liveTimer);
+			window.removeEventListener(LIVE_SHARE_EVENT, onShareEvent);
 			clearSizeTimers();
 			window.removeEventListener('keydown', onKey);
 			window.removeEventListener('resize', onResize);
@@ -810,6 +968,22 @@ export function userLocationIcon(L: LeafletGlobal) {
 		iconSize: [28, 28],
 		iconAnchor: [14, 14]
 	});
+}
+
+export function liveLocationIcon(L: LeafletGlobal) {
+	return L.divIcon({
+		className: 'live-loc',
+		html: '<span class="live-loc-pulse"></span><span class="live-loc-dot"></span><span class="live-loc-label">Live</span>',
+		iconSize: [52, 36],
+		iconAnchor: [14, 18]
+	});
+}
+
+function liveAgo(updatedAt: number): string {
+	const s = Math.max(0, Math.round((Date.now() - updatedAt) / 1000));
+	if (s < 45) return 'just now';
+	const m = Math.max(1, Math.round(s / 60));
+	return m === 1 ? '1 min ago' : `${m} min ago`;
 }
 
 const ROUTE_CASING_EXTRA = 4;

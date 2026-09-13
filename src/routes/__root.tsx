@@ -22,6 +22,7 @@ import {
 } from 'react';
 import '../app.css';
 import { Icon } from '../components/Icon';
+import { LiveLocationMenuItem, LiveLocationShare } from '../components/LiveLocationShare';
 import { PwaInstall } from '../components/PwaInstall';
 import { ScrollToTop } from '../components/ScrollToTop';
 import { SnackbarProvider } from '../components/Snackbar';
@@ -120,7 +121,8 @@ function RootShell() {
 	return (
 		<RootDocument>
 			<SnackbarProvider>
-				<ScrollRestore />
+			<LiveLocationShare />
+			<ScrollRestore />
 				<ScrollToTop />
 				<div className="app-shell relative z-1 flex flex-1 flex-col w-[min(1120px,calc(100%-2rem))] min-h-dvh mx-auto pt-5 pr-[env(safe-area-inset-right,0px)] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] max-sm:w-full max-sm:h-dvh max-sm:min-h-0 max-sm:overflow-hidden max-sm:pt-0 max-sm:pb-0 max-sm:pl-0 max-sm:pr-0 sm:pt-2">
 					<header className="app-header sticky-chrome flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-2 sm:pt-[calc(0.75rem+env(safe-area-inset-top,0px))] sm:pb-3">
@@ -225,13 +227,14 @@ function RootShell() {
 									<Icon name="map" size={18} />
 									Plan route
 								</Link>
-								<PwaInstall className={tabMoreLink} />
-								{authed ? (
-									<>
-										<div className="my-[0.15rem] border-t border-line" />
-										<SignOutLink className={tabMoreLink} onClick={closeDetails} />
-									</>
-								) : null}
+							<PwaInstall className={tabMoreLink} />
+							{authed ? (
+								<>
+									<LiveLocationMenuItem className={tabMoreLink} onClick={closeDetails} />
+									<div className="my-[0.15rem] border-t border-line" />
+									<SignOutLink className={tabMoreLink} onClick={closeDetails} />
+								</>
+							) : null}
 							</div>
 						</details>
 					</nav>
@@ -281,6 +284,7 @@ function DesktopMore() {
 				</Link>
 				{authed ? (
 					<>
+						<LiveLocationMenuItem className={tabMoreLink} onClick={closeDetails} />
 						<div className="my-[0.15rem] border-t border-line" />
 						<SignOutLink className={tabMoreLink} onClick={closeDetails} />
 					</>

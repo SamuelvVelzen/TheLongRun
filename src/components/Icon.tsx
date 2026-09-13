@@ -39,6 +39,7 @@ export type IconName =
 	| 'install'
 	| 'signIn'
 	| 'signOut'
+	| 'locate'
 	| 'undo'
 	| 'redo';
 
@@ -298,6 +299,14 @@ function Paths({ name }: { name: IconName }) {
 					<path d="M14 7l5 5-5 5" />
 					<path d="M19 12H7" />
 					<path d="M9 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4" />
+				</>
+			);
+		case 'locate':
+			return (
+				<>
+					<circle cx="12" cy="12" r="3.2" />
+					<path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2" />
+					<circle cx="12" cy="12" r="7.2" />
 				</>
 			);
 		case 'undo':

@@ -118,9 +118,11 @@ import matter from 'gray-matter';
 import { requireAuth } from './auth';
 import { brouterAlongPins } from './brouter';
 import {
+    clearLiveLocation,
     currentPlanWeek,
     loadGear,
     loadGoalStore,
+    loadLiveLocation,
     loadPlan,
     loadSettings,
     loadTrainingContext,
@@ -129,6 +131,7 @@ import {
     rememberGearName,
     saveGoalStore,
     saveHrMaxSetting,
+    saveLiveLocation,
     savePlan,
     saveWeekPatternSetting,
     writeContextFile
@@ -257,6 +260,33 @@ export const getAuthState = createServerFn({ method: 'GET' }).handler(async () =
 	const { readAuthSession } = await import('./auth.server');
 	return readAuthSession();
 });
+
+export const getLiveLocation = createServerFn({ method: 'GET' }).handler(async () => {
+	return loadLiveLocation();
+});
+
+export const pingLiveLocation = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: { lat: number; lng: number; accuracy?: number | null }) => {
+		const lat = Number(d?.lat);
+		const lng = Number(d?.lng);
+		if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error('Invalid location.');
+		if (lat < -90 || lat > 90 || lng < -180 || lng > 180) throw new Error('Invalid location.');
+		const accuracy = d?.accuracy == null ? null : Number(d.accuracy);
+		return {
+			lat,
+			lng,
+			accuracy: Number.isFinite(accuracy) ? accuracy : null
+		};
+	})
+	.handler(async ({ data }) => {
+		return saveLiveLocation(data);
+	});
+
+export const stopLiveLocation = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.handler(async () => {
+		await clearLiveLocation();
+		return { ok: true as const };
+	});
 
 export const getDashboardData = createServerFn({ method: 'GET' }).handler(async () => {
 	const [runs, tracks, routeIds, training, planRefs, groupsRaw] = await Promise.all([

@@ -625,6 +625,45 @@ html.overlay-open .overlay-root {
 	border: none !important;
 }
 
+.user-loc,
+.live-loc {
+	position: relative;
+}
+
+.loc-heading-shell {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 0;
+	height: 0;
+	transform-origin: center center;
+	pointer-events: none;
+	z-index: 2;
+}
+
+.live-loc .loc-heading-shell {
+	left: 14px;
+	top: 18px;
+}
+
+.loc-heading-wedge {
+	position: absolute;
+	left: 50%;
+	bottom: 8px;
+	transform: translateX(-50%);
+	width: 0;
+	height: 0;
+	border-left: 5px solid transparent;
+	border-right: 5px solid transparent;
+	border-bottom: 13px solid var(--loc);
+	opacity: 0.9;
+	filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+}
+
+.live-loc .loc-heading-wedge {
+	border-bottom-color: var(--accent);
+}
+
 .route-end-pill {
 	display: flex;
 	align-items: center;

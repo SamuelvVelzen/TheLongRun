@@ -20,6 +20,7 @@ import type { Goal, PlanWeek } from '$lib/types';
 import {
 	isLiveLocationFresh,
 	roundCoord,
+	roundHeading,
 	type LiveLocationPing
 } from '$lib/live-location';
 import {
@@ -371,6 +372,7 @@ function parseLiveLocation(raw: string): LiveLocationPing | null {
 			lat?: unknown;
 			lng?: unknown;
 			accuracy?: unknown;
+			heading?: unknown;
 			updatedAt?: unknown;
 		};
 		const lat = Number(o.lat);
@@ -383,6 +385,7 @@ function parseLiveLocation(raw: string): LiveLocationPing | null {
 			lat,
 			lng,
 			accuracy: Number.isFinite(acc) && acc! >= 0 ? acc : null,
+			heading: roundHeading(o.heading),
 			updatedAt
 		};
 	} catch {
@@ -401,12 +404,14 @@ export async function saveLiveLocation(pos: {
 	lat: number;
 	lng: number;
 	accuracy?: number | null;
+	heading?: number | null;
 }): Promise<LiveLocationPing> {
 	const acc = pos.accuracy == null ? null : Number(pos.accuracy);
 	const next: LiveLocationPing = {
 		lat: roundCoord(pos.lat),
 		lng: roundCoord(pos.lng),
 		accuracy: Number.isFinite(acc) && acc! >= 0 ? Math.round(acc!) : null,
+		heading: roundHeading(pos.heading),
 		updatedAt: Date.now()
 	};
 	await writeContextFile(LIVE_LOCATION_FILE, `${JSON.stringify(next)}\n`);

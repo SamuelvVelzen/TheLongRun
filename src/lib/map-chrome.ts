@@ -8,6 +8,12 @@ import {
 	requestLiveShare,
 	type LiveLocationPing
 } from '$lib/live-location';
+import {
+	applyMarkerHeading,
+	noteGpsHeading,
+	retainHeadingTrack,
+	subscribeHeading
+} from '$lib/location-heading';
 import { getLiveLocation } from '$lib/server/functions';
 import { cssColor, getTheme, THEME_EVENT } from '$lib/theme';
 
@@ -709,6 +715,12 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let liveAccuracy: any = null;
 	let liveTimer: ReturnType<typeof setInterval> | null = null;
+	let releaseHeading: (() => void) | null = null;
+	let unsubHeading: (() => void) | null = null;
+
+	const applyLocHeading = (heading: number | null) => {
+		applyMarkerHeading(locMarker?.getElement?.(), heading);
+	};
 
 	const setLocateActive = (on: boolean) => {
 		btnLocate.classList.toggle('is-active', on);
@@ -720,6 +732,10 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			navigator.geolocation.clearWatch(locWatch);
 			locWatch = null;
 		}
+		unsubHeading?.();
+		unsubHeading = null;
+		releaseHeading?.();
+		releaseHeading = null;
 		locMarker?.remove?.();
 		locAccuracy?.remove?.();
 		locMarker = null;
@@ -742,10 +758,15 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			if ((pan || locFollow) && locMarker) panToLocation(true);
 			return;
 		}
+		releaseHeading?.();
+		releaseHeading = retainHeadingTrack();
+		unsubHeading?.();
+		unsubHeading = subscribeHeading(applyLocHeading);
 		locWatch = navigator.geolocation.watchPosition(
 			(pos) => {
 				const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
 				const acc = Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : 0;
+				const heading = noteGpsHeading(pos.coords);
 				if (!locMarker) {
 					locMarker = L.marker(latlng, {
 						icon: userLocationIcon(L),
@@ -761,10 +782,12 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 						fillOpacity: 0.14,
 						interactive: false
 					}).addTo(map);
+					applyLocHeading(heading);
 				} else {
 					locMarker.setLatLng(latlng);
 					locAccuracy?.setLatLng?.(latlng);
 					if (acc > 0) locAccuracy?.setRadius?.(acc);
+					applyLocHeading(heading);
 				}
 				setLocateActive(true);
 				btnLocate.title = 'My location';
@@ -874,6 +897,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			liveAccuracy?.setLatLng?.(latlng);
 			if (acc > 0) liveAccuracy?.setRadius?.(acc);
 		}
+		applyMarkerHeading(liveMarker?.getElement?.(), ping.heading);
 	};
 
 	const pollLive = () => {
@@ -961,10 +985,13 @@ export function kmMarkerIcon(L: LeafletGlobal, km: number) {
 	});
 }
 
+const LOC_HEADING_HTML =
+	'<span class="loc-heading-shell" hidden><span class="loc-heading-wedge"></span></span>';
+
 export function userLocationIcon(L: LeafletGlobal) {
 	return L.divIcon({
 		className: 'user-loc',
-		html: '<span class="user-loc-pulse"></span><span class="user-loc-dot"></span>',
+		html: `${LOC_HEADING_HTML}<span class="user-loc-pulse"></span><span class="user-loc-dot"></span>`,
 		iconSize: [28, 28],
 		iconAnchor: [14, 14]
 	});
@@ -973,7 +1000,7 @@ export function userLocationIcon(L: LeafletGlobal) {
 export function liveLocationIcon(L: LeafletGlobal) {
 	return L.divIcon({
 		className: 'live-loc',
-		html: '<span class="live-loc-pulse"></span><span class="live-loc-dot"></span><span class="live-loc-label">Live</span>',
+		html: `${LOC_HEADING_HTML}<span class="live-loc-pulse"></span><span class="live-loc-dot"></span><span class="live-loc-label">Live</span>`,
 		iconSize: [52, 36],
 		iconAnchor: [14, 18]
 	});

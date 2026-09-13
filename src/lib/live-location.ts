@@ -10,6 +10,8 @@ export type LiveLocationPing = {
 	lat: number;
 	lng: number;
 	accuracy: number | null;
+	/** Degrees clockwise from true north, when known. */
+	heading: number | null;
 	updatedAt: number;
 };
 
@@ -22,6 +24,12 @@ export function isLiveLocationFresh(updatedAt: number, now = Date.now()): boolea
 
 export function roundCoord(n: number): number {
 	return Math.round(n * 1e5) / 1e5;
+}
+
+export function roundHeading(deg: unknown): number | null {
+	const n = Number(deg);
+	if (!Number.isFinite(n) || n < 0) return null;
+	return Math.round(((n % 360) + 360) % 360);
 }
 
 export function liveShareWanted(): boolean {

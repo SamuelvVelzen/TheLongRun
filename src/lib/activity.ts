@@ -179,10 +179,10 @@ function strengthDuration(run: Pick<RunRecord, 'time' | 'elapsed_time'>): string
 	return run.time?.trim() || run.elapsed_time?.trim() || '';
 }
 
-function strengthHeadlineFallback(run: { notes?: string }): string {
+function strengthWorkLabel(run: { notes?: string }): string {
 	const { exercises } = parseStrengthNotes(run.notes);
 	if (exercises.length === 1) return exercises[0]!.name;
-	if (exercises.length > 1) return `${exercises.length} lifts`;
+	if (exercises.length > 1) return `${exercises.length} sets`;
 	return '';
 }
 
@@ -216,6 +216,8 @@ export function activitySub(
 		| 'legs'
 		| 'energy'
 		| 'notes'
+		| 'time'
+		| 'elapsed_time'
 	>
 ): string {
 	const parts: string[] = [];
@@ -225,9 +227,10 @@ export function activitySub(
 
 	if (normalizeActivityType(run.activity_type) === 'strength') {
 		parts.push(...feelSubParts(run));
-		const { exercises } = parseStrengthNotes(run.notes);
-		if (exercises.length === 1) parts.push(exercises[0]!.name);
-		else if (exercises.length > 1) parts.push(`${exercises.length} lifts`);
+		if (strengthDuration(run)) {
+			const work = strengthWorkLabel(run);
+			if (work) parts.push(work);
+		}
 		return parts.join(' · ');
 	}
 
@@ -246,7 +249,7 @@ export function headlineMetric(run: HeadlineRun): HeadlineMetric {
 	if (t === 'strength') {
 		const dur = strengthDuration(run);
 		if (dur) return { value: dur, unit: '' };
-		const fallback = strengthHeadlineFallback(run);
+		const fallback = strengthWorkLabel(run);
 		return { value: fallback || '—', unit: '' };
 	}
 

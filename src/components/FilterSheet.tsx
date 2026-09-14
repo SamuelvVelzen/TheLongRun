@@ -67,9 +67,9 @@ export function FilterSheet({
 		<div
 			className={cn(
 				ui.stickyBar,
-				'sticky-chrome flex items-center gap-3 -mx-2 px-2 py-2',
+				'sticky-chrome flex items-center gap-3 py-2',
 				'max-sm:items-start max-sm:pt-0 max-sm:pb-2 max-sm:mb-3',
-				'sm:mb-4'
+				'sm:-mx-2 sm:px-2 sm:mb-4'
 			)}
 		>
 			<div
@@ -81,7 +81,7 @@ export function FilterSheet({
 			>
 				<button
 					type="button"
-					className="hidden w-full justify-between max-sm:inline-flex items-center gap-[0.55rem] max-w-full min-h-11 px-[0.95rem] py-[0.45rem] border border-line rounded-full bg-canvas/85 text-fg cursor-pointer aria-[expanded=true]:border-accent"
+					className="hidden w-full box-border justify-between max-sm:flex items-center gap-[0.55rem] max-w-full min-h-11 px-[0.95rem] py-[0.45rem] border border-line rounded-full bg-canvas/85 text-fg cursor-pointer aria-[expanded=true]:border-accent"
 					aria-haspopup="dialog"
 					aria-expanded={open}
 					aria-controls={panelId}

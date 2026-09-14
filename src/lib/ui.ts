@@ -70,7 +70,7 @@ export const ui = {
 	dropzoneOver: 'border-accent bg-accent/8 text-fg',
 	stickyBar: 'sticky-bar',
 	coachTabs:
-		'sticky-bar sticky-chrome mb-4 -mx-2 px-2 py-2 max-sm:pt-0 max-sm:pb-2 max-sm:mb-3',
+		'sticky-bar sticky-chrome mb-4 py-2 max-sm:pt-0 max-sm:pb-2 max-sm:mb-3 sm:-mx-2 sm:px-2',
 	choiceChips: 'flex flex-wrap gap-[0.4rem]',
 	choiceChip:
 		'appearance-none inline-flex items-center justify-center gap-1.5 min-h-11 px-[0.95rem] py-2 rounded-full border border-solid border-line bg-transparent text-muted font-semibold cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:border-accent/35 disabled:opacity-35 disabled:cursor-not-allowed aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent',

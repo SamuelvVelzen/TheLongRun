@@ -328,14 +328,16 @@
 	}
 
 	.app-main {
+		--page-pad-left: max(0.625rem, env(safe-area-inset-left, 0px));
+		--page-pad-right: max(0.625rem, env(safe-area-inset-right, 0px));
 		flex: 1 1 auto;
 		min-height: 0;
 		overflow-x: clip;
 		overflow-y: auto;
 		-webkit-overflow-scrolling: touch;
 		overscroll-behavior: contain;
-		padding-left: max(0.625rem, env(safe-area-inset-left, 0px));
-		padding-right: max(0.625rem, env(safe-area-inset-right, 0px));
+		padding-left: var(--page-pad-left);
+		padding-right: var(--page-pad-right);
 		padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
 		scroll-padding-top: 0;
 		scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
@@ -353,6 +355,10 @@
 
 	.sticky-bar {
 		top: 0;
+		margin-left: calc(-1 * var(--page-pad-left));
+		margin-right: calc(-1 * var(--page-pad-right));
+		padding-left: var(--page-pad-left);
+		padding-right: var(--page-pad-right);
 	}
 }
 

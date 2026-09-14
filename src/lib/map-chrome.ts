@@ -206,7 +206,7 @@ function textBtn(label: string, title: string): HTMLButtonElement {
 	const btn = document.createElement('button');
 	btn.type = 'button';
 	btn.className =
-		'map-chrome-text appearance-none inline-flex items-center justify-center min-h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted text-[0.72rem] font-semibold font-inherit cursor-pointer shrink-0 whitespace-nowrap transition-[color,background-color] duration-150 ease-out hover:text-fg hover:bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold max-sm:min-w-11 max-sm:px-[0.9rem] max-sm:text-[0.8rem]';
+		'map-chrome-text appearance-none inline-flex items-center justify-center box-border min-h-11 h-11 px-[0.85rem] py-2 border-0 border-r border-line last:border-r-0 rounded-none bg-transparent text-muted text-[0.72rem] font-semibold font-inherit cursor-pointer shrink-0 whitespace-nowrap transition-[color,background-color] duration-150 ease-out hover:text-fg hover:bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:bg-accent! aria-[pressed=true]:font-semibold max-sm:min-w-11 max-sm:min-h-11 max-sm:h-11 max-sm:px-[0.9rem] max-sm:py-2 max-sm:text-[0.8rem]';
 	btn.textContent = label;
 	btn.title = title;
 	btn.setAttribute('aria-label', title);
@@ -422,7 +422,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 
 	const bar = document.createElement('div');
 	bar.className =
-		'map-chrome absolute z-[1100] top-[0.65rem] right-[0.65rem] flex flex-col items-end gap-[0.35rem] pointer-events-auto max-sm:top-2 max-sm:right-2 max-sm:gap-[0.3rem]';
+		'map-chrome absolute z-[1100] top-[0.65rem] right-[0.65rem] flex flex-col items-end gap-[0.35rem] pointer-events-auto max-sm:top-[0.85rem] max-sm:right-[0.85rem] max-sm:gap-[0.3rem]';
 	bar.setAttribute('role', 'toolbar');
 	bar.setAttribute('aria-label', 'Map controls');
 
@@ -439,8 +439,8 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 
 	const texts = document.createElement('div');
 	texts.className =
-		'map-chrome-texts inline-flex w-fit overflow-hidden border border-line rounded-full bg-surface/90 shadow-lift';
-	texts.append(btnFit, btnFull);
+		'map-chrome-texts inline-flex w-fit items-stretch overflow-hidden border border-line rounded-full bg-surface/90 shadow-lift';
+	texts.append(btnFull, btnFit);
 	if (btnShare) texts.append(btnShare);
 
 	const icons = document.createElement('div');

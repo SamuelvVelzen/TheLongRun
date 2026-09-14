@@ -854,12 +854,18 @@ body.map-fs-active .live-share-host {
 	right: max(0.85rem, env(safe-area-inset-right, 0px));
 }
 
+.map-chrome-text {
+	box-sizing: border-box;
+	min-height: 44px;
+	height: 44px;
+}
+
 @media (max-width: 640px) {
 	.map-wrap.is-fullscreen .map-chrome,
 	.map-wrap:fullscreen .map-chrome,
 	.map-wrap:-webkit-full-screen .map-chrome {
-		top: max(0.5rem, env(safe-area-inset-top, 0px));
-		right: max(0.5rem, env(safe-area-inset-right, 0px));
+		top: max(0.85rem, env(safe-area-inset-top, 0px));
+		right: max(0.85rem, env(safe-area-inset-right, 0px));
 	}
 }
 

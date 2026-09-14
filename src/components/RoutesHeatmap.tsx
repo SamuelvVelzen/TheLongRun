@@ -180,7 +180,7 @@ export function RoutesHeatmap({
 			)}
 			{hasFocus && !status && (
 				<SegmentedToggle
-					className="heatmap-view-toggle absolute z-[2] left-[0.85rem] top-[0.85rem] [&_button]:text-[0.72rem] [&_button]:font-semibold max-sm:[&_button]:min-w-11 max-sm:[&_button]:min-h-11 max-sm:[&_button]:text-[0.8rem] max-sm:[&_button]:px-[0.9rem] max-sm:[&_button]:py-2"
+					className="heatmap-view-toggle absolute z-[2] left-[0.85rem] top-[0.85rem] [&_button]:text-[0.72rem] [&_button]:font-semibold max-sm:[&_button]:min-w-11 max-sm:[&_button]:min-h-11 max-sm:[&_button]:h-11 max-sm:[&_button]:text-[0.8rem] max-sm:[&_button]:px-[0.9rem] max-sm:[&_button]:py-2"
 					value={view}
 					aria-label="Map zoom"
 					onChange={(next) => {

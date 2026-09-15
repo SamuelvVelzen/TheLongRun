@@ -36,7 +36,7 @@ export const Route = createRootRoute({
 				name: 'viewport',
 				content: 'width=device-width, initial-scale=1, viewport-fit=cover'
 			},
-			{ title: 'The Long Run' },
+			{ title: import.meta.env.DEV ? 'The Long Run - Dev' : 'The Long Run' },
 			{ name: 'description', content: 'Personal run log' },
 			{ name: 'theme-color', content: '#10140f' },
 			{ name: 'color-scheme', content: 'dark' },

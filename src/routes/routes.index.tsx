@@ -5,6 +5,7 @@ import {
     getPlannedRoutesData,
     importPlannedRoute
 } from '$lib/server/functions';
+import { appHead } from '$lib/title';
 import type { PlannedRoute } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
@@ -13,6 +14,7 @@ import { DeferredData } from '../components/DeferredData';
 import { DeleteButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
+import { OpenRouteBadge } from '../components/OpenRouteBadge';
 import { PageHero } from '../components/PageHero';
 import { MapPinIcon } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
@@ -21,11 +23,19 @@ import { WaypointEditor } from '../components/WaypointEditor';
 
 type RoutesSearch = { draw?: boolean };
 
+async function refreshRoutesList(router: ReturnType<typeof useRouter>) {
+	await router.invalidate();
+	const match = router.state.matches.find((m) => m.routeId === '/routes/');
+	const page = (match?.loaderData as { page?: Promise<unknown> } | undefined)?.page;
+	if (page) await page;
+}
+
 export const Route = createFileRoute('/routes/')({
 	validateSearch: (s: Record<string, unknown>): RoutesSearch => ({
 		draw: s.draw === true || s.draw === '1' || s.draw === 'true' ? true : undefined
 	}),
 	loader: () => ({ page: getPlannedRoutesData() }),
+	head: () => appHead('Routes'),
 	component: PlannedRoutes
 });
 
@@ -61,7 +71,7 @@ function PlannedRoutes() {
 				data: { text: await file.text(), filename: file.name }
 			});
 			snack.success(`Saved ${result.name}`);
-			await router.invalidate();
+			await refreshRoutesList(router);
 			await router.navigate({ to: '/routes/$slug', params: { slug: result.slug } });
 		} catch (error) {
 			snack.error(errorMessage(error, 'Import failed'));
@@ -97,7 +107,7 @@ function PlannedRoutes() {
 			snack.success(`Saved ${result.name}`);
 			setRouteName('');
 			setDrawing(false);
-			await router.invalidate();
+			await refreshRoutesList(router);
 			await router.navigate({ to: '/routes/$slug', params: { slug: result.slug } });
 		} catch (error) {
 			snack.error(errorMessage(error, 'Could not save route'));
@@ -334,7 +344,10 @@ function PlannedRouteRow({
 				}}
 			>
 				<div>
-					<div className="font-[650] mb-[0.15rem]">{route.name}</div>
+					<div className={cn(ui.runTitle, 'font-[650] mb-[0.15rem]')}>
+						<span className="min-w-0">{route.name}</span>
+						{route.open_gap_m != null && <OpenRouteBadge gapMeters={route.open_gap_m} />}
+					</div>
 					<div className={ui.muted}>{linkSummary(route)}</div>
 				</div>
 				<div>{route.distance_km ?? '—'} km</div>

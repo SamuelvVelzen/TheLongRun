@@ -1,4 +1,5 @@
 import { useAuthed } from '$lib/auth';
+import { formatStraightLineGap } from '$lib/format';
 import { samplesFromGeoJson } from '$lib/gps-repair';
 import {
     downloadPlannedRouteGpx,
@@ -13,12 +14,14 @@ import {
     getPlannedRouteDetail,
     updatePlannedRoute
 } from '$lib/server/functions';
+import { appHead } from '$lib/title';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DeleteButton, EditButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
+import { OpenRouteBadge } from '../components/OpenRouteBadge';
 import { PageHero } from '../components/PageHero';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 import { RouteAttach } from '../components/RouteAttach';
@@ -31,6 +34,7 @@ export const Route = createFileRoute('/routes/$slug')({
 		if (!route) throw notFound();
 		return route;
 	},
+	head: ({ loaderData }) => appHead(loaderData?.name, 'Routes'),
 	component: PlannedRouteDetail
 });
 
@@ -148,6 +152,7 @@ function PlannedRouteDetail() {
 		if (!opened) snack.info('This route has too few points for BRouter.');
 	}
 
+	const openGap = route.open_gap_m;
 	const location = [route.place, route.province, route.country].filter(Boolean).join(', ');
 	const elevationRange =
 		route.elev_min != null && route.elev_max != null
@@ -234,8 +239,24 @@ function PlannedRouteDetail() {
 						className="max-sm:contents max-sm:mb-0"
 						copyClassName="max-sm:mb-3"
 						kicker={kicker}
-						title={route.name}
-						lead={<p>{route.notes || 'Planned route.'}</p>}
+						title={
+							<>
+								<span className="min-w-0">{route.name}</span>
+								{openGap != null && <OpenRouteBadge gapMeters={openGap} size={22} />}
+							</>
+						}
+						titleClassName={ui.runTitle}
+						lead={
+							<>
+								<p>{route.notes || 'Planned route.'}</p>
+								{openGap != null && (
+									<p className="text-warn! font-semibold">
+										Start and finish are {formatStraightLineGap(openGap)} apart from each
+										other.
+									</p>
+								)}
+							</>
+						}
 						actionsClassName="justify-start! max-sm:order-3 max-sm:mt-1 max-sm:mb-4"
 						actions={
 							<>

@@ -48,6 +48,48 @@ export function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: 
 	return 2 * EARTH_M * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
+/** Warn when a planned route's start and finish are farther than this (straight-line). */
+export const OPEN_ROUTE_GAP_M = 200;
+
+type LatLngLike = { lat: number; lng: number } | readonly [number, number];
+
+function toLatLng(point: LatLngLike): { lat: number; lng: number } | null {
+	if ('lat' in point) {
+		const lat = Number(point.lat);
+		const lng = Number(point.lng);
+		if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+		return { lat, lng };
+	}
+	const lat = Number(point[0]);
+	const lng = Number(point[1]);
+	if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+	return { lat, lng };
+}
+
+/** Straight-line distance between first and last point, or null if unknown. */
+export function endsGapMeters(coords: readonly LatLngLike[]): number | null {
+	if (coords.length < 2) return null;
+	const start = toLatLng(coords[0]!);
+	const end = toLatLng(coords[coords.length - 1]!);
+	if (!start || !end) return null;
+	return haversineMeters(start.lat, start.lng, end.lat, end.lng);
+}
+
+/**
+ * Gap in meters when start/finish are farther than {@link OPEN_ROUTE_GAP_M}.
+ * Prefers the track line when it has two points; otherwise waypoints.
+ */
+export function openRouteGapMeters(
+	track?: readonly LatLngLike[] | null,
+	waypoints?: readonly LatLngLike[] | null
+): number | null {
+	const coords = track && track.length >= 2 ? track : waypoints;
+	if (!coords || coords.length < 2) return null;
+	const gap = endsGapMeters(coords);
+	if (gap == null || gap <= OPEN_ROUTE_GAP_M) return null;
+	return gap;
+}
+
 function lerp(a: number, b: number, t: number): number {
 	return a + (b - a) * t;
 }

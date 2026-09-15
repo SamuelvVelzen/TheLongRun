@@ -41,7 +41,8 @@ export type IconName =
 	| 'signOut'
 	| 'locate'
 	| 'undo'
-	| 'redo';
+	| 'redo'
+	| 'warning';
 
 function Paths({ name }: { name: IconName }) {
 	switch (name) {
@@ -321,6 +322,14 @@ function Paths({ name }: { name: IconName }) {
 				<>
 					<path d="M16 8h4v4" />
 					<path d="M19.6 12a8 8 0 1 1-2.2-6.5" />
+				</>
+			);
+		case 'warning':
+			return (
+				<>
+					<path d="M12 4.4 21.2 20.2H2.8L12 4.4z" />
+					<path d="M12 10.2v4.2" />
+					<circle cx="12" cy="16.9" r="0.85" fill="currentColor" stroke="none" />
 				</>
 			);
 	}

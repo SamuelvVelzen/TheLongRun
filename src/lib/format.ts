@@ -152,6 +152,12 @@ export function roundKm(meters: number): number {
 	return Math.round((meters / 1000) * 100) / 100;
 }
 
+/** Straight-line gap for the open-route warning (`240 m`, `1.25 km`). */
+export function formatStraightLineGap(meters: number): string {
+	if (meters >= 1000) return `${roundKm(meters)} km`;
+	return `${Math.round(meters)} m`;
+}
+
 /** Round elevation meters to one decimal (or whole if near-integer). */
 export function roundElev(meters: number): number {
 	return Math.round(meters * 10) / 10;

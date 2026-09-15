@@ -148,6 +148,8 @@ export type PlannedRoute = {
 	province: string;
 	place: string;
 	waypoints: PlannedWaypoint[];
+	/** Straight-line start/finish gap in meters when farther than 200 m; otherwise null. */
+	open_gap_m: number | null;
 	/** Plan days this route is attached to (list views). */
 	plan_link_count: number;
 	/** Completed activities this route is attached to (list views). */

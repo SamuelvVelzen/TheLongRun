@@ -13,6 +13,7 @@ import {
 } from '$lib/goals';
 import { calendarFromGoal, daysUntil, mondayIso } from '$lib/plan';
 import { clearGoal, completeGoal, getGoalBrief, getGoalsData, saveActiveGoal } from '$lib/server/functions';
+import { appHead } from '$lib/title';
 import type { Goal } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
@@ -41,6 +42,7 @@ export const Route = createFileRoute('/goals')({
 	}),
 	loaderDeps: () => ({}),
 	loader: () => ({ page: getGoalsData() }),
+	head: () => appHead('Goals'),
 	component: GoalsPage
 });
 

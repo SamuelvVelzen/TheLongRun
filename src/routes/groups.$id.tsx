@@ -1,7 +1,13 @@
 import { activityLabel, headlineMetric, showsField } from '$lib/activity';
 import { saveExportedFile, shareOrDownload } from '$lib/activity-export';
 import { AuthGate } from '$lib/auth';
-import { effortOwnersForBoard, groupedSessionTitle, groupHighlights, groupTypeCaption } from '$lib/group';
+import {
+	effortOwnersForBoard,
+	groupedSessionTitle,
+	groupHighlights,
+	groupTypeCaption,
+	sortGroupMembers
+} from '$lib/group';
 import {
     addToActivityGroupFn,
     exportGroupedActivity,
@@ -9,6 +15,7 @@ import {
     removeFromActivityGroupFn,
     ungroupActivitiesFn
 } from '$lib/server/functions';
+import { activityTitlePart, appHead } from '$lib/title';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
@@ -25,6 +32,13 @@ export const Route = createFileRoute('/groups/$id')({
 		const detail = await getGroupDetail({ data: params.id });
 		if (!detail) throw notFound();
 		return detail;
+	},
+	head: ({ loaderData }) => {
+		if (!loaderData) return appHead('Timeline');
+		const named = loaderData.group.name.trim();
+		if (named) return appHead(named, 'Timeline');
+		const first = sortGroupMembers(loaderData.members)[0];
+		return appHead(first ? activityTitlePart(first) : null, 'Timeline');
 	},
 	component: GroupDetail
 });

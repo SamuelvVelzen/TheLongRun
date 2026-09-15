@@ -26,6 +26,7 @@ import {
     parseStrengthNotes,
     topSet
 } from '$lib/strength';
+import { activityTitlePart, appHead } from '$lib/title';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, notFound, useBlocker, useRouter } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -57,6 +58,8 @@ export const Route = createFileRoute('/runs/$slug')({
 		if (!detail) throw notFound();
 		return detail;
 	},
+	head: ({ loaderData }) =>
+		appHead(loaderData ? activityTitlePart(loaderData.run) : null, 'Timeline'),
 	component: RunDetail
 });
 

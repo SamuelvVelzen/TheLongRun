@@ -1,5 +1,6 @@
 import { useAuthed } from '$lib/auth';
 import { getContextData, saveContextFile } from '$lib/server/functions';
+import { appHead } from '$lib/title';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -11,6 +12,7 @@ import { errorMessage, useSnackbar } from '../components/Snackbar';
 
 export const Route = createFileRoute('/context')({
 	loader: () => ({ page: getContextData() }),
+	head: () => appHead('Context'),
 	component: Context
 });
 

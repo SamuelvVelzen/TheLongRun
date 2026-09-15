@@ -23,6 +23,7 @@ import {
 	saveWeekPattern
 } from '$lib/server/functions';
 import type { GearContext, GearKind, GearWear } from '$lib/gear';
+import { appHead } from '$lib/title';
 import { cn, ui } from '$lib/ui';
 import {
 	formatPatternProse,
@@ -342,6 +343,7 @@ export const Route = createFileRoute('/coach')({
 			]).then(([debrief, weekPattern, planData]) => ({ debrief, weekPattern, planData }))
 		};
 	},
+	head: () => appHead('Coach'),
 	component: Coach
 });
 

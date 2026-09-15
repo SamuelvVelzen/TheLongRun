@@ -1,6 +1,7 @@
 import type { ActivityType } from '$lib/activity';
 import { SignInPanel, useAuthed } from '$lib/auth';
 import { getLogDefaults } from '$lib/server/functions';
+import { appHead } from '$lib/title';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { DeferredData } from '../components/DeferredData';
@@ -42,6 +43,7 @@ export const Route = createFileRoute('/import')({
 		};
 	},
 	loader: () => ({ page: getLogDefaults() }),
+	head: () => appHead('Add activity'),
 	component: AddActivity
 });
 

@@ -21,6 +21,7 @@ import {
 } from '$lib/group';
 import { createActivityGroupFn, deleteRun, deleteRunsFn, exportActivitiesFn, getTimelineRuns } from '$lib/server/functions';
 import { formatTimelineClipboard } from '$lib/timeline-copy';
+import { appHead } from '$lib/title';
 import type { ActivityGroupInfo, RunWithMap } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
@@ -64,6 +65,7 @@ export const Route = createFileRoute('/timeline')({
 		place: typeof s.place === 'string' ? s.place : undefined
 	}),
 	loader: () => ({ page: getTimelineRuns() }),
+	head: () => appHead('Timeline'),
 	component: Timeline
 });
 

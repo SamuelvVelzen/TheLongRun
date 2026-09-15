@@ -1,9 +1,11 @@
 import { SignInLink } from '$lib/auth';
+import { appHead } from '$lib/title';
 import { ui } from '$lib/ui';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { PageHero } from '../components/PageHero';
 
 export const Route = createFileRoute('/login')({
+	head: () => appHead('Sign in'),
 	validateSearch: (s: Record<string, unknown>): { next?: string } => ({
 		next: typeof s.next === 'string' ? s.next : undefined
 	}),

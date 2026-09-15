@@ -2,6 +2,7 @@ import { AuthProvider, SignInLink, useAuthed } from '$lib/auth';
 import { registerPwa } from '$lib/pwa';
 import { getAuthState } from '$lib/server/functions';
 import { applyTheme, getTheme, themeInitScript } from '$lib/theme';
+import { appTitle } from '$lib/title';
 import { cn } from '$lib/ui';
 import { appCanScrollTo, getAppScrollElement, scrollAppTo } from '$lib/viewport';
 import {
@@ -36,7 +37,7 @@ export const Route = createRootRoute({
 				name: 'viewport',
 				content: 'width=device-width, initial-scale=1, viewport-fit=cover'
 			},
-			{ title: import.meta.env.DEV ? 'The Long Run - Dev' : 'The Long Run' },
+			{ title: appTitle() },
 			{ name: 'description', content: 'Personal run log' },
 			{ name: 'theme-color', content: '#10140f' },
 			{ name: 'color-scheme', content: 'dark' },

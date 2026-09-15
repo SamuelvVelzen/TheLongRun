@@ -18,6 +18,7 @@ import {
 import { collapseRuns, groupedSessionTitle } from '$lib/group';
 import { buildDashboardStats, daysUntil, sessionMeasureLabel, weekToPlan, weekViewIsClosed, type DashboardStats } from '$lib/plan';
 import { getDashboardData } from '$lib/server/functions';
+import { appHead } from '$lib/title';
 import { buildTrainingTrends } from '$lib/trends';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -67,6 +68,7 @@ export const Route = createFileRoute('/')({
 		place: typeof s.place === 'string' ? s.place : undefined
 	}),
 	loader: () => ({ page: getDashboardData() }),
+	head: () => appHead('Dashboard'),
 	component: Dashboard
 });
 

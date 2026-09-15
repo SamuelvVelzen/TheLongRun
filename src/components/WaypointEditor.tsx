@@ -1,7 +1,7 @@
 import type { GpsContextTrack, GpsPoint, GpsWaypoint } from '$lib/gps-repair';
 import { previewGpsNetwork } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { GpsWaypointMap } from './GpsWaypointMap';
 import { Icon } from './Icon';
 
@@ -11,29 +11,47 @@ export type WaypointEditorSave = {
 	networkCoords: GpsPoint[];
 };
 
+export type WaypointEditorHandle = {
+	snapshot: () => WaypointEditorSave;
+	isDirty: () => boolean;
+};
+
+function samePins(a: GpsWaypoint[], b: GpsWaypoint[]) {
+	if (a.length !== b.length) return false;
+	return a.every((point, i) => {
+		const other = b[i];
+		return other != null && point.lat === other.lat && point.lng === other.lng;
+	});
+}
+
 export function WaypointEditor({
+	ref,
 	initialWaypoints = [],
 	contextTracks = [],
 	emptyHint,
 	hint,
 	saveLabel,
 	busy = false,
+	embedded = false,
 	onClose,
 	onSave,
 	children
 }: {
+	ref?: Ref<WaypointEditorHandle>;
 	initialWaypoints?: GpsWaypoint[];
 	contextTracks?: GpsContextTrack[];
 	emptyHint?: string;
 	hint?: ReactNode;
-	saveLabel: string;
+	saveLabel?: string;
 	busy?: boolean;
+	embedded?: boolean;
 	onClose?: () => void;
-	onSave: (data: WaypointEditorSave) => void | Promise<void>;
+	onSave?: (data: WaypointEditorSave) => void | Promise<void>;
 	children?: ReactNode;
 }) {
+	const initialRef = useRef(initialWaypoints.map((point) => ({ lat: point.lat, lng: point.lng })));
 	const [waypoints, setWaypoints] = useState<GpsWaypoint[]>(() =>
-		initialWaypoints.map((point) => ({ lat: point.lat, lng: point.lng }))
+		initialRef.current.map((point) => ({ lat: point.lat, lng: point.lng }))
 	);
 	const [past, setPast] = useState<GpsWaypoint[][]>([]);
 	const [future, setFuture] = useState<GpsWaypoint[][]>([]);
@@ -88,6 +106,19 @@ export function WaypointEditor({
 			window.clearTimeout(timer);
 		};
 	}, [followNetwork, waypoints]);
+
+	useImperativeHandle(
+		ref,
+		() => ({
+			snapshot: () => ({
+				waypoints,
+				followNetwork,
+				networkCoords: followNetwork && routePreview.length >= 2 ? routePreview : []
+			}),
+			isDirty: () => followNetwork !== true || !samePins(waypoints, initialRef.current)
+		}),
+		[followNetwork, routePreview, waypoints]
+	);
 
 	return (
 		<div className="grid gap-3">
@@ -154,27 +185,29 @@ export function WaypointEditor({
 			<p className={cn(ui.muted, 'm-0 text-[0.78rem] text-right')}>
 				BRouter bike/hike network — not trains. Uncheck to keep the line you drew.
 			</p>
-			<div className="flex flex-wrap justify-end gap-2">
-				{onClose ? (
-					<button className={cn(ui.btnGhost, ui.btnSm)} type="button" disabled={busy} onClick={onClose}>
-						Close
+			{embedded ? null : (
+				<div className="flex flex-wrap justify-end gap-2">
+					{onClose ? (
+						<button className={cn(ui.btnGhost, ui.btnSm)} type="button" disabled={busy} onClick={onClose}>
+							Close
+						</button>
+					) : null}
+					<button
+						className={cn(ui.btnPrimary, ui.btnSm)}
+						type="button"
+						disabled={busy || waypoints.length < 2 || !onSave}
+						onClick={() =>
+							void onSave?.({
+								waypoints,
+								followNetwork,
+								networkCoords: followNetwork && routePreview.length >= 2 ? routePreview : []
+							})
+						}
+					>
+						{busy ? 'Saving…' : saveLabel ?? 'Save'}
 					</button>
-				) : null}
-				<button
-					className={cn(ui.btnPrimary, ui.btnSm)}
-					type="button"
-					disabled={busy || waypoints.length < 2}
-					onClick={() =>
-						void onSave({
-							waypoints,
-							followNetwork,
-							networkCoords: followNetwork && routePreview.length >= 2 ? routePreview : []
-						})
-					}
-				>
-					{busy ? 'Saving…' : saveLabel}
-				</button>
-			</div>
+				</div>
+			)}
 		</div>
 	);
 }

@@ -3,8 +3,7 @@ import {
     createPlannedRoute,
     deletePlannedRoute,
     getPlannedRoutesData,
-    importPlannedRoute,
-    updatePlannedRoute
+    importPlannedRoute
 } from '$lib/server/functions';
 import type { PlannedRoute } from '$lib/types';
 import { cn, ui } from '$lib/ui';
@@ -295,30 +294,8 @@ function PlannedRouteRow({
 	route: PlannedRoute;
 }) {
 	const router = useRouter();
-	const authed = useAuthed();
 	const snack = useSnackbar();
-	const [name, setName] = useState(route.name);
 	const [pendingDelete, setPendingDelete] = useState(false);
-
-	useEffect(() => {
-		setName(route.name);
-	}, [route.name]);
-
-	async function persistName() {
-		const trimmed = name.trim();
-		if (!trimmed) {
-			setName(route.name);
-			return;
-		}
-		if (trimmed === route.name) return;
-		try {
-			await updatePlannedRoute({ data: { slug: route.slug, name: trimmed } });
-			await router.invalidate();
-		} catch (error) {
-			setName(route.name);
-			snack.error(errorMessage(error, 'Save failed'));
-		}
-	}
 
 	async function onDeleteRoute(event: MouseEvent) {
 		event.preventDefault();
@@ -357,32 +334,7 @@ function PlannedRouteRow({
 				}}
 			>
 				<div>
-					{authed ? (
-					<input
-						className="block w-full max-w-full m-[-0.05rem_-0.35rem_0.15rem] px-[0.35rem] py-[0.05rem] border border-dashed border-transparent rounded-[10px] bg-transparent text-inherit font-inherit font-[650] cursor-text hover:border-line focus:border-solid focus:border-accent focus:outline-none"
-						value={name}
-						required
-						aria-label={`Route name, currently ${route.name}`}
-						onClick={(event) => event.stopPropagation()}
-						onMouseDown={(event) => event.stopPropagation()}
-						onKeyDown={(event) => {
-							event.stopPropagation();
-							if (event.key === 'Enter') {
-								event.preventDefault();
-								(event.target as HTMLInputElement).blur();
-							}
-							if (event.key === 'Escape') {
-								event.preventDefault();
-								setName(route.name);
-								(event.target as HTMLInputElement).blur();
-							}
-						}}
-						onChange={(event) => setName(event.target.value)}
-						onBlur={() => void persistName()}
-					/>
-					) : (
-						<div className="font-[650] mb-[0.15rem]">{route.name}</div>
-					)}
+					<div className="font-[650] mb-[0.15rem]">{route.name}</div>
 					<div className={ui.muted}>{linkSummary(route)}</div>
 				</div>
 				<div>{route.distance_km ?? '—'} km</div>

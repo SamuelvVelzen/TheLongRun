@@ -1,5 +1,5 @@
 import type { KmMarker } from '$lib/splits';
-import { analyticsToProperties } from '$lib/splits';
+import { analyticsToProperties, haversineMeters } from '$lib/splits';
 import type { PlannedRoute, PlannedWaypoint, RouteTrack, SessionRouteRef } from '$lib/types';
 import { WEEKDAYS } from '$lib/week-mix';
 import { getSql, parseJsonColumn } from './db';
@@ -150,6 +150,56 @@ export async function getPlannedRoute(slug: string): Promise<PlannedRouteDetail 
 	return { ...route, geojson, kmMarkers };
 }
 
+const NAME_MATCH_M = 40;
+
+function namedWaypoints(
+	pins: { lat: number; lng: number }[],
+	previous: PlannedWaypoint[] = []
+): PlannedWaypoint[] {
+	return pins.map((pin, i) => {
+		let name = '';
+		let best = NAME_MATCH_M;
+		for (const waypoint of previous) {
+			const d = haversineMeters(pin.lat, pin.lng, waypoint.lat, waypoint.lng);
+			if (d < best) {
+				best = d;
+				name = waypoint.name;
+			}
+		}
+		if (!name) {
+			name = i === 0 ? 'Start' : i === pins.length - 1 ? 'Finish' : `Via ${i}`;
+		}
+		return { name, lat: pin.lat, lng: pin.lng };
+	});
+}
+
+function plannedGeoJson(
+	name: string,
+	parsed: Pick<ParsedPlannedRoute, 'distanceKm' | 'points' | 'waypoints' | 'kmMarkers'>
+) {
+	return {
+		type: 'Feature',
+		properties: {
+			name,
+			kind: 'planned',
+			distance_km: parsed.distanceKm,
+			point_count: parsed.points.length,
+			waypoints: parsed.waypoints,
+			...analyticsToProperties({
+				splits: [],
+				hrZones: null,
+				kmMarkers: parsed.kmMarkers
+			})
+		},
+		geometry: {
+			type: 'LineString',
+			coordinates: parsed.points.map((p) =>
+				p.elev != null ? [p.lng, p.lat, p.elev] : [p.lng, p.lat]
+			)
+		}
+	};
+}
+
 async function insertPlannedRoute(
 	parsed: Pick<
 		ParsedPlannedRoute,
@@ -174,27 +224,7 @@ async function insertPlannedRoute(
 			? await reverseGeocode(parsed.startLat, parsed.startLng)
 			: { country: '', province: '', place: '' };
 
-	const geojson = {
-		type: 'Feature',
-		properties: {
-			name: parsed.name,
-			kind: 'planned',
-			distance_km: parsed.distanceKm,
-			point_count: parsed.points.length,
-			waypoints: parsed.waypoints,
-			...analyticsToProperties({
-				splits: [],
-				hrZones: null,
-				kmMarkers: parsed.kmMarkers
-			})
-		},
-		geometry: {
-			type: 'LineString',
-			coordinates: parsed.points.map((p) =>
-				p.elev != null ? [p.lng, p.lat, p.elev] : [p.lng, p.lat]
-			)
-		}
-	};
+	const geojson = plannedGeoJson(parsed.name, parsed);
 
 	const sql = getSql();
 	const saved_on = isoDateLocal();
@@ -262,6 +292,57 @@ export async function updatePlannedRoute(
 	const sql = getSql();
 	const rows = (await sql`
 		UPDATE planned_routes SET name = ${name}, notes = ${notes}
+		WHERE slug = ${slug}
+		RETURNING slug, name, notes, distance_km, elev_gain, elev_loss, elev_min, elev_max,
+			point_count, est_time, saved_on, country, province, place, waypoints
+	`) as Record<string, unknown>[];
+	return rows.length ? rowToRoute(rows[0]!) : null;
+}
+
+export async function replacePlannedRouteTrack(
+	slug: string,
+	input: {
+		points: { lat: number; lng: number; elev?: number }[];
+		pins: { lat: number; lng: number }[];
+		name?: string;
+		notes?: string;
+	}
+): Promise<PlannedRoute | null> {
+	const current = await getPlannedRoute(slug);
+	if (!current) return null;
+	const name = input.name != null ? input.name.trim() : current.name;
+	const notes = input.notes != null ? input.notes : current.notes;
+	if (!name) throw new Error('Name is required.');
+	const points = input.points.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+	if (points.length < 2) throw new Error('Need a path with at least two points.');
+	const stats = plannedTrackStats(points);
+	const waypoints = namedWaypoints(input.pins, current.waypoints);
+	const start = points[0]!;
+	const geo = await reverseGeocode(start.lat, start.lng);
+	const geojson = plannedGeoJson(name, {
+		distanceKm: stats.distanceKm,
+		points,
+		waypoints,
+		kmMarkers: stats.kmMarkers
+	});
+	const sql = getSql();
+	const rows = (await sql`
+		UPDATE planned_routes SET
+			name = ${name},
+			notes = ${notes},
+			distance_km = ${stats.distanceKm},
+			elev_gain = ${stats.elevGain},
+			elev_loss = ${stats.elevLoss},
+			elev_min = ${stats.elevMin},
+			elev_max = ${stats.elevMax},
+			point_count = ${points.length},
+			est_time = ${''},
+			country = ${geo.country},
+			province = ${geo.province},
+			place = ${geo.place},
+			waypoints = ${JSON.stringify(waypoints)},
+			geojson = ${JSON.stringify(geojson)},
+			polyline = ${polylineJson(polylineFromGeoJson(geojson))}
 		WHERE slug = ${slug}
 		RETURNING slug, name, notes, distance_km, elev_gain, elev_loss, elev_min, elev_max,
 			point_count, est_time, saved_on, country, province, place, waypoints

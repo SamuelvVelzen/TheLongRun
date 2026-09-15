@@ -12,6 +12,7 @@ export type WaypointEditorSave = {
 };
 
 export function WaypointEditor({
+	initialWaypoints = [],
 	contextTracks = [],
 	emptyHint,
 	hint,
@@ -21,6 +22,7 @@ export function WaypointEditor({
 	onSave,
 	children
 }: {
+	initialWaypoints?: GpsWaypoint[];
 	contextTracks?: GpsContextTrack[];
 	emptyHint?: string;
 	hint?: ReactNode;
@@ -30,7 +32,9 @@ export function WaypointEditor({
 	onSave: (data: WaypointEditorSave) => void | Promise<void>;
 	children?: ReactNode;
 }) {
-	const [waypoints, setWaypoints] = useState<GpsWaypoint[]>([]);
+	const [waypoints, setWaypoints] = useState<GpsWaypoint[]>(() =>
+		initialWaypoints.map((point) => ({ lat: point.lat, lng: point.lng }))
+	);
 	const [past, setPast] = useState<GpsWaypoint[][]>([]);
 	const [future, setFuture] = useState<GpsWaypoint[][]>([]);
 	const [followNetwork, setFollowNetwork] = useState(true);

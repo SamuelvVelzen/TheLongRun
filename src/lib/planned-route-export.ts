@@ -163,6 +163,16 @@ function lonlatsFromWaypointsAndTrack(
 	return Array.from({ length: maxPoints }, (_, i) => points[Math.round(i * step)]!);
 }
 
+/** Pins for the in-app editor: named vias when there are enough, else a simplified track. */
+export function editablePinsFromPlannedRoute(
+	geojson: PlannedGeoJson,
+	waypoints: PlannedWaypoint[]
+): { lat: number; lng: number }[] {
+	return lonlatsFromWaypointsAndTrack(waypoints, coordinates(geojson))
+		.map((point) => ({ lat: Number(point[1]), lng: Number(point[0]) }))
+		.filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+}
+
 /**
  * BRouter Web represents an editable route by its via points in the URL hash
  * (`#map=zoom/lat/lng/standard&lonlats=lng,lat;…`), so the tab can reopen the

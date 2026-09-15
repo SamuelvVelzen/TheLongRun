@@ -1,6 +1,8 @@
 import { useAuthed } from '$lib/auth';
+import { samplesFromGeoJson } from '$lib/gps-repair';
 import {
     downloadPlannedRouteGpx,
+    editablePinsFromPlannedRoute,
     openPlannedRouteInBrouter,
     plannedRouteAppleMapsStartUrl,
     preferredMapsApp,
@@ -13,7 +15,7 @@ import {
 } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DeleteButton, EditButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
@@ -21,6 +23,7 @@ import { PageHero } from '../components/PageHero';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 import { RouteAttach } from '../components/RouteAttach';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
+import { WaypointEditor, type WaypointEditorSave } from '../components/WaypointEditor';
 
 export const Route = createFileRoute('/routes/$slug')({
 	loader: async ({ params }) => {
@@ -37,9 +40,26 @@ function PlannedRouteDetail() {
 	const authed = useAuthed();
 	const snack = useSnackbar();
 	const [editing, setEditing] = useState(false);
+	const [editingPath, setEditingPath] = useState(false);
+	const [busyPath, setBusyPath] = useState(false);
 	const [name, setName] = useState(route.name);
 	const [notes, setNotes] = useState(route.notes);
 	const [pendingDelete, setPendingDelete] = useState(false);
+	const editPins = useMemo(
+		() => editablePinsFromPlannedRoute(route.geojson, route.waypoints),
+		[route.geojson, route.waypoints]
+	);
+	const savedTrack = useMemo(() => {
+		const samples = samplesFromGeoJson(route.geojson);
+		if (samples.length < 2) return [];
+		return [
+			{
+				slug: route.slug,
+				label: 'Saved line',
+				coords: samples.map((point) => [point.lat, point.lng] as [number, number])
+			}
+		];
+	}, [route.geojson, route.slug]);
 
 	async function save(event: React.FormEvent) {
 		event.preventDefault();
@@ -54,6 +74,38 @@ function PlannedRouteDetail() {
 
 	function remove() {
 		setPendingDelete(true);
+	}
+
+	function startEditPath() {
+		setEditing(false);
+		setEditingPath(true);
+	}
+
+	async function savePath(data: WaypointEditorSave) {
+		if (busyPath) return;
+		if (data.waypoints.length < 2) {
+			snack.info('Drop at least two pins — start and end, plus any turns in between.');
+			return;
+		}
+		setBusyPath(true);
+		try {
+			await updatePlannedRoute({
+				data: {
+					slug: route.slug,
+					waypoints: data.waypoints,
+					follow_network: data.followNetwork,
+					network_coords:
+						data.followNetwork && data.networkCoords.length >= 2 ? data.networkCoords : undefined
+				}
+			});
+			snack.success('Route path updated.');
+			setEditingPath(false);
+			await router.invalidate();
+		} catch (error) {
+			snack.error(errorMessage(error, 'Could not save path'));
+		} finally {
+			setBusyPath(false);
+		}
 	}
 
 	const [mapsPref, setMapsPref] = useState<MapsPref>('desktop');
@@ -173,8 +225,12 @@ function PlannedRouteDetail() {
 							<Icon name="download" size={16} />
 							Download GPX
 						</button>
-						{authed && !editing && (
+						{authed && !editing && !editingPath && (
 							<>
+								<button className={ui.btnGhost} type="button" onClick={startEditPath}>
+									<Icon name="pencil" size={16} />
+									Edit path
+								</button>
 								<EditButton label="Edit notes" onClick={() => setEditing(true)} />
 								<DeleteButton label={`Delete route ${route.name}`} onClick={remove} />
 							</>
@@ -206,15 +262,33 @@ function PlannedRouteDetail() {
 			)}
 
 			<div className={cn(ui.panel, 'mb-4 p-0 overflow-hidden max-sm:order-1')}>
-				<div className="hidden sm:block p-[1.1rem_1.2rem_0.65rem]">
-					<h3>Route</h3>
-					<p className={cn(ui.muted, 'mt-1')}>Kilometres and available GPX waypoints are marked</p>
-				</div>
-				<PlannedRouteMap
-					geojson={route.geojson}
-					kmMarkers={route.kmMarkers}
-					waypoints={route.waypoints}
-				/>
+				{editingPath ? (
+					<div className="p-[1.1rem_1.2rem_1.15rem]">
+						<h3 className="m-0 mb-3">Edit path</h3>
+						<WaypointEditor
+							initialWaypoints={editPins}
+							contextTracks={editPins.length >= 2 ? [] : savedTrack}
+							emptyHint="Tap to drop pins along the loop"
+							hint="Place pins in order. Tap a pin to remove it, or tap the line to add one between. Drag to adjust."
+							saveLabel="Save path"
+							busy={busyPath}
+							onClose={() => setEditingPath(false)}
+							onSave={savePath}
+						/>
+					</div>
+				) : (
+					<>
+						<div className="hidden sm:block p-[1.1rem_1.2rem_0.65rem]">
+							<h3>Route</h3>
+							<p className={cn(ui.muted, 'mt-1')}>Kilometres and available GPX waypoints are marked</p>
+						</div>
+						<PlannedRouteMap
+							geojson={route.geojson}
+							kmMarkers={route.kmMarkers}
+							waypoints={route.waypoints}
+						/>
+					</>
+				)}
 			</div>
 
 			<div className={cn(ui.metrics, 'mb-4 max-sm:order-2')}>

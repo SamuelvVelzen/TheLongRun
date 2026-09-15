@@ -165,6 +165,7 @@ import {
     listPlannedRouteTracks,
     listPlanRouteRefs,
     listRouteLinks,
+    replacePlannedRouteTrack as dbReplacePlannedRouteTrack,
     savePlannedFromFile,
     savePlannedFromTrack
 } from './planned-routes';
@@ -2834,6 +2835,41 @@ export const importPlannedRoute = createServerFn({ method: 'POST' }).middleware(
 		};
 	});
 
+async function trackFromDrawnPins(data: {
+	waypoints: { lat: number; lng: number }[];
+	follow_network?: boolean;
+	network_coords?: { lat: number; lng: number; elev?: number }[];
+}) {
+	const pins = normalizeWaypoints(data.waypoints);
+	if (pins.length < 2) throw new Error('Drop at least two pins.');
+
+	let points = densifyWaypoints(pins);
+	if (data.follow_network) {
+		const previewed = normalizeTrackPoints(data.network_coords);
+		if (previewed.length >= 2) {
+			points = previewed;
+		} else {
+			const routed = await brouterAlongPins(pins);
+			if (routed.length < 2) {
+				throw new Error(
+					'Could not follow roads between those pins. Uncheck Follow roads to save the straight line.'
+				);
+			}
+			points = routed;
+		}
+	}
+
+	return { pins, points };
+}
+
+function startFinishWaypoints(pins: { lat: number; lng: number }[]) {
+	return pins.map((p, i) => ({
+		name: i === 0 ? 'Start' : i === pins.length - 1 ? 'Finish' : `Via ${i}`,
+		lat: p.lat,
+		lng: p.lng
+	}));
+}
+
 export const createPlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator(
 		(d: {
@@ -2846,33 +2882,12 @@ export const createPlannedRoute = createServerFn({ method: 'POST' }).middleware(
 	.handler(async ({ data }) => {
 		const name = data.name.trim();
 		if (!name) throw new Error('Name this route.');
-		const pins = normalizeWaypoints(data.waypoints);
-		if (pins.length < 2) throw new Error('Drop at least two pins.');
-
-		let points = densifyWaypoints(pins);
-		if (data.follow_network) {
-			const previewed = normalizeTrackPoints(data.network_coords);
-			if (previewed.length >= 2) {
-				points = previewed;
-			} else {
-				const routed = await brouterAlongPins(pins);
-				if (routed.length < 2) {
-					throw new Error(
-						'Could not follow roads between those pins. Uncheck Follow roads to save the straight line.'
-					);
-				}
-				points = routed;
-			}
-		}
+		const { pins, points } = await trackFromDrawnPins(data);
 
 		const route = await savePlannedFromTrack({
 			name,
 			points,
-			waypoints: pins.map((p, i) => ({
-				name: i === 0 ? 'Start' : i === pins.length - 1 ? 'Finish' : `Via ${i}`,
-				lat: p.lat,
-				lng: p.lng
-			}))
+			waypoints: startFinishWaypoints(pins)
 		});
 		return {
 			slug: route.slug,
@@ -2882,8 +2897,32 @@ export const createPlannedRoute = createServerFn({ method: 'POST' }).middleware(
 	});
 
 export const updatePlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
-	.validator((d: { slug: string; name?: string; notes?: string }) => d)
+	.validator(
+		(d: {
+			slug: string;
+			name?: string;
+			notes?: string;
+			waypoints?: { lat: number; lng: number }[];
+			follow_network?: boolean;
+			network_coords?: { lat: number; lng: number; elev?: number }[];
+		}) => d
+	)
 	.handler(async ({ data }) => {
+		if (data.waypoints) {
+			const { pins, points } = await trackFromDrawnPins({
+				waypoints: data.waypoints,
+				follow_network: data.follow_network,
+				network_coords: data.network_coords
+			});
+			const route = await dbReplacePlannedRouteTrack(data.slug, {
+				points,
+				pins,
+				name: data.name,
+				notes: data.notes
+			});
+			if (!route) throw new Error('Route not found.');
+			return { slug: route.slug, distance_km: route.distance_km };
+		}
 		const route = await dbUpdatePlannedRoute(data.slug, { name: data.name, notes: data.notes });
 		if (!route) throw new Error('Route not found.');
 		return { slug: route.slug };

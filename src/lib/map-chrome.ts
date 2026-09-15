@@ -464,10 +464,18 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	let locPanNext = false;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let locMarker: any = null;
-	let beginFollow = () => {
+	let locWatch: number | null = null;
+
+	/** Pan to an already-shown pin — never starts GPS (that would prompt on iOS). */
+	const followExistingLocation = () => {
+		if (locWatch == null && !locMarker) return false;
 		locFollow = true;
 		locPanNext = true;
+		return true;
 	};
+
+	const fullscreenSizeMode = (): 'follow' | 'keep' =>
+		followExistingLocation() ? 'follow' : 'keep';
 
 	const clearSizeTimers = () => {
 		for (const t of sizeTimers) clearTimeout(t);
@@ -616,8 +624,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		syncFullButton(on);
 		applyCoarseGestures(on);
 		if (on) {
-			beginFollow();
-			scheduleSizeRefresh('follow');
+			scheduleSizeRefresh(fullscreenSizeMode());
 		} else {
 			locFollow = false;
 			scheduleSizeRefresh('keep');
@@ -626,7 +633,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 
 	const applyFullscreen = async (wantOn: boolean) => {
 		if (wantOn) {
-			beginFollow();
+			const sizeMode = fullscreenSizeMode();
 			// CSS overlay first on phones so a hanging requestFullscreen() cannot no-op the tap.
 			if (!nativeFullscreenSupported()) {
 				cssFullscreen = true;
@@ -634,7 +641,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 				if (mapEl) applyFsBox(wrap, mapEl, true, false);
 				syncFullButton(true);
 				applyCoarseGestures(true);
-				scheduleSizeRefresh('follow');
+				scheduleSizeRefresh(sizeMode);
 				return;
 			}
 			const ok = await enterNativeFullscreen(wrap);
@@ -644,7 +651,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			if (mapEl) applyFsBox(wrap, mapEl, true, ok);
 			syncFullButton(true);
 			applyCoarseGestures(true);
-			scheduleSizeRefresh('follow');
+			scheduleSizeRefresh(sizeMode);
 		} else {
 			locFollow = false;
 			cssFullscreen = false;
@@ -709,7 +716,6 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	const L = (typeof window !== 'undefined' ? window.L : null) as LeafletGlobal | null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let locAccuracy: any = null;
-	let locWatch: number | null = null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let liveMarker: any = null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -809,13 +815,8 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 					err.code === 1 ? 'Location permission denied' : 'Could not find your location';
 				if (!locMarker) stopLocate();
 			},
-			{ enableHighAccuracy: true, maximumAge: 4000, timeout: 20000 }
+			{ enableHighAccuracy: true, maximumAge: 30_000, timeout: 20000 }
 		);
-	};
-
-	beginFollow = () => {
-		locFollow = true;
-		startLocate(true);
 	};
 
 	btnFit.addEventListener('click', (e) => {
@@ -842,14 +843,6 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		syncShareButton();
 	};
 	window.addEventListener(LIVE_SHARE_EVENT, onShareEvent);
-
-	try {
-		void navigator.permissions?.query?.({ name: 'geolocation' as PermissionName }).then((status) => {
-			if (status.state === 'granted') startLocate(false);
-		});
-	} catch {
-		/* ignore */
-	}
 
 	const clearLiveMarker = () => {
 		liveMarker?.remove?.();

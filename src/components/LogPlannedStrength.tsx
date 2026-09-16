@@ -33,6 +33,13 @@ export function plannedStrengthLogSearch(session: StrengthLogSession) {
 	};
 }
 
+export function plannedSessionLogSearch(session: StrengthLogSession) {
+	if (normalizeActivityType(session.activity_type) === 'strength') {
+		return plannedStrengthLogSearch(session);
+	}
+	return { mode: 'gpx' as const };
+}
+
 export function LogPlannedStrengthLink({
 	session,
 	className

@@ -59,6 +59,7 @@ import {
     daysUntil,
     formatUnplannedBrief,
     isoDateLocal,
+    isRestLike,
     isSkippedStatus,
     keepSoonestNext,
     mondayIso,
@@ -2932,6 +2933,59 @@ export const deletePlannedRoute = createServerFn({ method: 'POST' }).middleware(
 	.validator((slug: string) => slug)
 	.handler(async ({ data: slug }) => {
 		return dbDeletePlannedRoute(slug);
+	});
+
+function matchingPlanSession(
+	plan: PlanWeek[],
+	week: number,
+	day: string,
+	label: string,
+	activityType: string
+) {
+	const weekRow = plan.find((w) => w.week === week);
+	if (!weekRow) return null;
+	const key = planSessionRouteKey(day, label, activityType);
+	const index = weekRow.sessions.findIndex(
+		(s) => planSessionRouteKey(s.day, s.label, s.activity_type) === key
+	);
+	if (index < 0) return null;
+	return { weekRow, index, session: weekRow.sessions[index]! };
+}
+
+export const setPlanSessionSkipped = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: {
+		week: number;
+		day: string;
+		label: string;
+		activity_type?: string;
+		skipped: boolean;
+	}) => ({
+		week: d.week,
+		day: String(d.day ?? '').trim(),
+		label: String(d.label ?? '').trim(),
+		activity_type: normalizeActivityType(d.activity_type ?? 'run'),
+		skipped: Boolean(d.skipped)
+	}))
+	.handler(async ({ data }) => {
+		if (!Number.isInteger(data.week) || data.week < 1) {
+			throw new Error('That plan week is out of range.');
+		}
+		if (!data.day || !data.label) throw new Error('That session is not on the plan.');
+		const plan = await loadPlan();
+		const found = matchingPlanSession(plan, data.week, data.day, data.label, data.activity_type);
+		if (!found) throw new Error('That session is not on the plan.');
+		if (data.skipped && isRestLike(found.session.label)) {
+			throw new Error('Rest days cannot be skipped.');
+		}
+		const nextSession = { ...found.session };
+		if (data.skipped) nextSession.status = 'skipped';
+		else delete nextSession.status;
+		const sessions = found.weekRow.sessions.slice();
+		sessions[found.index] = nextSession;
+		await savePlan(
+			plan.map((w) => (w.week === found.weekRow.week ? { ...found.weekRow, sessions } : w))
+		);
+		return { ok: true as const, skipped: data.skipped };
 	});
 
 export const attachPlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])

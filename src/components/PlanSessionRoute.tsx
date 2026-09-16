@@ -5,7 +5,7 @@ import type { SessionRouteRef } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
-import { ConfirmDialog } from './Dialog';
+import { ConfirmDialog, Dialog } from './Dialog';
 import { RouteChip } from './RouteChip';
 import { Select } from './Select';
 import { errorMessage, useSnackbar } from './Snackbar';
@@ -32,11 +32,15 @@ function optionLabel(route: SessionRouteRef) {
 export function PlanSessionRoute({
 	week,
 	session,
-	routes
+	routes,
+	pickerOpen = false,
+	onPickerClose
 }: {
 	week: number;
 	session: WeekSessionView;
 	routes: SessionRouteRef[];
+	pickerOpen?: boolean;
+	onPickerClose?: () => void;
 }) {
 	const router = useRouter();
 	const authed = useAuthed();
@@ -50,8 +54,9 @@ export function PlanSessionRoute({
 		() => sortRoutesForSession(routes, session.distance_km).filter((r) => r.slug !== linked?.slug),
 		[routes, session.distance_km, linked?.slug]
 	);
+	const showPicker = Boolean(pickerOpen && authed && canLink && !linked);
 
-	if (!linked && !(authed && canLink)) return null;
+	if (!linked && !showPicker) return null;
 
 	async function run(fn: () => Promise<unknown>): Promise<boolean> {
 		setBusy(true);
@@ -65,6 +70,10 @@ export function PlanSessionRoute({
 		} finally {
 			setBusy(false);
 		}
+	}
+
+	function closePicker() {
+		onPickerClose?.();
 	}
 
 	return (
@@ -93,10 +102,8 @@ export function PlanSessionRoute({
 					)}
 				</div>
 			)}
-			{authed &&
-				canLink &&
-				!linked &&
-				(choices.length ? (
+			<Dialog open={showPicker} title="Add route to plan" onClose={closePicker}>
+				{choices.length ? (
 					<label className={ui.field}>
 						<span>Route</span>
 						<Select
@@ -116,7 +123,9 @@ export function PlanSessionRoute({
 											activity_type: session.activity_type ?? 'run'
 										}
 									})
-								);
+								).then((ok) => {
+									if (ok) closePicker();
+								});
 							}}
 							options={[
 								{ value: '', label: 'Link a route…' },
@@ -128,13 +137,14 @@ export function PlanSessionRoute({
 						/>
 					</label>
 				) : (
-					<p className={cn(ui.muted, 'm-0 text-[0.82rem]')}>
+					<p className={cn(ui.muted, 'm-0')}>
 						<Link className="text-accent-fg font-semibold" to="/routes">
 							Save a route
 						</Link>{' '}
 						to link it here.
 					</p>
-				))}
+				)}
+			</Dialog>
 			<ConfirmDialog
 				open={confirmUnlink}
 				title="Unlink this route?"

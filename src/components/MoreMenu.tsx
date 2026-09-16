@@ -23,24 +23,27 @@ const itemClass =
 
 export function MoreMenu({
 	items,
-	label = 'More actions'
+	label = 'More actions',
+	compact = false
 }: {
 	items: MoreMenuItem[];
 	label?: string;
+	compact?: boolean;
 }) {
 	if (!items.length) return null;
 	return (
-		<details className="relative z-30 shrink-0 max-sm:flex-none">
+		<details className="relative z-30 shrink-0 open:z-50 max-sm:flex-none">
 			<summary
 				className={cn(
-					ui.btnGhost,
-					ui.btnIcon,
-					'list-none cursor-pointer [&::-webkit-details-marker]:hidden'
+					compact
+						? 'inline-flex items-center justify-center appearance-none size-7 min-h-7 min-w-7 p-0 rounded-full border-0 bg-transparent text-muted cursor-pointer hover:text-fg hover:bg-fg/[0.08]'
+						: cn(ui.btnGhost, ui.btnIcon),
+					'list-none [&::-webkit-details-marker]:hidden'
 				)}
 				aria-label={label}
 				title={label}
 			>
-				<Icon name="more" size={16} />
+				<Icon name="more" size={compact ? 14 : 16} />
 			</summary>
 			<div className="fixed inset-0 z-40 cursor-pointer" onClick={closeMenu} aria-hidden="true" />
 			<div className="absolute right-0 top-[calc(100%+0.35rem)] z-[41] grid min-w-[12.5rem] gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">

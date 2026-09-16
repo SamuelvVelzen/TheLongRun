@@ -1,17 +1,17 @@
-import { activityLabel, normalizeActivityType } from '$lib/activity';
+import { activityLabel } from '$lib/activity';
 import {
-	weekDayGroups,
-	sessionMeasureLabel,
-	type UnplannedActivity,
-	type WeekSessionView,
-	type WeekView
+    sessionMeasureLabel,
+    weekDayGroups,
+    type UnplannedActivity,
+    type WeekSessionView,
+    type WeekView
 } from '$lib/plan';
 import type { SessionRouteRef } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { ActivityIcon, Icon } from './Icon';
-import { LogPlannedStrengthLink } from './LogPlannedStrength';
+import { PlanSessionMenu } from './PlanSessionMenu';
 import { PlanSessionRoute } from './PlanSessionRoute';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -153,6 +153,7 @@ function PlannedSessionRow({
 	routes: SessionRouteRef[];
 	divided: boolean;
 }) {
+	const [routePickerOpen, setRoutePickerOpen] = useState(false);
 	const logSlug = session.done ? session.logSlug : null;
 	const className = cn(
 		'flex flex-col gap-[0.2rem] min-w-0',
@@ -173,13 +174,21 @@ function PlannedSessionRow({
 						.filter(Boolean)
 						.join(' · ')}
 				</span>
-				<StatusBadge
-					done={session.done}
-					skipped={session.skipped}
-					unlogged={session.unlogged}
-					isNext={session.isNext}
-					isToday={session.isToday}
-				/>
+				<div className="flex items-center gap-0.5 shrink-0">
+					<StatusBadge
+						done={session.done}
+						skipped={session.skipped}
+						unlogged={session.unlogged}
+						isNext={session.isNext}
+						isToday={session.isToday}
+					/>
+					<PlanSessionMenu
+						week={week}
+						session={session}
+						linked={Boolean(session.route && !session.done)}
+						onAddRoute={() => setRoutePickerOpen(true)}
+					/>
+				</div>
 			</div>
 			<strong className="font-display text-[1.02rem] font-bold tracking-[-0.02em] leading-[1.25] [overflow-wrap:anywhere]">
 				{session.label}
@@ -199,20 +208,13 @@ function PlannedSessionRow({
 	return (
 		<div className={className}>
 			{body}
-			<LogPlannedStrengthLink session={session} />
-			{session.unlogged && normalizeActivityType(session.activity_type) !== 'strength' && (
-				<Link
-					className="inline-flex items-center gap-1 pt-1 text-[0.8rem] font-[650] text-accent-fg hover:underline"
-					to="/import"
-					search={{
-						mode: 'gpx'
-					}}
-				>
-					<Icon name="plus" size={13} />
-					Log this
-				</Link>
-			)}
-			<PlanSessionRoute week={week} session={session} routes={routes} />
+			<PlanSessionRoute
+				week={week}
+				session={session}
+				routes={routes}
+				pickerOpen={routePickerOpen}
+				onPickerClose={() => setRoutePickerOpen(false)}
+			/>
 		</div>
 	);
 }

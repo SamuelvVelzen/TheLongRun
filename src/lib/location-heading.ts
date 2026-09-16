@@ -79,7 +79,7 @@ function compassFromEvent(e: DeviceOrientationEvent): number | null {
 	if (typeof ios.webkitCompassHeading === 'number' && Number.isFinite(ios.webkitCompassHeading)) {
 		return normalizeHeading(ios.webkitCompassHeading);
 	}
-	if (typeof e.alpha === 'number' && Number.isFinite(e.alpha)) {
+	if (e.absolute && typeof e.alpha === 'number' && Number.isFinite(e.alpha)) {
 		return normalizeHeading(360 - e.alpha + screenAngle());
 	}
 	return null;

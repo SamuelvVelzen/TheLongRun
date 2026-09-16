@@ -2,17 +2,21 @@
 
 export function normalizeHeading(deg: unknown): number | null {
 	const n = Number(deg);
-	if (!Number.isFinite(n) || n < 0) return null;
+	if (!Number.isFinite(n)) return null;
 	return ((n % 360) + 360) % 360;
 }
 
-/** Direction of travel from a geolocation fix — best while running. */
+/** Touch phones/tablets — desktops have no compass and iOS would still prompt for motion. */
+export function isPhoneDevice(): boolean {
+	return typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+}
+
+/** Direction of travel from a geolocation fix — only while actually moving. */
 export function headingFromCoords(coords: GeolocationCoordinates): number | null {
 	const h = normalizeHeading(coords.heading);
 	if (h == null) return null;
 	const speed = coords.speed;
 	if (speed != null && Number.isFinite(speed) && speed >= 0.3) return h;
-	if (speed == null || !Number.isFinite(speed)) return h;
 	return null;
 }
 
@@ -41,7 +45,7 @@ export function subscribeHeading(fn: (heading: number | null) => void): () => vo
 	return () => listeners.delete(fn);
 }
 
-/** Feed each watchPosition / getCurrentPosition fix. GPS course wins over compass. */
+/** Feed each watchPosition / getCurrentPosition fix. GPS course wins over compass while moving. */
 export function noteGpsHeading(coords: GeolocationCoordinates): number | null {
 	const h = headingFromCoords(coords);
 	if (h != null) {
@@ -50,6 +54,11 @@ export function noteGpsHeading(coords: GeolocationCoordinates): number | null {
 		emit(h);
 		return h;
 	}
+	if (compassHandler) {
+		lastGpsCourse = null;
+		lastGpsAt = 0;
+		return lastHeading;
+	}
 	if (lastGpsCourse != null && Date.now() - lastGpsAt < GPS_COURSE_HOLD_MS) {
 		emit(lastGpsCourse);
 		return lastGpsCourse;
@@ -57,13 +66,21 @@ export function noteGpsHeading(coords: GeolocationCoordinates): number | null {
 	return lastHeading;
 }
 
+function screenAngle(): number {
+	const o = window.screen?.orientation?.angle;
+	if (typeof o === 'number' && Number.isFinite(o)) return o;
+	const legacy = (window as Window & { orientation?: number }).orientation;
+	if (typeof legacy === 'number' && Number.isFinite(legacy)) return legacy;
+	return 0;
+}
+
 function compassFromEvent(e: DeviceOrientationEvent): number | null {
 	const ios = e as DeviceOrientationEvent & { webkitCompassHeading?: number };
-	if (Number.isFinite(ios.webkitCompassHeading)) {
+	if (typeof ios.webkitCompassHeading === 'number' && Number.isFinite(ios.webkitCompassHeading)) {
 		return normalizeHeading(ios.webkitCompassHeading);
 	}
-	if (e.absolute && Number.isFinite(e.alpha)) {
-		return normalizeHeading(360 - (e.alpha ?? 0));
+	if (typeof e.alpha === 'number' && Number.isFinite(e.alpha)) {
+		return normalizeHeading(360 - e.alpha + screenAngle());
 	}
 	return null;
 }
@@ -90,26 +107,39 @@ function stopCompass() {
 	compassHandler = null;
 }
 
-async function ensureCompassPermission(): Promise<void> {
-	const DO = DeviceOrientationEvent as typeof DeviceOrientationEvent & {
-		requestPermission?: () => Promise<'granted' | 'denied'>;
-	};
-	if (typeof DO.requestPermission !== 'function') {
-		startCompass();
-		return;
-	}
-	try {
-		const state = await DO.requestPermission();
+type OrientationPermission = {
+	requestPermission?: () => Promise<'granted' | 'denied'>;
+};
+
+/** Must run in the same tap as My location so iOS can show the motion prompt. */
+function requestCompassAccess() {
+	if (compassHandler || !isPhoneDevice()) return;
+	const DO = window.DeviceOrientationEvent as (typeof DeviceOrientationEvent & OrientationPermission) | undefined;
+	const DM = window.DeviceMotionEvent as (typeof DeviceMotionEvent & OrientationPermission) | undefined;
+	let asked = false;
+	const onGrant = (state: string) => {
 		if (state === 'granted') startCompass();
+	};
+	try {
+		if (typeof DM?.requestPermission === 'function') {
+			asked = true;
+			void DM.requestPermission().then(onGrant).catch(() => {});
+		}
+		if (typeof DO?.requestPermission === 'function') {
+			asked = true;
+			void DO.requestPermission().then(onGrant).catch(() => {});
+		}
 	} catch {
 		/* user declined or unsupported */
 	}
+	if (!asked) startCompass();
 }
 
-/** Keep compass listener alive while maps or live share need heading. */
+/** Compass only while a phone map is showing My location. */
 export function retainHeadingTrack(): () => void {
+	if (!isPhoneDevice()) return () => {};
 	retainCount += 1;
-	if (retainCount === 1) void ensureCompassPermission();
+	if (retainCount === 1) requestCompassAccess();
 	return () => {
 		retainCount = Math.max(0, retainCount - 1);
 		if (retainCount === 0) {

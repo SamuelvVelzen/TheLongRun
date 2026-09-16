@@ -10,7 +10,7 @@ import {
 	type LiveShareDetail,
 	type LiveShareRequestDetail
 } from '$lib/live-location';
-import { getLastHeading, noteGpsHeading, retainHeadingTrack } from '$lib/location-heading';
+import { getLastHeading, noteGpsHeading } from '$lib/location-heading';
 import { pingLiveLocation, stopLiveLocation } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import {
@@ -46,7 +46,6 @@ export function LiveLocationShare() {
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const sharingRef = useRef(false);
 	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-	const releaseHeadingRef = useRef<(() => void) | null>(null);
 
 	const setOn = useCallback((on: boolean) => {
 		sharingRef.current = on;
@@ -74,8 +73,6 @@ export function LiveLocationShare() {
 			clearInterval(timerRef.current);
 			timerRef.current = null;
 		}
-		releaseHeadingRef.current?.();
-		releaseHeadingRef.current = null;
 		setOn(false);
 		setConfirmOpen(false);
 		try {
@@ -101,8 +98,6 @@ export function LiveLocationShare() {
 			return;
 		}
 		setOn(true);
-		releaseHeadingRef.current?.();
-		releaseHeadingRef.current = retainHeadingTrack();
 		if (timerRef.current) clearInterval(timerRef.current);
 		timerRef.current = setInterval(() => {
 			void ping().catch(() => {
@@ -124,8 +119,6 @@ export function LiveLocationShare() {
 				clearInterval(timerRef.current);
 				timerRef.current = null;
 			}
-			releaseHeadingRef.current?.();
-			releaseHeadingRef.current = null;
 			return;
 		}
 		if (liveShareWanted() && !sharingRef.current) void start();
@@ -137,8 +130,6 @@ export function LiveLocationShare() {
 				clearInterval(timerRef.current);
 				timerRef.current = null;
 			}
-			releaseHeadingRef.current?.();
-			releaseHeadingRef.current = null;
 		};
 	}, []);
 

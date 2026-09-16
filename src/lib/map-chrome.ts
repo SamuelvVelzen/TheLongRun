@@ -10,6 +10,7 @@ import {
 } from '$lib/live-location';
 import {
 	applyMarkerHeading,
+	isPhoneDevice,
 	noteGpsHeading,
 	retainHeadingTrack,
 	subscribeHeading
@@ -764,15 +765,17 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			if ((pan || locFollow) && locMarker) panToLocation(true);
 			return;
 		}
-		releaseHeading?.();
-		releaseHeading = retainHeadingTrack();
-		unsubHeading?.();
-		unsubHeading = subscribeHeading(applyLocHeading);
+		if (isPhoneDevice()) {
+			releaseHeading?.();
+			releaseHeading = retainHeadingTrack();
+			unsubHeading?.();
+			unsubHeading = subscribeHeading(applyLocHeading);
+		}
 		locWatch = navigator.geolocation.watchPosition(
 			(pos) => {
 				const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
 				const acc = Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : 0;
-				const heading = noteGpsHeading(pos.coords);
+				const heading = isPhoneDevice() ? noteGpsHeading(pos.coords) : null;
 				if (!locMarker) {
 					locMarker = L.marker(latlng, {
 						icon: userLocationIcon(L),
@@ -788,12 +791,12 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 						fillOpacity: 0.14,
 						interactive: false
 					}).addTo(map);
-					applyLocHeading(heading);
+					if (isPhoneDevice()) applyLocHeading(heading);
 				} else {
 					locMarker.setLatLng(latlng);
 					locAccuracy?.setLatLng?.(latlng);
 					if (acc > 0) locAccuracy?.setRadius?.(acc);
-					applyLocHeading(heading);
+					if (isPhoneDevice()) applyLocHeading(heading);
 				}
 				setLocateActive(true);
 				btnLocate.title = 'My location';
@@ -985,8 +988,8 @@ export function userLocationIcon(L: LeafletGlobal) {
 	return L.divIcon({
 		className: 'user-loc',
 		html: `${LOC_HEADING_HTML}<span class="user-loc-pulse"></span><span class="user-loc-dot"></span>`,
-		iconSize: [28, 28],
-		iconAnchor: [14, 14]
+		iconSize: [56, 56],
+		iconAnchor: [28, 28]
 	});
 }
 

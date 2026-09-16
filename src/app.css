@@ -634,6 +634,7 @@ html.overlay-open .overlay-root {
 .user-loc,
 .live-loc {
 	position: relative;
+	overflow: visible !important;
 }
 
 .loc-heading-shell {
@@ -655,14 +656,13 @@ html.overlay-open .overlay-root {
 .loc-heading-wedge {
 	position: absolute;
 	left: 50%;
-	bottom: 8px;
+	bottom: 6px;
 	transform: translateX(-50%);
 	width: 0;
 	height: 0;
-	border-left: 5px solid transparent;
-	border-right: 5px solid transparent;
-	border-bottom: 13px solid var(--loc);
-	opacity: 0.9;
+	border-left: 10px solid transparent;
+	border-right: 10px solid transparent;
+	border-bottom: 26px solid color-mix(in srgb, var(--loc) 78%, transparent);
 	filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
 }
 

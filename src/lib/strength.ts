@@ -1,4 +1,5 @@
 import { formatDuration } from '$lib/format';
+import type { PlanStrengthExercise } from '$lib/types';
 
 export type StrengthKind = 'weighted' | 'reps' | 'time';
 export type StrengthSet = { reps: number; kg: number | null; sec: number | null };
@@ -269,17 +270,18 @@ export function fillStrengthNotesFromTops(notes: string, tops: RecentLiftTop[]):
 	return changed ? formatStrengthNotes(exercises, parsed.extra) : notes;
 }
 
-const PLAN_MIN_RE = /^(\d+(?:\.\d+)?)\s*(?:min(?:ute)?s?)\b[.\s,:]*/i;
+const PLAN_MIN_RE =
+	/^~?\s*(\d+(?:\.\d+)?)(?:\s*[-–]\s*\d+(?:\.\d+)?)?\s*(?:min(?:ute)?s?)\b[.\s,:]*/i;
 const PLAN_HOUR_RE =
 	/^(\d+)\s*h(?:ours?)?(?:\s*(\d+)\s*m(?:in(?:ute)?s?)?)?\b[.\s,:]*/i;
 const PLAN_TRIPLE_RE =
 	/^(.+?)\s+(\d+)\s*[x×]\s*(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:kgs?)?$/i;
 const PLAN_TIMED_RE =
-	/^(.+?)\s+(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*s(?:ecs?|econds?)?$/i;
+	/^(.+?)\s+(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*s(?:ecs?|econds?)?(?:\s+(.+))?$/i;
 const PLAN_SETS_RE =
-	/^(.+?)\s+(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)(?:\s*(?:at|@)\s*(.+))?$/i;
+	/^(.+?)\s+(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)(?!\s*s\b)(?:\s*(?:at|@)\s+)?(.*)$/i;
 const PLAN_CUE_RE =
-	/^(?:(?:\d+(?:\.\d+)?\s*(?:s|secs?|seconds?)?\s+)?rest(?:s)?|controlled(?:\s+tempo)?|straight sets|not a circuit|not rushed|circuit(?:s)?|warmup|warm-up|cool-?down)$/i;
+	/^(?:(?:\d+(?:\.\d+)?\s*(?:s|secs?|seconds?)?\s+)?rest(?:s)?|controlled(?:\s+tempo)?|straight sets|not a circuit|not rushed|circuit(?:s)?|warmup|warm-up|cool-?down|rpe\s*\d+(?:\s*[-–]\s*\d+)?)$/i;
 
 function stripPlanDuration(detail: string): { minutes: number | null; rest: string } {
 	const raw = detail.trim();
@@ -293,13 +295,74 @@ function stripPlanDuration(detail: string): { minutes: number | null; rest: stri
 	return { minutes: null, rest: raw };
 }
 
+/** Split on separators that are not inside `(…)`. */
+function splitOutsideParens(text: string): string[] {
+	const parts: string[] = [];
+	let buf = '';
+	let depth = 0;
+	for (let i = 0; i < text.length; i++) {
+		const ch = text[i]!;
+		if (ch === '(') depth += 1;
+		else if (ch === ')') depth = Math.max(0, depth - 1);
+		if (depth === 0) {
+			if (ch === ';' || ch === '•' || ch === ',') {
+				parts.push(buf);
+				buf = '';
+				continue;
+			}
+			if (ch === '.' && /\s/.test(text[i + 1] ?? '')) {
+				parts.push(buf);
+				buf = '';
+				while (/\s/.test(text[i + 1] ?? '')) i += 1;
+				continue;
+			}
+		}
+		buf += ch;
+	}
+	if (buf.length) parts.push(buf);
+	return parts;
+}
+
 function planClauses(text: string): string[] {
-	return text
-		.split(/[;•]/)
-		.flatMap((part) => part.split(/\.\s+/))
-		.flatMap((part) => part.split(','))
+	return splitOutsideParens(text)
 		.map((s) => s.replace(/\.+$/, '').trim())
 		.filter(Boolean);
+}
+
+function peelParens(text: string): { core: string; notes: string[] } {
+	const notes: string[] = [];
+	let core = text
+		.replace(/\s*\(([^)]*)\)/g, (_, inner: string) => {
+			const t = inner.trim();
+			if (t) notes.push(t);
+			return ' ';
+		})
+		.replace(/\s+/g, ' ')
+		.trim();
+	const dangling = core.match(/^(.*?)\s*\(\s*(.*)$/);
+	if (dangling && !dangling[2]!.includes(')')) {
+		core = dangling[1]!.trim();
+		const t = dangling[2]!.replace(/\)+$/, '').trim();
+		if (t) notes.push(t);
+	}
+	return { core, notes };
+}
+
+function looksLikeExercise(raw: string): boolean {
+	const { core } = peelParens(raw);
+	return PLAN_TRIPLE_RE.test(core) || PLAN_TIMED_RE.test(core) || PLAN_SETS_RE.test(core);
+}
+
+/** `60s rest between: Standing hamstring curls 3x30` → cue + exercise. */
+function splitLeadingCue(clause: string): { prefix: string; body: string } {
+	const idx = clause.indexOf(':');
+	if (idx <= 0) return { prefix: '', body: clause };
+	const left = clause.slice(0, idx).trim();
+	const right = clause.slice(idx + 1).trim();
+	if (!right || !looksLikeExercise(right) || looksLikeExercise(left)) {
+		return { prefix: '', body: clause };
+	}
+	return { prefix: left, body: right };
 }
 
 function parsePlanLoad(raw: string): { kg: number | null; cue: string } {
@@ -322,72 +385,170 @@ function expandSets(n: number, set: StrengthSet): StrengthExercise['sets'] {
 	return Array.from({ length: count }, () => ({ ...set }));
 }
 
+function finitePositive(n: unknown): number | null {
+	const v = Number(n);
+	return Number.isFinite(v) && v > 0 ? v : null;
+}
+
+function parseCompactSets(raw: unknown): { sets: number; reps?: number; sec?: number } | null {
+	const s = String(raw ?? '').trim();
+	const timed = s.match(/^(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*s(?:ecs?|econds?)?$/i);
+	if (timed) return { sets: Math.min(8, Number(timed[1])), sec: Number(timed[2]) };
+	const reps = s.match(/^(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)$/i);
+	if (reps) return { sets: Math.min(8, Number(reps[1])), reps: Number(reps[2]) };
+	return null;
+}
+
+/** Accept `{sets:3,reps:30}` or a compact `"3x30"` / `"3x90s"` from sloppy model JSON. */
+export function normalizePlanStrengthExercises(raw: unknown): PlanStrengthExercise[] | undefined {
+	if (!Array.isArray(raw) || !raw.length) return undefined;
+	const out: PlanStrengthExercise[] = [];
+	for (const item of raw) {
+		if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+		const o = item as Record<string, unknown>;
+		const name = String(o.name ?? '').trim();
+		if (!name) continue;
+		const sec = finitePositive(o.sec ?? o.seconds);
+		const reps = finitePositive(o.reps);
+		const setsNum = finitePositive(o.sets);
+		const compact = setsNum ? null : parseCompactSets(o.sets);
+		const sets = setsNum ? Math.min(8, Math.round(setsNum)) : compact?.sets;
+		const hold = sec ?? compact?.sec;
+		const count = reps ?? compact?.reps;
+		if (!sets || (hold == null && count == null)) continue;
+		const kg = o.kg == null && o.weight == null ? null : finitePositive(o.kg ?? o.weight);
+		const note = typeof o.note === 'string' ? o.note.trim() : '';
+		out.push({
+			name,
+			sets,
+			...(hold != null ? { sec: hold } : { reps: count! }),
+			...(kg != null ? { kg } : {}),
+			...(note ? { note } : {})
+		});
+	}
+	return out.length ? out : undefined;
+}
+
+function plannedExercisesToStrength(planned: PlanStrengthExercise[]): StrengthExercise[] {
+	return planned.map((p) => {
+		if (p.sec != null) {
+			return {
+				name: p.name,
+				kind: 'time' as const,
+				sets: expandSets(p.sets, { reps: 0, kg: null, sec: p.sec })
+			};
+		}
+		if (p.kg != null) {
+			return {
+				name: p.name,
+				kind: 'weighted' as const,
+				sets: expandSets(p.sets, { reps: p.reps ?? 0, kg: p.kg, sec: null })
+			};
+		}
+		return {
+			name: p.name,
+			kind: 'reps' as const,
+			sets: expandSets(p.sets, { reps: p.reps ?? 0, kg: null, sec: null })
+		};
+	});
+}
+
 function parsePlanClause(clause: string): { exercise: StrengthExercise; cue: string } | 'cue' | null {
-	if (PLAN_CUE_RE.test(clause) || (/\brest\b/i.test(clause) && !PLAN_SETS_RE.test(clause))) {
+	const { core, notes } = peelParens(clause);
+	if (
+		PLAN_CUE_RE.test(core) ||
+		(/\brest\b/i.test(core) && !PLAN_SETS_RE.test(core) && !PLAN_TIMED_RE.test(core))
+	) {
 		return 'cue';
 	}
-	const triple = clause.match(PLAN_TRIPLE_RE);
+	const withNotes = (parsed: { exercise: StrengthExercise; cue: string }) => {
+		const cue = [parsed.cue, ...notes].filter(Boolean).join('. ');
+		return { ...parsed, cue };
+	};
+	const triple = core.match(PLAN_TRIPLE_RE);
 	if (triple) {
 		const n = Number(triple[2]);
-		return {
+		return withNotes({
 			exercise: {
 				name: triple[1]!.trim(),
 				kind: 'weighted',
 				sets: expandSets(n, { reps: Number(triple[3]), kg: Number(triple[4]), sec: null })
 			},
 			cue: ''
-		};
+		});
 	}
-	const timed = clause.match(PLAN_TIMED_RE);
+	const timed = core.match(PLAN_TIMED_RE);
 	if (timed) {
 		const n = Number(timed[2]);
-		return {
+		return withNotes({
 			exercise: {
 				name: timed[1]!.trim(),
 				kind: 'time',
 				sets: expandSets(n, { reps: 0, kg: null, sec: Number(timed[3]) })
 			},
-			cue: ''
-		};
+			cue: (timed[4] ?? '').trim()
+		});
 	}
-	const sets = clause.match(PLAN_SETS_RE);
+	const sets = core.match(PLAN_SETS_RE);
 	if (sets) {
 		const n = Number(sets[2]);
 		const load = parsePlanLoad(sets[4] ?? '');
 		const weighted = load.kg != null;
-		return {
+		return withNotes({
 			exercise: {
 				name: sets[1]!.trim(),
 				kind: weighted ? 'weighted' : 'reps',
 				sets: expandSets(n, { reps: Number(sets[3]), kg: load.kg, sec: null })
 			},
 			cue: load.cue
-		};
+		});
 	}
 	return null;
 }
 
+function pushExtra(extra: string[], text: string) {
+	const t = text.trim();
+	if (t) extra.push(t);
+}
+
 /**
- * Turn a planned strength `detail` into a log prefill: duration as `MM:SS` / `H:MM:SS`,
- * and notes in the StrengthEditor format.
+ * Turn a planned strength `detail` (and optional structured `exercises`) into a log prefill:
+ * duration as `MM:SS` / `H:MM:SS`, and notes in the StrengthEditor format.
  */
-export function strengthLogFromPlan(detail: string): { time: string; notes: string } {
+export function strengthLogFromPlan(
+	detail: string,
+	plannedExercises?: PlanStrengthExercise[] | null
+): { time: string; notes: string } {
 	const { minutes, rest } = stripPlanDuration(detail);
 	const time = minutes != null && minutes > 0 ? formatDuration(Math.round(minutes * 60)) : '';
+	const planned = normalizePlanStrengthExercises(plannedExercises);
+	if (planned?.length) {
+		const extra = [
+			rest.replace(/\.+$/, ''),
+			...planned.map((e) => e.note?.trim() ?? '').filter(Boolean)
+		].filter(Boolean);
+		return { time, notes: formatStrengthNotes(plannedExercisesToStrength(planned), extra.join('. ')) };
+	}
+	const asNotes = parseStrengthNotes(rest);
+	if (asNotes.exercises.length) {
+		return { time, notes: formatStrengthNotes(asNotes.exercises, asNotes.extra) };
+	}
 	const exercises: StrengthExercise[] = [];
 	const extra: string[] = [];
 	for (const clause of planClauses(rest)) {
-		const parsed = parsePlanClause(clause);
+		const { prefix, body } = splitLeadingCue(clause);
+		pushExtra(extra, prefix);
+		const parsed = parsePlanClause(body);
 		if (parsed === 'cue') {
-			extra.push(clause);
+			pushExtra(extra, body);
 			continue;
 		}
 		if (parsed) {
 			exercises.push(parsed.exercise);
-			if (parsed.cue) extra.push(parsed.cue);
+			pushExtra(extra, parsed.cue);
 			continue;
 		}
-		extra.push(clause);
+		pushExtra(extra, body);
 	}
 	if (!exercises.length && rest) return { time, notes: rest };
 	return { time, notes: formatStrengthNotes(exercises, extra.join('. ')) };

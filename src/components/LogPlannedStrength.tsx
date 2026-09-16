@@ -1,6 +1,7 @@
 import { normalizeActivityType } from '$lib/activity';
 import { isoDateLocal } from '$lib/plan';
 import { strengthLogFromPlan } from '$lib/strength';
+import type { PlanStrengthExercise } from '$lib/types';
 import { Link } from '@tanstack/react-router';
 import { Icon } from './Icon';
 
@@ -8,6 +9,7 @@ export type StrengthLogSession = {
 	activity_type?: string;
 	date: string | null;
 	detail: string;
+	exercises?: PlanStrengthExercise[];
 	done?: boolean;
 	skipped?: boolean;
 };
@@ -23,7 +25,7 @@ export function canLogPlannedStrength(
 }
 
 export function plannedStrengthLogSearch(session: StrengthLogSession) {
-	const log = strengthLogFromPlan(session.detail);
+	const log = strengthLogFromPlan(session.detail, session.exercises);
 	return {
 		mode: 'manual' as const,
 		type: 'strength' as const,

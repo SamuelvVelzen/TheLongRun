@@ -92,6 +92,16 @@ export interface Goal {
 /** Stored on a plan row only when the session is explicitly dropped. */
 export type PlanSessionStatus = 'skipped';
 
+/** Compact lift on a strength plan row — Log as planned expands this into sets. */
+export type PlanStrengthExercise = {
+	name: string;
+	sets: number;
+	reps?: number;
+	kg?: number | null;
+	sec?: number;
+	note?: string;
+};
+
 export interface PlanSession {
 	day: string;
 	label: string;
@@ -99,6 +109,8 @@ export interface PlanSession {
 	activity_type?: string;
 	distance_km: number | null;
 	detail: string;
+	/** Strength only. Older rows omit this and Log as planned parses `detail`. */
+	exercises?: PlanStrengthExercise[];
 	/** Explicit skip. Done / unlogged are computed from logs, never stored. */
 	status?: PlanSessionStatus;
 }

@@ -550,6 +550,7 @@ export function weekToPlanJson(week: PlanWeek): unknown {
 			label: s.label,
 			distance_km: s.distance_km,
 			detail: s.detail,
+			...(s.exercises?.length ? { exercises: s.exercises } : {}),
 			...(hasSkipStatus(s) ? { status: 'skipped' as const } : {})
 		}))
 	};

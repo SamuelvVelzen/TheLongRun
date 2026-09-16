@@ -29,15 +29,15 @@ import {
     type GearKind
 } from '$lib/gear';
 import {
-	activityLooksLikeRace,
-	canPinRaceResult,
-	normalizeGoalInput,
-	normalizeGoalUrl,
-	pickSoonestOpenGoal,
-	pinCandidatesForGoal,
-	resultFromActivity,
-	type GoalInput,
-	type MedalDetailsInput
+    activityLooksLikeRace,
+    canPinRaceResult,
+    normalizeGoalInput,
+    normalizeGoalUrl,
+    pickSoonestOpenGoal,
+    pinCandidatesForGoal,
+    resultFromActivity,
+    type GoalInput,
+    type MedalDetailsInput
 } from '$lib/goals';
 import {
     attachHrSeries,
@@ -88,6 +88,7 @@ import {
 } from '$lib/splits';
 import {
     formatStrengthHistoryBrief,
+    normalizePlanStrengthExercises,
     parseStrengthNotes,
     recentExerciseTops,
     strengthSummary
@@ -159,6 +160,7 @@ import {
     attachRouteToPlan as dbAttachRouteToPlan,
     deletePlannedRoute as dbDeletePlannedRoute,
     detachRouteLink as dbDetachRouteLink,
+    replacePlannedRouteTrack as dbReplacePlannedRouteTrack,
     updatePlannedRoute as dbUpdatePlannedRoute,
     getActivityRouteRef,
     getPlannedRoute,
@@ -166,7 +168,6 @@ import {
     listPlannedRouteTracks,
     listPlanRouteRefs,
     listRouteLinks,
-    replacePlannedRouteTrack as dbReplacePlannedRouteTrack,
     savePlannedFromFile,
     savePlannedFromTrack
 } from './planned-routes';
@@ -883,8 +884,8 @@ ${thisWeekLogs.map(formatRunBriefLine).join('\n')}
 				}`
 			: `There is **no race on the calendar**. Plan ${weekPhrase} as base / consistency training`;
 		const ladderLine = activeGoal
-			? 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering and laddering toward the race. Strength sessions need a gym kind in `label` and a full prescription in `detail` (duration, load, rest/tempo, lifts).'
-			: 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering. Strength sessions need a gym kind in `label` and a full prescription in `detail` (duration, load, rest/tempo, lifts). No race to peak for — keep it sustainable.';
+			? 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering and laddering toward the race. Strength sessions need a gym kind in `label`, duration/load/tempo in `detail`, and the lift list in `exercises`.'
+			: 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering. Strength sessions need a gym kind in `label`, duration/load/tempo in `detail`, and the lift list in `exercises`. No race to peak for — keep it sustainable.';
 		const briefAsk = revising
 			? `Week ${targetWeek} already has a saved plan (see Training plan). **Revise remaining sessions** given what is already logged, including any unplanned extras. Start from the saved week JSON — do not rebuild from the usual-week skeleton. Keep completed planned sessions in the JSON as they were (a matching Activity log date + sport means done; do not add \`"status": "completed"\` — \`status\` is only for skipped). You may add sessions for extras I propose in the notes — say why. Flag any red flags (injury risk, overtraining, under-recovery).`
 			: `Please assess how my training is going and give me a concrete plan for **${weekPhrase}** covering **every session in my usual-week skeleton** (runs, rides, walks, strength — whatever I pinned), keeping those days and sports. ${ladderLine} If a log ${weekPhrase} already matches a skeleton day and sport, that slot is done — keep it in the JSON to match what I did, and plan the remaining days. Flag any red flags (injury risk, overtraining, under-recovery).`;
@@ -1374,8 +1375,9 @@ ${unplannedLines ? `## Unplanned activities this week\nThese logs did not match 
 			? `- \`week.sessions\` is the **full week** from Current week plan: keep completed/skipped rows as they were, rewrite what's still ahead. Every session needs \`"activity_type"\`. Only move a day if you must, and say why.
 - To drop a session, set \`"status": "skipped"\` (and why in \`detail\`). Unlogged ≠ skipped.
 - If the week is finished, return the same session rows unchanged — do not invent a completed status (\`status\` is only \`"skipped"\`).
+- ${STRENGTH_SESSION_PROMPT}
 `
-			: `- **Week updates:** if anything still ahead should change, include \`week\` in the JSON (full week from this chat, \`activity_type\` on every session, keep completed/skipped rows as they were). Omit \`week\` only when nothing ahead changes.
+			: `- **Week updates:** if anything still ahead should change, include \`week\` in the JSON (full week from this chat, \`activity_type\` on every session, keep completed/skipped rows as they were). Omit \`week\` only when nothing ahead changes. ${STRENGTH_SESSION_PROMPT}
 `;
 		const reply = `## When you reply
 Lead with coaching advice in prose (how ${sessionWord} went, recovery, and whether anything ahead should change). Answer any questions from What I wrote there. After the advice, output one fenced JSON object I can paste back — the JSON is what I save; the advice is not.
@@ -2174,8 +2176,10 @@ async function mergePlanWeeks(incoming: PlanWeek[]): Promise<{ weeks: number; up
 			start: planWeekStartIso(w.week, calendar),
 			dates: w.dates?.trim() ? w.dates : planWeekDateRange(w.week, calendar),
 			sessions: w.sessions.map((s) => {
-				const { status, ...rest } = s;
-				return isSkippedStatus(status) ? { ...rest, status: 'skipped' as const } : rest;
+				const { status, exercises, ...rest } = s;
+				const lifts = normalizePlanStrengthExercises(exercises);
+				const row = lifts ? { ...rest, exercises: lifts } : rest;
+				return isSkippedStatus(status) ? { ...row, status: 'skipped' as const } : row;
 			})
 		});
 	}

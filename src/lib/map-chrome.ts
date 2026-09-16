@@ -3,6 +3,7 @@ import type { LeafletGlobal } from '$lib/leaflet';
 import {
 	LIVE_LOCATION_PING_MS,
 	LIVE_SHARE_EVENT,
+	liveAgo,
 	liveShareAuthed,
 	liveShareOn,
 	requestLiveShare,
@@ -32,6 +33,10 @@ type AttachOpts = {
 	onFit: () => void;
 	/** One-finger pan on phones (waypoint editor). Default keeps page-scroll until two fingers / fullscreen. */
 	alwaysPan?: boolean;
+	/** Keep the view on the live ping (visitor watch overlay). */
+	followLive?: boolean;
+	/** Extra control that closes this map (live watch overlay). */
+	onClose?: () => void;
 };
 
 function isCoarsePointer(): boolean {
@@ -390,7 +395,7 @@ function applyFsBox(wrap: HTMLElement, mapEl: HTMLElement, on: boolean, nativeFs
  * Returns a handle for cleanup.
  */
 export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
-	const { map, wrap, onFit, alwaysPan } = opts;
+	const { map, wrap, onFit, alwaysPan, followLive, onClose } = opts;
 	const mapEl: HTMLElement =
 		(typeof map.getContainer === 'function' ? map.getContainer() : null) ??
 		(wrap.querySelector('.leaflet-container') as HTMLElement);
@@ -435,14 +440,26 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	const btnFull = textBtn('Fullscreen', 'Fullscreen');
 	btnFull.classList.add('map-chrome-btn-fs');
 	btnLocate.classList.add('map-chrome-btn-loc');
-	const btnShare = liveShareAuthed() ? textBtn('Share', 'Share live location on the map') : null;
-	if (btnShare) btnShare.classList.add('map-chrome-btn-share');
+	const btnShare = textBtn('Share', 'Share live location on the map');
+	btnShare.classList.add('map-chrome-btn-share');
 
 	const texts = document.createElement('div');
 	texts.className =
 		'map-chrome-texts inline-flex w-fit items-stretch overflow-hidden border border-line rounded-full bg-surface/90 shadow-lift';
 	texts.append(btnFull, btnFit);
-	if (btnShare) texts.append(btnShare);
+	if (onClose) {
+		const btnClose = textBtn('Close', 'Close live map');
+		btnClose.addEventListener(
+			'click',
+			(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				onClose();
+			},
+			true
+		);
+		texts.append(btnClose);
+	}
 
 	const icons = document.createElement('div');
 	icons.className = 'map-chrome-zoom flex flex-col gap-[0.35rem] max-sm:gap-[0.3rem]';
@@ -491,14 +508,22 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	};
 
 	const syncShareButton = () => {
-		if (!btnShare) return;
 		const on = liveShareOn();
 		btnShare.textContent = on ? 'Sharing' : 'Share';
 		btnShare.title = on ? 'Stop sharing live location' : 'Share live location on the map';
 		btnShare.setAttribute('aria-label', btnShare.title);
 		btnShare.setAttribute('aria-pressed', on ? 'true' : 'false');
 	};
-	syncShareButton();
+
+	const syncShareChrome = () => {
+		if (liveShareAuthed()) {
+			if (!btnShare.isConnected) texts.append(btnShare);
+		} else if (btnShare.isConnected) {
+			btnShare.remove();
+		}
+		syncShareButton();
+	};
+	syncShareChrome();
 
 	const isOn = () => isNativeFullscreen(wrap) || cssFullscreen;
 
@@ -832,20 +857,16 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		locFollow = isOn();
 		startLocate(true);
 	});
-	btnShare?.addEventListener(
+	btnShare.addEventListener(
 		'click',
 		(e) => {
 			e.preventDefault();
 			e.stopPropagation();
+			if (!liveShareAuthed()) return;
 			requestLiveShare(!liveShareOn());
 		},
 		true
 	);
-
-	const onShareEvent = () => {
-		syncShareButton();
-	};
-	window.addEventListener(LIVE_SHARE_EVENT, onShareEvent);
 
 	const clearLiveMarker = () => {
 		liveMarker?.remove?.();
@@ -854,23 +875,15 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		liveAccuracy = null;
 	};
 
-	const nearOwnLocation = (lat: number, lng: number) => {
-		if (!locMarker) return false;
-		const here = locMarker.getLatLng?.();
-		if (!here) return false;
-		const dlat = here.lat - lat;
-		const dlng = here.lng - lng;
-		return dlat * dlat + dlng * dlng < 4e-7;
-	};
-
 	const showLivePing = (ping: LiveLocationPing | null) => {
-		if (!L || !ping || nearOwnLocation(ping.lat, ping.lng)) {
+		if (!L || !ping || liveShareAuthed()) {
 			clearLiveMarker();
 			return;
 		}
 		const latlng = L.latLng(ping.lat, ping.lng);
 		const acc = ping.accuracy && ping.accuracy > 0 ? ping.accuracy : 0;
 		const tip = `Live · ${liveAgo(ping.updatedAt)}`;
+		const liveColor = cssColor('--live', '#ff4ec8');
 		if (!liveMarker) {
 			liveMarker = L.marker(latlng, {
 				icon: liveLocationIcon(L),
@@ -881,9 +894,9 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 				.addTo(map);
 			liveAccuracy = L.circle(latlng, {
 				radius: Math.max(18, acc),
-				color: cssColor('--accent', '#c8f25a'),
+				color: liveColor,
 				weight: 1,
-				fillColor: cssColor('--accent', '#c8f25a'),
+				fillColor: liveColor,
 				fillOpacity: 0.12,
 				interactive: false
 			}).addTo(map);
@@ -894,9 +907,17 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			if (acc > 0) liveAccuracy?.setRadius?.(acc);
 		}
 		applyMarkerHeading(liveMarker?.getElement?.(), ping.heading);
+		if (followLive) {
+			const z = map.getZoom?.() ?? 15;
+			map.setView(latlng, Math.max(z, 15), { animate: true });
+		}
 	};
 
 	const pollLive = () => {
+		if (liveShareAuthed()) {
+			clearLiveMarker();
+			return;
+		}
 		void getLiveLocation()
 			.then((ping) => {
 				showLivePing(ping);
@@ -907,6 +928,13 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	};
 	pollLive();
 	liveTimer = setInterval(pollLive, LIVE_LOCATION_PING_MS);
+
+	const onShareEvent = () => {
+		syncShareChrome();
+		if (liveShareAuthed()) clearLiveMarker();
+		else pollLive();
+	};
+	window.addEventListener(LIVE_SHARE_EVENT, onShareEvent);
 
 	try {
 		L?.DomEvent?.disableClickPropagation?.(bar);
@@ -1000,13 +1028,6 @@ export function liveLocationIcon(L: LeafletGlobal) {
 		iconSize: [52, 36],
 		iconAnchor: [14, 18]
 	});
-}
-
-function liveAgo(updatedAt: number): string {
-	const s = Math.max(0, Math.round((Date.now() - updatedAt) / 1000));
-	if (s < 45) return 'just now';
-	const m = Math.max(1, Math.round(s / 60));
-	return m === 1 ? '1 min ago' : `${m} min ago`;
 }
 
 const ROUTE_CASING_EXTRA = 4;

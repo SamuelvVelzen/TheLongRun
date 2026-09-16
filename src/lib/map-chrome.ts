@@ -478,22 +478,31 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	let cssFullscreen = false;
 	let placeholder: HTMLDivElement | null = null;
 	let sizeTimers: ReturnType<typeof setTimeout>[] = [];
-	let locFollow = false;
 	let locPanNext = false;
+	/** User panned away — don't yank the view back to the GPS pin. */
+	let locUserPan = false;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let locMarker: any = null;
 	let locWatch: number | null = null;
 
-	/** Pan to an already-shown pin — never starts GPS (that would prompt on iOS). */
-	const followExistingLocation = () => {
-		if (locWatch == null && !locMarker) return false;
-		locFollow = true;
-		locPanNext = true;
-		return true;
+	const stopFollowing = () => {
+		locPanNext = false;
+		locUserPan = true;
+		try {
+			map.stop?.();
+		} catch {
+			/* ignore */
+		}
 	};
 
-	const fullscreenSizeMode = (): 'follow' | 'keep' =>
-		followExistingLocation() ? 'follow' : 'keep';
+	let locDragging = false;
+	const onDragStart = () => {
+		locDragging = true;
+		stopFollowing();
+	};
+	const onDragEnd = () => {
+		locDragging = false;
+	};
 
 	const clearSizeTimers = () => {
 		for (const t of sizeTimers) clearTimeout(t);
@@ -604,7 +613,8 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		wrap.appendChild(hint);
 	}
 
-	const refreshMapSize = (mode: 'keep' | 'follow' = 'keep') => {
+	const refreshMapSize = () => {
+		if (locDragging) return;
 		const on = isOn();
 		const center = map.getCenter?.();
 		const zoom = map.getZoom?.();
@@ -619,7 +629,6 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			}
 		}
 		resizeMaplibreLayers(map);
-		if (mode === 'follow' && panToLocation(false)) return;
 		if (center) {
 			try {
 				map.setView(center, zoom, { animate: false });
@@ -629,18 +638,12 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		}
 	};
 
-	const scheduleSizeRefresh = (mode: 'keep' | 'follow' = 'keep') => {
+	const scheduleSizeRefresh = () => {
 		clearSizeTimers();
 		// Immediate pass so pixels apply before paint
-		refreshMapSize('keep');
-		for (let i = 0; i < SIZE_REFRESH_MS.length; i++) {
-			const ms = SIZE_REFRESH_MS[i];
-			const isLast = i === SIZE_REFRESH_MS.length - 1;
-			sizeTimers.push(
-				setTimeout(() => {
-					refreshMapSize(isLast ? mode : 'keep');
-				}, ms)
-			);
+		refreshMapSize();
+		for (const ms of SIZE_REFRESH_MS) {
+			sizeTimers.push(setTimeout(() => refreshMapSize(), ms));
 		}
 	};
 
@@ -649,17 +652,11 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		if (mapEl) applyFsBox(wrap, mapEl, on, isNativeFullscreen(wrap));
 		syncFullButton(on);
 		applyCoarseGestures(on);
-		if (on) {
-			scheduleSizeRefresh(fullscreenSizeMode());
-		} else {
-			locFollow = false;
-			scheduleSizeRefresh('keep');
-		}
+		scheduleSizeRefresh();
 	};
 
 	const applyFullscreen = async (wantOn: boolean) => {
 		if (wantOn) {
-			const sizeMode = fullscreenSizeMode();
 			// CSS overlay first on phones so a hanging requestFullscreen() cannot no-op the tap.
 			if (!nativeFullscreenSupported()) {
 				cssFullscreen = true;
@@ -667,7 +664,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 				if (mapEl) applyFsBox(wrap, mapEl, true, false);
 				syncFullButton(true);
 				applyCoarseGestures(true);
-				scheduleSizeRefresh(sizeMode);
+				scheduleSizeRefresh();
 				return;
 			}
 			const ok = await enterNativeFullscreen(wrap);
@@ -677,16 +674,15 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			if (mapEl) applyFsBox(wrap, mapEl, true, ok);
 			syncFullButton(true);
 			applyCoarseGestures(true);
-			scheduleSizeRefresh(sizeMode);
+			scheduleSizeRefresh();
 		} else {
-			locFollow = false;
 			cssFullscreen = false;
 			if (mapEl) applyFsBox(wrap, mapEl, false, false);
 			restoreWrap();
 			await exitNativeFullscreen();
 			syncFullButton(false);
 			applyCoarseGestures(false);
-			scheduleSizeRefresh('keep');
+			scheduleSizeRefresh();
 		}
 	};
 
@@ -718,8 +714,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		restoreWrap();
 		syncFullButton(false);
 		applyCoarseGestures(false);
-		locFollow = false;
-		scheduleSizeRefresh('keep');
+		scheduleSizeRefresh();
 	};
 	document.addEventListener('fullscreenchange', onFsEvent);
 	document.addEventListener('webkitfullscreenchange', onFsEvent);
@@ -727,7 +722,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	document.addEventListener('webkitfullscreenerror', onFsEvent);
 
 	const onResize = () => {
-		if (isOn()) scheduleSizeRefresh(locFollow ? 'follow' : 'keep');
+		if (isOn()) scheduleSizeRefresh();
 	};
 	window.addEventListener('resize', onResize);
 	window.visualViewport?.addEventListener('resize', onResize);
@@ -772,7 +767,6 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		locAccuracy?.remove?.();
 		locMarker = null;
 		locAccuracy = null;
-		locFollow = false;
 		setLocateActive(false);
 	};
 
@@ -787,7 +781,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		}
 		locPanNext = pan;
 		if (locWatch != null) {
-			if ((pan || locFollow) && locMarker) panToLocation(true);
+			if (pan && locMarker) panToLocation(true);
 			return;
 		}
 		if (isPhoneDevice()) {
@@ -825,16 +819,8 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 				}
 				setLocateActive(true);
 				btnLocate.title = 'My location';
-				if (locFollow) {
-					const z = map.getZoom?.() ?? 15;
-					if (locPanNext) {
-						map.setView(latlng, Math.max(z, 15), { animate: true });
-						locPanNext = false;
-					} else {
-						map.panTo(latlng, { animate: true });
-					}
-				} else if (locPanNext) {
-					map.setView(latlng, Math.max(map.getZoom?.() ?? 14, 15));
+				if (locPanNext && !locUserPan) {
+					map.setView(latlng, Math.max(map.getZoom?.() ?? 14, 15), { animate: true });
 					locPanNext = false;
 				}
 			},
@@ -847,14 +833,18 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		);
 	};
 
+	map.on('dragstart', onDragStart);
+	map.on('dragend', onDragEnd);
+
 	btnFit.addEventListener('click', (e) => {
 		e.stopPropagation();
-		locFollow = false;
+		locPanNext = false;
+		locUserPan = false;
 		onFit();
 	});
 	btnLocate.addEventListener('click', (e) => {
 		e.stopPropagation();
-		locFollow = isOn();
+		locUserPan = false;
 		startLocate(true);
 	});
 	btnShare.addEventListener(
@@ -907,7 +897,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			if (acc > 0) liveAccuracy?.setRadius?.(acc);
 		}
 		applyMarkerHeading(liveMarker?.getElement?.(), ping.heading);
-		if (followLive) {
+		if (followLive && !locUserPan) {
 			const z = map.getZoom?.() ?? 15;
 			map.setView(latlng, Math.max(z, 15), { animate: true });
 		}
@@ -953,6 +943,8 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 
 	return {
 		destroy: () => {
+			map.off?.('dragstart', onDragStart);
+			map.off?.('dragend', onDragEnd);
 			stopLocate();
 			clearLiveMarker();
 			if (liveTimer != null) clearInterval(liveTimer);

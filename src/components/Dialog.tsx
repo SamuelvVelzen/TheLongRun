@@ -2,6 +2,7 @@ import { OverlayPortal, useOverlayLock } from '$lib/overlay';
 import { cn, ui } from '$lib/ui';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { Icon } from './Icon';
+import { Actions, Button } from './ui';
 
 export function Dialog({
 	open,
@@ -43,17 +44,18 @@ export function Dialog({
 						<strong id={titleId} className="font-display text-[1.2rem] tracking-[-0.03em]">
 							{title}
 						</strong>
-						<button
-							type="button"
-							className={cn(ui.btnGhost, ui.btnIcon, 'text-[1.25rem]')}
+						<Button
+							variant="ghost"
+							size="icon"
+							className="text-[1.25rem]"
 							aria-label="Close"
 							onClick={onClose}
 						>
 							<Icon name="close" size={16} />
-						</button>
+						</Button>
 					</div>
 					{children}
-					{actions && <div className={ui.actions}>{actions}</div>}
+					{actions && <Actions>{actions}</Actions>}
 				</div>
 			</div>
 		</OverlayPortal>
@@ -103,17 +105,12 @@ export function ConfirmDialog({
 			onClose={busy ? () => {} : onClose}
 			actions={
 				<>
-					<button className={ui.btnGhost} type="button" disabled={busy} onClick={onClose}>
+					<Button variant="ghost" disabled={busy} onClick={onClose}>
 						{cancelLabel}
-					</button>
-					<button
-						className={cn(ui.btnGhost, ui.btnDanger)}
-						type="button"
-						disabled={busy}
-						onClick={() => void confirm()}
-					>
+					</Button>
+					<Button variant="danger" disabled={busy} onClick={() => void confirm()}>
 						{busy ? (busyLabel ?? `${confirmLabel}…`) : confirmLabel}
-					</button>
+					</Button>
 				</>
 			}
 		>

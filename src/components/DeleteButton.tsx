@@ -1,6 +1,7 @@
 import type { MouseEvent } from 'react';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { Icon } from './Icon';
+import { Button } from './ui';
 
 const compactIcon =
 	'size-8 min-h-8! min-w-8 p-0! px-0! py-0! rounded-full leading-none shrink-0 self-center box-border max-sm:flex-none max-sm:size-8 max-sm:min-h-8! max-sm:min-w-8 max-sm:p-0! max-sm:px-0! max-sm:py-0!';
@@ -30,16 +31,17 @@ export function EditButton({
 	compact?: boolean;
 }) {
 	return (
-		<button
-			className={cn(ui.btnGhost, compact ? compactIcon : ui.btnIcon, className)}
-			type="button"
+		<Button
+			variant="ghost"
+			size={compact ? 'default' : 'icon'}
+			className={cn(compact && compactIcon, className)}
 			aria-label={label}
 			title={label}
 			disabled={disabled}
 			onClick={onClick}
 		>
 			<Icon name="pencil" size={compact ? 14 : 16} />
-		</button>
+		</Button>
 	);
 }
 
@@ -57,20 +59,16 @@ export function DeleteButton({
 	compact?: boolean;
 }) {
 	return (
-		<button
-			className={cn(
-				ui.btnGhost,
-				ui.btnDanger,
-				compact ? compactIcon : ui.btnIcon,
-				className
-			)}
-			type="button"
+		<Button
+			variant="danger"
+			size={compact ? 'default' : 'icon'}
+			className={cn(compact && compactIcon, className)}
 			aria-label={label}
 			title={label}
 			disabled={disabled}
 			onClick={onClick}
 		>
 			<TrashIcon className={compact ? 'size-3.5' : undefined} />
-		</button>
+		</Button>
 	);
 }

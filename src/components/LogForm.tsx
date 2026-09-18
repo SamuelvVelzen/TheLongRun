@@ -16,6 +16,7 @@ import { Select } from './Select';
 import { errorMessage, useSnackbar } from './Snackbar';
 import { StrengthEditor } from './StrengthEditor';
 import { WeatherField } from './WeatherField';
+import { Actions, Button, buttonClass, Field, Form, FormGrid, FormSection, Input, Panel, Textarea } from './ui';
 
 const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'race', 'other'];
 
@@ -125,32 +126,34 @@ export function LogForm({
 	}
 
 	return (
-		<form className={ui.form} method="POST" onSubmit={onSubmit}>
+		<Form method="POST" onSubmit={onSubmit}>
 			{fromPlan && (
 				<p className={cn(ui.muted, 'm-0 text-[0.9rem]')}>
 					Prefilling this gym session from the plan — change anything that was different.
 				</p>
 			)}
-			<div className={ui.panel}>
-				<div className={ui.formSection}>
-					<h3 className={ui.formSectionTitle}>Activity</h3>
-					<div className={ui.formGrid}>
-						<label className={ui.field}>
-							<span className={ui.req}>Date</span>
-							<input
+			<Panel>
+				<FormSection title="Activity">
+					<FormGrid>
+						<Field
+							label="Date"
+							required
+							hint={
+								<>
+									{derivedDay}
+									{derivedWeek != null && ` · week ${derivedWeek}`}
+								</>
+							}
+						>
+							<Input
 								type="date"
 								name="date"
 								required
 								value={dateValue}
 								onChange={(e) => setDateValue(e.target.value)}
 							/>
-							<span className={cn(ui.fieldHint, ui.muted)}>
-								{derivedDay}
-								{derivedWeek != null && ` · week ${derivedWeek}`}
-							</span>
-						</label>
-						<div className={cn(ui.field, 'min-[721px]:col-span-2')}>
-							<span className={ui.req}>Type</span>
+						</Field>
+						<Field label="Type" required as="div" className="min-[721px]:col-span-2">
 							<ChoiceChips
 								aria-label="Activity type"
 								value={activityType}
@@ -160,85 +163,74 @@ export function LogForm({
 								}))}
 								onChange={setActivityType}
 							/>
-						</div>
+						</Field>
 						{activityType === 'run' && (
-							<label className={ui.field}>
-								<span>Session</span>
+							<Field label="Session">
 								<Select
 									name="session"
 									defaultValue={defaultSession}
 									aria-label="Session"
 									options={SESSIONS.map((s) => ({ value: s, label: s }))}
 								/>
-							</label>
+							</Field>
 						)}
-					</div>
-				</div>
+					</FormGrid>
+				</FormSection>
 
-				<div className={ui.formSection}>
-					<h3 className={ui.formSectionTitle}>Numbers</h3>
-					<div className={ui.formGrid}>
+				<FormSection title="Numbers">
+					<FormGrid>
 						{showsField(activityType, 'distance') && (
-							<label className={ui.field}>
-								<span>Distance (km)</span>
-								<input name="distance_km" type="text" inputMode="decimal" placeholder="7.04" />
-							</label>
+							<Field label="Distance (km)">
+								<Input name="distance_km" type="text" inputMode="decimal" placeholder="7.04" />
+							</Field>
 						)}
-						<label className={ui.field}>
-							<span>Duration</span>
-							<input
+						<Field label="Duration">
+							<Input
 								name="time"
 								placeholder="45:12 or 1:15:01"
 								value={durationValue}
 								onChange={(e) => setDurationValue(e.target.value)}
 							/>
-						</label>
-						<label className={ui.field}>
-							<span className={ui.req}>Start time</span>
-							<input
+						</Field>
+						<Field label="Start time" required>
+							<Input
 								type="time"
 								name="start_time"
 								required
 								value={startTimeValue}
 								onChange={(e) => setStartTimeValue(e.target.value)}
 							/>
-						</label>
+						</Field>
 						{showsField(activityType, 'pace') && (
-							<label className={ui.field}>
-								<span>{paceFieldLabel(activityType)}</span>
-								<input name="avg_pace" inputMode="decimal" placeholder="6:29" />
-							</label>
+							<Field label={paceFieldLabel(activityType)}>
+								<Input name="avg_pace" inputMode="decimal" placeholder="6:29" />
+							</Field>
 						)}
 						{showsField(activityType, 'hr') && (
-							<label className={ui.field}>
-								<span>Avg HR</span>
-								<input name="avg_hr" type="text" inputMode="numeric" placeholder="147" />
-							</label>
+							<Field label="Avg HR">
+								<Input name="avg_hr" type="text" inputMode="numeric" placeholder="147" />
+							</Field>
 						)}
 						{showsField(activityType, 'hr') && (
-							<label className={ui.field}>
-								<span>Max HR</span>
-								<input name="max_hr" type="text" inputMode="numeric" placeholder="172" />
-							</label>
+							<Field label="Max HR">
+								<Input name="max_hr" type="text" inputMode="numeric" placeholder="172" />
+							</Field>
 						)}
 						{showsField(activityType, 'elevation') && (
-							<label className={ui.field}>
-								<span>Elev gain (m)</span>
-								<input name="elev_gain" type="text" inputMode="decimal" placeholder="48" />
-							</label>
+							<Field label="Elev gain (m)">
+								<Input name="elev_gain" type="text" inputMode="decimal" placeholder="48" />
+							</Field>
 						)}
 						{showsField(activityType, 'cadence') && (
-							<label className={ui.field}>
-								<span>Cadence</span>
-								<input name="cadence" type="text" inputMode="numeric" placeholder="176" />
-							</label>
+							<Field label="Cadence">
+								<Input name="cadence" type="text" inputMode="numeric" placeholder="176" />
+							</Field>
 						)}
-					</div>
-				</div>
+					</FormGrid>
+				</FormSection>
 
-				<div className={ui.formSection}>
-					<h3 className={ui.formSectionTitle}>How it felt</h3>
-					<div className={ui.formGrid}>
+				<FormSection title="How it felt">
+					<FormGrid>
 						{showsFeel(activityType, 'effort') && (
 							<FeelChips name="effort" label="Effort (1–10)" min={1} max={10} low="easy" high="max" />
 						)}
@@ -252,15 +244,14 @@ export function LogForm({
 							<FeelChips name="energy" label="Energy (1–10)" min={1} max={10} low="empty" high="full" />
 						)}
 						{showsFeel(activityType, 'wanted_faster') && <WantedFasterChips />}
-					</div>
-				</div>
+					</FormGrid>
+				</FormSection>
 
-				<div className={ui.formSection}>
-					<h3 className={ui.formSectionTitle}>Details</h3>
+				<FormSection title="Details">
 					{(showsField(activityType, 'weather') ||
 						showsField(activityType, 'surface') ||
 						showsField(activityType, 'gear')) && (
-						<div className={ui.formGrid}>
+						<FormGrid>
 							{showsField(activityType, 'weather') && (
 								<WeatherField
 									value={weather}
@@ -271,14 +262,13 @@ export function LogForm({
 								/>
 							)}
 							{showsField(activityType, 'surface') && (
-								<label className={ui.field}>
-									<span>Surface</span>
-									<input
+								<Field label="Surface">
+									<Input
 										name="surface"
 										placeholder="asphalt / mixed / trail"
 										defaultValue="asphalt"
 									/>
-								</label>
+								</Field>
 							)}
 							{showsField(activityType, 'gear') && gearKind && gearKindMeta && (
 								<GearField
@@ -291,32 +281,30 @@ export function LogForm({
 									activeHint={gearKindMeta.activeLabel.toLowerCase()}
 								/>
 							)}
-						</div>
+						</FormGrid>
 					)}
 					{activityType === 'strength' ? (
-						<div className={cn(ui.field, 'mt-[0.85rem]')}>
-							<span>Sets</span>
+						<Field label="Sets" as="div" className="mt-[0.85rem]">
 							<StrengthEditor initial={strengthNotes} onChange={setStrengthNotes} />
-						</div>
+						</Field>
 					) : (
-						<label className={cn(ui.field, 'mt-[0.85rem]')}>
-							<span>Notes</span>
-							<textarea name="notes" placeholder="How it felt, route, heat, fatigue…"></textarea>
-						</label>
+						<Field label="Notes" className="mt-[0.85rem]">
+							<Textarea name="notes" placeholder="How it felt, route, heat, fatigue…" />
+						</Field>
 					)}
-				</div>
-			</div>
+				</FormSection>
+			</Panel>
 
-			<div className={cn(ui.actions, ui.stickyActions)}>
-				<Link className={ui.btnGhost} to="/">
+			<Actions sticky>
+				<Link className={buttonClass({ variant: 'ghost' })} to="/">
 					<Icon name="close" size={16} />
 					Cancel
 				</Link>
-				<button className={cn(ui.btnPrimary, ui.stickyPrimary)} type="submit">
+				<Button variant="primary" stickyPrimary type="submit">
 					<Icon name="check" size={16} />
 					Save activity
-				</button>
-			</div>
-		</form>
+				</Button>
+			</Actions>
+		</Form>
 	);
 }

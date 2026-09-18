@@ -39,10 +39,12 @@ import { DebriefRacePanel } from '../components/DebriefRacePanel';
 import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
+import { JsonPasteForm } from '../components/JsonPasteForm';
 import { PageHero } from '../components/PageHero';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { Select } from '../components/Select';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
+import { Actions, Button, Field, Form, Textarea, useAppForm } from '../components/ui';
 import {
 	rowsFrom,
 	toPattern,
@@ -119,7 +121,6 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 	const byWeek = new Map(planData.views.map((v) => [v.week.week, v]));
 	const view = byWeek.get(selected) ?? null;
 	const [copied, setCopied] = useState<'week' | 'all' | null>(null);
-	const [planJson, setPlanJson] = useState('');
 
 	function setWeek(n: number) {
 		const week = Math.min(weekCount, Math.max(1, n));
@@ -138,19 +139,6 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 			setTimeout(() => setCopied((prev) => (prev === kind ? null : prev)), 1800);
 		} catch {
 			snack.error('Could not copy — select and copy the text instead.');
-		}
-	}
-
-	async function savePastedPlan() {
-		try {
-			const res = await savePlanWeeks({ data: planJson });
-			snack.success(
-				`Saved — plan now has ${res.weeks} weeks (updated week ${res.updated.join(', ')}).`
-			);
-			setPlanJson('');
-			router.invalidate();
-		} catch (e) {
-			snack.error(errorMessage(e, 'Could not save plan.'));
 		}
 	}
 
@@ -288,33 +276,26 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 				</p>
 			)}
 			{authed && (
-				<div className={cn(ui.panel, ui.form, 'mt-4')}>
-					<h3>Paste updated JSON</h3>
-					<p className={cn(ui.muted, 'mt-[0.3rem]')}>
-						Same shape as Generate — one week object or an array of weeks. Merged by week
-						number.
-					</p>
-					<label className={ui.field}>
-						<textarea
-							className={ui.editor}
-							rows={8}
-							placeholder='{ "week": 5, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'
-							value={planJson}
-							onChange={(e) => setPlanJson(e.target.value)}
-						/>
-					</label>
-					<div className={ui.actions}>
-						<button
-							className={ui.btnPrimary}
-							type="button"
-							onClick={savePastedPlan}
-							disabled={!planJson.trim()}
-						>
-							<Icon name="plus" size={16} />
-							Add to plan
-						</button>
-					</div>
-				</div>
+				<JsonPasteForm
+					className={cn(ui.panel, 'mt-4')}
+					title="Paste updated JSON"
+					description={
+						<p className={cn(ui.muted, 'mt-[0.3rem]')}>
+							Same shape as Generate — one week object or an array of weeks. Merged by week
+							number.
+						</p>
+					}
+					placeholder='{ "week": 5, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'
+					submitLabel="Add to plan"
+					errorLabel="Could not save plan."
+					onSubmit={async (json) => {
+						const res = await savePlanWeeks({ data: json });
+						snack.success(
+							`Saved — plan now has ${res.weeks} weeks (updated week ${res.updated.join(', ')}).`
+						);
+						await router.invalidate();
+					}}
+				/>
 			)}
 		</>
 	);
@@ -470,12 +451,8 @@ function CoachPanels({
 	const slug = search.slug ?? '';
 	const includePlan = search.includePlan === true;
 
-	const [question, setQuestion] = useState(() =>
-		defaultQuestion(planData.generateWeek > planData.currentWeek)
-	);
 	const [copied, setCopied] = useState(false);
 	const [briefText, setBriefText] = useState('');
-	const [planJson, setPlanJson] = useState('');
 
 	const [debrief, setDebrief] = useState(initialDebrief);
 	const [writeups, setWriteups] = useState(readDebriefWriteups);
@@ -490,15 +467,12 @@ function CoachPanels({
 			{}
 		)
 	);
-	const [debriefJson, setDebriefJson] = useState('');
 	const [debriefCopied, setDebriefCopied] = useState(false);
 
 	const [usual, setUsual] = useState<SlotRow[]>(() => rowsFrom(initialPattern));
 	const [savedPattern, setSavedPattern] = useState<WeekPattern>(initialPattern);
-	const [mixNote, setMixNote] = useState('');
 	const [mixBusy, setMixBusy] = useState(false);
 	const mixBusyRef = useRef(false);
-	const [briefBusy, setBriefBusy] = useState(false);
 
 	// Fresh loader data (e.g. after save) replaces the debrief prompt.
 	useEffect(() => {
@@ -529,41 +503,6 @@ function CoachPanels({
 		const featured = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
 		setDebriefPrompt(composeDebriefPrompt(debrief.prompt, featured, writeups));
 	}, [debrief, writeups]);
-
-	async function savePlan() {
-		try {
-			const res = await savePlanWeeks({ data: planJson });
-			snack.success(`Saved — plan now has ${res.weeks} weeks (updated week ${res.updated.join(', ')}).`);
-			setPlanJson('');
-			router.invalidate();
-		} catch (e) {
-			snack.error(errorMessage(e, 'Could not save plan.'));
-		}
-	}
-
-	async function saveDebriefReply() {
-		try {
-			const res = await saveDebrief({ data: debriefJson });
-			const bits: string[] = [];
-			if (res.feelingsUpdated) {
-				bits.push(
-					`feelings on ${res.feelingsUpdated} activit${res.feelingsUpdated === 1 ? 'y' : 'ies'}`
-				);
-			}
-			if (res.planUpdated.length) bits.push(`week ${res.planUpdated.join(', ')} updated`);
-			const miss = res.feelingsMissing.length
-				? ` (${res.feelingsMissing.length} slug(s) not found)`
-				: '';
-			snack.success(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
-			setDebriefJson('');
-			if (res.feelingsUpdatedSlugs.length) {
-				setWriteups((prev) => clearDebriefWriteups(res.feelingsUpdatedSlugs, prev));
-			}
-			router.invalidate();
-		} catch (e) {
-			snack.error(errorMessage(e, 'Could not save debrief.'));
-		}
-	}
 
 	const runs = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
 	const many = runs.length > 1;
@@ -601,8 +540,7 @@ function CoachPanels({
 	const usualPattern = toPattern(usual);
 	const mixDirty = !patternsEqual(usualPattern, savedPattern);
 
-	async function generateBrief() {
-		setBriefBusy(true);
+	async function generateBrief(mixNote: string, question: string) {
 		try {
 			const next = await getCoachBrief({
 				data: {
@@ -617,8 +555,6 @@ function CoachPanels({
 			setBriefText(`${next}\n## My question\n${question.trim() || defaultQ}\n`);
 		} catch (e) {
 			snack.error(errorMessage(e, 'Could not build the prompt.'));
-		} finally {
-			setBriefBusy(false);
 		}
 	}
 
@@ -856,20 +792,20 @@ function CoachPanels({
 											</span>
 										</span>
 									</label>
-									<label className={ui.field}>
-										<textarea
-											className={ui.editor}
+									<Field>
+										<Textarea
+											variant="editor"
 											rows={14}
 											value={debriefPrompt}
 											onChange={(e) => setDebriefPrompt(e.target.value)}
 										/>
-									</label>
-									<div className={ui.actions}>
-										<button className={ui.btnPrimary} type="button" onClick={copyDebrief}>
+									</Field>
+									<Actions>
+										<Button variant="primary" onClick={() => void copyDebrief()}>
 											<Icon name={debriefCopied ? 'check' : 'copy'} size={16} />
 											{debriefCopied ? 'Copied' : 'Copy prompt'}
-										</button>
-									</div>
+										</Button>
+									</Actions>
 								</div>
 							)}
 						</li>
@@ -881,32 +817,35 @@ function CoachPanels({
 									: 'A short notes summary for this activity, and an updated week if remaining sessions should change. Advice stays in the chat — only the JSON is saved.'}
 							</span>
 							{authed ? (
-								<div className={cn(ui.panel, ui.form, 'mt-3')}>
-									<label className={ui.field}>
-										<textarea
-											className={ui.editor}
-											rows={8}
-											placeholder={
-												includePlan
-													? '{ "feelings": { "slug": "…", "notes": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
-													: '{ "feelings": { "slug": "…", "notes": "…" } }'
-											}
-											value={debriefJson}
-											onChange={(e) => setDebriefJson(e.target.value)}
-										/>
-									</label>
-									<div className={ui.actions}>
-										<button
-											className={ui.btnPrimary}
-											type="button"
-											onClick={saveDebriefReply}
-											disabled={!debriefJson.trim()}
-										>
-											<Icon name="check" size={16} />
-											Save reply
-										</button>
-									</div>
-								</div>
+								<JsonPasteForm
+									className={cn(ui.panel, 'mt-3')}
+									placeholder={
+										includePlan
+											? '{ "feelings": { "slug": "…", "notes": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
+											: '{ "feelings": { "slug": "…", "notes": "…" } }'
+									}
+									submitLabel="Save reply"
+									submitIcon="check"
+									errorLabel="Could not save debrief."
+									onSubmit={async (json) => {
+										const res = await saveDebrief({ data: json });
+										const bits: string[] = [];
+										if (res.feelingsUpdated) {
+											bits.push(
+												`feelings on ${res.feelingsUpdated} activit${res.feelingsUpdated === 1 ? 'y' : 'ies'}`
+											);
+										}
+										if (res.planUpdated.length) bits.push(`week ${res.planUpdated.join(', ')} updated`);
+										const miss = res.feelingsMissing.length
+											? ` (${res.feelingsMissing.length} slug(s) not found)`
+											: '';
+										snack.success(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
+										if (res.feelingsUpdatedSlugs.length) {
+											setWriteups((prev) => clearDebriefWriteups(res.feelingsUpdatedSlugs, prev));
+										}
+										await router.invalidate();
+									}}
+								/>
 							) : null}
 						</li>
 					</ol>
@@ -955,98 +894,115 @@ function CoachPanels({
 							</Link>
 							.
 						</p>
-						<label className={ui.field}>
-							<span>Anything unusual {weekPhrase}? (optional)</span>
-							<span className={cn(ui.muted, 'font-normal')}>
-								Logged extras that did not match the plan are included automatically. Use this
-								for extras that have not happened yet.
-							</span>
-							<textarea
-								placeholder="e.g. extra walk Wednesday, considering a Saturday bike instead of the hike-prep walk"
-								value={mixNote}
-								onChange={(e) => setMixNote(e.target.value)}
-								rows={2}
-							/>
-						</label>
-						<label className={ui.field}>
-							<span>Your question for the AI</span>
-							<textarea
-								placeholder={defaultQ}
-								value={question}
-								onChange={(e) => setQuestion(e.target.value)}
-								rows={3}
-							/>
-						</label>
-						<div className={ui.actions}>
-							<button
-								className={ui.btnPrimary}
-								type="button"
-								onClick={generateBrief}
-								disabled={briefBusy}
-							>
-								<Icon name="sparkle" size={16} />
-								{briefBusy
-									? 'Building…'
-									: briefText
-										? 'Regenerate prompt'
-										: 'Generate prompt'}
-							</button>
-						</div>
+						<GenerateBriefForm
+							weekPhrase={weekPhrase}
+							defaultQ={defaultQ}
+							hasBrief={Boolean(briefText)}
+							onGenerate={generateBrief}
+						/>
 					</div>
 
 					{briefText && (
 						<div className={cn(ui.panel, ui.form)}>
 							<h3>Prompt (editable — tweak before you copy)</h3>
-							<label className={cn(ui.field, 'mt-2')}>
-								<textarea
-									className={ui.editor}
+							<Field className="mt-2">
+								<Textarea
+									variant="editor"
 									rows={16}
 									value={briefText}
 									onChange={(e) => setBriefText(e.target.value)}
 								/>
-							</label>
-							<div className={ui.actions}>
-								<button className={ui.btnPrimary} type="button" onClick={download}>
+							</Field>
+							<Actions>
+								<Button variant="primary" onClick={download}>
 									<Icon name="download" size={16} />
 									Download .md
-								</button>
-								<button className={ui.btnGhost} type="button" onClick={copy}>
+								</Button>
+								<Button variant="ghost" onClick={() => void copy()}>
 									<Icon name={copied ? 'check' : 'copy'} size={16} />
 									{copied ? 'Copied' : 'Copy'}
-								</button>
-							</div>
+								</Button>
+							</Actions>
 						</div>
 					)}
 
-					<div className={cn(ui.panel, ui.form, 'mt-4')}>
-						<h3>Save {weekPhrase}’s plan</h3>
-						<p className={cn(ui.muted, 'mt-[0.3rem]')}>
-							Paste the JSON block your AI returned — merged by week number. Keep your usual
-							days unless the reply explained a shift.
-						</p>
-						<label className={ui.field}>
-							<textarea
-								className={ui.editor}
-								rows={8}
-								placeholder='{ "week": 3, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'
-								value={planJson}
-								onChange={(e) => setPlanJson(e.target.value)}
-							/>
-						</label>
-						<div className={ui.actions}>
-							<button
-								className={ui.btnPrimary}
-								type="button"
-								onClick={savePlan}
-								disabled={!planJson.trim()}
-							>
-								<Icon name="plus" size={16} />
-								Add to plan
-							</button>
-						</div>
-					</div>
+					<JsonPasteForm
+						className={cn(ui.panel, 'mt-4')}
+						title={`Save ${weekPhrase}’s plan`}
+						description={
+							<p className={cn(ui.muted, 'mt-[0.3rem]')}>
+								Paste the JSON block your AI returned — merged by week number. Keep your usual
+								days unless the reply explained a shift.
+							</p>
+						}
+						placeholder='{ "week": 3, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'
+						submitLabel="Add to plan"
+						errorLabel="Could not save plan."
+						onSubmit={async (json) => {
+							const res = await savePlanWeeks({ data: json });
+							snack.success(
+								`Saved — plan now has ${res.weeks} weeks (updated week ${res.updated.join(', ')}).`
+							);
+							await router.invalidate();
+						}}
+					/>
 				</>
 			)}
 		</>
+	);
+}
+
+function GenerateBriefForm({
+	weekPhrase,
+	defaultQ,
+	hasBrief,
+	onGenerate
+}: {
+	weekPhrase: string;
+	defaultQ: string;
+	hasBrief: boolean;
+	onGenerate: (mixNote: string, question: string) => Promise<void>;
+}) {
+	const form = useAppForm({
+		defaultValues: { mixNote: '', question: defaultQ },
+		onSubmit: async ({ value }) => {
+			await onGenerate(value.mixNote, value.question);
+		}
+	});
+
+	return (
+		<Form
+			onSubmit={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				void form.handleSubmit();
+			}}
+		>
+			<form.AppField
+				name="mixNote"
+				children={(field) => (
+					<field.TextAreaField
+						label={`Anything unusual ${weekPhrase}? (optional)`}
+						hint="Logged extras that did not match the plan are included automatically. Use this for extras that have not happened yet."
+						placeholder="e.g. extra walk Wednesday, considering a Saturday bike instead of the hike-prep walk"
+						rows={2}
+					/>
+				)}
+			/>
+			<form.AppField
+				name="question"
+				children={(field) => (
+					<field.TextAreaField label="Your question for the AI" placeholder={defaultQ} rows={3} />
+				)}
+			/>
+			<Actions>
+				<form.AppForm>
+					<form.SubmitButton busyLabel="Building…">
+						<Icon name="sparkle" size={16} />
+						{hasBrief ? 'Regenerate prompt' : 'Generate prompt'}
+					</form.SubmitButton>
+				</form.AppForm>
+			</Actions>
+		</Form>
 	);
 }

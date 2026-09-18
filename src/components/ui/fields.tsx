@@ -62,7 +62,7 @@ export function TextAreaField({
 	className,
 	...input
 }: {
-	label: ReactNode;
+	label?: ReactNode;
 	required?: boolean;
 	hint?: ReactNode;
 	variant?: TextareaVariant;

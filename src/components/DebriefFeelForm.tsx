@@ -1,16 +1,37 @@
 import { activityLabel, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
-import { gearKindForActivity, gearMetaForActivity, gearPickerOptions, type GearContext, type GearKind, type GearWear } from '$lib/gear';
+import { parseOptionalNumber } from '$lib/activity-form';
+import {
+	gearKindForActivity,
+	gearMetaForActivity,
+	gearPickerOptions,
+	type GearContext,
+	type GearKind,
+	type GearWear
+} from '$lib/gear';
 import { saveActivityFeel } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
+import { z } from 'zod';
 import { useState } from 'react';
 import { DeleteButton } from './DeleteButton';
 import { FeelChips, WantedFasterChips } from './FeelChips';
 import { GearField } from './GearField';
 import { Icon } from './Icon';
-import { Select } from './Select';
 import { errorMessage, useSnackbar } from './Snackbar';
+import { Actions, Field, Form, FormGrid, Textarea, useAppForm } from './ui';
 
 const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'race', 'other'];
+
+const debriefFeelSchema = z.object({
+	session: z.string(),
+	cadence: z.string(),
+	gear: z.string(),
+	effort: z.number().nullable(),
+	shins: z.number().nullable(),
+	legs: z.number().nullable(),
+	energy: z.number().nullable(),
+	wanted_faster: z.enum(['Y', 'N', '']),
+	surface: z.string()
+});
 
 export type DebriefFeelRun = {
 	slug: string;
@@ -49,14 +70,13 @@ export function DebriefFeelForm({
 	onSaved: () => void | Promise<void>;
 }) {
 	const snack = useSnackbar();
-	const [busy, setBusy] = useState(false);
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	const [scoresOpen, setScoresOpen] = useState(false);
 	const activityType = normalizeActivityType(run.activity_type ?? 'run');
 	const sport = activityLabel(activityType).toLowerCase();
 	const gearKind = gearKindForActivity(activityType);
 	const gearKindMeta = gearMetaForActivity(activityType);
-	const wantedStart =
+	const wantedStart: 'Y' | 'N' | '' =
 		run.wanted_faster === true ? 'Y' : run.wanted_faster === false ? 'N' : '';
 	const hasScores =
 		run.effort != null ||
@@ -72,80 +92,93 @@ export function DebriefFeelForm({
 		(activityType === 'run' && Boolean(run.session) && run.cadence != null) ||
 		(showsField(activityType, 'gear') && Boolean((run.gear ?? '').trim()));
 
-	async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-		e.preventDefault();
-		if (!detailsOpen && !scoresOpen) return;
-		const fd = new FormData(e.currentTarget);
-		const num = (k: string) => {
-			const v = String(fd.get(k) ?? '').trim();
-			if (!v) return null;
-			const n = Number(v);
-			return Number.isFinite(n) ? n : null;
-		};
-		const wanted = String(fd.get('wanted_faster') ?? '');
-		const surface = String(fd.get('surface') ?? '');
-		setBusy(true);
-		try {
-			await saveActivityFeel({
-				data: {
-					slug: run.slug,
-					...(detailsOpen && activityType === 'run'
-						? {
-								session: String(fd.get('session') ?? run.session ?? 'other'),
-								cadence: num('cadence')
-							}
-						: {}),
-					...(detailsOpen && showsField(activityType, 'gear')
-						? { gear: String(fd.get('gear') ?? '') }
-						: {}),
-					...(scoresOpen
-						? {
-								effort: num('effort'),
-								shins: num('shins'),
-								legs: num('legs'),
-								energy: num('energy'),
-								wanted_faster: wanted === 'Y' ? true : wanted === 'N' ? false : null,
-								...(showsField(activityType, 'surface') ? { surface } : {})
-							}
-						: {})
-				}
-			});
-			snack.success('Saved.');
-			await onSaved();
-		} catch (err) {
-			snack.error(errorMessage(err, 'Could not save.'));
-		} finally {
-			setBusy(false);
+	const form = useAppForm({
+		defaultValues: {
+			session: run.session || 'other',
+			cadence: run.cadence != null ? String(run.cadence) : '',
+			gear: run.gear ?? '',
+			effort: run.effort ?? null,
+			shins: run.shins ?? null,
+			legs: run.legs ?? null,
+			energy: run.energy ?? null,
+			wanted_faster: wantedStart,
+			surface: run.surface ?? ''
+		},
+		validators: { onSubmit: debriefFeelSchema },
+		onSubmit: async ({ value }) => {
+			if (!detailsOpen && !scoresOpen) return;
+			try {
+				await saveActivityFeel({
+					data: {
+						slug: run.slug,
+						...(detailsOpen && activityType === 'run'
+							? {
+									session: value.session,
+									cadence: parseOptionalNumber(value.cadence)
+								}
+							: {}),
+						...(detailsOpen && showsField(activityType, 'gear') ? { gear: value.gear } : {}),
+						...(scoresOpen
+							? {
+									effort: value.effort,
+									shins: value.shins,
+									legs: value.legs,
+									energy: value.energy,
+									wanted_faster:
+										value.wanted_faster === 'Y'
+											? true
+											: value.wanted_faster === 'N'
+												? false
+												: null,
+									...(showsField(activityType, 'surface') ? { surface: value.surface } : {})
+								}
+							: {})
+					}
+				});
+				snack.success('Saved.');
+				await onSaved();
+			} catch (err) {
+				snack.error(errorMessage(err, 'Could not save.'));
+			}
 		}
-	}
+	});
 
 	return (
-		<form className={cn(ui.panel, ui.form, 'mt-3')} onSubmit={onSubmit}>
+		<Form
+			className={cn(ui.panel, 'mt-3')}
+			onSubmit={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				void form.handleSubmit();
+			}}
+		>
 			{heading ? <h3 className="m-0">{heading}</h3> : null}
-			<label className={ui.field}>
-				<span className="flex items-center justify-between gap-2">
-					What happened
-					<DeleteButton
-						label="Clear write-up"
-						compact
-						disabled={!writeup}
-						onClick={() => onWriteupChange('')}
-					/>
-				</span>
+			<Field
+				label={
+					<span className="flex items-center justify-between gap-2">
+						What happened
+						<DeleteButton
+							label="Clear write-up"
+							compact
+							disabled={!writeup}
+							onClick={() => onWriteupChange('')}
+						/>
+					</span>
+				}
+			>
 				<span className={cn(ui.muted, 'font-normal')}>
 					Write it like you would in chat — as long as you want. Wind, surfaces, after-session
 					checks, questions for this week. GPS numbers are already in the prompt. The AI will read
 					scores from this when you mention them, then summarise it into the activity notes.
 				</span>
-				<textarea
-					name="writeup"
-					className={ui.debriefWrite}
+				<Textarea
+					variant="debrief"
 					placeholder={`Today’s ${activityType === 'strength' ? 'session' : sport} was… After: … Should I…?`}
 					value={writeup}
 					onChange={(e) => onWriteupChange(e.target.value)}
 					rows={12}
 				/>
-			</label>
+			</Field>
 
 			{(activityType === 'run' || showsField(activityType, 'gear')) && (
 				<>
@@ -164,42 +197,44 @@ export function DebriefFeelForm({
 									: 'Add session, cadence, gear'}
 					</button>
 					{detailsOpen && (
-						<div className={ui.formGrid}>
+						<FormGrid>
 							{activityType === 'run' && (
-								<label className={ui.field}>
-									<span>Session</span>
-									<Select
-										name="session"
-										defaultValue={run.session || 'other'}
-										aria-label="Session"
-										options={SESSIONS.map((s) => ({ value: s, label: s }))}
-									/>
-								</label>
-							)}
-							{activityType === 'run' && (
-								<label className={ui.field}>
-									<span>Cadence</span>
-									<input
-										name="cadence"
-										type="text"
-										inputMode="numeric"
-										placeholder="176"
-										defaultValue={run.cadence ?? ''}
-									/>
-								</label>
-							)}
-							{showsField(activityType, 'gear') && gearKind && gearKindMeta && (
-								<GearField
-									key={gearKind}
-									options={gearPickerOptions(gear[gearKind], run.gear ? [run.gear] : [])}
-									wear={gearWear[gearKind]}
-									defaultValue={run.gear ?? ''}
-									label={gearKindMeta.label}
-									placeholder={gearKindMeta.customPlaceholder}
-									activeHint={gearKindMeta.activeLabel.toLowerCase()}
+								<form.AppField
+									name="session"
+									children={(field) => (
+										<field.SelectField
+											label="Session"
+											options={SESSIONS.map((s) => ({ value: s, label: s }))}
+										/>
+									)}
 								/>
 							)}
-						</div>
+							{activityType === 'run' && (
+								<form.AppField
+									name="cadence"
+									children={(field) => (
+										<field.TextField label="Cadence" inputMode="numeric" placeholder="176" />
+									)}
+								/>
+							)}
+							{showsField(activityType, 'gear') && gearKind && gearKindMeta && (
+								<form.AppField
+									name="gear"
+									children={(field) => (
+										<GearField
+											key={gearKind}
+											options={gearPickerOptions(gear[gearKind], run.gear ? [run.gear] : [])}
+											wear={gearWear[gearKind]}
+											value={field.state.value}
+											onChange={field.handleChange}
+											label={gearKindMeta.label}
+											placeholder={gearKindMeta.customPlaceholder}
+											activeHint={gearKindMeta.activeLabel.toLowerCase()}
+										/>
+									)}
+								/>
+							)}
+						</FormGrid>
 					)}
 				</>
 			)}
@@ -214,76 +249,108 @@ export function DebriefFeelForm({
 			</button>
 			{scoresOpen && (
 				<>
-					<div className={ui.formGrid}>
+					<FormGrid>
 						{showsFeel(activityType, 'effort') && (
-							<FeelChips
+							<form.AppField
 								name="effort"
-								label="Effort (1–10)"
-								min={1}
-								max={10}
-								low="easy"
-								high="max"
-								defaultValue={run.effort}
+								children={(field) => (
+									<FeelChips
+										label="Effort (1–10)"
+										min={1}
+										max={10}
+										low="easy"
+										high="max"
+										value={field.state.value}
+										onChange={field.handleChange}
+									/>
+								)}
 							/>
 						)}
 						{showsFeel(activityType, 'shins') && (
-							<FeelChips
+							<form.AppField
 								name="shins"
-								label="Shins (0–10)"
-								min={0}
-								max={10}
-								low="none"
-								high="severe"
-								defaultValue={run.shins}
+								children={(field) => (
+									<FeelChips
+										label="Shins (0–10)"
+										min={0}
+										max={10}
+										low="none"
+										high="severe"
+										value={field.state.value}
+										onChange={field.handleChange}
+									/>
+								)}
 							/>
 						)}
 						{showsFeel(activityType, 'legs') && (
-							<FeelChips
+							<form.AppField
 								name="legs"
-								label="Legs (0–10)"
-								min={0}
-								max={10}
-								low="fresh"
-								high="heavy"
-								defaultValue={run.legs}
+								children={(field) => (
+									<FeelChips
+										label="Legs (0–10)"
+										min={0}
+										max={10}
+										low="fresh"
+										high="heavy"
+										value={field.state.value}
+										onChange={field.handleChange}
+									/>
+								)}
 							/>
 						)}
 						{showsFeel(activityType, 'energy') && (
-							<FeelChips
+							<form.AppField
 								name="energy"
-								label="Energy (1–10)"
-								min={1}
-								max={10}
-								low="empty"
-								high="full"
-								defaultValue={run.energy}
+								children={(field) => (
+									<FeelChips
+										label="Energy (1–10)"
+										min={1}
+										max={10}
+										low="empty"
+										high="full"
+										value={field.state.value}
+										onChange={field.handleChange}
+									/>
+								)}
 							/>
 						)}
 						{showsFeel(activityType, 'wanted_faster') && (
-							<WantedFasterChips defaultValue={wantedStart} />
-						)}
-					</div>
-					{showsField(activityType, 'surface') && (
-						<label className={ui.field}>
-							<span>Surface</span>
-							<input
-								name="surface"
-								placeholder="asphalt / mixed / trail"
-								defaultValue={run.surface ?? ''}
+							<form.AppField
+								name="wanted_faster"
+								children={(field) => (
+									<WantedFasterChips
+										value={field.state.value}
+										onChange={(next) => {
+											if (next === 'Y' || next === 'N' || next === '') {
+												field.handleChange(next);
+											}
+										}}
+									/>
+								)}
 							/>
-						</label>
+						)}
+					</FormGrid>
+					{showsField(activityType, 'surface') && (
+						<form.AppField
+							name="surface"
+							children={(field) => (
+								<field.TextField label="Surface" placeholder="asphalt / mixed / trail" />
+							)}
+						/>
 					)}
 				</>
 			)}
 
 			{(detailsOpen || scoresOpen) && (
-				<div className={ui.actions}>
-					<button className={ui.btnPrimary} type="submit" disabled={busy} aria-busy={busy}>
-						<Icon name="check" size={16} />
-						{busy ? 'Saving…' : 'Save'}
-					</button>
-				</div>
+				<Actions>
+					<form.AppForm>
+						<form.SubmitButton busyLabel="Saving…">
+							<Icon name="check" size={16} />
+							Save
+						</form.SubmitButton>
+					</form.AppForm>
+				</Actions>
 			)}
-		</form>
+		</Form>
 	);
 }

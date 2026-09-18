@@ -1,5 +1,4 @@
-import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { Suspense, use, useRef, type ReactNode } from 'react';
 import { RoutePending } from './RoutePending';
 
 /** Resolve deferred loader data without remounting the page chrome. */
@@ -10,23 +9,26 @@ export function DeferredData<T>({
 	promise: Promise<T>;
 	children: (data: T) => ReactNode;
 }) {
-	const [data, setData] = useState<T | null>(null);
+	const prev = useRef<T | null>(null);
+	return (
+		<Suspense fallback={prev.current != null ? children(prev.current) : <RoutePending />}>
+			<Resolved promise={promise} prev={prev}>
+				{children}
+			</Resolved>
+		</Suspense>
+	);
+}
 
-	useEffect(() => {
-		let cancelled = false;
-		void promise.then(
-			(next) => {
-				if (!cancelled) setData(next);
-			},
-			() => {
-				// Keep showing the last good payload if a background refresh fails.
-			}
-		);
-		return () => {
-			cancelled = true;
-		};
-	}, [promise]);
-
-	if (data === null) return <RoutePending />;
+function Resolved<T>({
+	promise,
+	prev,
+	children
+}: {
+	promise: Promise<T>;
+	prev: { current: T | null };
+	children: (data: T) => ReactNode;
+}) {
+	const data = use(promise);
+	prev.current = data;
 	return children(data);
 }

@@ -9,6 +9,7 @@ import {
 } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
 import { dayFromIsoDate } from '$lib/format';
+import { gearKindForActivity, gearMetaForActivity, gearPickerOptions } from '$lib/gear';
 import { weekNumberForDate } from '$lib/plan';
 import {
     createActivityGroupFn,
@@ -18,7 +19,6 @@ import {
     updateRun,
     type UpdateRunInput
 } from '$lib/server/functions';
-import { gearKindForActivity, gearMetaForActivity, gearPickerOptions } from '$lib/gear';
 import {
     exerciseTotalLabel,
     formatSetDisplay,
@@ -34,13 +34,13 @@ import { BestEffortBadges } from '../components/BestEffortBadges';
 import { EditButton, TrashIcon } from '../components/DeleteButton';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { FeelChips, WantedFasterChips } from '../components/FeelChips';
+import { GearField } from '../components/GearField';
 import { exportActivityGpx, GpsRepair } from '../components/GpsRepair';
 import { ActivityIcon, Icon } from '../components/Icon';
 import { MoreMenu } from '../components/MoreMenu';
 import { PageHero } from '../components/PageHero';
 import { RouteChip } from '../components/RouteChip';
 import { RouteMap } from '../components/RouteMap';
-import { GearField } from '../components/GearField';
 import { Select } from '../components/Select';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 import { SplitsPanel } from '../components/SplitsPanel';
@@ -809,11 +809,11 @@ function RunDetail() {
 					</div>
 
 					<div className={cn(ui.actions, ui.stickyActions)}>
-						<button className={cn(ui.btnPrimary, ui.stickyPrimary)} type="submit">
-							Save changes
-						</button>
 						<button className={ui.btnGhost} type="button" onClick={requestLeaveEdit}>
 							Cancel
+						</button>
+						<button className={cn(ui.btnPrimary, ui.stickyPrimary)} type="submit">
+							Save changes
 						</button>
 					</div>
 				</form>

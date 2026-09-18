@@ -308,14 +308,14 @@ export function LogForm({
 			</div>
 
 			<div className={cn(ui.actions, ui.stickyActions)}>
-				<button className={cn(ui.btnPrimary, ui.stickyPrimary)} type="submit">
-					<Icon name="check" size={16} />
-					Save activity
-				</button>
 				<Link className={ui.btnGhost} to="/">
 					<Icon name="close" size={16} />
 					Cancel
 				</Link>
+				<button className={cn(ui.btnPrimary, ui.stickyPrimary)} type="submit">
+					<Icon name="check" size={16} />
+					Save activity
+				</button>
 			</div>
 		</form>
 	);

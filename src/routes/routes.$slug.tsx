@@ -224,11 +224,11 @@ function PlannedRouteDetail() {
 					</div>
 
 					<div className={cn(ui.actions, ui.stickyActions)}>
-						<button className={cn(ui.btnPrimary, ui.stickyPrimary)} type="submit" disabled={busy}>
-							{busy ? 'Saving…' : 'Save changes'}
-						</button>
 						<button className={ui.btnGhost} type="button" disabled={busy} onClick={cancelEditing}>
 							Cancel
+						</button>
+						<button className={cn(ui.btnPrimary, ui.stickyPrimary)} type="submit" disabled={busy}>
+							{busy ? 'Saving…' : 'Save changes'}
 						</button>
 					</div>
 				</form>

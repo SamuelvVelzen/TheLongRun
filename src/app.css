@@ -341,9 +341,18 @@
 		overscroll-behavior: contain;
 		padding-left: var(--page-pad-left);
 		padding-right: var(--page-pad-right);
-		padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+		padding-bottom: 0.75rem;
 		scroll-padding-top: 0;
-		scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+		scroll-padding-bottom: 0.75rem;
+	}
+
+	.app-main:has(.sticky-actions) {
+		scroll-padding-bottom: 6.25rem;
+	}
+
+	/* Keep the last fields above the stuck footer instead of under it. */
+	:has(> .sticky-actions:not(.fixed)) > :nth-last-child(2) {
+		margin-bottom: 6.25rem;
 	}
 
 	.tab-bar {
@@ -362,6 +371,14 @@
 		margin-right: calc(-1 * var(--page-pad-right));
 		padding-left: var(--page-pad-left);
 		padding-right: var(--page-pad-right);
+	}
+
+	body:has(.sticky-actions) .scroll-to-top {
+		bottom: calc(11rem + env(safe-area-inset-bottom, 0px));
+	}
+
+	body:has(.sticky-actions) .snack-host {
+		bottom: calc(11rem + env(safe-area-inset-bottom, 0px));
 	}
 }
 

@@ -1,23 +1,23 @@
 import { activityLabel, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
 import { parseOptionalNumber } from '$lib/activity-form';
 import {
-	gearKindForActivity,
-	gearMetaForActivity,
-	gearPickerOptions,
-	type GearContext,
-	type GearKind,
-	type GearWear
+    gearKindForActivity,
+    gearMetaForActivity,
+    gearPickerOptions,
+    type GearContext,
+    type GearKind,
+    type GearWear
 } from '$lib/gear';
 import { saveActivityFeel } from '$lib/server/functions';
 import { cn } from '$lib/ui';
+import { useState, type ReactNode } from 'react';
 import { z } from 'zod';
-import { useState } from 'react';
 import { DeleteButton } from './DeleteButton';
 import { FeelChips, WantedFasterChips } from './FeelChips';
 import { GearField } from './GearField';
 import { Icon } from './Icon';
 import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, Field, Form, FormGrid, Textarea, useAppForm, panelClass } from './ui';
+import { Actions, Field, Form, FormGrid, panelClass, Textarea, useAppForm } from './ui';
 
 const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'race', 'other'];
 
@@ -62,7 +62,7 @@ export function DebriefFeelForm({
 	onSaved
 }: {
 	run: DebriefFeelRun;
-	heading?: string;
+	heading?: ReactNode;
 	writeup: string;
 	gear: GearContext;
 	gearWear: Record<GearKind, Record<string, GearWear>>;

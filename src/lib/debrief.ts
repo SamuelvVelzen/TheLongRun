@@ -1,3 +1,5 @@
+import { activityLabel, showsField } from '$lib/activity';
+
 /** Marker in the server debrief prompt; the client fills this as you type. */
 export const DEBRIEF_WRITEUP_TOKEN = '<<<DEBRIEF_WRITEUP>>>';
 
@@ -8,7 +10,24 @@ export type DebriefWriteupRun = {
 	date: string;
 	day?: string | null;
 	distance_km?: number | null;
+	activity_type?: string | null;
+	start_time?: string | null;
 };
+
+/** Date · day · Run/Strength · start · km — same bits the coach list uses as a title. */
+export function debriefRunTitle(
+	r: Pick<DebriefWriteupRun, 'date' | 'day' | 'activity_type' | 'distance_km' | 'start_time'>
+): string {
+	return [
+		r.date,
+		r.day || null,
+		activityLabel(r.activity_type),
+		r.start_time || null,
+		showsField(r.activity_type, 'distance') && r.distance_km != null ? `${r.distance_km} km` : null
+	]
+		.filter(Boolean)
+		.join(' · ');
+}
 
 export function formatDebriefWriteup(
 	runs: DebriefWriteupRun[],
@@ -20,8 +39,7 @@ export function formatDebriefWriteup(
 			const text = (writeups[r.slug] ?? '').trim();
 			if (!text) return '';
 			if (!many) return text;
-			const km = r.distance_km != null ? ` · ${r.distance_km} km` : '';
-			return `### ${r.date}${r.day ? ` · ${r.day}` : ''}${km} (\`${r.slug}\`)\n${text}`;
+			return `### ${debriefRunTitle(r)} (\`${r.slug}\`)\n${text}`;
 		})
 		.filter(Boolean);
 	if (!blocks.length) return DEBRIEF_WRITEUP_PLACEHOLDER;

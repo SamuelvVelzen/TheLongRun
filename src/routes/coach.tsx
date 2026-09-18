@@ -1,4 +1,4 @@
-import { activityLabel } from '$lib/activity';
+import { showsField } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
 import { composeDebriefPrompt } from '$lib/debrief';
@@ -7,6 +7,7 @@ import {
 	readDebriefWriteups,
 	writeDebriefWriteups
 } from '$lib/debrief-writeups';
+import type { GearContext, GearKind, GearWear } from '$lib/gear';
 import {
 	formatAllWeeksClipboard,
 	formatWeekPlanClipboard,
@@ -23,7 +24,6 @@ import {
 	savePlanWeeks,
 	saveWeekPattern
 } from '$lib/server/functions';
-import type { GearContext, GearKind, GearWear } from '$lib/gear';
 import { appHead } from '$lib/title';
 import { cn } from '$lib/ui';
 import {
@@ -38,13 +38,13 @@ import { DebriefFeelForm } from '../components/DebriefFeelForm';
 import { DebriefRacePanel } from '../components/DebriefRacePanel';
 import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
-import { Icon } from '../components/Icon';
+import { ActivityTag, Icon } from '../components/Icon';
 import { JsonPasteForm } from '../components/JsonPasteForm';
 import { PageHero } from '../components/PageHero';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { Select } from '../components/Select';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, Button, Field, Form, Textarea, useAppForm, buttonClass, panelClass, actionsClass, formClass, fieldClass, tabBarClass } from '../components/ui';
+import { Actions, actionsClass, Button, buttonClass, Field, fieldClass, Form, formClass, panelClass, runTitleClass, tabBarClass, Textarea, useAppForm } from '../components/ui';
 import {
 	rowsFrom,
 	toPattern,
@@ -108,6 +108,25 @@ function visibleTab(tab: CoachTab | undefined, authed: boolean): CoachTab {
 
 type DebriefPrompt = Awaited<ReturnType<typeof getDebriefPrompt>>;
 type CoachPlanData = Awaited<ReturnType<typeof getCoachPlan>>;
+type DebriefListedRun = NonNullable<DebriefPrompt['runs']>[number];
+
+/** Timeline-style title: date + sport tag, then day / start / km. */
+function DebriefRunTitle({ run }: { run: DebriefListedRun }) {
+	const rest = [
+		run.day || null,
+		run.start_time || null,
+		showsField(run.activity_type, 'distance') && run.distance_km != null
+			? `${run.distance_km} km`
+			: null
+	].filter(Boolean);
+	return (
+		<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-[0.15rem] align-middle">
+			<span className={runTitleClass}>{run.date}</span>
+			<ActivityTag type={run.activity_type ?? 'run'} />
+			{rest.length ? <span className="text-muted font-normal">{rest.join(' · ')}</span> : null}
+		</span>
+	);
+}
 
 function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 	const search = Route.useSearch();
@@ -680,10 +699,7 @@ function CoachPanels({
 										{runs.map((r) => (
 											<li key={r.slug}>
 												<Link to="/runs/$slug" params={{ slug: r.slug }}>
-													{r.date}
-													{r.day ? ` · ${r.day}` : ''}
-													{r.activity_type ? ` · ${activityLabel(r.activity_type)}` : ''}
-													{r.distance_km != null ? ` · ${r.distance_km} km` : ''}
+													<DebriefRunTitle run={r} />
 												</Link>
 												{r.hasFeel ? ' · feel already saved' : ' · no feel yet'}
 											</li>
@@ -735,11 +751,7 @@ function CoachPanels({
 									<div key={r.slug}>
 										<DebriefFeelForm
 											run={r}
-											heading={
-												many
-													? `${r.date}${r.day ? ` · ${r.day}` : ''}${r.activity_type ? ` · ${activityLabel(r.activity_type)}` : ''}${r.distance_km != null ? ` · ${r.distance_km} km` : ''}`
-													: undefined
-											}
+											heading={many ? <DebriefRunTitle run={r} /> : undefined}
 											writeup={writeups[r.slug] ?? ''}
 											gear={gear}
 											gearWear={gearWear}

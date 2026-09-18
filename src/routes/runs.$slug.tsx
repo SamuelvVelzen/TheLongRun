@@ -1,16 +1,13 @@
 import {
-    ACTIVITY_TYPES,
     activityLabel,
     headlineMetric,
     normalizeActivityType,
-    paceFieldLabel,
     showsFeel,
     showsField
 } from '$lib/activity';
+import { runToActivityForm, toUpdateRunInput } from '$lib/activity-form';
 import { useAuthed } from '$lib/auth';
-import { dayFromIsoDate } from '$lib/format';
 import { gearKindForActivity, gearMetaForActivity, gearPickerOptions } from '$lib/gear';
-import { weekNumberForDate } from '$lib/plan';
 import {
     createActivityGroupFn,
     deleteRun,
@@ -29,11 +26,11 @@ import {
 import { activityTitlePart, appHead } from '$lib/title';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, notFound, useBlocker, useRouter } from '@tanstack/react-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { ActivityForm } from '../components/ActivityForm';
 import { BestEffortBadges } from '../components/BestEffortBadges';
 import { EditButton, TrashIcon } from '../components/DeleteButton';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
-import { FeelChips, WantedFasterChips } from '../components/FeelChips';
 import { GearField } from '../components/GearField';
 import { exportActivityGpx, GpsRepair } from '../components/GpsRepair';
 import { ActivityIcon, Icon } from '../components/Icon';
@@ -41,11 +38,9 @@ import { MoreMenu } from '../components/MoreMenu';
 import { PageHero } from '../components/PageHero';
 import { RouteChip } from '../components/RouteChip';
 import { RouteMap } from '../components/RouteMap';
-import { Select } from '../components/Select';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 import { SplitsPanel } from '../components/SplitsPanel';
-import { StrengthEditor } from '../components/StrengthEditor';
-import { WeatherField } from '../components/WeatherField';
+import { Button } from '../components/ui';
 
 type RunSearch = { edit?: boolean };
 
@@ -62,8 +57,6 @@ export const Route = createFileRoute('/runs/$slug')({
 		appHead(loaderData ? activityTitlePart(loaderData.run) : null, 'Timeline'),
 	component: RunDetail
 });
-
-const sessions = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'race', 'other'];
 
 function routeIdFrom(route: string, stravaId: string): string {
 	const fromRoute = route
@@ -342,20 +335,11 @@ function RunDetail() {
 		await router.invalidate();
 	}
 
-	const [editDate, setEditDate] = useState(r.date);
-	const [editActivity, setEditActivity] = useState(r.activity_type || 'run');
-	const [editNotes, setEditNotes] = useState(r.notes);
-	const [editWeather, setEditWeather] = useState(r.weather || '');
-	const [editStart, setEditStart] = useState(r.start_time || '');
 	const [pendingDelete, setPendingDelete] = useState(false);
 	const [groupOpen, setGroupOpen] = useState(false);
 	const [groupPick, setGroupPick] = useState<string[]>([]);
 	const [downloading, setDownloading] = useState(false);
 
-	const derivedDay = dayFromIsoDate(editDate || r.date);
-	const derivedWeek = weekNumberForDate(editDate || r.date, calendar);
-	const editGearKind = gearKindForActivity(editActivity);
-	const editGearMeta = gearMetaForActivity(editActivity);
 	const viewGearKind = gearKindForActivity(r.activity_type);
 	const viewGearMeta = gearMetaForActivity(r.activity_type);
 
@@ -363,7 +347,6 @@ function RunDetail() {
 		r.avg_hr != null && r.max_hr != null && r.max_hr > 0
 			? Math.min(100, Math.round((r.avg_hr / r.max_hr) * 100))
 			: null;
-	const wantedValue = r.wanted_faster === true ? 'Y' : r.wanted_faster === false ? 'N' : '';
 	const routeId = r.route ? routeIdFrom(r.route, r.strava_id) : '';
 	const strength =
 		normalizeActivityType(r.activity_type) === 'strength' ? parseStrengthNotes(r.notes) : null;
@@ -396,15 +379,6 @@ function RunDetail() {
 		});
 	}
 
-	useEffect(() => {
-		if (!editFromSearch) return;
-		setEditDate(r.date);
-		setEditActivity(r.activity_type || 'run');
-		setEditNotes(r.notes);
-		setEditWeather(r.weather || '');
-		setEditStart(r.start_time || '');
-	}, [r.slug, editFromSearch]);
-
 	async function downloadGpx() {
 		if (!routeId || gps.issues.length > 0) {
 			snack.info('No GPS track to export yet.');
@@ -417,54 +391,6 @@ function RunDetail() {
 			snack.error(errorMessage(error, 'Could not export GPX'));
 		} finally {
 			setDownloading(false);
-		}
-	}
-
-	async function onUpdate(e: React.FormEvent<HTMLFormElement>) {
-		e.preventDefault();
-		const fd = new FormData(e.currentTarget);
-		const num = (k: string) => {
-			const v = String(fd.get(k) ?? '').trim();
-			if (!v) return null;
-			const n = Number(v);
-			return Number.isFinite(n) ? n : null;
-		};
-		const wanted = String(fd.get('wanted_faster') ?? '');
-		const input: UpdateRunInput = {
-			slug: r.slug,
-			date: editDate,
-			activity_type: editActivity,
-			session: editActivity === 'run' ? String(fd.get('session') ?? 'easy') : r.session || 'other',
-			effort: num('effort'),
-			shins: num('shins'),
-			legs: num('legs'),
-			energy: num('energy'),
-			weather: editWeather,
-			surface: String(fd.get('surface') ?? ''),
-			wanted_faster: wanted === 'Y' ? true : wanted === 'N' ? false : null,
-			distance_km: num('distance_km'),
-			start_time: editStart,
-			time: String(fd.get('time') ?? ''),
-			avg_pace: String(fd.get('avg_pace') ?? ''),
-			avg_hr: num('avg_hr'),
-			max_hr: num('max_hr'),
-			elev_gain: num('elev_gain'),
-			cadence: num('cadence'),
-			gear: String(fd.get('gear') ?? ''),
-			notes: editActivity === 'strength' ? editNotes : String(fd.get('notes') ?? '')
-		};
-		try {
-			const res = await updateRun({ data: input });
-			skipLeaveRef.current = true;
-			await router.invalidate();
-			await router.navigate({
-				to: '/runs/$slug',
-				params: { slug: res.slug },
-				search: {},
-				replace: true
-			});
-		} catch (err) {
-			snack.error(errorMessage(err, 'Update failed'));
 		}
 	}
 
@@ -612,211 +538,34 @@ function RunDetail() {
 			</PageHero>
 
 			{editing ? (
-				<form className={ui.form} method="POST" onSubmit={onUpdate}>
-					<div className={ui.panel}>
-					<div className={ui.formSection}>
-					<h3 className={ui.formSectionTitle}>Activity</h3>
-					<div className={ui.formGrid}>
-						<label className={ui.field}>
-							<span className={ui.req}>Date</span>
-							<input
-								type="date"
-								name="date"
-								required
-								value={editDate}
-								onChange={(e) => setEditDate(e.target.value)}
-							/>
-							<span className={cn(ui.fieldHint, ui.muted)}>
-								{derivedDay}
-								{derivedWeek != null && ` · week ${derivedWeek}`}
-							</span>
-						</label>
-						<label className={ui.field}>
-							<span className={ui.req}>Activity</span>
-							<Select
-								name="activity_type"
-								value={editActivity}
-								onChange={setEditActivity}
-								aria-label="Activity"
-								options={ACTIVITY_TYPES.map((t) => ({
-									value: t,
-									label: activityLabel(t)
-								}))}
-							/>
-						</label>
-						{editActivity === 'run' && (
-							<label className={ui.field}>
-								<span>Session</span>
-								<Select
-									name="session"
-									defaultValue={r.session || 'easy'}
-									aria-label="Session"
-									options={sessions.map((s) => ({ value: s, label: s }))}
-								/>
-							</label>
-						)}
-					</div>
-					</div>
-
-					<div className={ui.formSection}>
-					<h3 className={ui.formSectionTitle}>Numbers</h3>
-					<div className={ui.formGrid}>
-						{showsField(editActivity, 'distance') && (
-							<label className={ui.field}>
-								<span>Distance (km)</span>
-								<input
-									name="distance_km"
-									type="text"
-									inputMode="decimal"
-									defaultValue={r.distance_km ?? ''}
-								/>
-							</label>
-						)}
-						<label className={ui.field}>
-							<span className={ui.req}>Start time</span>
-							<input
-								type="time"
-								name="start_time"
-								required
-								value={editStart}
-								onChange={(e) => setEditStart(e.target.value)}
-							/>
-						</label>
-						<label className={ui.field}>
-							<span>Duration</span>
-							<input name="time" placeholder="45:12 or 1:15:01" defaultValue={r.time || ''} />
-						</label>
-						{showsField(editActivity, 'pace') && (
-							<label className={ui.field}>
-								<span>{paceFieldLabel(editActivity)}</span>
-								<input
-									name="avg_pace"
-									inputMode="decimal"
-									placeholder="6:29"
-									defaultValue={r.avg_pace || ''}
-								/>
-							</label>
-						)}
-						{showsField(editActivity, 'hr') && (
-							<label className={ui.field}>
-								<span>Avg HR</span>
-								<input
-									name="avg_hr"
-									type="text"
-									inputMode="numeric"
-									defaultValue={r.avg_hr ?? ''}
-								/>
-							</label>
-						)}
-						{showsField(editActivity, 'hr') && (
-							<label className={ui.field}>
-								<span>Max HR</span>
-								<input
-									name="max_hr"
-									type="text"
-									inputMode="numeric"
-									defaultValue={r.max_hr ?? ''}
-								/>
-							</label>
-						)}
-						{showsField(editActivity, 'elevation') && (
-							<label className={ui.field}>
-								<span>Elev gain (m)</span>
-								<input
-									name="elev_gain"
-									type="text"
-									inputMode="decimal"
-									defaultValue={r.elev_gain ?? ''}
-								/>
-							</label>
-						)}
-						{showsField(editActivity, 'cadence') && (
-							<label className={ui.field}>
-								<span>Cadence</span>
-								<input
-									name="cadence"
-									type="text"
-									inputMode="numeric"
-									defaultValue={r.cadence ?? ''}
-								/>
-							</label>
-						)}
-					</div>
-					</div>
-
-					<div className={ui.formSection}>
-					<h3 className={ui.formSectionTitle}>How it felt & details</h3>
-					<div className={ui.formGrid}>
-						{showsFeel(editActivity, 'effort') && (
-							<FeelChips name="effort" label="Effort (1–10)" min={1} max={10} low="easy" high="max" defaultValue={r.effort} />
-						)}
-						{showsFeel(editActivity, 'shins') && (
-							<FeelChips name="shins" label="Shins (0–10)" min={0} max={10} low="none" high="severe" defaultValue={r.shins} />
-						)}
-						{showsFeel(editActivity, 'legs') && (
-							<FeelChips name="legs" label="Legs (0–10)" min={0} max={10} low="fresh" high="heavy" defaultValue={r.legs} />
-						)}
-						{showsFeel(editActivity, 'energy') && (
-							<FeelChips name="energy" label="Energy (1–10)" min={1} max={10} low="empty" high="full" defaultValue={r.energy} />
-						)}
-						{showsFeel(editActivity, 'wanted_faster') && (
-							<WantedFasterChips defaultValue={wantedValue} />
-						)}
-						{showsField(editActivity, 'weather') && (
-							<WeatherField
-								value={editWeather}
-								onChange={setEditWeather}
-								date={editDate}
-								time={editStart}
-								duration={r.time}
-							/>
-						)}
-						{showsField(editActivity, 'surface') && (
-							<label className={ui.field}>
-								<span>Surface</span>
-								<input
-									name="surface"
-									placeholder="asphalt / mixed / trail"
-									defaultValue={r.surface || ''}
-								/>
-							</label>
-						)}
-						{showsField(editActivity, 'gear') && editGearKind && editGearMeta && (
-							<GearField
-								key={editGearKind}
-								options={gearPickerOptions(gear[editGearKind], [r.gear])}
-								wear={gearWear[editGearKind]}
-								defaultValue={r.gear || ''}
-								label={editGearMeta.label}
-								placeholder={editGearMeta.customPlaceholder}
-								activeHint={editGearMeta.activeLabel.toLowerCase()}
-							/>
-						)}
-					</div>
-					</div>
-
-					{editActivity === 'strength' ? (
-						<div className={ui.field}>
-							<span>Sets</span>
-							<StrengthEditor initial={r.notes} onChange={setEditNotes} />
-						</div>
-					) : (
-						<label className={ui.field}>
-							<span>Notes</span>
-							<textarea name="notes" defaultValue={r.notes}></textarea>
-						</label>
-					)}
-					</div>
-
-					<div className={cn(ui.actions, ui.stickyActions)}>
-						<button className={ui.btnGhost} type="button" onClick={requestLeaveEdit}>
+				<ActivityForm
+					calendar={calendar}
+					gear={gear}
+					gearWear={gearWear}
+					extraGear={[r.gear]}
+					defaultValues={runToActivityForm(r)}
+					submitLabel="Save changes"
+					cancel={
+						<Button variant="ghost" type="button" onClick={requestLeaveEdit}>
 							Cancel
-						</button>
-						<button className={cn(ui.btnPrimary, ui.stickyPrimary)} type="submit">
-							Save changes
-						</button>
-					</div>
-				</form>
+						</Button>
+					}
+					onSubmit={async (values) => {
+						try {
+							const res = await updateRun({ data: toUpdateRunInput(r.slug, values) });
+							skipLeaveRef.current = true;
+							await router.invalidate();
+							await router.navigate({
+								to: '/runs/$slug',
+								params: { slug: res.slug },
+								search: {},
+								replace: true
+							});
+						} catch (err) {
+							snack.error(errorMessage(err, 'Update failed'));
+						}
+					}}
+				/>
 			) : (
 				<>
 					<div className={cn(ui.metrics, 'mb-4')}>

@@ -1,3 +1,4 @@
+import { activityLabel } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
 import { composeDebriefPrompt } from '$lib/debrief';
@@ -732,7 +733,7 @@ function CoachPanels({
 							<strong>1. Import the GPX</strong>
 							<span className={cn(ui.muted, 'block mt-1')}>
 								Download from Strava, then drop it here. One file or several — they all go into the
-								prompt.
+								prompt, along with other this-week sessions that still need a write-up.
 							</span>
 							{runs.length > 0 && (
 								<div className="mt-[0.45rem] mb-0 font-semibold max-sm:[overflow-wrap:anywhere]">
@@ -745,6 +746,7 @@ function CoachPanels({
 												<Link to="/runs/$slug" params={{ slug: r.slug }}>
 													{r.date}
 													{r.day ? ` · ${r.day}` : ''}
+													{r.activity_type ? ` · ${activityLabel(r.activity_type)}` : ''}
 													{r.distance_km != null ? ` · ${r.distance_km} km` : ''}
 												</Link>
 												{r.hasFeel ? ' · feel already saved' : ' · no feel yet'}
@@ -799,7 +801,7 @@ function CoachPanels({
 											run={r}
 											heading={
 												many
-													? `${r.date}${r.day ? ` · ${r.day}` : ''}${r.distance_km != null ? ` · ${r.distance_km} km` : ''}`
+													? `${r.date}${r.day ? ` · ${r.day}` : ''}${r.activity_type ? ` · ${activityLabel(r.activity_type)}` : ''}${r.distance_km != null ? ` · ${r.distance_km} km` : ''}`
 													: undefined
 											}
 											writeup={writeups[r.slug] ?? ''}

@@ -1005,6 +1005,26 @@ function hasFeel(r: RunRecord): boolean {
 	);
 }
 
+/** No scores and no real write-up yet — still waiting on After an activity. */
+function stillNeedsDebrief(r: RunRecord): boolean {
+	if (
+		r.effort != null ||
+		r.shins != null ||
+		r.legs != null ||
+		r.energy != null ||
+		r.wanted_faster != null ||
+		(r.surface ?? '').trim() !== ''
+	) {
+		return false;
+	}
+	if (normalizeActivityType(r.activity_type) === 'strength') {
+		const extra = parseStrengthNotes(r.notes).extra.trim();
+		return !extra || isImportNote(extra);
+	}
+	const notes = (r.notes ?? '').trim();
+	return !notes || isImportNote(notes);
+}
+
 function formatRunBriefLine(r: RunRecord): string {
 	const feel = [r.effort, r.shins, r.legs, r.energy]
 		.map((v) => (v == null ? '–' : v))
@@ -1111,13 +1131,28 @@ function compareDebriefRuns(a: RunRecord, b: RunRecord) {
 	return (a.slug ?? '').localeCompare(b.slug ?? '');
 }
 
-/** AM+PM commutes (and anything else that day) belong in one debrief, even if the URL has one slug. */
-function expandDebriefToSameDays(seed: RunRecord[], pool: RunRecord[]): RunRecord[] {
+/**
+ * Same-day companions (AM+PM commutes) plus other this-week logs that still
+ * need a write-up — so an earlier import this week is not dropped when a later
+ * slug is in the URL.
+ */
+function expandDebriefFeatured(
+	seed: RunRecord[],
+	pool: RunRecord[],
+	weekStart: string,
+	weekEnd: string
+): RunRecord[] {
 	if (!seed.length) return [];
 	const dates = new Set(seed.map((r) => r.date));
 	const bySlug = new Map<string, RunRecord>();
 	for (const r of pool) {
-		if (dates.has(r.date)) bySlug.set(r.slug, r);
+		const sameDay = dates.has(r.date);
+		const pendingThisWeek =
+			Boolean(weekStart) &&
+			r.date >= weekStart &&
+			r.date <= weekEnd &&
+			stillNeedsDebrief(r);
+		if (sameDay || pendingThisWeek) bySlug.set(r.slug, r);
 	}
 	for (const r of seed) bySlug.set(r.slug, r);
 	return [...bySlug.values()].sort(compareDebriefRuns);
@@ -1294,7 +1329,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 						return row ? [row] : [];
 					})()
 				: [];
-		const featured = expandDebriefToSameDays(featuredUnsorted, allRuns);
+		const featured = expandDebriefFeatured(featuredUnsorted, allRuns, weekStart, weekEnd);
 		if (!featured.length) {
 			return {
 				prompt: '',

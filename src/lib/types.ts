@@ -111,7 +111,7 @@ export interface PlanSession {
 	detail: string;
 	/** Strength only. Older rows omit this and Log as planned parses `detail`. */
 	exercises?: PlanStrengthExercise[];
-	/** Explicit skip. Done / unlogged are computed from logs, never stored. */
+	/** Explicit skip (`"status": "skipped"`). Done / unlogged are computed from logs. Wording in label/detail is not a skip. */
 	status?: PlanSessionStatus;
 }
 

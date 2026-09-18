@@ -28,8 +28,9 @@ export function PlanSessionMenu({
 	if (!authed || session.done) return null;
 
 	const rest = isRestLike(session.label);
+	const storedSkip = isSkippedStatus(session.status);
 	const canSkip = !session.skipped && !rest;
-	const canUndoSkip = session.skipped && isSkippedStatus(session.status);
+	const canUndoSkip = storedSkip;
 	const canLog = !session.skipped && !rest;
 	const canAddRoute =
 		!session.skipped && !linked && sessionCanLinkRoute(session);

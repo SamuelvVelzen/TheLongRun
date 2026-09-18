@@ -239,24 +239,22 @@ export function isSkippedStatus(status: unknown): status is PlanSessionStatus {
 }
 
 /**
- * Skipped only when the plan says so: `"status": "skipped"`, or the word "skipped"
- * in the label/detail. Advisory "skip this if…" does not count. A missing log is unlogged.
+ * Skipped only when the JSON row has `"status": "skipped"`.
+ * The word "skipped" in label/detail is prose, not a skip. A missing log is unlogged.
  */
-export function hasSkipStatus(
-	session: Pick<PlanSession, 'label' | 'detail' | 'status'>
-): boolean {
-	if (isSkippedStatus(session.status)) return true;
-	return /\bskipped\b/i.test(`${session.label} ${session.detail}`);
+export function hasSkipStatus(session: Pick<PlanSession, 'status'>): boolean {
+	return isSkippedStatus(session.status);
 }
 
 /** Incomplete session marked skipped in the plan. A missing log is not enough. */
-export function isSessionSkipped(
-	session: Pick<PlanSession, 'label' | 'detail' | 'status'>,
-	done: boolean
-): boolean {
+export function isSessionSkipped(session: Pick<PlanSession, 'status'>, done: boolean): boolean {
 	if (done) return false;
 	return hasSkipStatus(session);
 }
+
+/** Coach / clipboard: skip is the status field only — never inferred from wording. */
+export const SKIP_STATUS_PROMPT =
+	'A session is skipped only when that JSON row has `"status": "skipped"`. The word "skipped" in `label` or `detail` is prose, not a skip. Never set `"status": "completed"` — done is a matching log. If you move a skipped session to another day, omit `status` on the new row. A missing log is unlogged, not skipped.';
 
 /** Past workout with no log and not marked skipped. Rest/off days stay blank, not unlogged. */
 export function isSessionUnlogged(
@@ -557,7 +555,7 @@ export function weekToPlanJson(week: PlanWeek): unknown {
 }
 
 const COPY_STATUS_HINT =
-	'Session states: done / skipped / unlogged / next / upcoming / today / unplanned. Skipped only if `"status": "skipped"` or the plan text actually says skipped — a missing log is unlogged, do not assume skipped. Unplanned logs are extra load, already done — do not add a plan row just to file them. The JSON is the saved plan (computed states live in the list only). If I ask you to revise remaining sessions, keep completed ones and return one JSON object I can paste back.';
+	`Session states: done / skipped / unlogged / next / upcoming / today / unplanned. ${SKIP_STATUS_PROMPT} Unplanned logs are extra load, already done — do not add a plan row just to file them. The JSON is the saved plan (computed states live in the list only). If I ask you to revise remaining sessions, keep completed ones and return one JSON object I can paste back.`;
 
 export function formatWeekPlanClipboard(view: WeekView, todayIso: string): string {
 	return `# The Long Run — week ${view.week.week} snapshot

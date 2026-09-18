@@ -1,0 +1,121 @@
+import { OverlayPortal, useOverlayLock } from '$lib/overlay';
+import { cn, ui } from '$lib/ui';
+import { useEffect, useId, useState, type ReactNode } from 'react';
+import { Icon } from '../Icon';
+import { Actions } from './Actions';
+import { Button } from './Button';
+
+export function Dialog({
+	open,
+	title,
+	onClose,
+	children,
+	actions,
+	className
+}: {
+	open: boolean;
+	title: string;
+	onClose: () => void;
+	children?: ReactNode;
+	actions?: ReactNode;
+	className?: string;
+}) {
+	const titleId = useId();
+	useOverlayLock(open);
+
+	useEffect(() => {
+		if (!open) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') onClose();
+		};
+		window.addEventListener('keydown', onKey);
+		return () => {
+			window.removeEventListener('keydown', onKey);
+		};
+	}, [open, onClose]);
+
+	if (!open) return null;
+
+	return (
+		<OverlayPortal>
+			<div className={ui.dialogRoot} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+				<div className={ui.dialogBackdrop} onClick={onClose} aria-hidden="true" />
+				<div className={cn(ui.dialogPanel, className)}>
+					<div className="flex items-start justify-between gap-3">
+						<strong id={titleId} className="font-display text-[1.2rem] tracking-[-0.03em]">
+							{title}
+						</strong>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="text-[1.25rem]"
+							aria-label="Close"
+							onClick={onClose}
+						>
+							<Icon name="close" size={16} />
+						</Button>
+					</div>
+					{children}
+					{actions && <Actions>{actions}</Actions>}
+				</div>
+			</div>
+		</OverlayPortal>
+	);
+}
+
+export function ConfirmDialog({
+	open,
+	title,
+	description,
+	confirmLabel = 'Delete',
+	cancelLabel = 'Cancel',
+	busyLabel,
+	onClose,
+	onConfirm
+}: {
+	open: boolean;
+	title: string;
+	description?: ReactNode;
+	confirmLabel?: string;
+	cancelLabel?: string;
+	busyLabel?: string;
+	onClose: () => void;
+	onConfirm: () => void | Promise<void>;
+}) {
+	const [busy, setBusy] = useState(false);
+
+	useEffect(() => {
+		if (!open) setBusy(false);
+	}, [open]);
+
+	async function confirm() {
+		if (busy) return;
+		setBusy(true);
+		try {
+			await onConfirm();
+			onClose();
+		} catch {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<Dialog
+			open={open}
+			title={title}
+			onClose={busy ? () => {} : onClose}
+			actions={
+				<>
+					<Button variant="ghost" disabled={busy} onClick={onClose}>
+						{cancelLabel}
+					</Button>
+					<Button variant="danger" disabled={busy} onClick={() => void confirm()}>
+						{busy ? (busyLabel ?? `${confirmLabel}…`) : confirmLabel}
+					</Button>
+				</>
+			}
+		>
+			{description ? <p className={cn(ui.muted, 'm-0')}>{description}</p> : null}
+		</Dialog>
+	);
+}

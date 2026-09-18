@@ -1,6 +1,8 @@
-import { useState } from 'react';
 import { getWeather } from '$lib/server/functions';
-import { cn, ui } from '$lib/ui';
+import { useState } from 'react';
+import { Button } from './ui/Button';
+import { Field } from './ui/Field';
+import { Input } from './ui/Input';
 
 /** Weather input with a Fetch button that only works once date + start time are set. */
 export function WeatherField({
@@ -32,10 +34,9 @@ export function WeatherField({
 	}
 
 	return (
-		<label className={ui.field}>
-			<span>Weather</span>
+		<Field label="Weather" hint={hint || (canFetch ? undefined : 'Set date + start time to fetch')}>
 			<div className="flex gap-1.5 items-stretch min-w-0">
-				<input
+				<Input
 					className="flex-1 min-w-0"
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
@@ -43,19 +44,17 @@ export function WeatherField({
 					enterKeyHint="done"
 					autoComplete="off"
 				/>
-				<button
+				<Button
 					type="button"
-					className={cn(ui.btnGhost, 'shrink-0 min-h-11 px-[0.9rem]')}
+					variant="ghost"
+					className="shrink-0 min-h-11 px-[0.9rem]"
 					onClick={fetchWeather}
 					disabled={!canFetch}
 					title={canFetch ? 'Look up weather' : 'Set date + start time first'}
 				>
 					Fetch
-				</button>
+				</Button>
 			</div>
-			<span className={cn(ui.fieldHint, ui.muted)}>
-				{hint || (canFetch ? '' : 'Set date + start time to fetch')}
-			</span>
-		</label>
+		</Field>
 	);
 }

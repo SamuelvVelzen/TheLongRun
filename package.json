@@ -33,6 +33,7 @@
 	},
 	"dependencies": {
 		"@tailwindcss/vite": "^4.3.3",
+		"@tanstack/react-form": "^1.33.5",
 		"@tanstack/react-router": "^1.170.18",
 		"@tanstack/react-start": "^1.168.35",
 		"countries-and-timezones": "^3.10.0",
@@ -42,6 +43,7 @@
 		"react": "^19.2.8",
 		"react-dom": "^19.2.8",
 		"tailwindcss": "^4.3.3",
-		"tz-lookup": "^6.1.25"
+		"tz-lookup": "^6.1.25",
+		"zod": "^4.6.5"
 	}
 }

@@ -5,10 +5,12 @@ import { cn, ui } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
-import { PageHero } from '../components/PageHero';
-import { Icon } from '../components/Icon';
 import { GearInventory } from '../components/GearInventory';
+import { Icon } from '../components/Icon';
+import { PageHero } from '../components/PageHero';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
+import { Actions, Button, Form, useAppForm } from '../components/ui';
+import { z } from 'zod';
 
 export const Route = createFileRoute('/context')({
 	loader: () => ({ page: getContextData() }),
@@ -38,7 +40,6 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 
 	const [copied, setCopied] = useState<string | null>(null);
 	const [editing, setEditing] = useState<string | null>(null);
-	const [draft, setDraft] = useState('');
 	const [openName, setOpenName] = useState<string | null>(null);
 
 	async function copyText(text: string, id: string) {
@@ -63,24 +64,9 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 		setTimeout(() => setCopied((c) => (c === id ? null : c)), 1800);
 	}
 
-	function startEdit(name: string, body: string) {
+	function startEdit(name: string) {
 		setEditing(name);
-		setDraft(body);
 		setOpenName(name);
-	}
-
-	async function onSaveFile(e: React.FormEvent<HTMLFormElement>, name: string) {
-		e.preventDefault();
-		try {
-			await saveContextFile({ data: { name, body: draft } });
-			setEditing(null);
-			setDraft('');
-			setOpenName(name);
-			snack.success(`Saved ${name}`);
-			router.invalidate();
-		} catch (err) {
-			snack.error(errorMessage(err, 'Save failed'));
-		}
 	}
 
 	return (
@@ -104,54 +90,30 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 							</span>
 						</summary>
 
-						<div className={cn(ui.actions, 'mt-[0.85rem]')}>
-							<button
-								className={ui.btnGhost}
-								type="button"
-								onClick={() => copyText(file.body, file.name)}
-							>
+						<Actions className="mt-[0.85rem]">
+							<Button variant="ghost" type="button" onClick={() => copyText(file.body, file.name)}>
 								<Icon name={copied === file.name ? 'check' : 'copy'} size={16} />
 								{copied === file.name ? 'Copied' : 'Copy'}
-							</button>
+							</Button>
 							{authed && editing !== file.name && (
-								<button
-									className={ui.btnGhost}
-									type="button"
-									onClick={() => startEdit(file.name, file.body)}
-								>
+								<Button variant="ghost" type="button" onClick={() => startEdit(file.name)}>
 									<Icon name="pencil" size={16} />
 									Edit
-								</button>
+								</Button>
 							)}
-						</div>
+						</Actions>
 
 						{editing === file.name ? (
-							<form
-								className={cn(ui.form, 'mt-[0.9rem]')}
-								method="POST"
-								onSubmit={(e) => onSaveFile(e, file.name)}
-							>
-								<label className={ui.field}>
-									<span>Markdown source</span>
-									<textarea
-										name="body"
-										className={ui.editor}
-										rows={18}
-										value={draft}
-										onChange={(e) => setDraft(e.target.value)}
-									/>
-								</label>
-								<div className={ui.actions}>
-									<button className={ui.btnPrimary} type="submit">
-										<Icon name="check" size={16} />
-										Save
-									</button>
-									<button className={ui.btnGhost} type="button" onClick={() => setEditing(null)}>
-										<Icon name="close" size={16} />
-										Cancel
-									</button>
-								</div>
-							</form>
+							<ContextFileForm
+								name={file.name}
+								initial={file.body}
+								onCancel={() => setEditing(null)}
+								onSaved={async () => {
+									setEditing(null);
+									setOpenName(file.name);
+									await router.invalidate();
+								}}
+							/>
 						) : (
 							<div className="md" dangerouslySetInnerHTML={{ __html: file.html }} />
 						)}
@@ -159,5 +121,64 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 				))}
 			</div>
 		</>
+	);
+}
+
+const contextFileSchema = z.object({ body: z.string() });
+
+function ContextFileForm({
+	name,
+	initial,
+	onCancel,
+	onSaved
+}: {
+	name: string;
+	initial: string;
+	onCancel: () => void;
+	onSaved: () => void | Promise<void>;
+}) {
+	const snack = useSnackbar();
+	const form = useAppForm({
+		defaultValues: { body: initial },
+		validators: { onSubmit: contextFileSchema },
+		onSubmit: async ({ value }) => {
+			try {
+				await saveContextFile({ data: { name, body: value.body } });
+				snack.success(`Saved ${name}`);
+				await onSaved();
+			} catch (err) {
+				snack.error(errorMessage(err, 'Save failed'));
+			}
+		}
+	});
+
+	return (
+		<Form
+			className="mt-[0.9rem]"
+			onSubmit={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				void form.handleSubmit();
+			}}
+		>
+			<form.AppField
+				name="body"
+				children={(field) => (
+					<field.TextAreaField label="Markdown source" variant="editor" rows={18} />
+				)}
+			/>
+			<Actions>
+				<form.AppForm>
+					<form.SubmitButton busyLabel="Saving…">
+						<Icon name="check" size={16} />
+						Save
+					</form.SubmitButton>
+				</form.AppForm>
+				<Button variant="ghost" type="button" onClick={onCancel}>
+					<Icon name="close" size={16} />
+					Cancel
+				</Button>
+			</Actions>
+		</Form>
 	);
 }

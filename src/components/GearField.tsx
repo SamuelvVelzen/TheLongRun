@@ -1,7 +1,9 @@
 import { formatGearKm, gearKey, type GearChipOption, type GearWear } from '$lib/gear';
-import { cn, ui } from '$lib/ui';
 import { useEffect, useId, useMemo, useState } from 'react';
-import { Select } from './Select';
+import { Button } from './ui/Button';
+import { Field } from './ui/Field';
+import { Input } from './ui/Input';
+import { Select } from './ui/Select';
 
 const OTHER = '__other__';
 
@@ -27,6 +29,7 @@ function optionLabel(
 export function GearField({
 	options,
 	wear,
+	value: valueProp,
 	defaultValue,
 	name = 'gear',
 	label = 'Gear',
@@ -37,6 +40,7 @@ export function GearField({
 }: {
 	options: GearChipOption[] | string[];
 	wear?: Record<string, GearWear>;
+	value?: string;
 	defaultValue?: string;
 	name?: string;
 	label?: string;
@@ -50,16 +54,18 @@ export function GearField({
 			options.map((o) => (typeof o === 'string' ? { name: o, role: 'rotation' as const } : o)),
 		[options]
 	);
-	const [value, setValue] = useState(defaultValue ?? '');
+	const isControlled = valueProp !== undefined;
+	const [uncontrolled, setUncontrolled] = useState(defaultValue ?? '');
+	const value = isControlled ? valueProp : uncontrolled;
 	const [customOpen, setCustomOpen] = useState(false);
 	const [custom, setCustom] = useState('');
 	const [added, setAdded] = useState<string[]>([]);
 	const customId = useId();
 
 	useEffect(() => {
-		setValue(defaultValue ?? '');
+		if (!isControlled) setUncontrolled(defaultValue ?? '');
 		setCustomOpen(false);
-	}, [defaultValue]);
+	}, [defaultValue, isControlled]);
 
 	const list = useMemo(() => {
 		const seen = new Set<string>();
@@ -79,7 +85,7 @@ export function GearField({
 
 	function select(next: string) {
 		const n = next.trim().replace(/\s+/g, ' ');
-		setValue(n);
+		if (!isControlled) setUncontrolled(n);
 		setCustomOpen(false);
 		onChange?.(n);
 	}
@@ -106,8 +112,7 @@ export function GearField({
 	const selectValue = customOpen ? OTHER : (matched?.name ?? '');
 
 	return (
-		<label className={ui.field}>
-			{label ? <span>{label}</span> : null}
+		<Field label={label}>
 			<Select
 				value={selectValue}
 				aria-label={label || 'Gear'}
@@ -128,7 +133,7 @@ export function GearField({
 					{ value: OTHER, label: 'Other…' }
 				]}
 			/>
-			{!immediate && (
+			{!immediate && !isControlled && name != null && (
 				<input
 					type="hidden"
 					name={name}
@@ -137,7 +142,7 @@ export function GearField({
 			)}
 			{customOpen && (
 				<div id={customId} className="flex gap-[0.4rem] items-center mt-[0.15rem]">
-					<input
+					<Input
 						className="flex-1 min-w-0"
 						value={custom}
 						placeholder={placeholder}
@@ -151,11 +156,11 @@ export function GearField({
 							if (e.key === 'Escape') setCustomOpen(false);
 						}}
 					/>
-					<button type="button" className={cn(ui.btnPrimary, ui.btnSm)} onClick={commitCustom}>
+					<Button type="button" size="sm" onClick={commitCustom}>
 						Use
-					</button>
+					</Button>
 				</div>
 			)}
-		</label>
+		</Field>
 	);
 }

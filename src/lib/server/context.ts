@@ -140,6 +140,8 @@ function normalizeStoredGoal(item: unknown): Goal | null {
 		result,
 		plan,
 		bib_number: String(o.bib_number ?? '').trim(),
+		wave: String(o.wave ?? '').trim(),
+		start_time: String(o.start_time ?? '').trim(),
 		result_url: String(o.result_url ?? '').trim(),
 		medal_notes: String(o.medal_notes ?? '').trim()
 	};
@@ -174,6 +176,8 @@ function parseLegacyGoalsMd(raw: string): Goal | null {
 		result: null,
 		plan: null,
 		bib_number: '',
+		wave: '',
+		start_time: '',
 		result_url: '',
 		medal_notes: ''
 	};

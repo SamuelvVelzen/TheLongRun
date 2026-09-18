@@ -1,6 +1,6 @@
 import { activityLabel, showsField } from '$lib/activity';
-import { goalUrlHref } from '$lib/goals';
 import { formatDuration, parseDurationSeconds } from '$lib/format';
+import { goalUrlHref } from '$lib/goals';
 import { saveMedalDetails } from '$lib/server/functions';
 import type { Goal } from '$lib/types';
 import { cn, ui } from '$lib/ui';
@@ -301,6 +301,8 @@ export function MedalDialog({
 								: ` · ${goal.distance_km} km`}
 							{goal.result?.pace ? ` · ${goal.result.pace}/km` : ''}
 							{` · ${activityLabel(goal.sport)}`}
+							{goal.start_time ? ` · ${goal.start_time}` : ''}
+							{goal.wave ? ` · wave ${goal.wave}` : ''}
 						</p>
 						{loc && <p className={cn(ui.muted, 'm-0 text-[0.88rem]')}>{loc}</p>}
 						{bib && !authed && (

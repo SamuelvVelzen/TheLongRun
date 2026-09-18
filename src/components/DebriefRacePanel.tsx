@@ -82,7 +82,9 @@ export function DebriefRacePanel({
 			<div className={cn(ui.panel, 'mt-3 p-[0.9rem_1rem] border-accent/35')}>
 				<p className="m-0 font-semibold">{hint.goalName}</p>
 				<p className={cn(ui.muted, 'm-[0.35rem_0_0] text-[0.9rem]')}>
-					This looks like your race. Pin this activity to put it on the medal wall.
+					This looks like your race
+					{hint.bib_number ? ` (bib ${hint.bib_number})` : ''}. Pin this activity to put it on the
+					medal wall.
 				</p>
 				<div className={cn(ui.actions, 'mt-[0.65rem]')}>
 					<button

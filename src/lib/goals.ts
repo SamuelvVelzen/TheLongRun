@@ -3,6 +3,7 @@
  * Safe for client and server.
  */
 import { ACTIVITY_TYPES, normalizeActivityType, type ActivityType } from '$lib/activity';
+import { normalizeStartTime } from '$lib/format';
 import { daysUntil, isoDateLocal, mondayIso, weeksThrough } from '$lib/plan';
 import type { Goal, GoalResult, RunRecord } from '$lib/types';
 
@@ -29,6 +30,8 @@ export function emptyGoalDraft(today = new Date()): Omit<Goal, 'id' | 'status' |
 		itinerary_url: '',
 		plan_start: date,
 		bib_number: '',
+		wave: '',
+		start_time: '',
 		result_url: '',
 		medal_notes: ''
 	};
@@ -46,6 +49,9 @@ export type GoalInput = {
 	url?: string;
 	itinerary_url?: string;
 	plan_start: string;
+	bib_number?: string;
+	wave?: string;
+	start_time?: string;
 };
 
 /** Drop javascript/data URLs; keep everything else trimmed. */
@@ -87,7 +93,9 @@ export function normalizeGoalInput(input: GoalInput, existing?: Goal | null): Go
 		status: existing?.status === 'done' ? 'done' : 'upcoming',
 		result: existing?.result ?? null,
 		plan: existing?.plan ?? null,
-		bib_number: String(existing?.bib_number ?? '').trim(),
+		bib_number: String(input.bib_number ?? existing?.bib_number ?? '').trim(),
+		wave: String(input.wave ?? existing?.wave ?? '').trim(),
+		start_time: normalizeStartTime(input.start_time ?? existing?.start_time ?? ''),
 		result_url: normalizeGoalUrl(existing?.result_url ?? ''),
 		medal_notes: String(existing?.medal_notes ?? '').trim()
 	};

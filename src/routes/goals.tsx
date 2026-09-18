@@ -1,15 +1,15 @@
 import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
 import {
-	activityLooksLikeRace,
-	canPinRaceResult,
-	emptyGoalDraft,
-	goalDraftFromReply,
-	goalUrlHref,
-	isOlderPastRace,
-	isUnpinnedPastRace,
-	planStartHint,
-	shiftPlanStartWithRaceDate
+    activityLooksLikeRace,
+    canPinRaceResult,
+    emptyGoalDraft,
+    goalDraftFromReply,
+    goalUrlHref,
+    isOlderPastRace,
+    isUnpinnedPastRace,
+    planStartHint,
+    shiftPlanStartWithRaceDate
 } from '$lib/goals';
 import { calendarFromGoal, daysUntil, mondayIso } from '$lib/plan';
 import { clearGoal, completeGoal, getGoalBrief, getGoalsData, saveActiveGoal } from '$lib/server/functions';
@@ -59,6 +59,22 @@ function formatRaceDate(iso: string) {
 	const d = new Date(`${iso}T12:00:00`);
 	if (Number.isNaN(d.getTime())) return iso;
 	return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function goalSummaryLine(
+	goal: Pick<Goal, 'date' | 'distance_km' | 'sport' | 'time_goal' | 'bib_number' | 'wave' | 'start_time'>
+) {
+	return [
+		formatRaceDate(goal.date),
+		goal.start_time || null,
+		`${goal.distance_km} km`,
+		activityLabel(goal.sport),
+		goal.time_goal ? `goal ${goal.time_goal}` : null,
+		goal.wave ? `wave ${goal.wave}` : null,
+		goal.bib_number ? `bib ${goal.bib_number}` : null
+	]
+		.filter(Boolean)
+		.join(' · ');
 }
 
 function GoalUrlLinks({ url, itineraryUrl }: { url?: string; itineraryUrl?: string }) {
@@ -533,6 +549,7 @@ function PinRaceResult({
 			<h3 className="m-0">Pin race result</h3>
 			<p className={cn(ui.muted, 'm-0')}>
 				Pick the activity you ran. That time becomes the medal.
+				{goal.bib_number ? ` Bib ${goal.bib_number} is already saved.` : ''}
 			</p>
 			{candidates.length ? (
 				<label className={ui.field}>
@@ -605,10 +622,7 @@ function ActiveGoalCard({
 					Active
 				</p>
 				<h2 className="font-display text-[1.7rem] tracking-[-0.03em] m-0 mt-1">{goal.name}</h2>
-				<p className={cn(ui.muted, 'm-0 mt-1')}>
-					{formatRaceDate(goal.date)} · {goal.distance_km} km · {activityLabel(goal.sport)}
-					{goal.time_goal ? ` · goal ${goal.time_goal}` : ''}
-				</p>
+				<p className={cn(ui.muted, 'm-0 mt-1')}>{goalSummaryLine(goal)}</p>
 				<GoalUrlLinks url={goal.url} itineraryUrl={goal.itinerary_url} />
 			</div>
 			<div className="flex flex-wrap gap-6">
@@ -695,10 +709,7 @@ function UpcomingGoalCard({
 						{past ? 'Past' : 'Upcoming'}
 					</p>
 					<h3 className="font-display text-[1.35rem] tracking-[-0.03em] m-0 mt-1">{goal.name}</h3>
-					<p className={cn(ui.muted, 'm-0 mt-1')}>
-						{formatRaceDate(goal.date)} · {goal.distance_km} km · {activityLabel(goal.sport)}
-						{goal.time_goal ? ` · goal ${goal.time_goal}` : ''}
-					</p>
+					<p className={cn(ui.muted, 'm-0 mt-1')}>{goalSummaryLine(goal)}</p>
 					<GoalUrlLinks url={goal.url} itineraryUrl={goal.itinerary_url} />
 				</div>
 				<div className="text-right">
@@ -753,6 +764,9 @@ function GoalForm({
 		ACTIVITY_TYPES.includes(draft.sport as ActivityType) ? (draft.sport as ActivityType) : 'run'
 	);
 	const [timeGoal, setTimeGoal] = useState(draft.time_goal);
+	const [bib, setBib] = useState(draft.bib_number ?? '');
+	const [wave, setWave] = useState(draft.wave ?? '');
+	const [startTime, setStartTime] = useState(draft.start_time ?? '');
 	const [planStart, setPlanStart] = useState(draft.plan_start);
 	const [url, setUrl] = useState(draft.url ?? '');
 	const [itineraryUrl, setItineraryUrl] = useState(draft.itinerary_url ?? '');
@@ -851,6 +865,9 @@ function GoalForm({
 					distance_km: Number(distance),
 					sport,
 					time_goal: timeGoal,
+					bib_number: bib,
+					wave,
+					start_time: startTime,
 					primary: primary.split('\n'),
 					notes,
 					url,
@@ -915,10 +932,31 @@ function GoalForm({
 					onChange={setSport}
 				/>
 			</div>
-			<label className={ui.field}>
-				<span>Time goal</span>
-				<input value={timeGoal} onChange={(e) => setTimeGoal(e.target.value)} placeholder="45:00" />
-			</label>
+			<div className={ui.formGrid}>
+				<label className={ui.field}>
+					<span>Time goal</span>
+					<input value={timeGoal} onChange={(e) => setTimeGoal(e.target.value)} placeholder="45:00" />
+				</label>
+				<label className={ui.field}>
+					<span>Bib number</span>
+					<input
+						value={bib}
+						onChange={(e) => setBib(e.target.value)}
+						placeholder="e.g. 4821"
+						inputMode="numeric"
+					/>
+				</label>
+			</div>
+			<div className={ui.formGrid}>
+				<label className={ui.field}>
+					<span>Wave</span>
+					<input value={wave} onChange={(e) => setWave(e.target.value)} placeholder="e.g. 2" />
+				</label>
+				<label className={ui.field}>
+					<span>Start time</span>
+					<input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+				</label>
+			</div>
 			<label className={ui.field}>
 				<span className={ui.req}>Plan starts (Monday)</span>
 				<input

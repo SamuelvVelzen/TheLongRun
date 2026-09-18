@@ -905,6 +905,9 @@ ${thisWeekLogs.map(formatRunBriefLine).join('\n')}
 - Race: ${activeGoal.name} — ${activeGoal.distance_km} km on ${activeGoal.date}${daysToRace != null ? ` (~${daysToRace} days to go)` : ''}
 - Sport: ${activityLabel(activeGoal.sport)}
 - Time goal: ${activeGoal.time_goal || '—'}
+${activeGoal.bib_number ? `- Bib: ${activeGoal.bib_number}` : ''}
+${activeGoal.wave ? `- Wave: ${activeGoal.wave}` : ''}
+${activeGoal.start_time ? `- Start: ${activeGoal.start_time}` : ''}
 ${activeGoal.url ? `- Race URL: ${activeGoal.url}` : ''}
 ${activeGoal.itinerary_url ? `- Itinerary: ${activeGoal.itinerary_url}` : ''}
 ${(activeGoal.primary ?? []).map((p) => `- Priority: ${p}`).join('\n')}
@@ -1182,9 +1185,9 @@ function debriefRaceHint(run: RunRecord, goals: import('$lib/types').Goal[]): De
 			goalName: open.name,
 			pinned: false,
 			missingMedalDetails: false,
-			bib_number: '',
-			result_url: '',
-			medal_notes: ''
+			bib_number: open.bib_number,
+			result_url: open.result_url,
+			medal_notes: open.medal_notes
 		};
 	}
 	const done = goals.find((g) => g.status === 'done' && g.result?.activity_slug === run.slug);

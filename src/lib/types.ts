@@ -81,8 +81,12 @@ export interface Goal {
 	result: GoalResult | null;
 	/** Snapshot of plan.json when the goal was completed. */
 	plan: PlanWeek[] | null;
-	/** Race bib number (medal wall). */
+	/** Race bib number — can be set before pinning a result. */
 	bib_number: string;
+	/** Start wave / groep (e.g. 2, A). */
+	wave: string;
+	/** Official gun / wave start, `HH:mm`. */
+	start_time: string;
 	/** Official results page (medal wall). */
 	result_url: string;
 	/** Post-race notes — separate from pre-race `notes`. */

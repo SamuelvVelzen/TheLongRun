@@ -1,7 +1,6 @@
 import { activityLabel, showsField } from '$lib/activity';
 import { formatDuration, parseDurationSeconds } from '$lib/format';
 import { goalUrlHref } from '$lib/goals';
-import { saveMedalDetails } from '$lib/server/functions';
 import type { Goal } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
@@ -9,8 +8,8 @@ import { useEffect, useState } from 'react';
 import { Confetti } from './Confetti';
 import { Dialog } from './Dialog';
 import { Icon } from './Icon';
+import { MedalDetailsForm } from './MedalDetailsForm';
 import { RouteLine } from './RouteLine';
-import { errorMessage, useSnackbar } from './Snackbar';
 
 type MedalActivity = {
 	slug: string;
@@ -194,54 +193,15 @@ export function MedalDialog({
 	onClose: () => void;
 	onSaved?: () => void | Promise<void>;
 }) {
-	const snack = useSnackbar();
-	const [bib, setBib] = useState('');
-	const [resultUrl, setResultUrl] = useState('');
-	const [medalNotes, setMedalNotes] = useState('');
-	const [saved, setSaved] = useState({ bib: '', resultUrl: '', medalNotes: '' });
-	const [saving, setSaving] = useState(false);
 	const [celebrate, setCelebrate] = useState(false);
 
 	useEffect(() => {
 		if (!open || !goal) return;
-		const next = {
-			bib: goal.bib_number ?? '',
-			resultUrl: goal.result_url ?? '',
-			medalNotes: goal.medal_notes ?? ''
-		};
-		setBib(next.bib);
-		setResultUrl(next.resultUrl);
-		setMedalNotes(next.medalNotes);
-		setSaved(next);
 		setCelebrate(true);
-	}, [open, goal?.id, goal?.bib_number, goal?.result_url, goal?.medal_notes]);
+	}, [open, goal?.id]);
 
 	const delta = goal ? goalDelta(goal) : null;
 	const loc = locationLabel(activity);
-	const detailsDirty =
-		bib !== saved.bib || resultUrl !== saved.resultUrl || medalNotes !== saved.medalNotes;
-
-	async function saveDetails() {
-		if (!goal) return;
-		setSaving(true);
-		try {
-			await saveMedalDetails({
-				data: {
-					goalId: goal.id,
-					bib_number: bib,
-					result_url: resultUrl,
-					medal_notes: medalNotes
-				}
-			});
-			setSaved({ bib, resultUrl, medalNotes });
-			snack.success('Medal details saved.');
-			await onSaved?.();
-		} catch (e) {
-			snack.error(errorMessage(e, 'Could not save medal details.'));
-		} finally {
-			setSaving(false);
-		}
-	}
 
 	return (
 		<Dialog
@@ -305,9 +265,9 @@ export function MedalDialog({
 							{goal.wave ? ` · wave ${goal.wave}` : ''}
 						</p>
 						{loc && <p className={cn(ui.muted, 'm-0 text-[0.88rem]')}>{loc}</p>}
-						{bib && !authed && (
+						{goal.bib_number && !authed && (
 							<p className="m-0 text-[0.88rem]">
-								Bib <strong className="font-display">{bib}</strong>
+								Bib <strong className="font-display">{goal.bib_number}</strong>
 							</p>
 						)}
 					</div>
@@ -357,53 +317,18 @@ export function MedalDialog({
 					<div className="grid gap-3 pt-1 border-t border-line">
 						<p className="m-0 text-[0.78rem] uppercase tracking-[0.06em] text-muted font-bold">Medal details</p>
 						{authed ? (
-							<>
-								<div className={ui.formGrid}>
-									<label className={ui.field}>
-										<span>Bib number</span>
-										<input
-											value={bib}
-											onChange={(e) => setBib(e.target.value)}
-											placeholder="e.g. 4821"
-											inputMode="numeric"
-										/>
-									</label>
-									<label className={ui.field}>
-										<span>Results URL</span>
-										<input
-											value={resultUrl}
-											onChange={(e) => setResultUrl(e.target.value)}
-											placeholder="https://results.example.com/…"
-											inputMode="url"
-											autoComplete="url"
-										/>
-									</label>
-								</div>
-								<label className={ui.field}>
-									<span>Your notes</span>
-									<textarea
-										rows={4}
-										value={medalNotes}
-										onChange={(e) => setMedalNotes(e.target.value)}
-										placeholder="How it felt, who you ran with, what you’d do differently…"
-									/>
-								</label>
-								{detailsDirty && (
-									<div className={cn(ui.actions, 'justify-start!')}>
-										<button
-											className={ui.btnPrimary}
-											type="button"
-											disabled={saving}
-											onClick={() => void saveDetails()}
-										>
-											<Icon name="check" size={16} />
-											{saving ? 'Saving…' : 'Save details'}
-										</button>
-									</div>
-								)}
-							</>
-						) : medalNotes ? (
-							<p className={cn(ui.muted, 'm-0 whitespace-pre-wrap')}>{medalNotes}</p>
+							<MedalDetailsForm
+								key={goal.id}
+								goalId={goal.id}
+								defaultValues={{
+									bib_number: goal.bib_number ?? '',
+									result_url: goal.result_url ?? '',
+									medal_notes: goal.medal_notes ?? ''
+								}}
+								onSaved={onSaved}
+							/>
+						) : goal.medal_notes ? (
+							<p className={cn(ui.muted, 'm-0 whitespace-pre-wrap')}>{goal.medal_notes}</p>
 						) : (
 							<p className={cn(ui.muted, 'm-0 text-[0.9rem]')}>Sign in to add bib, results link, and notes.</p>
 						)}

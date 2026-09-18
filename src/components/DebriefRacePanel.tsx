@@ -1,10 +1,12 @@
 import type { DebriefRaceHint } from '$lib/server/functions';
-import { completeGoal, saveMedalDetails } from '$lib/server/functions';
+import { completeGoal } from '$lib/server/functions';
 import { cn, ui } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Icon } from './Icon';
+import { MedalDetailsForm } from './MedalDetailsForm';
 import { errorMessage, useSnackbar } from './Snackbar';
+import { Actions, Button } from './ui';
 
 export function DebriefRacePanel({
 	hint,
@@ -17,17 +19,6 @@ export function DebriefRacePanel({
 }) {
 	const snack = useSnackbar();
 	const [pinning, setPinning] = useState(false);
-	const [bib, setBib] = useState(hint.kind === 'match' ? hint.bib_number : '');
-	const [resultUrl, setResultUrl] = useState(hint.kind === 'match' ? hint.result_url : '');
-	const [medalNotes, setMedalNotes] = useState(hint.kind === 'match' ? hint.medal_notes : '');
-	const [medalBusy, setMedalBusy] = useState(false);
-
-	useEffect(() => {
-		if (hint.kind !== 'match') return;
-		setBib(hint.bib_number);
-		setResultUrl(hint.result_url);
-		setMedalNotes(hint.medal_notes);
-	}, [hint]);
 
 	if (hint.kind === 'race_no_goal') {
 		return (
@@ -44,11 +35,13 @@ export function DebriefRacePanel({
 		);
 	}
 
+	const match = hint;
+
 	async function pinResult() {
 		setPinning(true);
 		try {
-			await completeGoal({ data: { goalId: hint.goalId, activitySlug: runSlug } });
-			snack.success(`Saved — ${hint.goalName} is on the medal wall.`);
+			await completeGoal({ data: { goalId: match.goalId, activitySlug: runSlug } });
+			snack.success(`Saved — ${match.goalName} is on the medal wall.`);
 			await onSaved();
 		} catch (e) {
 			snack.error(errorMessage(e, 'Could not pin that result.'));
@@ -57,98 +50,58 @@ export function DebriefRacePanel({
 		}
 	}
 
-	async function saveMedal() {
-		setMedalBusy(true);
-		try {
-			await saveMedalDetails({
-				data: {
-					goalId: hint.goalId,
-					bib_number: bib,
-					result_url: resultUrl,
-					medal_notes: medalNotes
-				}
-			});
-			snack.success('Saved medal details.');
-			await onSaved();
-		} catch (e) {
-			snack.error(errorMessage(e, 'Could not save medal details.'));
-		} finally {
-			setMedalBusy(false);
-		}
-	}
-
-	if (!hint.pinned) {
+	if (!match.pinned) {
 		return (
 			<div className={cn(ui.panel, 'mt-3 p-[0.9rem_1rem] border-accent/35')}>
-				<p className="m-0 font-semibold">{hint.goalName}</p>
+				<p className="m-0 font-semibold">{match.goalName}</p>
 				<p className={cn(ui.muted, 'm-[0.35rem_0_0] text-[0.9rem]')}>
 					This looks like your race
-					{hint.bib_number ? ` (bib ${hint.bib_number})` : ''}. Pin this activity to put it on the
+					{match.bib_number ? ` (bib ${match.bib_number})` : ''}. Pin this activity to put it on the
 					medal wall.
 				</p>
-				<div className={cn(ui.actions, 'mt-[0.65rem]')}>
-					<button
-						className={ui.btnPrimary}
-						type="button"
-						disabled={pinning}
-						onClick={() => void pinResult()}
-					>
+				<Actions className="mt-[0.65rem]">
+					<Button variant="primary" disabled={pinning} onClick={() => void pinResult()}>
 						<Icon name="trophy" size={16} />
 						{pinning ? 'Saving…' : 'Save as medal'}
-					</button>
+					</Button>
 					<Link className={ui.btnGhost} to="/goals">
 						Open Goals
 					</Link>
-				</div>
+				</Actions>
 			</div>
 		);
 	}
 
-	if (!hint.missingMedalDetails) return null;
+	if (!match.missingMedalDetails) return null;
 
 	return (
 		<div className={cn(ui.panel, ui.form, 'mt-3 border-accent/35')}>
-			<p className="m-0 font-semibold">{hint.goalName} — medal details</p>
+			<p className="m-0 font-semibold">{match.goalName} — medal details</p>
 			<p className={cn(ui.muted, 'm-[0.35rem_0_0] text-[0.9rem]')}>
 				Bib and official results are not on Strava. Add them here or on the medal wall.
 			</p>
-			<div className={ui.formGrid}>
-				<label className={ui.field}>
-					<span>Bib number</span>
-					<input value={bib} onChange={(e) => setBib(e.target.value)} placeholder="1234" />
-				</label>
-				<label className={ui.field}>
-					<span>Results URL</span>
-					<input
-						value={resultUrl}
-						onChange={(e) => setResultUrl(e.target.value)}
-						placeholder="https://…"
-					/>
-				</label>
-			</div>
-			<label className={ui.field}>
-				<span>Post-race notes</span>
-				<textarea
-					rows={3}
-					value={medalNotes}
-					onChange={(e) => setMedalNotes(e.target.value)}
-					placeholder="How the race felt, splits, weather…"
-				/>
-			</label>
-			<div className={ui.actions}>
-				<button
-					className={ui.btnPrimary}
-					type="button"
-					disabled={medalBusy}
-					onClick={() => void saveMedal()}
-				>
-					<Icon name="check" size={16} />
-					{medalBusy ? 'Saving…' : 'Save medal details'}
-				</button>
-				<Link className={ui.btnGhost} to="/goals" search={{ tab: 'medals' }}>
-					Open medal wall
-				</Link>
-			</div>
+			<MedalDetailsForm
+				key={match.goalId}
+				goalId={match.goalId}
+				defaultValues={{
+					bib_number: match.bib_number,
+					result_url: match.result_url,
+					medal_notes: match.medal_notes
+				}}
+				submitLabel="Save medal details"
+				notesLabel="Post-race notes"
+				notesPlaceholder="How the race felt, splits, weather…"
+				bibPlaceholder="1234"
+				resultPlaceholder="https://…"
+				showSubmit="always"
+				successMessage="Saved medal details."
+				onSaved={onSaved}
+				extraActions={
+					<Link className={ui.btnGhost} to="/goals" search={{ tab: 'medals' }}>
+						Open medal wall
+					</Link>
+				}
+			/>
 		</div>
 	);
 }

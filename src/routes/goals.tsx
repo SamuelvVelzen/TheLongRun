@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
+import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
 import {
     activityLooksLikeRace,
@@ -11,14 +11,14 @@ import {
     planStartHint,
     shiftPlanStartWithRaceDate
 } from '$lib/goals';
+import { goalFormSchema, goalToFormValues, pinRaceSchema, toGoalInput } from '$lib/goal-form';
 import { calendarFromGoal, daysUntil, mondayIso } from '$lib/plan';
 import { clearGoal, completeGoal, getGoalBrief, getGoalsData, saveActiveGoal } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import type { Goal } from '$lib/types';
 import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
-import { ChoiceChips } from '../components/ChoiceChips';
+import { useRef, useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon, sportChipLabel } from '../components/Icon';
@@ -26,8 +26,8 @@ import { MedalDialog } from '../components/MedalDialog';
 import { PageHero } from '../components/PageHero';
 import { RouteLine } from '../components/RouteLine';
 import { SegmentedToggle } from '../components/SegmentedToggle';
-import { Select } from '../components/Select';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
+import { Actions, Button, Field, Form, FormGrid, FormSection, Textarea, useAppForm } from '../components/ui';
 
 type GoalsTab = 'races' | 'medals';
 type GoalsSearch = { tab?: GoalsTab };
@@ -519,30 +519,25 @@ function PinRaceResult({
 }) {
 	const router = useRouter();
 	const snack = useSnackbar();
-	const [pinSlug, setPinSlug] = useState(() => {
+	const defaultSlug = (() => {
 		const tight = candidates.find((c) => activityLooksLikeRace(goal, c) || c.date === goal.date);
 		if (tight) return tight.slug;
 		return candidates.length === 1 ? candidates[0]!.slug : '';
+	})();
+	const form = useAppForm({
+		defaultValues: { pinSlug: defaultSlug },
+		validators: { onSubmit: pinRaceSchema },
+		onSubmit: async ({ value }) => {
+			try {
+				await completeGoal({ data: { goalId: goal.id, activitySlug: value.pinSlug } });
+				snack.success(`Saved — ${goal.name} is on the medal wall.`);
+				await router.navigate({ to: '/goals', search: { tab: 'medals' } });
+				await router.invalidate();
+			} catch (e) {
+				snack.error(errorMessage(e, 'Could not pin that result.'));
+			}
+		}
 	});
-	const [pinning, setPinning] = useState(false);
-
-	async function pinResult() {
-		if (!pinSlug) {
-			snack.error('Import or log the race first, then pin it here.');
-			return;
-		}
-		setPinning(true);
-		try {
-			await completeGoal({ data: { goalId: goal.id, activitySlug: pinSlug } });
-			snack.success(`Saved — ${goal.name} is on the medal wall.`);
-			await router.navigate({ to: '/goals', search: { tab: 'medals' } });
-			await router.invalidate();
-		} catch (e) {
-			snack.error(errorMessage(e, 'Could not pin that result.'));
-		} finally {
-			setPinning(false);
-		}
-	}
 
 	return (
 		<div className="grid gap-3 pt-3 border-t border-line">
@@ -552,42 +547,52 @@ function PinRaceResult({
 				{goal.bib_number ? ` Bib ${goal.bib_number} is already saved.` : ''}
 			</p>
 			{candidates.length ? (
-				<label className={ui.field}>
-					<span>Activity</span>
-					<Select
-						value={pinSlug}
-						onChange={setPinSlug}
-						aria-label="Activity"
-						placeholder="Pick the activity…"
-						options={[
-							...(!pinSlug ? [{ value: '', label: 'Pick the activity…' }] : []),
-							...candidates.map((c) => ({
-								value: c.slug,
-								label: `${c.date}${c.time ? ` · ${c.time}` : ''}${c.distance_km != null ? ` · ${c.distance_km} km` : ''}`
-							}))
-						]}
-					/>
-				</label>
-			) : (
-				<p className={cn(ui.muted, 'm-0')}>
-					No matching activity yet.{' '}
-					<Link className="text-accent-fg font-semibold" to="/import">
-						Import the GPX
-					</Link>
-					, then pick it here.
-				</p>
-			)}
-			<div className={ui.actions}>
-				<button
-					className={ui.btnPrimary}
-					type="button"
-					disabled={!pinSlug || pinning}
-					onClick={() => void pinResult()}
+				<Form
+					onSubmit={(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						void form.handleSubmit();
+					}}
 				>
-					<Icon name="trophy" size={16} />
-					{pinning ? 'Saving…' : 'Save as medal'}
-				</button>
-			</div>
+					<form.AppField
+						name="pinSlug"
+						children={(field) => (
+							<field.SelectField
+								label="Activity"
+								placeholder="Pick the activity…"
+								options={candidates.map((c) => ({
+									value: c.slug,
+									label: `${c.date}${c.time ? ` · ${c.time}` : ''}${c.distance_km != null ? ` · ${c.distance_km} km` : ''}`
+								}))}
+							/>
+						)}
+					/>
+					<Actions>
+						<form.AppForm>
+							<form.SubmitButton busyLabel="Saving…">
+								<Icon name="trophy" size={16} />
+								Save as medal
+							</form.SubmitButton>
+						</form.AppForm>
+					</Actions>
+				</Form>
+			) : (
+				<>
+					<p className={cn(ui.muted, 'm-0')}>
+						No matching activity yet.{' '}
+						<Link className="text-accent-fg font-semibold" to="/import">
+							Import the GPX
+						</Link>
+						, then pick it here.
+					</p>
+					<Actions>
+						<Button variant="primary" disabled>
+							<Icon name="trophy" size={16} />
+							Save as medal
+						</Button>
+					</Actions>
+				</>
+			)}
 		</div>
 	);
 }
@@ -757,21 +762,8 @@ function GoalForm({
 }) {
 	const snack = useSnackbar();
 	const draft = initial ?? emptyGoalDraft();
-	const [name, setName] = useState(draft.name);
-	const [date, setDate] = useState(draft.date);
-	const [distance, setDistance] = useState(String(draft.distance_km));
-	const [sport, setSport] = useState<ActivityType>(
-		ACTIVITY_TYPES.includes(draft.sport as ActivityType) ? (draft.sport as ActivityType) : 'run'
-	);
-	const [timeGoal, setTimeGoal] = useState(draft.time_goal);
-	const [bib, setBib] = useState(draft.bib_number ?? '');
-	const [wave, setWave] = useState(draft.wave ?? '');
-	const [startTime, setStartTime] = useState(draft.start_time ?? '');
-	const [planStart, setPlanStart] = useState(draft.plan_start);
-	const [url, setUrl] = useState(draft.url ?? '');
-	const [itineraryUrl, setItineraryUrl] = useState(draft.itinerary_url ?? '');
-	const [primary, setPrimary] = useState(draft.primary.join('\n'));
-	const [notes, setNotes] = useState(draft.notes);
+	const defaultValues = goalToFormValues(draft);
+	const lastDate = useRef(defaultValues.date);
 	const [copyTab, setCopyTab] = useState<'copy' | 'generate'>(() =>
 		hasRaceCopy(draft.primary, draft.notes) ? 'copy' : 'generate'
 	);
@@ -780,32 +772,50 @@ function GoalForm({
 	const [replyJson, setReplyJson] = useState('');
 	const [briefBusy, setBriefBusy] = useState(false);
 	const [copied, setCopied] = useState(false);
-	const [busy, setBusy] = useState(false);
 
-	const hint = useMemo(() => planStartHint(planStart, date), [planStart, date]);
-	const weeks = useMemo(() => {
-		try {
-			return calendarFromGoal({ plan_start: mondayIso(planStart), date }).weekCount;
-		} catch {
-			return 1;
+	const form = useAppForm({
+		defaultValues,
+		validators: { onSubmit: goalFormSchema },
+		onSubmit: async ({ value }) => {
+			try {
+				const res = await saveActiveGoal({ data: toGoalInput(value, initial?.id) });
+				let weeks = 1;
+				try {
+					weeks = calendarFromGoal({
+						plan_start: mondayIso(value.plan_start),
+						date: value.date
+					}).weekCount;
+				} catch {
+					weeks = 1;
+				}
+				if (res.isActive) {
+					snack.success(`Saved — ${weeks} week plan through race day.`);
+				} else {
+					snack.success(`Saved — later on the calendar. Training stays on ${res.activeName}.`);
+				}
+				await onSaved();
+			} catch (err) {
+				snack.error(errorMessage(err, 'Could not save the goal.'));
+			}
 		}
-	}, [planStart, date]);
+	});
 
 	async function generateBrief() {
+		const value = form.state.values;
 		setBriefBusy(true);
 		try {
 			const next = await getGoalBrief({
 				data: {
-					name,
-					date,
-					distance_km: distance,
-					sport,
-					time_goal: timeGoal,
-					plan_start: planStart,
-					url,
-					itinerary_url: itineraryUrl,
-					primary,
-					notes,
+					name: value.name,
+					date: value.date,
+					distance_km: value.distance_km,
+					sport: value.sport,
+					time_goal: value.time_goal,
+					plan_start: value.plan_start,
+					url: value.url,
+					itinerary_url: value.itinerary_url,
+					primary: value.primary,
+					notes: value.notes,
 					extra
 				}
 			});
@@ -830,21 +840,26 @@ function GoalForm({
 	function applyReply() {
 		try {
 			const patch = goalDraftFromReply(replyJson);
-			if (patch.name !== undefined) setName(patch.name);
+			const currentDate = form.getFieldValue('date');
+			if (patch.name !== undefined) form.setFieldValue('name', patch.name);
 			if (patch.date !== undefined) {
 				if (patch.plan_start === undefined) {
-					setPlanStart((prev) => shiftPlanStartWithRaceDate(prev, date, patch.date!));
+					form.setFieldValue(
+						'plan_start',
+						shiftPlanStartWithRaceDate(form.getFieldValue('plan_start'), currentDate, patch.date)
+					);
 				}
-				setDate(patch.date);
+				form.setFieldValue('date', patch.date);
+				lastDate.current = patch.date;
 			}
-			if (patch.distance_km !== undefined) setDistance(patch.distance_km);
-			if (patch.sport !== undefined) setSport(patch.sport);
-			if (patch.time_goal !== undefined) setTimeGoal(patch.time_goal);
-			if (patch.plan_start !== undefined) setPlanStart(patch.plan_start);
-			if (patch.url !== undefined) setUrl(patch.url);
-			if (patch.itinerary_url !== undefined) setItineraryUrl(patch.itinerary_url);
-			if (patch.primary !== undefined) setPrimary(patch.primary);
-			if (patch.notes !== undefined) setNotes(patch.notes);
+			if (patch.distance_km !== undefined) form.setFieldValue('distance_km', patch.distance_km);
+			if (patch.sport !== undefined) form.setFieldValue('sport', patch.sport);
+			if (patch.time_goal !== undefined) form.setFieldValue('time_goal', patch.time_goal);
+			if (patch.plan_start !== undefined) form.setFieldValue('plan_start', patch.plan_start);
+			if (patch.url !== undefined) form.setFieldValue('url', patch.url);
+			if (patch.itinerary_url !== undefined) form.setFieldValue('itinerary_url', patch.itinerary_url);
+			if (patch.primary !== undefined) form.setFieldValue('primary', patch.primary);
+			if (patch.notes !== undefined) form.setFieldValue('notes', patch.notes);
 			setReplyJson('');
 			if (patch.primary !== undefined || patch.notes !== undefined) setCopyTab('copy');
 			snack.success('Filled from the reply — review and save.');
@@ -853,144 +868,126 @@ function GoalForm({
 		}
 	}
 
-	async function onSubmit(e: React.FormEvent) {
-		e.preventDefault();
-		setBusy(true);
-		try {
-			const res = await saveActiveGoal({
-				data: {
-					id: initial?.id,
-					name,
-					date,
-					distance_km: Number(distance),
-					sport,
-					time_goal: timeGoal,
-					bib_number: bib,
-					wave,
-					start_time: startTime,
-					primary: primary.split('\n'),
-					notes,
-					url,
-					itinerary_url: itineraryUrl,
-					plan_start: mondayIso(planStart)
-				}
-			});
-			if (res.isActive) {
-				snack.success(`Saved — ${weeks} week plan through race day.`);
-			} else {
-				snack.success(`Saved — later on the calendar. Training stays on ${res.activeName}.`);
-			}
-			await onSaved();
-		} catch (err) {
-			snack.error(errorMessage(err, 'Could not save the goal.'));
-		} finally {
-			setBusy(false);
-		}
-	}
-
 	return (
-		<form className={cn(ui.form, initial ? 'pt-3 border-t border-line' : '')} onSubmit={onSubmit}>
-			<label className={ui.field}>
-				<span className={ui.req}>Race name</span>
-				<input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Amersfoort 10K" />
-			</label>
-			<div className={ui.formGrid}>
-				<label className={ui.field}>
-					<span className={ui.req}>Race date</span>
-					<input
-						type="date"
-						value={date}
-						onChange={(e) => {
-							const next = e.target.value;
-							if (next) setPlanStart((prev) => shiftPlanStartWithRaceDate(prev, date, next));
-							setDate(next);
+		<Form
+			className={initial ? 'pt-3 border-t border-line' : ''}
+			onSubmit={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				void form.handleSubmit();
+			}}
+		>
+			<form.AppField
+				name="name"
+				children={(field) => (
+					<field.TextField label="Race name" required placeholder="Amersfoort 10K" />
+				)}
+			/>
+			<FormGrid>
+				<form.AppField
+					name="date"
+					listeners={{
+						onChange: ({ value }) => {
+							if (!value) return;
+							const prev = lastDate.current;
+							lastDate.current = value;
+							if (prev && prev !== value) {
+								form.setFieldValue(
+									'plan_start',
+									shiftPlanStartWithRaceDate(form.getFieldValue('plan_start'), prev, value)
+								);
+							}
+						}
+					}}
+					children={(field) => <field.TextField label="Race date" required type="date" />}
+				/>
+				<form.AppField
+					name="distance_km"
+					children={(field) => (
+						<field.TextField label="Distance (km)" required type="number" min={0.1} step="0.1" />
+					)}
+				/>
+			</FormGrid>
+			<form.AppField
+				name="sport"
+				children={(field) => (
+					<field.ChipField
+						label="Sport"
+						options={ACTIVITY_TYPES.map((t) => ({
+							value: t,
+							label: sportChipLabel(t, activityLabel(t))
+						}))}
+					/>
+				)}
+			/>
+			<FormGrid>
+				<form.AppField
+					name="time_goal"
+					children={(field) => <field.TextField label="Time goal" placeholder="45:00" />}
+				/>
+				<form.AppField
+					name="bib_number"
+					children={(field) => (
+						<field.TextField label="Bib number" placeholder="e.g. 4821" inputMode="numeric" />
+					)}
+				/>
+			</FormGrid>
+			<FormGrid>
+				<form.AppField
+					name="wave"
+					children={(field) => <field.TextField label="Wave" placeholder="e.g. 2" />}
+				/>
+				<form.AppField
+					name="start_time"
+					children={(field) => <field.TextField label="Start time" type="time" />}
+				/>
+			</FormGrid>
+			<form.Subscribe selector={(s) => [s.values.plan_start, s.values.date] as const}>
+				{([planStart, date]) => (
+					<form.AppField
+						name="plan_start"
+						listeners={{
+							onBlur: ({ value }) => {
+								const monday = mondayIso(value);
+								if (monday !== value) form.setFieldValue('plan_start', monday);
+							}
 						}}
-						required
+						children={(field) => (
+							<field.TextField
+								label="Plan starts (Monday)"
+								required
+								type="date"
+								hint={planStartHint(planStart, date)}
+							/>
+						)}
 					/>
-				</label>
-				<label className={ui.field}>
-					<span className={ui.req}>Distance (km)</span>
-					<input
-						type="number"
-						min={0.1}
-						step="0.1"
-						value={distance}
-						onChange={(e) => setDistance(e.target.value)}
-						required
-					/>
-				</label>
-			</div>
-			<div className={ui.field}>
-				<span>Sport</span>
-				<ChoiceChips
-					aria-label="Goal sport"
-					value={sport}
-					options={ACTIVITY_TYPES.map((t) => ({
-						value: t,
-						label: sportChipLabel(t, activityLabel(t))
-					}))}
-					onChange={setSport}
+				)}
+			</form.Subscribe>
+			<FormGrid>
+				<form.AppField
+					name="url"
+					children={(field) => (
+						<field.TextField
+							label="Race URL"
+							placeholder="https://example.com/race"
+							inputMode="url"
+							autoComplete="url"
+						/>
+					)}
 				/>
-			</div>
-			<div className={ui.formGrid}>
-				<label className={ui.field}>
-					<span>Time goal</span>
-					<input value={timeGoal} onChange={(e) => setTimeGoal(e.target.value)} placeholder="45:00" />
-				</label>
-				<label className={ui.field}>
-					<span>Bib number</span>
-					<input
-						value={bib}
-						onChange={(e) => setBib(e.target.value)}
-						placeholder="e.g. 4821"
-						inputMode="numeric"
-					/>
-				</label>
-			</div>
-			<div className={ui.formGrid}>
-				<label className={ui.field}>
-					<span>Wave</span>
-					<input value={wave} onChange={(e) => setWave(e.target.value)} placeholder="e.g. 2" />
-				</label>
-				<label className={ui.field}>
-					<span>Start time</span>
-					<input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-				</label>
-			</div>
-			<label className={ui.field}>
-				<span className={ui.req}>Plan starts (Monday)</span>
-				<input
-					type="date"
-					value={planStart}
-					onChange={(e) => setPlanStart(e.target.value)}
-					onBlur={() => setPlanStart(mondayIso(planStart))}
-					required
+				<form.AppField
+					name="itinerary_url"
+					children={(field) => (
+						<field.TextField
+							label="Itinerary URL"
+							placeholder="https://maps.app.goo.gl/…"
+							inputMode="url"
+							autoComplete="url"
+						/>
+					)}
 				/>
-				<span className={ui.fieldHint}>{hint}</span>
-			</label>
-			<div className={ui.formGrid}>
-				<label className={ui.field}>
-					<span>Race URL</span>
-					<input
-						value={url}
-						onChange={(e) => setUrl(e.target.value)}
-						placeholder="https://example.com/race"
-						inputMode="url"
-						autoComplete="url"
-					/>
-				</label>
-				<label className={ui.field}>
-					<span>Itinerary URL</span>
-					<input
-						value={itineraryUrl}
-						onChange={(e) => setItineraryUrl(e.target.value)}
-						placeholder="https://maps.app.goo.gl/…"
-						inputMode="url"
-						autoComplete="url"
-					/>
-				</label>
-			</div>
-			<div className={cn(ui.formSection, 'border-t border-line pt-4 grid gap-4')}>
+			</FormGrid>
+			<FormSection className="border-t border-line pt-4 grid gap-4">
 				<SegmentedToggle
 					fill
 					aria-label="Priorities and notes"
@@ -1011,14 +1008,16 @@ function GoalForm({
 				/>
 				{copyTab === 'copy' && (
 					<>
-						<label className={ui.field}>
-							<span>Priorities (one per line)</span>
-							<textarea rows={4} value={primary} onChange={(e) => setPrimary(e.target.value)} />
-						</label>
-						<label className={ui.field}>
-							<span>Notes</span>
-							<textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
-						</label>
+						<form.AppField
+							name="primary"
+							children={(field) => (
+								<field.TextAreaField label="Priorities (one per line)" rows={4} />
+							)}
+						/>
+						<form.AppField
+							name="notes"
+							children={(field) => <field.TextAreaField label="Notes" rows={4} />}
+						/>
 					</>
 				)}
 				{copyTab === 'generate' && (
@@ -1027,78 +1026,71 @@ function GoalForm({
 							Same as Coach: build a prompt from this race plus your last 30 days of activities, copy
 							it to an AI, then paste the JSON back to fill the form.
 						</p>
-						<label className={ui.field}>
-							<span>Anything extra for the prompt? (optional)</span>
-							<textarea
+						<Field label="Anything extra for the prompt? (optional)">
+							<Textarea
 								rows={3}
 								value={extra}
 								onChange={(e) => setExtra(e.target.value)}
 								placeholder="e.g. hilly course, travel the day before, want a conservative first 5k"
 							/>
-						</label>
-						<div className={cn(ui.actions, 'justify-start!')}>
-							<button
-								className={ui.btnPrimary}
-								type="button"
-								onClick={() => void generateBrief()}
-								disabled={briefBusy}
-							>
+						</Field>
+						<Actions className="justify-start!">
+							<Button variant="primary" disabled={briefBusy} onClick={() => void generateBrief()}>
 								<Icon name="sparkle" size={16} />
 								{briefBusy ? 'Building…' : briefText ? 'Regenerate prompt' : 'Generate prompt'}
-							</button>
-						</div>
+							</Button>
+						</Actions>
 						{briefText && (
 							<>
-								<label className={ui.field}>
-									<span>Prompt (editable — tweak before you copy)</span>
-									<textarea
-										className={ui.editor}
+								<Field label="Prompt (editable — tweak before you copy)">
+									<Textarea
+										variant="editor"
 										rows={12}
 										value={briefText}
 										onChange={(e) => setBriefText(e.target.value)}
 									/>
-								</label>
-								<div className={cn(ui.actions, 'justify-start!')}>
-									<button className={ui.btnGhost} type="button" onClick={() => void copyBrief()}>
+								</Field>
+								<Actions className="justify-start!">
+									<Button variant="ghost" onClick={() => void copyBrief()}>
 										<Icon name={copied ? 'check' : 'copy'} size={16} />
 										{copied ? 'Copied' : 'Copy prompt'}
-									</button>
-								</div>
+									</Button>
+								</Actions>
 							</>
 						)}
-						<label className={ui.field}>
-							<span>Paste the JSON your AI returned</span>
-							<textarea
-								className={ui.editor}
+						<Field label="Paste the JSON your AI returned">
+							<Textarea
+								variant="editor"
 								rows={8}
 								value={replyJson}
 								onChange={(e) => setReplyJson(e.target.value)}
 								placeholder='{ "name": "…", "primary": ["…"], "notes": "…" }'
 							/>
-						</label>
-						<div className={cn(ui.actions, 'justify-start!')}>
-							<button
-								className={ui.btnGhost}
-								type="button"
-								onClick={applyReply}
-								disabled={!replyJson.trim()}
-							>
+						</Field>
+						<Actions className="justify-start!">
+							<Button variant="ghost" onClick={applyReply} disabled={!replyJson.trim()}>
 								<Icon name="plus" size={16} />
 								Fill form
-							</button>
-						</div>
+							</Button>
+						</Actions>
 					</>
 				)}
-			</div>
-			<div className={ui.actions}>
-				<button className={ui.btnPrimary} type="submit" disabled={busy}>
-					<Icon name="check" size={16} />
-					{busy ? 'Saving…' : submitLabel}
-				</button>
-				<button className={ui.btnGhost} type="button" onClick={onCancel} disabled={busy}>
-					Cancel
-				</button>
-			</div>
-		</form>
+			</FormSection>
+			<Actions>
+				<form.AppForm>
+					<form.SubmitButton busyLabel="Saving…">
+						<Icon name="check" size={16} />
+						{submitLabel}
+					</form.SubmitButton>
+				</form.AppForm>
+				<form.Subscribe selector={(s) => s.isSubmitting}>
+					{(busy) => (
+						<Button variant="ghost" onClick={onCancel} disabled={busy}>
+							Cancel
+						</Button>
+					)}
+				</form.Subscribe>
+			</Actions>
+		</Form>
 	);
 }

@@ -26,7 +26,9 @@ import { PageHero } from '../components/PageHero';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 import { RouteAttach } from '../components/RouteAttach';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
+import { Actions, Button, Form, Panel, useAppForm } from '../components/ui';
 import { WaypointEditor, type WaypointEditorHandle } from '../components/WaypointEditor';
+import { z } from 'zod';
 
 export const Route = createFileRoute('/routes/$slug')({
 	loader: async ({ params }) => {
@@ -45,10 +47,51 @@ function PlannedRouteDetail() {
 	const snack = useSnackbar();
 	const pathRef = useRef<WaypointEditorHandle>(null);
 	const [editing, setEditing] = useState(false);
-	const [busy, setBusy] = useState(false);
-	const [name, setName] = useState(route.name);
-	const [notes, setNotes] = useState(route.notes);
 	const [pendingDelete, setPendingDelete] = useState(false);
+	const form = useAppForm({
+		defaultValues: { name: route.name, notes: route.notes },
+		validators: {
+			onSubmit: z.object({ name: z.string(), notes: z.string() })
+		},
+		onSubmit: async ({ value }) => {
+			const trimmed = value.name.trim();
+			if (!trimmed) {
+				snack.info('Name this route first.');
+				return;
+			}
+			const path = pathRef.current;
+			const dirty = path?.isDirty() ?? false;
+			const snapshot = path?.snapshot();
+			if (dirty && (!snapshot || snapshot.waypoints.length < 2)) {
+				snack.info('Drop at least two pins — start and end, plus any turns in between.');
+				return;
+			}
+			try {
+				await updatePlannedRoute({
+					data: {
+						slug: route.slug,
+						name: trimmed,
+						notes: value.notes,
+						...(dirty && snapshot
+							? {
+									waypoints: snapshot.waypoints,
+									follow_network: snapshot.followNetwork,
+									network_coords:
+										snapshot.followNetwork && snapshot.networkCoords.length >= 2
+											? snapshot.networkCoords
+											: undefined
+								}
+							: {})
+					}
+				});
+				snack.success('Route saved.');
+				setEditing(false);
+				await router.invalidate();
+			} catch (error) {
+				snack.error(errorMessage(error, 'Save failed'));
+			}
+		}
+	});
 	const editPins = useMemo(
 		() => editablePinsFromPlannedRoute(route.geojson, route.waypoints),
 		[route.geojson, route.waypoints]
@@ -67,64 +110,17 @@ function PlannedRouteDetail() {
 
 	useEffect(() => {
 		if (editing) return;
-		setName(route.name);
-		setNotes(route.notes);
+		form.reset({ name: route.name, notes: route.notes });
 	}, [editing, route.name, route.notes]);
 
 	function startEditing() {
-		setName(route.name);
-		setNotes(route.notes);
+		form.reset({ name: route.name, notes: route.notes });
 		setEditing(true);
 	}
 
 	function cancelEditing() {
-		setName(route.name);
-		setNotes(route.notes);
+		form.reset({ name: route.name, notes: route.notes });
 		setEditing(false);
-	}
-
-	async function save(event: React.FormEvent) {
-		event.preventDefault();
-		if (busy) return;
-		const trimmed = name.trim();
-		if (!trimmed) {
-			snack.info('Name this route first.');
-			return;
-		}
-		const path = pathRef.current;
-		const dirty = path?.isDirty() ?? false;
-		const snapshot = path?.snapshot();
-		if (dirty && (!snapshot || snapshot.waypoints.length < 2)) {
-			snack.info('Drop at least two pins — start and end, plus any turns in between.');
-			return;
-		}
-		setBusy(true);
-		try {
-			await updatePlannedRoute({
-				data: {
-					slug: route.slug,
-					name: trimmed,
-					notes,
-					...(dirty && snapshot
-						? {
-								waypoints: snapshot.waypoints,
-								follow_network: snapshot.followNetwork,
-								network_coords:
-									snapshot.followNetwork && snapshot.networkCoords.length >= 2
-										? snapshot.networkCoords
-										: undefined
-							}
-						: {})
-				}
-			});
-			snack.success('Route saved.');
-			setEditing(false);
-			await router.invalidate();
-		} catch (error) {
-			snack.error(errorMessage(error, 'Save failed'));
-		} finally {
-			setBusy(false);
-		}
 	}
 
 	function remove() {
@@ -181,18 +177,29 @@ function PlannedRouteDetail() {
 	return (
 		<>
 			{editing ? (
-				<form onSubmit={save}>
+				<Form
+					onSubmit={(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						void form.handleSubmit();
+					}}
+				>
 					<PageHero
 						variant="route"
 						kicker={kicker}
 						title={
-							<input
-								className="block w-full max-w-[min(28ch,100%)] m-0 px-[0.4rem] py-[0.1rem] border border-dashed border-line rounded-[10px] bg-transparent text-inherit font-inherit focus:border-solid focus:border-accent focus:outline-none"
-								value={name}
-								required
-								aria-label="Route name"
-								disabled={busy}
-								onChange={(event) => setName(event.target.value)}
+							<form.AppField
+								name="name"
+								children={(field) => (
+									<input
+										className="block w-full max-w-[min(28ch,100%)] m-0 px-[0.4rem] py-[0.1rem] border border-dashed border-line rounded-[10px] bg-transparent text-inherit font-inherit focus:border-solid focus:border-accent focus:outline-none"
+										value={field.state.value}
+										required
+										aria-label="Route name"
+										onChange={(event) => field.handleChange(event.target.value)}
+										onBlur={field.handleBlur}
+									/>
+								)}
 							/>
 						}
 					/>
@@ -202,7 +209,6 @@ function PlannedRouteDetail() {
 						<WaypointEditor
 							ref={pathRef}
 							embedded
-							busy={busy}
 							initialWaypoints={editPins}
 							contextTracks={editPins.length >= 2 ? [] : savedTrack}
 							emptyHint="Tap to drop pins along the loop"
@@ -210,28 +216,34 @@ function PlannedRouteDetail() {
 						/>
 					</div>
 
-					<div className={cn(ui.panel, ui.form, 'mb-4')}>
-						<label className={ui.field}>
-							<span>Notes</span>
-							<textarea
-								rows={4}
-								value={notes}
-								disabled={busy}
-								placeholder="Optional — terrain, parking, why you like this loop"
-								onChange={(event) => setNotes(event.target.value)}
-							/>
-						</label>
-					</div>
+					<Panel className="mb-4">
+						<form.AppField
+							name="notes"
+							children={(field) => (
+								<field.TextAreaField
+									label="Notes"
+									rows={4}
+									placeholder="Optional — terrain, parking, why you like this loop"
+								/>
+							)}
+						/>
+					</Panel>
 
-					<div className={cn(ui.actions, ui.stickyActions)}>
-						<button className={ui.btnGhost} type="button" disabled={busy} onClick={cancelEditing}>
-							Cancel
-						</button>
-						<button className={cn(ui.btnPrimary, ui.stickyPrimary)} type="submit" disabled={busy}>
-							{busy ? 'Saving…' : 'Save changes'}
-						</button>
-					</div>
-				</form>
+					<Actions sticky>
+						<form.Subscribe selector={(s) => s.isSubmitting}>
+							{(busy) => (
+								<Button variant="ghost" disabled={busy} onClick={cancelEditing}>
+									Cancel
+								</Button>
+							)}
+						</form.Subscribe>
+						<form.AppForm>
+							<form.SubmitButton busyLabel="Saving…" stickyPrimary>
+								Save changes
+							</form.SubmitButton>
+						</form.AppForm>
+					</Actions>
+				</Form>
 			) : (
 				<div className="max-sm:flex max-sm:flex-col">
 					<PageHero

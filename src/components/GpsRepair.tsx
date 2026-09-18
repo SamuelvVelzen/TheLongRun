@@ -7,8 +7,9 @@ import { cn, ui } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { errorMessage, useSnackbar } from './Snackbar';
-import { Select } from './Select';
+import { Button, useAppForm } from './ui';
 import { WaypointEditor } from './WaypointEditor';
+import { z } from 'zod';
 
 export type GpsRepairRouteOption = {
 	slug: string;
@@ -62,8 +63,26 @@ export function GpsRepair({
 	const snack = useSnackbar();
 	const [editing, setEditing] = useState(() => Boolean(groupedSessionId));
 	const [busy, setBusy] = useState(false);
-	const [plannedSlug, setPlannedSlug] = useState(plannedRoute?.slug ?? '');
 	const [showPlanned, setShowPlanned] = useState(false);
+	const plannedForm = useAppForm({
+		defaultValues: { plannedSlug: plannedRoute?.slug ?? '' },
+		validators: { onSubmit: z.object({ plannedSlug: z.string().min(1, 'Pick a saved route first.') }) },
+		onSubmit: async ({ value }) => {
+			if (busy) return;
+			setBusy(true);
+			try {
+				const result = await repairRunGps({
+					data: { slug, planned_slug: value.plannedSlug }
+				});
+				snack.success(`Saved a ${result.points}-point GPS track.`);
+				await router.invalidate();
+			} catch (error) {
+				snack.error(errorMessage(error, 'Could not save GPS'));
+			} finally {
+				setBusy(false);
+			}
+		}
+	});
 
 	const missing = gps.issues.includes('missing');
 
@@ -87,26 +106,6 @@ export function GpsRepair({
 					network_coords:
 						data.followNetwork && data.networkCoords.length >= 2 ? data.networkCoords : undefined
 				}
-			});
-			snack.success(`Saved a ${result.points}-point GPS track.`);
-			await router.invalidate();
-		} catch (error) {
-			snack.error(errorMessage(error, 'Could not save GPS'));
-		} finally {
-			setBusy(false);
-		}
-	}
-
-	async function savePlanned() {
-		if (busy) return;
-		if (!plannedSlug) {
-			snack.info('Pick a saved route first.');
-			return;
-		}
-		setBusy(true);
-		try {
-			const result = await repairRunGps({
-				data: { slug, planned_slug: plannedSlug }
 			});
 			snack.success(`Saved a ${result.points}-point GPS track.`);
 			await router.invalidate();
@@ -175,36 +174,39 @@ export function GpsRepair({
 								{showPlanned ? 'Hide saved routes' : 'Use a saved planned route instead'}
 							</button>
 							{showPlanned && (
-								<div className="mt-3 grid gap-3">
-									<label className={ui.field}>
-										<span>Planned route</span>
-										<Select
-											value={plannedSlug}
-											disabled={busy}
-											aria-label="Planned route"
-											placeholder="Choose a route…"
-											onChange={setPlannedSlug}
-											options={[
-												{ value: '', label: 'Choose a route…' },
-												...repairRoutes.map((route) => ({
+								<form
+									className="mt-3 grid gap-3"
+									onSubmit={(e) => {
+										e.preventDefault();
+										e.stopPropagation();
+										void plannedForm.handleSubmit();
+									}}
+								>
+									<plannedForm.AppField
+										name="plannedSlug"
+										children={(field) => (
+											<field.SelectField
+												label="Planned route"
+												placeholder="Choose a route…"
+												options={repairRoutes.map((route) => ({
 													value: route.slug,
 													label:
 														route.distance_km != null
 															? `${route.name} · ${route.distance_km} km`
 															: route.name
-												}))
-											]}
-										/>
-									</label>
-									<button
-										className={cn(ui.btnGhost, ui.btnSm)}
-										type="button"
-										disabled={busy || !plannedSlug}
-										onClick={() => void savePlanned()}
+												}))}
+											/>
+										)}
+									/>
+									<Button
+										variant="ghost"
+										size="sm"
+										type="submit"
+										disabled={busy}
 									>
 										Build track from route
-									</button>
-								</div>
+									</Button>
+								</form>
 							)}
 						</div>
 					)}

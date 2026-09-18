@@ -19,8 +19,10 @@ import {
 import { cn, ui } from '$lib/ui';
 import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import { z } from 'zod';
 import { ConfirmDialog } from './Dialog';
 import { errorMessage, useSnackbar } from './Snackbar';
+import { Actions, Button, Form, useAppForm } from './ui';
 
 function ItemRow({
 	name,
@@ -112,20 +114,8 @@ function KindSection({
 	onRemove: (name: string) => void;
 }) {
 	const meta = gearMeta(kind);
-	const [newName, setNewName] = useState('');
-	const [notes, setNotes] = useState(catalog.notes);
 	const rotationRest = catalog.rotation.filter((n) => gearKey(n) !== gearKey(catalog.active));
 	const unknown = unknownLoggedGear(catalog, wear);
-
-	useEffect(() => {
-		setNotes(catalog.notes);
-	}, [catalog.notes]);
-
-	function addNamed(n: string) {
-		void onPersist(addGear(catalog, n), `Added ${n}`).then((ok) => {
-			if (ok) setNewName('');
-		});
-	}
 
 	return (
 		<div className="mt-5 first:mt-0">
@@ -223,56 +213,18 @@ function KindSection({
 
 			{authed && (
 				<>
-					<div className="flex gap-[0.4rem] items-end mt-4">
-						<label className={cn(ui.field, 'flex-1 min-w-0')}>
-							<span>{meta.addLabel}</span>
-							<input
-								value={newName}
-								placeholder={meta.addPlaceholder}
-								disabled={busy}
-								onChange={(e) => setNewName(e.target.value)}
-								onKeyDown={(e) => {
-									if (e.key === 'Enter') {
-										e.preventDefault();
-										const n = newName.trim();
-										if (n) addNamed(n);
-									}
-								}}
-							/>
-						</label>
-						<button
-							type="button"
-							className={cn(ui.btnPrimary, ui.btnSm, 'mb-[0.05rem]')}
-							disabled={busy || !newName.trim()}
-							onClick={() => {
-								const n = newName.trim();
-								if (n) addNamed(n);
-							}}
-						>
-							Add
-						</button>
-					</div>
-
-					<label className={cn(ui.field, 'mt-3')}>
-						<span>Notes</span>
-						<textarea
-							rows={2}
-							value={notes}
-							disabled={busy}
-							placeholder={meta.notesPlaceholder}
-							onChange={(e) => setNotes(e.target.value)}
-						/>
-					</label>
-					<div className={ui.actions}>
-						<button
-							type="button"
-							className={ui.btnGhost}
-							disabled={busy || notes === catalog.notes}
-							onClick={() => void onPersist({ ...catalog, notes }, `Saved ${meta.label.toLowerCase()} notes`)}
-						>
-							Save notes
-						</button>
-					</div>
+					<AddGearForm
+						addLabel={meta.addLabel}
+						placeholder={meta.addPlaceholder}
+						busy={busy}
+						onAdd={(n) => onPersist(addGear(catalog, n), `Added ${n}`)}
+					/>
+					<GearNotesForm
+						notes={catalog.notes}
+						placeholder={meta.notesPlaceholder}
+						busy={busy}
+						onSave={(next) => onPersist({ ...catalog, notes: next }, `Saved ${meta.label.toLowerCase()} notes`)}
+					/>
 				</>
 			)}
 
@@ -365,5 +317,108 @@ export function GearInventory({
 				}}
 			/>
 		</div>
+	);
+}
+
+const addGearSchema = z.object({ name: z.string().trim().min(1) });
+
+function AddGearForm({
+	addLabel,
+	placeholder,
+	busy,
+	onAdd
+}: {
+	addLabel: string;
+	placeholder: string;
+	busy: boolean;
+	onAdd: (name: string) => Promise<boolean>;
+}) {
+	const form = useAppForm({
+		defaultValues: { name: '' },
+		validators: { onSubmit: addGearSchema },
+		onSubmit: async ({ value }) => {
+			const ok = await onAdd(value.name.trim());
+			if (ok) form.reset();
+		}
+	});
+
+	return (
+		<form
+			className="flex gap-[0.4rem] items-end mt-4"
+			onSubmit={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				void form.handleSubmit();
+			}}
+		>
+			<form.AppField
+				name="name"
+				children={(field) => (
+					<field.TextField
+						label={addLabel}
+						placeholder={placeholder}
+						disabled={busy}
+						className="flex-1 min-w-0"
+					/>
+				)}
+			/>
+			<form.AppForm>
+				<form.SubmitButton className={cn(ui.btnSm, 'mb-[0.05rem]')}>Add</form.SubmitButton>
+			</form.AppForm>
+		</form>
+	);
+}
+
+function GearNotesForm({
+	notes,
+	placeholder,
+	busy,
+	onSave
+}: {
+	notes: string;
+	placeholder: string;
+	busy: boolean;
+	onSave: (notes: string) => Promise<boolean>;
+}) {
+	const form = useAppForm({
+		defaultValues: { notes },
+		onSubmit: async ({ value }) => {
+			await onSave(value.notes);
+		}
+	});
+
+	useEffect(() => {
+		form.reset({ notes });
+	}, [notes]);
+
+	return (
+		<Form
+			className="mt-3"
+			onSubmit={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				void form.handleSubmit();
+			}}
+		>
+			<form.AppField
+				name="notes"
+				children={(field) => (
+					<field.TextAreaField label="Notes" rows={2} disabled={busy} placeholder={placeholder} />
+				)}
+			/>
+			<form.Subscribe selector={(s) => s.values.notes}>
+				{(value) =>
+					value !== notes ? (
+						<Actions>
+							<form.AppForm>
+								<form.SubmitButton variant="ghost">
+									Save notes
+								</form.SubmitButton>
+							</form.AppForm>
+						</Actions>
+					) : null
+				}
+			</form.Subscribe>
+		</Form>
 	);
 }

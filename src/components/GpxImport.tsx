@@ -7,8 +7,8 @@ import { BestEffortBadges } from './BestEffortBadges';
 import { DeleteButton } from './DeleteButton';
 import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
-import { Select } from './Select';
 import { errorMessage, useSnackbar } from './Snackbar';
+import { Actions, Button, Form, useAppForm } from './ui';
 
 export type GpxImportResult = {
 	name: string;
@@ -35,8 +35,13 @@ export function GpxImport({
 	const [busy, setBusy] = useState(false);
 	const [progress, setProgress] = useState('');
 	const [results, setResults] = useState<GpxImportResult[]>([]);
-	const [activityType, setActivityType] = useState('');
 	const [pendingFile, setPendingFile] = useState<string | null>(null);
+	const form = useAppForm({
+		defaultValues: { activityType: '' },
+		onSubmit: async ({ value }) => {
+			await runImport(value.activityType);
+		}
+	});
 
 	function addFiles(list: FileList | null) {
 		if (!list) return;
@@ -51,7 +56,7 @@ export function GpxImport({
 		setFiles((prev) => prev.filter((f) => f.name !== name));
 	}
 
-	async function onImport() {
+	async function runImport(activityType: string) {
 		if (!files.length) return;
 		setBusy(true);
 		setResults([]);
@@ -170,41 +175,48 @@ export function GpxImport({
 				</ul>
 			)}
 
-			<label className={ui.field}>
-				<span>Activity type</span>
-				<Select
-					value={activityType}
-					onChange={setActivityType}
-					disabled={busy}
-					aria-label="Activity type"
-					placeholder="Auto-detect from file"
-					options={[
-						{ value: '', label: 'Auto-detect from file' },
-						...ACTIVITY_TYPES.map((t) => ({
-							value: t,
-							label: activityLabel(t)
-						}))
-					]}
-				/>
-			</label>
+			<Form
+				onSubmit={(e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					if (!files.length) return;
+					void form.handleSubmit();
+				}}
+			>
+			<form.AppField
+				name="activityType"
+				children={(field) => (
+					<field.SelectField
+						label="Activity type"
+						placeholder="Auto-detect from file"
+						options={[
+							{ value: '', label: 'Auto-detect from file' },
+							...ACTIVITY_TYPES.map((t) => ({
+								value: t,
+								label: activityLabel(t)
+							}))
+						]}
+					/>
+				)}
+			/>
 
-			<div className={ui.actions}>
-				<button
-					className={ui.btnPrimary}
-					type="button"
-					onClick={onImport}
-					disabled={busy || files.length === 0}
-				>
-					{busy
-						? progress || 'Importing…'
-						: (
-							<>
-								<Icon name="upload" size={16} />
-								{`Import ${files.length || ''} ${files.length === 1 ? 'file' : 'files'}`.trim()}
-							</>
-						)}
-				</button>
-			</div>
+			<Actions>
+				<form.Subscribe selector={(s) => s.isSubmitting}>
+					{(submitting) => (
+						<Button type="submit" variant="primary" disabled={submitting || files.length === 0}>
+							{submitting
+								? progress || 'Importing…'
+								: (
+									<>
+										<Icon name="upload" size={16} />
+										{`Import ${files.length || ''} ${files.length === 1 ? 'file' : 'files'}`.trim()}
+									</>
+								)}
+						</Button>
+					)}
+				</form.Subscribe>
+			</Actions>
+			</Form>
 
 			{results.length > 0 && (
 				<div className="mt-4">

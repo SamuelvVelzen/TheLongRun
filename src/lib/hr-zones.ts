@@ -52,6 +52,35 @@ function bandShell(hrMax: number): HrZoneBand[] {
 	}));
 }
 
+/** Saved HRmax if set; otherwise the highest peak logged across activities. */
+export function resolveHrMax(
+	hrMaxManual: number | null | undefined,
+	hrMaxAllTime: number | null | undefined
+): { hrMax: number; source: Exclude<HrZoneSource, 'activity'> } | null {
+	if (hrMaxManual != null && hrMaxManual > 0) return { hrMax: Math.round(hrMaxManual), source: 'profile' };
+	if (hrMaxAllTime != null && hrMaxAllTime > 0) return { hrMax: Math.round(hrMaxAllTime), source: 'alltime' };
+	return null;
+}
+
+/** Time-in-zone against saved / all-time HRmax — never a single activity’s peak. */
+export function zonesFromEffectiveMax(opts: {
+	hrMaxManual?: number | null;
+	hrMaxAllTime?: number | null;
+	avgHr?: number | null;
+	samples?: { timeMs: number; hr: number }[];
+}): HrZoneSummary | null {
+	const resolved = resolveHrMax(opts.hrMaxManual, opts.hrMaxAllTime);
+	if (!resolved) return null;
+	const samples = opts.samples ?? [];
+	if (opts.avgHr == null && samples.length < 2) return null;
+	return buildHrZoneSummary({
+		hrMax: resolved.hrMax,
+		source: resolved.source,
+		avgHr: opts.avgHr,
+		samples
+	});
+}
+
 /**
  * Build HR zone summary.
  * Prefer athlete profile max when provided; else use activity max_hr.

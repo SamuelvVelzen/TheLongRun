@@ -50,7 +50,6 @@ import {
     trackDistanceMeters
 } from '$lib/gps-repair';
 import { combineRunStats, groupedSessionTitle, sortGroupMembers } from '$lib/group';
-import { buildHrZoneSummary } from '$lib/hr-zones';
 import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import {
     buildWeekView,
@@ -85,6 +84,7 @@ import {
     analyticsFromProperties,
     analyticsToProperties,
     computeRouteAnalytics,
+    withEffectiveHrZones,
     type RouteAnalytics
 } from '$lib/splits';
 import {
@@ -423,17 +423,11 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 		// (never just this one run's noisy peak). Time-in-zone needs the stored per-point HR
 		// series — present for newer imports, absent for older ones (falls back to avg-zone).
 		const hrMaxManual = settings.hrMax;
-		const hrMaxEffective = hrMaxManual ?? allTimeMaxHr ?? null;
-		let out = analytics as RouteAnalytics | null;
-		if (hrMaxEffective && (run.avg_hr != null || (out?.hrSamples?.length ?? 0) > 0)) {
-			const hrZones = buildHrZoneSummary({
-				hrMax: hrMaxEffective,
-				source: hrMaxManual != null ? 'profile' : 'alltime',
-				avgHr: run.avg_hr,
-				samples: (out?.hrSamples ?? []).map((s) => ({ timeMs: s.t * 1000, hr: s.hr }))
-			});
-			out = out ? { ...out, hrZones } : { splits: [], kmMarkers: [], hrZones };
-		}
+		const out = withEffectiveHrZones(analytics, {
+			avgHr: run.avg_hr,
+			hrMaxManual,
+			hrMaxAllTime: allTimeMaxHr
+		});
 
 		const groupOptions = allRuns
 			.filter((r) => r.slug !== slug)
@@ -1071,11 +1065,20 @@ function formatKmSplitsLines(splits: RouteAnalytics['splits']): string[] {
 
 function formatHrZonesLine(analytics: RouteAnalytics | null): string {
 	const zones = analytics?.hrZones;
-	const dist = zones?.distribution;
-	if (!zones || !dist?.length) return '';
-	const bits = dist.filter((z) => z.pct > 0).map((z) => `Z${z.zone} ${z.pct}%`);
-	if (!bits.length) return '';
-	return `HR zones (HRmax ${zones.hrMax}): ${bits.join(' · ')}`;
+	if (!zones) return '';
+	const source =
+		zones.source === 'profile'
+			? 'saved'
+			: zones.source === 'alltime'
+				? 'all-time max'
+				: "this activity's max";
+	const head = `HR zones (HRmax ${zones.hrMax}, ${source})`;
+	const bits = (zones.distribution ?? []).filter((z) => z.pct > 0).map((z) => `Z${z.zone} ${z.pct}%`);
+	if (bits.length) return `${head}: ${bits.join(' · ')}`;
+	if (zones.avgZone != null && zones.avgHr != null) {
+		return `${head}: avg ${zones.avgHr} → Z${zones.avgZone}`;
+	}
+	return '';
 }
 
 function formatBestEffortsLine(r: RunRecord): string {
@@ -1303,13 +1306,14 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 	})
 	.handler(async ({ data }) => {
 		const { slug, includePlan } = data;
-		const [allRuns, week, injury, settings, training, gearInventory] = await Promise.all([
+		const [allRuns, week, injury, settings, training, gearInventory, allTimeMaxHr] = await Promise.all([
 			listRuns(),
 			currentPlanWeek(),
 			readContextFile('injury.md'),
 			loadSettings(),
 			loadTrainingContext(),
-			loadGear()
+			loadGear(),
+			getMaxHrAllTime()
 		]);
 		const { goals } = training.store;
 		const { calendar } = training;
@@ -1346,7 +1350,14 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			};
 		}
 
-		const featuredAnalytics = await Promise.all(featured.map((r) => loadRouteAnalytics(r)));
+		const storedAnalytics = await Promise.all(featured.map((r) => loadRouteAnalytics(r)));
+		const featuredAnalytics = featured.map((r, i) =>
+			withEffectiveHrZones(storedAnalytics[i] ?? null, {
+				avgHr: r.avg_hr,
+				hrMaxManual: settings.hrMax,
+				hrMaxAllTime: allTimeMaxHr
+			})
+		);
 
 		const weekRuns = weekStart
 			? allRuns
@@ -1979,21 +1990,18 @@ export const getGroupDetail = createServerFn({ method: 'GET' })
 		const parts = await tracksForMembers(members);
 		const stats = combineRunStats(members);
 		const hrMaxManual = settings.hrMax;
-		const hrMaxEffective = hrMaxManual ?? allTimeMaxHr ?? null;
-		let analytics = combinedAnalytics(parts, {
-			avgHr: stats.avg_hr,
-			maxHr: stats.max_hr,
-			profileMaxHr: hrMaxEffective
-		});
-		if (hrMaxEffective && analytics) {
-			const hrZones = buildHrZoneSummary({
-				hrMax: hrMaxEffective,
-				source: hrMaxManual != null ? 'profile' : 'alltime',
+		const analytics = withEffectiveHrZones(
+			combinedAnalytics(parts, {
 				avgHr: stats.avg_hr,
-				samples: (analytics.hrSamples ?? []).map((s) => ({ timeMs: s.t * 1000, hr: s.hr }))
-			});
-			analytics = { ...analytics, hrZones };
-		}
+				maxHr: stats.max_hr,
+				profileMaxHr: hrMaxManual ?? allTimeMaxHr
+			}),
+			{
+				avgHr: stats.avg_hr,
+				hrMaxManual,
+				hrMaxAllTime: allTimeMaxHr
+			}
+		);
 		const segments = members.map((run, i) => {
 			const points = parts[i] ?? [];
 			return {

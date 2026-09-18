@@ -1,5 +1,5 @@
 import { formatPace } from '$lib/format';
-import { buildHrZoneSummary, type HrZoneSummary } from '$lib/hr-zones';
+import { buildHrZoneSummary, zonesFromEffectiveMax, type HrZoneSummary } from '$lib/hr-zones';
 
 export interface TrackSample {
 	lat: number;
@@ -295,4 +295,23 @@ export function analyticsFromProperties(props: unknown): RouteAnalytics | null {
 		: [];
 	if (!splits.length && !kmMarkers.length && !hrZones && !hrSamples.length) return null;
 	return { splits, hrZones, kmMarkers, hrSamples };
+}
+
+/** Replace stored (often activity-max) zones with saved / all-time HRmax. */
+export function withEffectiveHrZones(
+	analytics: RouteAnalytics | null,
+	opts: {
+		avgHr?: number | null;
+		hrMaxManual?: number | null;
+		hrMaxAllTime?: number | null;
+	}
+): RouteAnalytics | null {
+	const hrZones = zonesFromEffectiveMax({
+		hrMaxManual: opts.hrMaxManual,
+		hrMaxAllTime: opts.hrMaxAllTime,
+		avgHr: opts.avgHr,
+		samples: (analytics?.hrSamples ?? []).map((s) => ({ timeMs: s.t * 1000, hr: s.hr }))
+	});
+	if (!hrZones) return analytics;
+	return analytics ? { ...analytics, hrZones } : { splits: [], kmMarkers: [], hrZones };
 }

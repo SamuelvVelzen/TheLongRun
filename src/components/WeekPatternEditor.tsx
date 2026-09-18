@@ -1,5 +1,6 @@
+import { buttonClass, fieldClass, fieldHintClass } from './ui';
 import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import {
 	compactSlot,
 	MAX_WEEK_SLOTS,
@@ -245,7 +246,7 @@ export function WeekPatternEditor({
 	return (
 		<div className="grid gap-3 mt-[0.45rem]">
 			{grouped.length === 0 && (
-				<p className={cn(ui.muted, 'm-0')}>No sessions yet — add the days you usually train.</p>
+				<p className={cn('text-muted', 'm-0')}>No sessions yet — add the days you usually train.</p>
 			)}
 			{grouped.map((group) => (
 				<div key={group.day} className="grid gap-[0.4rem]">
@@ -327,7 +328,7 @@ export function WeekPatternEditor({
 										</div>
 									</div>
 									{editingNote && (
-										<label className={cn(ui.field, 'relative z-[1] px-3 pb-2.5')}>
+										<label className={cn(fieldClass, 'relative z-[1] px-3 pb-2.5')}>
 											<textarea
 												ref={noteRef}
 												rows={2}
@@ -356,7 +357,7 @@ export function WeekPatternEditor({
 				</div>
 			))}
 			<button
-				className={ui.btnGhost}
+				className={buttonClass({ variant: 'ghost' })}
 				type="button"
 				disabled={disabled || atCap}
 				onClick={openAdd}
@@ -372,10 +373,10 @@ export function WeekPatternEditor({
 				onClose={() => setDraft(null)}
 				actions={
 					<>
-						<button className={ui.btnGhost} type="button" onClick={() => setDraft(null)}>
+						<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={() => setDraft(null)}>
 							Cancel
 						</button>
-						<button className={ui.btnPrimary} type="button" onClick={saveDraft} disabled={disabled}>
+						<button className={buttonClass()} type="button" onClick={saveDraft} disabled={disabled}>
 							{editing ? 'Save' : 'Add'}
 						</button>
 					</>
@@ -383,7 +384,7 @@ export function WeekPatternEditor({
 			>
 				{draft && (
 					<div className="grid gap-4">
-						<div className={ui.field}>
+						<div className={fieldClass}>
 							<span>Day</span>
 							<ChoiceChips
 								aria-label="Day"
@@ -393,7 +394,7 @@ export function WeekPatternEditor({
 								onChange={(day) => setDraft({ ...draft, day })}
 							/>
 						</div>
-						<div className={ui.field}>
+						<div className={fieldClass}>
 							<span>Activity</span>
 							<ChoiceChips
 								aria-label="Activity"
@@ -403,7 +404,7 @@ export function WeekPatternEditor({
 								onChange={(activity_type) => setDraft({ ...draft, activity_type })}
 							/>
 						</div>
-						<div className={ui.field}>
+						<div className={fieldClass}>
 							<span>For the coach</span>
 							<ChoiceChips
 								aria-label="How the coach may treat this session"
@@ -412,9 +413,9 @@ export function WeekPatternEditor({
 								disabled={disabled}
 								onChange={(constraint) => setDraft({ ...draft, constraint })}
 							/>
-							<span className={ui.fieldHint}>{constraintHint(draft.constraint)}</span>
+							<span className={fieldHintClass}>{constraintHint(draft.constraint)}</span>
 						</div>
-						<label className={ui.field}>
+						<label className={fieldClass}>
 							<span>Notes</span>
 							<textarea
 								rows={3}
@@ -423,7 +424,7 @@ export function WeekPatternEditor({
 								placeholder={notesPlaceholder(draft.constraint)}
 								onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
 							/>
-							<span className={ui.fieldHint}>Copied into the generate and debrief prompts.</span>
+							<span className={fieldHintClass}>Copied into the generate and debrief prompts.</span>
 						</label>
 					</div>
 				)}

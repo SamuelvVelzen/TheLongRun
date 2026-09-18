@@ -1,7 +1,7 @@
 import { useAuthed } from '$lib/auth';
 import { getContextData, saveContextFile } from '$lib/server/functions';
 import { appHead } from '$lib/title';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
@@ -9,7 +9,7 @@ import { GearInventory } from '../components/GearInventory';
 import { Icon } from '../components/Icon';
 import { PageHero } from '../components/PageHero';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, Button, Form, useAppForm } from '../components/ui';
+import { Actions, Button, Form, useAppForm, panelClass, gridClass } from '../components/ui';
 import { z } from 'zod';
 
 export const Route = createFileRoute('/context')({
@@ -73,19 +73,19 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 		<>
 			<GearInventory initial={data.gear} wear={data.gearWear} authed={authed} />
 
-			<div className={ui.grid}>
+			<div className={gridClass()}>
 				{data.files.map((file) => (
 					<details
 						key={file.name}
 						id={`ctx-${file.name}`}
-						className={ui.panel}
+						className={panelClass()}
 						open={openName === file.name || editing === file.name}
 					>
 						<summary className="cursor-pointer list-none flex flex-wrap items-baseline gap-x-3 gap-y-[0.45rem] min-h-11 [&::-webkit-details-marker]:hidden">
 							<span className="font-display text-[1.15rem] max-sm:text-[1.05rem] max-sm:[overflow-wrap:anywhere]">
 								{file.title}
 							</span>
-							<span className={cn(ui.muted, 'text-[0.85rem] max-sm:flex-[1_1_100%] max-sm:text-[0.8rem] max-sm:[overflow-wrap:anywhere] max-sm:break-words')}>
+							<span className={cn('text-muted', 'text-[0.85rem] max-sm:flex-[1_1_100%] max-sm:text-[0.8rem] max-sm:[overflow-wrap:anywhere] max-sm:break-words')}>
 								data/context/{file.name}
 							</span>
 						</summary>

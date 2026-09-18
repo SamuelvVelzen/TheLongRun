@@ -1,3 +1,4 @@
+import { statusPillClass } from './ui';
 import { activityLabel } from '$lib/activity';
 import {
     sessionMeasureLabel,
@@ -7,7 +8,7 @@ import {
     type WeekView
 } from '$lib/plan';
 import type { SessionRouteRef } from '$lib/types';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { ActivityIcon, Icon } from './Icon';
@@ -38,7 +39,7 @@ function StatusBadge({
 }) {
 	if (done) {
 		return (
-			<span className={cn(ui.statusPill, 'text-ok border border-[rgba(125,255,168,0.35)] bg-ok/10')}>
+			<span className={statusPillClass('text-ok border border-[rgba(125,255,168,0.35)] bg-ok/10')}>
 				<Icon name="check" size={11} />
 				Completed
 			</span>
@@ -46,7 +47,7 @@ function StatusBadge({
 	}
 	if (skipped) {
 		return (
-			<span className={cn(ui.statusPill, 'text-muted border border-line bg-inset')}>
+			<span className={statusPillClass('text-muted border border-line bg-inset')}>
 				<Icon name="skip" size={11} />
 				Skipped
 			</span>
@@ -55,8 +56,7 @@ function StatusBadge({
 	if (unlogged) {
 		return (
 			<span
-				className={cn(
-					ui.statusPill,
+				className={statusPillClass(
 					'text-muted border border-dashed border-line bg-inset'
 				)}
 			>
@@ -68,8 +68,7 @@ function StatusBadge({
 	if (isNext) {
 		return (
 			<span
-				className={cn(
-					ui.statusPill,
+				className={statusPillClass(
 					'text-accent-ink bg-accent border border-accent'
 				)}
 			>
@@ -81,8 +80,7 @@ function StatusBadge({
 	if (isToday) {
 		return (
 			<span
-				className={cn(
-					ui.statusPill,
+				className={statusPillClass(
 					'text-accent-fg border border-accent/40 bg-accent/8'
 				)}
 			>
@@ -97,8 +95,7 @@ function StatusBadge({
 function UnplannedBadge() {
 	return (
 		<span
-			className={cn(
-				ui.statusPill,
+			className={statusPillClass(
 				'text-accent-fg border border-dashed border-accent/45 bg-accent/6'
 			)}
 		>
@@ -248,7 +245,7 @@ export function WeekPlanBoard({
 		<section className="mb-5" aria-labelledby="week-plan-heading">
 			<div className="mb-3 [&_h2]:text-[1.2rem] [&_h2]:font-bold [&_h2]:m-0 [&_p]:mt-1 [&_p]:mb-0 [&_p]:text-[0.92rem]">
 				<h2 id="week-plan-heading">{title ?? `Week ${view.week.week}`}</h2>
-				<p className={ui.muted}>
+				<p className={'text-muted'}>
 					{[view.week.dates, view.week.phase, view.week.focus].filter(Boolean).join(' · ')}
 					{view.unplanned.length
 						? ` · ${view.unplanned.length} unplanned logged`
@@ -294,13 +291,13 @@ export function WeekPlanBoard({
 										{group.day}
 									</p>
 									{group.date && (
-										<p className={cn(ui.muted, 'm-0 mt-[0.15rem] text-[0.82rem]')}>
+										<p className={cn('text-muted', 'm-0 mt-[0.15rem] text-[0.82rem]')}>
 											{shortDate(group.date)}
 										</p>
 									)}
 								</div>
 								{group.sessions.length + group.unplanned.length > 1 && (
-									<span className={cn(ui.muted, 'text-[0.78rem]')}>
+									<span className={cn('text-muted', 'text-[0.78rem]')}>
 										{group.sessions.length + group.unplanned.length} sessions
 									</span>
 								)}

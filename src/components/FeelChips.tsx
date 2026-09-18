@@ -1,4 +1,5 @@
-import { cn, ui } from '$lib/ui';
+import { fieldClass } from './ui';
+import { cn } from '$lib/ui';
 import { useState } from 'react';
 
 function range(min: number, max: number): number[] {
@@ -49,7 +50,7 @@ export function FeelChips({
 	}
 
 	return (
-		<div className={cn(ui.field, 'col-span-full')}>
+		<div className={cn(fieldClass, 'col-span-full')}>
 			<span>{label}</span>
 			{name != null ? <input type="hidden" name={name} value={selected ?? ''} /> : null}
 			<div
@@ -114,7 +115,7 @@ export function WantedFasterChips({
 	}
 
 	return (
-		<div className={cn(ui.field, 'col-span-full')}>
+		<div className={cn(fieldClass, 'col-span-full')}>
 			<span>Wanted to go faster?</span>
 			{name != null ? <input type="hidden" name={name} value={value} /> : null}
 			<div

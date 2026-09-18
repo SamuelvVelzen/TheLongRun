@@ -3,11 +3,11 @@ import type { GpsContextTrack, GpsHealth } from '$lib/gps-repair';
 import { samplesFromGeoJson } from '$lib/gps-repair';
 import { getRouteGeoJsonFn, repairRunGps } from '$lib/server/functions';
 import type { SessionRouteRef } from '$lib/types';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { errorMessage, useSnackbar } from './Snackbar';
-import { Button, useAppForm } from './ui';
+import { Button, useAppForm, buttonClass, panelClass } from './ui';
 import { WaypointEditor } from './WaypointEditor';
 import { z } from 'zod';
 
@@ -121,16 +121,16 @@ export function GpsRepair({
 	if (!missing) return null;
 
 	return (
-		<div className={cn(ui.panel, 'mb-4')}>
+		<div className={panelClass('mb-4')}>
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div className="min-w-0">
 					<h3 className="m-0">GPS</h3>
-					<p className={cn(ui.muted, 'm-0 mt-[0.3rem]')}>{gps.summary}</p>
+					<p className={cn('text-muted', 'm-0 mt-[0.3rem]')}>{gps.summary}</p>
 				</div>
 				<div className="flex flex-wrap gap-2">
 					{authed && !editing && (
 						<button
-							className={cn(ui.btnPrimary, ui.btnSm)}
+							className={buttonClass({ size: 'sm' })}
 							type="button"
 							onClick={() => setEditing(true)}
 						>
@@ -141,7 +141,7 @@ export function GpsRepair({
 			</div>
 
 			{groupedSessionId && (
-				<p className={cn(ui.muted, 'm-0 mt-3 text-[0.92rem]')}>
+				<p className={cn('text-muted', 'm-0 mt-3 text-[0.92rem]')}>
 					This is one part of a{' '}
 					<Link className="text-accent-fg font-semibold" to="/groups/$id" params={{ id: groupedSessionId }}>
 						grouped session
@@ -167,7 +167,7 @@ export function GpsRepair({
 					{repairRoutes.length > 0 && (
 						<div>
 							<button
-								className={cn(ui.btnGhost, ui.btnSm)}
+								className={buttonClass({ variant: 'ghost', size: 'sm' })}
 								type="button"
 								onClick={() => setShowPlanned((v) => !v)}
 							>
@@ -212,7 +212,7 @@ export function GpsRepair({
 					)}
 				</div>
 			) : authed ? null : (
-				<p className={cn(ui.muted, 'm-0 mt-3 text-[0.92rem]')}>Sign in to add a GPS track with map pins.</p>
+				<p className={cn('text-muted', 'm-0 mt-3 text-[0.92rem]')}>Sign in to add a GPS track with map pins.</p>
 			)}
 		</div>
 	);

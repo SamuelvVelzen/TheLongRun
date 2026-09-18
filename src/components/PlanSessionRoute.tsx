@@ -1,8 +1,9 @@
+import { buttonClass, fieldClass } from './ui';
 import { useAuthed } from '$lib/auth';
 import { sessionCanLinkRoute, type WeekSessionView } from '$lib/plan';
 import { attachPlannedRoute, detachPlannedRoute } from '$lib/server/functions';
 import type { SessionRouteRef } from '$lib/types';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { ConfirmDialog, Dialog } from './Dialog';
@@ -89,11 +90,7 @@ export function PlanSessionRoute({
 					{authed && linked.link_id != null && (
 						<button
 							type="button"
-							className={cn(
-								ui.btnGhost,
-								ui.btnDanger,
-								'shrink-0 min-h-9 px-[0.8rem] py-1.5 text-[0.82rem]'
-							)}
+							className={buttonClass({ variant: 'danger', className: 'shrink-0 min-h-9 px-[0.8rem] py-1.5 text-[0.82rem]' })}
 							disabled={busy}
 							onClick={() => setConfirmUnlink(true)}
 						>
@@ -104,7 +101,7 @@ export function PlanSessionRoute({
 			)}
 			<Dialog open={showPicker} title="Add route to plan" onClose={closePicker}>
 				{choices.length ? (
-					<label className={ui.field}>
+					<label className={fieldClass}>
 						<span>Route</span>
 						<Select
 							disabled={busy}
@@ -137,7 +134,7 @@ export function PlanSessionRoute({
 						/>
 					</label>
 				) : (
-					<p className={cn(ui.muted, 'm-0')}>
+					<p className={cn('text-muted', 'm-0')}>
 						<Link className="text-accent-fg font-semibold" to="/routes">
 							Save a route
 						</Link>{' '}

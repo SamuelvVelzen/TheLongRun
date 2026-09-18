@@ -1,7 +1,8 @@
+import { buttonClass, panelClass, fieldHintClass } from './ui';
 import { formatDuration } from '$lib/format';
 import type { HrZoneBand } from '$lib/hr-zones';
 import type { KmSplit, RouteAnalytics } from '$lib/splits';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { useState } from 'react';
 import { ExplainTip, TipBubble, TipCaption, TipValue, usePinnedTip } from './Tip';
 
@@ -73,12 +74,12 @@ export function SplitsPanel({
 	if (!splits.length && !zones) return null;
 
 	return (
-		<div className={cn(ui.panel, 'p-[1.1rem_1.2rem_1.25rem] mb-4')}>
+		<div className={panelClass('p-[1.1rem_1.2rem_1.25rem] mb-4')}>
 			{splits.length > 0 && (
 				<>
 					<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
 						<h3>Pace per km</h3>
-						<p className={cn(ui.muted, 'text-[0.85rem]')}>Computed from GPS + time</p>
+						<p className={cn('text-muted', 'text-[0.85rem]')}>Computed from GPS + time</p>
 					</div>
 					<div className="flex flex-col gap-[0.2rem]" role="table" aria-label="Kilometer splits">
 						<div
@@ -107,10 +108,10 @@ export function SplitsPanel({
 								<span role="cell" className="font-display font-bold text-accent-fg">
 									{split.pace || '—'}
 								</span>
-								<span role="cell" className={ui.muted}>
+								<span role="cell" className={'text-muted'}>
 									{formatDuration(split.seconds) || '—'}
 								</span>
-								<span role="cell" className={ui.muted}>
+								<span role="cell" className={'text-muted'}>
 									{split.avgHr ?? '—'}
 								</span>
 								<span className="flex items-center min-h-[0.55rem]" role="presentation">
@@ -131,7 +132,7 @@ export function SplitsPanel({
 					<div className="flex items-start justify-between gap-3 mb-[0.85rem] flex-wrap">
 						<div>
 							<h3>Heart rate zones</h3>
-							<div className={cn(ui.muted, 'text-[0.85rem]')}>
+							<div className={cn('text-muted', 'text-[0.85rem]')}>
 								% of HRmax {zones.hrMax}{' '}
 								<ExplainTip
 									label={`How HRmax was chosen: ${zoneSourceCopy[zones.source].value}`}
@@ -161,13 +162,13 @@ export function SplitsPanel({
 											if (e.key === 'Escape') setEditingMax(false);
 										}}
 									/>
-									<button type="button" className={cn(ui.btnPrimary, ui.btnSm, 'max-sm:flex-1')} onClick={saveMax}>
+									<button type="button" className={buttonClass({ size: 'sm', className: 'max-sm:flex-1' })} onClick={saveMax}>
 										Save
 									</button>
 									{hrMaxManual != null && (
 										<button
 											type="button"
-											className={cn(ui.btnGhost, ui.btnSm)}
+											className={buttonClass({ variant: 'ghost', size: 'sm' })}
 											onClick={() => {
 												onSaveHrMax(null);
 												setEditingMax(false);
@@ -176,14 +177,14 @@ export function SplitsPanel({
 											{hrMaxAllTime ? `Use ${hrMaxAllTime}` : 'Use activity max'}
 										</button>
 									)}
-									<p className={cn(ui.fieldHint, ui.muted, 'basis-full text-right max-sm:text-left mt-0')}>
+									<p className={cn(fieldHintClass, 'text-muted', 'basis-full text-right max-sm:text-left mt-0')}>
 										Saved HRmax is used for every activity.
 									</p>
 								</div>
 							) : (
 								<button
 									type="button"
-									className={cn(ui.btnGhost, ui.btnSm, 'shrink-0')}
+									className={buttonClass({ variant: 'ghost', size: 'sm', className: 'shrink-0' })}
 									onClick={() => {
 										setMaxInput(String(hrMaxManual ?? zones.hrMax ?? ''));
 										setEditingMax(true);
@@ -212,13 +213,13 @@ export function SplitsPanel({
 												style={{ background: zoneColors[z.zone] }}
 											></span>
 											<strong>Z{z.zone}</strong>
-											<span className={ui.muted}>{z.label}</span>
+											<span className={'text-muted'}>{z.label}</span>
 										</div>
 										<div className="flex items-baseline gap-[0.45rem]">
 											<b className="font-display text-[1.1rem]">{formatDuration(z.seconds) || '0:00'}</b>
-											<span className={cn(ui.muted, 'text-[0.8rem]')}>{z.pct}%</span>
+											<span className={cn('text-muted', 'text-[0.8rem]')}>{z.pct}%</span>
 										</div>
-										<p className={cn(ui.muted, 'text-[0.75rem] mt-[0.15rem]')}>
+										<p className={cn('text-muted', 'text-[0.75rem] mt-[0.15rem]')}>
 											{z.minBpm}–{z.maxBpm} bpm
 										</p>
 									</div>

@@ -9,7 +9,7 @@ import {
 	type GearWear
 } from '$lib/gear';
 import { saveActivityFeel } from '$lib/server/functions';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { z } from 'zod';
 import { useState } from 'react';
 import { DeleteButton } from './DeleteButton';
@@ -17,7 +17,7 @@ import { FeelChips, WantedFasterChips } from './FeelChips';
 import { GearField } from './GearField';
 import { Icon } from './Icon';
 import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, Field, Form, FormGrid, Textarea, useAppForm } from './ui';
+import { Actions, Field, Form, FormGrid, Textarea, useAppForm, panelClass } from './ui';
 
 const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'race', 'other'];
 
@@ -145,7 +145,7 @@ export function DebriefFeelForm({
 
 	return (
 		<Form
-			className={cn(ui.panel, 'mt-3')}
+			className={panelClass('mt-3')}
 			onSubmit={(e) => {
 				e.preventDefault();
 				e.stopPropagation();
@@ -166,7 +166,7 @@ export function DebriefFeelForm({
 					</span>
 				}
 			>
-				<span className={cn(ui.muted, 'font-normal')}>
+				<span className={cn('text-muted', 'font-normal')}>
 					Write it like you would in chat — as long as you want. Wind, surfaces, after-session
 					checks, questions for this week. GPS numbers are already in the prompt. The AI will read
 					scores from this when you mention them, then summarise it into the activity notes.

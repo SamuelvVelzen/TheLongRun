@@ -1,4 +1,3 @@
-import { ui } from '$lib/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TipBubble, TipCaption, TipValue } from './Tip';
 
@@ -193,7 +192,7 @@ export function Sparkline({
 					<>
 						<span className="min-w-0 text-fg">
 							<strong className="font-semibold">{activeTip.display}</strong>
-							<span className={ui.muted}> · {activeTip.label}</span>
+							<span className={'text-muted'}> · {activeTip.label}</span>
 						</span>
 						{onPick && active != null && (
 							<button
@@ -207,8 +206,8 @@ export function Sparkline({
 					</>
 				) : (
 					<>
-						<span className={ui.muted}>{firstTip?.label}</span>
-						<span className={ui.muted}>{lastTip?.label}</span>
+						<span className={'text-muted'}>{firstTip?.label}</span>
+						<span className={'text-muted'}>{lastTip?.label}</span>
 					</>
 				)}
 			</div>

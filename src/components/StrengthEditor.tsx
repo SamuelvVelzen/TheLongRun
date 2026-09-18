@@ -1,3 +1,4 @@
+import { buttonClass, fieldClass } from './ui';
 import { useState } from 'react';
 import {
 	emptyStrengthSet,
@@ -7,7 +8,7 @@ import {
 	type StrengthExercise,
 	type StrengthKind
 } from '$lib/strength';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { ConfirmDialog } from './Dialog';
 import { DeleteButton } from './DeleteButton';
 import { SegmentedToggle } from './SegmentedToggle';
@@ -122,7 +123,7 @@ export function StrengthEditor({
 									<div className="flex items-center justify-between gap-2">
 										<span
 											className={cn(
-												ui.muted,
+												'text-muted',
 												'text-[0.72rem] uppercase tracking-[0.06em] font-semibold'
 											)}
 										>
@@ -166,10 +167,7 @@ export function StrengthEditor({
 							))}
 							<button
 								type="button"
-								className={cn(
-									ui.btnGhost,
-									'h-full min-h-29 rounded-xl border-dashed'
-								)}
+								className={buttonClass({ variant: 'ghost', className: 'h-full min-h-29 rounded-xl border-dashed' })}
 								onClick={() => addSet(i)}
 							>
 								+ set
@@ -178,10 +176,10 @@ export function StrengthEditor({
 					</div>
 				);
 			})}
-			<button type="button" className={ui.btnGhost} onClick={addExercise}>
+			<button type="button" className={buttonClass({ variant: 'ghost' })} onClick={addExercise}>
 				+ exercise
 			</button>
-			<label className={cn(ui.field, 'mt-[0.7rem]')}>
+			<label className={cn(fieldClass, 'mt-[0.7rem]')}>
 				<span>Extra notes (optional)</span>
 				<textarea
 					rows={2}

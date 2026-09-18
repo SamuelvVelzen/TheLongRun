@@ -16,13 +16,13 @@ import {
 	type GearKind,
 	type GearWear
 } from '$lib/gear';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { ConfirmDialog } from './Dialog';
 import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, Button, Form, useAppForm } from './ui';
+import { Actions, Button, Form, useAppForm, buttonClass, panelClass, formClass, formSectionTitleClass, statusPillClass } from './ui';
 
 function ItemRow({
 	name,
@@ -58,33 +58,33 @@ function ItemRow({
 				<div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
 					<strong className="font-display text-[1.02rem] tracking-[-0.02em]">{name}</strong>
 					{role === 'active' && (
-						<span className={cn(ui.statusPill, 'bg-accent/15 text-accent-fg')}>{activeLabel}</span>
+						<span className={statusPillClass('bg-accent/15 text-accent-fg')}>{activeLabel}</span>
 					)}
 					{role === 'retired' && (
-						<span className={cn(ui.statusPill, 'text-muted border border-line')}>Retired</span>
+						<span className={statusPillClass('text-muted border border-line')}>Retired</span>
 					)}
 				</div>
-				<p className={cn(ui.muted, 'm-0 mt-1 text-[0.82rem]')}>{sub || 'No km logged yet'}</p>
+				<p className={cn('text-muted', 'm-0 mt-1 text-[0.82rem]')}>{sub || 'No km logged yet'}</p>
 			</div>
 			{authed && (
 				<div className="flex flex-wrap gap-2">
 					{role !== 'active' && (
-						<button type="button" className={cn(ui.btnGhost, ui.btnSm)} disabled={busy} onClick={onSetActive}>
+						<button type="button" className={buttonClass({ variant: 'ghost', size: 'sm' })} disabled={busy} onClick={onSetActive}>
 							{setActiveLabel}
 						</button>
 					)}
 					{role !== 'retired' ? (
-						<button type="button" className={cn(ui.btnGhost, ui.btnSm)} disabled={busy} onClick={onRetire}>
+						<button type="button" className={buttonClass({ variant: 'ghost', size: 'sm' })} disabled={busy} onClick={onRetire}>
 							Retire
 						</button>
 					) : (
-						<button type="button" className={cn(ui.btnGhost, ui.btnSm)} disabled={busy} onClick={onRestore}>
+						<button type="button" className={buttonClass({ variant: 'ghost', size: 'sm' })} disabled={busy} onClick={onRestore}>
 							Restore
 						</button>
 					)}
 					<button
 						type="button"
-						className={cn(ui.btnGhost, ui.btnDanger, ui.btnSm)}
+						className={buttonClass({ variant: 'danger', size: 'sm' })}
 						disabled={busy}
 						onClick={onRemove}
 					>
@@ -119,7 +119,7 @@ function KindSection({
 
 	return (
 		<div className="mt-5 first:mt-0">
-			<h3 className={ui.formSectionTitle}>
+			<h3 className={formSectionTitleClass}>
 				{meta.section} — {meta.label}
 			</h3>
 
@@ -142,7 +142,7 @@ function KindSection({
 						onRemove={() => onRemove(catalog.active)}
 					/>
 				) : (
-					<p className={cn(ui.muted, 'py-3 mb-0 border-b border-line')}>{meta.emptyLabel}</p>
+					<p className={cn('text-muted', 'py-3 mb-0 border-b border-line')}>{meta.emptyLabel}</p>
 				)}
 				{rotationRest.map((n) => (
 					<ItemRow
@@ -186,7 +186,7 @@ function KindSection({
 
 			{authed && unknown.length > 0 && (
 				<div className="mt-3">
-					<p className={cn(ui.muted, 'mt-0 mb-2 text-[0.85rem]')}>
+					<p className={cn('text-muted', 'mt-0 mb-2 text-[0.85rem]')}>
 						Logged on activities but not in this inventory.
 					</p>
 					{unknown.map((w) => (
@@ -196,11 +196,11 @@ function KindSection({
 						>
 							<div className="flex-1 min-w-40">
 								<strong className="font-display text-[1.02rem]">{w.name}</strong>
-								<p className={cn(ui.muted, 'm-0 mt-1 text-[0.82rem]')}>{gearWearLabel(w, kind)}</p>
+								<p className={cn('text-muted', 'm-0 mt-1 text-[0.82rem]')}>{gearWearLabel(w, kind)}</p>
 							</div>
 							<button
 								type="button"
-								className={cn(ui.btnGhost, ui.btnSm)}
+								className={buttonClass({ variant: 'ghost', size: 'sm' })}
 								disabled={busy}
 								onClick={() => void onPersist(addGear(catalog, w.name), `Added ${w.name}`)}
 							>
@@ -229,7 +229,7 @@ function KindSection({
 			)}
 
 			{!authed && catalog.notes ? (
-				<p className={cn(ui.muted, 'mt-3 mb-0')}>{catalog.notes}</p>
+				<p className={cn('text-muted', 'mt-3 mb-0')}>{catalog.notes}</p>
 			) : null}
 		</div>
 	);
@@ -273,10 +273,10 @@ export function GearInventory({
 	const empty = GEAR_KINDS.every((k) => !catalogHasItems(gear[k]));
 
 	return (
-		<div className={cn(ui.panel, authed && ui.form, 'mb-5')}>
+		<div className={panelClass(authed && formClass, 'mb-5')}>
 			<div>
 				<h2>Gear</h2>
-				<p className={cn(ui.muted, 'mt-1 mb-0 text-[0.9rem]')}>
+				<p className={cn('text-muted', 'mt-1 mb-0 text-[0.9rem]')}>
 					{empty && !authed
 						? 'No kit in the inventory yet.'
 						: 'Default kit is used when you log or import that sport. Mileage is counted from logged activities — Strava GPX files do not include gear.'}
@@ -363,7 +363,7 @@ function AddGearForm({
 				)}
 			/>
 			<form.AppForm>
-				<form.SubmitButton className={cn(ui.btnSm, 'mb-[0.05rem]')}>Add</form.SubmitButton>
+				<form.SubmitButton className={buttonClass({ size: 'sm', className: 'mb-[0.05rem]' })}>Add</form.SubmitButton>
 			</form.AppForm>
 		</form>
 	);

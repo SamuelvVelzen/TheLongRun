@@ -1,8 +1,9 @@
+import { buttonClass, actionsClass, metricsClass, metricClass, tagClass, dialogPanelMedalClass, panelClass } from './ui';
 import { activityLabel, showsField } from '$lib/activity';
 import { formatDuration, parseDurationSeconds } from '$lib/format';
 import { goalUrlHref } from '$lib/goals';
 import type { Goal } from '$lib/types';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { Confetti } from './Confetti';
@@ -129,9 +130,9 @@ function ActivityStats({ activity }: { activity: MedalActivity }) {
 			? Math.min(100, Math.round((activity.avg_hr / activity.max_hr) * 100))
 			: null;
 	return (
-		<div className={cn(ui.metrics, 'mt-1')}>
+		<div className={metricsClass('mt-1')}>
 			{activity.avg_hr != null || activity.max_hr != null ? (
-				<div className={cn(ui.metric, 'flex-[1.4_1_9rem]')}>
+				<div className={metricClass('flex-[1.4_1_9rem]')}>
 					<div className="flex items-baseline gap-1">
 						<b>{activity.avg_hr ?? '—'}</b>
 						<span className="text-muted text-[0.95rem]">/</span>
@@ -149,25 +150,25 @@ function ActivityStats({ activity }: { activity: MedalActivity }) {
 				</div>
 			) : null}
 			{showsField(activity.activity_type, 'elevation') && activity.elev_gain != null && (
-				<div className={ui.metric}>
+				<div className={metricClass()}>
 					<b>{activity.elev_gain}</b>
 					<span>elev m</span>
 				</div>
 			)}
 			{showsField(activity.activity_type, 'cadence') && activity.cadence != null && (
-				<div className={ui.metric}>
+				<div className={metricClass()}>
 					<b>{activity.cadence}</b>
 					<span>cadence</span>
 				</div>
 			)}
 			{activity.calories != null && (
-				<div className={ui.metric}>
+				<div className={metricClass()}>
 					<b>{activity.calories}</b>
 					<span>kcal</span>
 				</div>
 			)}
 			{activity.effort != null && (
-				<div className={ui.metric}>
+				<div className={metricClass()}>
 					<b>{activity.effort}</b>
 					<span>effort</span>
 				</div>
@@ -208,15 +209,14 @@ export function MedalDialog({
 			open={open}
 			title={goal?.name ?? 'Medal'}
 			onClose={onClose}
-			className={ui.dialogPanelMedal}
+			className={dialogPanelMedalClass}
 		>
 			{goal && (
 				<div className="relative grid gap-4">
 					<Confetti active={celebrate} />
 
 					<div
-						className={cn(
-							ui.panel,
+						className={panelClass(
 							'relative overflow-hidden border-accent/25 bg-[linear-gradient(165deg,color-mix(in_srgb,var(--accent)_14%,transparent),transparent_55%)] p-0!'
 						)}
 					>
@@ -254,7 +254,7 @@ export function MedalDialog({
 					</div>
 
 					<div className="grid gap-1">
-						<p className={cn(ui.muted, 'm-0')}>
+						<p className={cn('text-muted', 'm-0')}>
 							{formatRaceDate(goal.date)}
 							{goal.result?.distance_km != null
 								? ` · ${goal.result.distance_km} km`
@@ -264,7 +264,7 @@ export function MedalDialog({
 							{goal.start_time ? ` · ${goal.start_time}` : ''}
 							{goal.wave ? ` · wave ${goal.wave}` : ''}
 						</p>
-						{loc && <p className={cn(ui.muted, 'm-0 text-[0.88rem]')}>{loc}</p>}
+						{loc && <p className={cn('text-muted', 'm-0 text-[0.88rem]')}>{loc}</p>}
 						{goal.bib_number && !authed && (
 							<p className="m-0 text-[0.88rem]">
 								Bib <strong className="font-display">{goal.bib_number}</strong>
@@ -275,7 +275,7 @@ export function MedalDialog({
 					<MedalLinks goal={goal} activity={activity} />
 
 					{goal.time_goal && !delta && (
-						<p className={cn(ui.muted, 'm-0 text-[0.9rem]')}>Time goal was {goal.time_goal}.</p>
+						<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Time goal was {goal.time_goal}.</p>
 					)}
 
 					{activity && <ActivityStats activity={activity} />}
@@ -283,14 +283,14 @@ export function MedalDialog({
 					{(activity?.gear || activity?.weather || activity?.surface) && (
 						<div className="flex flex-wrap gap-2">
 							{activity.gear && (
-								<span className={ui.tag}>
+								<span className={tagClass()}>
 									<Icon name="run" size={12} />
 									{activity.gear}
 								</span>
 							)}
-							{activity.weather && <span className={ui.tag}>{activity.weather}</span>}
-							{activity.surface && <span className={ui.tag}>{activity.surface}</span>}
-							{activity.start_time && <span className={ui.tag}>Start {activity.start_time}</span>}
+							{activity.weather && <span className={tagClass()}>{activity.weather}</span>}
+							{activity.surface && <span className={tagClass()}>{activity.surface}</span>}
+							{activity.start_time && <span className={tagClass()}>Start {activity.start_time}</span>}
 						</div>
 					)}
 
@@ -310,7 +310,7 @@ export function MedalDialog({
 							<p className="m-0 text-[0.78rem] uppercase tracking-[0.06em] text-muted font-bold">
 								Pre-race notes
 							</p>
-							<p className={cn(ui.muted, 'm-0 mt-1 whitespace-pre-wrap text-[0.92rem]')}>{goal.notes}</p>
+							<p className={cn('text-muted', 'm-0 mt-1 whitespace-pre-wrap text-[0.92rem]')}>{goal.notes}</p>
 						</div>
 					)}
 
@@ -328,16 +328,16 @@ export function MedalDialog({
 								onSaved={onSaved}
 							/>
 						) : goal.medal_notes ? (
-							<p className={cn(ui.muted, 'm-0 whitespace-pre-wrap')}>{goal.medal_notes}</p>
+							<p className={cn('text-muted', 'm-0 whitespace-pre-wrap')}>{goal.medal_notes}</p>
 						) : (
-							<p className={cn(ui.muted, 'm-0 text-[0.9rem]')}>Sign in to add bib, results link, and notes.</p>
+							<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Sign in to add bib, results link, and notes.</p>
 						)}
 					</div>
 
 					{goal.result?.activity_slug && (
-						<div className={ui.actions}>
+						<div className={actionsClass()}>
 							<Link
-								className={ui.btnPrimary}
+								className={buttonClass()}
 								to="/runs/$slug"
 								params={{ slug: goal.result.activity_slug }}
 								onClick={onClose}

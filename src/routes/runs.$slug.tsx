@@ -24,7 +24,7 @@ import {
     topSet
 } from '$lib/strength';
 import { activityTitlePart, appHead } from '$lib/title';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { createFileRoute, Link, notFound, useBlocker, useRouter } from '@tanstack/react-router';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityForm } from '../components/ActivityForm';
@@ -40,7 +40,7 @@ import { RouteChip } from '../components/RouteChip';
 import { RouteMap } from '../components/RouteMap';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 import { SplitsPanel } from '../components/SplitsPanel';
-import { Button } from '../components/ui';
+import { Button, buttonClass, panelClass, metricsClass, metricClass, mapBadgeClass, runTitleClass } from '../components/ui';
 
 type RunSearch = { edit?: boolean };
 
@@ -67,7 +67,7 @@ function routeIdFrom(route: string, stravaId: string): string {
 	return id || stravaId || '';
 }
 
-const fieldLabel = cn(ui.muted, 'text-[0.72rem] uppercase tracking-[0.05em]');
+const fieldLabel = cn('text-muted', 'text-[0.72rem] uppercase tracking-[0.05em]');
 const fieldBox =
 	'w-full min-h-11 min-w-0 text-left bg-white/[0.03] border border-line rounded-lg p-[0.65rem_0.75rem] [overflow-wrap:anywhere]';
 
@@ -129,7 +129,7 @@ function InlineText({
 						{value ? (
 							<span className="whitespace-pre-wrap break-words min-w-0 flex-1">{value}</span>
 						) : (
-							<span className={ui.muted}>— add</span>
+							<span className={'text-muted'}>— add</span>
 						)}
 						<span
 							className="shrink-0 mt-[0.15rem] text-accent-fg text-[0.85rem] sm:opacity-0 group-hover/qv:opacity-100"
@@ -143,7 +143,7 @@ function InlineText({
 						{value ? (
 							<span className="whitespace-pre-wrap break-words">{value}</span>
 						) : (
-							<span className={ui.muted}>—</span>
+							<span className={'text-muted'}>—</span>
 						)}
 					</div>
 				)}
@@ -196,7 +196,7 @@ function InlineText({
 				<div className="flex gap-[0.35rem] shrink-0 max-sm:w-full sm:justify-end">
 					<button
 						type="button"
-						className={cn(ui.btnPrimary, ui.btnSm, 'max-sm:flex-1')}
+						className={buttonClass({ size: 'sm', className: 'max-sm:flex-1' })}
 						onClick={() => void save()}
 						disabled={busy}
 					>
@@ -204,7 +204,7 @@ function InlineText({
 					</button>
 					<button
 						type="button"
-						className={cn(ui.btnGhost, ui.btnSm, 'max-sm:flex-1')}
+						className={buttonClass({ variant: 'ghost', size: 'sm', className: 'max-sm:flex-1' })}
 						onClick={() => setEditing(false)}
 						disabled={busy}
 					>
@@ -248,7 +248,7 @@ function FeelTile({
 
 	if (editing) {
 		return (
-			<div className={cn(ui.metric, ui.metricEmph, 'pt-2 max-sm:flex-[1_1_100%]')}>
+			<div className={metricClass(true, 'pt-2 max-sm:flex-[1_1_100%]')}>
 				<input
 					className="font-display text-[1.35rem] min-h-11 px-2 py-[0.35rem] rounded-lg w-full"
 					type="number"
@@ -271,9 +271,8 @@ function FeelTile({
 	return (
 		<button
 			type="button"
-			className={cn(
-				ui.metric,
-				ui.metricEmph,
+			className={metricClass(
+				true,
 				'block w-full text-left font-inherit text-inherit',
 				editable &&
 					'cursor-pointer hover:border-accent hover:bg-accent/10 active:border-accent active:bg-accent/10'
@@ -434,7 +433,7 @@ function RunDetail() {
 	return (
 		<>
 			{group && (
-				<p className={cn(ui.panel, 'mb-4')}>
+				<p className={panelClass('mb-4')}>
 					Part of a grouped session.{' '}
 					<Link className="text-accent-fg font-semibold" to="/groups/$id" params={{ id: group.id }}>
 						Open grouped activity
@@ -464,7 +463,7 @@ function RunDetail() {
 						{r.date}
 						{r.has_map && (
 							<span
-								className={cn(ui.mapBadge, 'ml-[0.15rem] align-middle')}
+								className={mapBadgeClass('ml-[0.15rem] align-middle')}
 								title="Route map available"
 								aria-label="Has route map"
 							>
@@ -478,7 +477,7 @@ function RunDetail() {
 						)}
 					</>
 				}
-				titleClassName={ui.runTitle}
+				titleClassName={runTitleClass}
 				actionsClassName="justify-end! max-sm:w-auto max-sm:[&>button]:flex-none max-sm:[&>button]:min-w-11"
 				actions={
 					!editing ? (
@@ -568,19 +567,19 @@ function RunDetail() {
 				/>
 			) : (
 				<>
-					<div className={cn(ui.metrics, 'mb-4')}>
+					<div className={metricsClass('mb-4')}>
 						{showsField(r.activity_type, 'distance') && (
-							<div className={cn(ui.metric, ui.metricEmph)}>
+							<div className={metricClass(true)}>
 								<b>{r.distance_km ?? '—'}</b>
 								<span>km</span>
 							</div>
 						)}
-						<div className={cn(ui.metric, ui.metricEmph)}>
+						<div className={metricClass(true)}>
 							<b>{metric.value}</b>
 							<span>{metricSub}</span>
 						</div>
 						{metric.unit !== '' && (
-							<div className={cn(ui.metric, ui.metricEmph)}>
+							<div className={metricClass(true)}>
 								<b>{r.time || '—'}</b>
 								<span>
 									{r.elapsed_time && r.elapsed_time !== r.time
@@ -590,7 +589,7 @@ function RunDetail() {
 							</div>
 						)}
 						{r.avg_hr != null || r.max_hr != null ? (
-							<div className={cn(ui.metric, 'flex-[1.4_1_9rem]')}>
+							<div className={metricClass('flex-[1.4_1_9rem]')}>
 								<div className="flex items-baseline gap-1">
 									<b>{r.avg_hr ?? '—'}</b>
 									<span className="text-muted text-[0.95rem]">/</span>
@@ -607,44 +606,44 @@ function RunDetail() {
 								)}
 							</div>
 						) : (
-							<div className={ui.metric}>
+							<div className={metricClass()}>
 								<b>—</b>
 								<span>HR</span>
 							</div>
 						)}
 						{showsField(r.activity_type, 'elevation') && (
-							<div className={ui.metric}>
+							<div className={metricClass()}>
 								<b>{r.elev_gain != null ? r.elev_gain : '—'}</b>
 								<span>elev m</span>
 							</div>
 						)}
 						{showsField(r.activity_type, 'cadence') && (
-							<div className={ui.metric}>
+							<div className={metricClass()}>
 								<b>{r.cadence ?? '—'}</b>
 								<span>cadence</span>
 							</div>
 						)}
 						{r.calories != null && (
-							<div className={ui.metric}>
+							<div className={metricClass()}>
 								<b>{r.calories}</b>
 								<span>kcal</span>
 							</div>
 						)}
 						{r.kilojoules != null && (
-							<div className={ui.metric}>
+							<div className={metricClass()}>
 								<b>{r.kilojoules}</b>
 								<span>kJ</span>
 							</div>
 						)}
 						{r.max_speed != null && (
-							<div className={ui.metric}>
+							<div className={metricClass()}>
 								<b>{r.max_speed}</b>
 								<span>max km/h</span>
 							</div>
 						)}
 					</div>
 
-					<div className={cn(ui.metrics, 'mb-5')}>
+					<div className={metricsClass('mb-5')}>
 						{showsFeel(r.activity_type, 'effort') && (
 							<FeelTile editable={authed} label="effort" value={r.effort} min={1} max={10} onSave={(v) => patchRun({ effort: v })} />
 						)}
@@ -660,10 +659,10 @@ function RunDetail() {
 					</div>
 
 					{strength && strength.exercises.length > 0 && (
-						<div className={cn(ui.panel, 'mb-4')}>
+						<div className={panelClass('mb-4')}>
 							<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
 								<h3>Sets</h3>
-								<p className={cn(ui.muted, 'text-[0.85rem]')}>weight, reps, or time</p>
+								<p className={cn('text-muted', 'text-[0.85rem]')}>weight, reps, or time</p>
 							</div>
 							<div className="hidden sm:grid grid-cols-[minmax(6rem,1.4fr)_2fr_auto_auto] gap-x-[0.9rem] gap-y-1.5 items-center py-[0.32rem] border-b border-line text-[0.72rem] uppercase tracking-[0.06em] text-muted pb-1.5">
 								<span>Exercise</span>
@@ -679,7 +678,7 @@ function RunDetail() {
 										key={i}
 									>
 										<span className="min-w-0 break-words max-sm:font-semibold">{ex.name}</span>
-										<span className={cn(ui.muted, 'min-w-0 break-words')}>
+										<span className={cn('text-muted', 'min-w-0 break-words')}>
 											{ex.sets.map((s) => formatSetDisplay(s, ex.kind)).join(', ')}
 										</span>
 										<span className="font-display font-bold text-accent-fg">
@@ -688,7 +687,7 @@ function RunDetail() {
 											</span>
 											{t ? formatSetTop(t, ex.kind) : '—'}
 										</span>
-										<span className={ui.muted}>
+										<span className={'text-muted'}>
 											<span className="sm:hidden font-sans text-[0.72rem] uppercase tracking-[0.05em] mr-1.5">
 												Total
 											</span>
@@ -715,7 +714,7 @@ function RunDetail() {
 					/>
 
 					{r.route && routeId && (
-						<div className={cn(ui.panel, 'mb-4 p-0 overflow-hidden')}>
+						<div className={panelClass('mb-4 p-0 overflow-hidden')}>
 							<div className="p-[1.1rem_1.2rem_0.6rem]">
 								<h3 className="m-0">Route</h3>
 							</div>
@@ -728,10 +727,10 @@ function RunDetail() {
 					)}
 
 					{bestEfforts && bestEfforts.length > 0 && (
-						<div className={cn(ui.panel, 'mb-4')}>
+						<div className={panelClass('mb-4')}>
 							<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
 								<h3>Best efforts</h3>
-								<p className={cn(ui.muted, 'text-[0.85rem]')}>Top 3 all-time for this distance</p>
+								<p className={cn('text-muted', 'text-[0.85rem]')}>Top 3 all-time for this distance</p>
 							</div>
 							<BestEffortBadges highlights={bestEfforts} />
 						</div>
@@ -746,10 +745,10 @@ function RunDetail() {
 						/>
 					)}
 
-					<div className={cn(ui.panel, 'mb-4')}>
+					<div className={panelClass('mb-4')}>
 						<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.9rem]">
 							<h3>Notes &amp; conditions</h3>
-							<p className={cn(ui.muted, 'text-[0.85rem]')}>
+							<p className={cn('text-muted', 'text-[0.85rem]')}>
 								{authed ? 'Tap a field to update it' : 'Conditions for this session'}
 							</p>
 						</div>
@@ -844,7 +843,7 @@ function RunDetail() {
 							/>
 						)}
 						{r.start_time && (
-							<p className={cn(ui.muted, 'mt-[0.4rem] mb-0 text-[0.82rem]')}>
+							<p className={cn('text-muted', 'mt-[0.4rem] mb-0 text-[0.82rem]')}>
 								Started {r.start_time}
 							</p>
 						)}
@@ -857,12 +856,12 @@ function RunDetail() {
 				onClose={() => setGroupOpen(false)}
 				actions={
 					<>
-						<button type="button" className={ui.btnGhost} onClick={() => setGroupOpen(false)}>
+						<button type="button" className={buttonClass({ variant: 'ghost' })} onClick={() => setGroupOpen(false)}>
 							Cancel
 						</button>
 						<button
 							type="button"
-							className={ui.btnPrimary}
+							className={buttonClass()}
 							disabled={groupPick.length < 1}
 							onClick={async () => {
 								try {
@@ -882,7 +881,7 @@ function RunDetail() {
 					</>
 				}
 			>
-				<p className={cn(ui.muted, 'm-0')}>
+				<p className={cn('text-muted', 'm-0')}>
 					Imported GPX files stay as they are. Same calendar day is listed first.
 				</p>
 				<div className="grid gap-1.5 max-h-[50vh] overflow-y-auto">
@@ -913,7 +912,7 @@ function RunDetail() {
 								>
 									<span>
 										<strong>{opt.date}</strong>
-										<span className={cn(ui.muted, 'block text-[0.82rem]')}>
+										<span className={cn('text-muted', 'block text-[0.82rem]')}>
 											{[
 												activityLabel(opt.activity_type),
 												opt.start_time || null,

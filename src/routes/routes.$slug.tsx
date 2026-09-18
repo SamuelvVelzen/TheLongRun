@@ -15,7 +15,7 @@ import {
     updatePlannedRoute
 } from '$lib/server/functions';
 import { appHead } from '$lib/title';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DeleteButton, EditButton } from '../components/DeleteButton';
@@ -26,7 +26,7 @@ import { PageHero } from '../components/PageHero';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 import { RouteAttach } from '../components/RouteAttach';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, Button, Form, Panel, useAppForm } from '../components/ui';
+import { Actions, Button, Form, Panel, useAppForm, buttonClass, panelClass, metricsClass, metricClass, runTitleClass } from '../components/ui';
 import { WaypointEditor, type WaypointEditorHandle } from '../components/WaypointEditor';
 import { z } from 'zod';
 
@@ -204,7 +204,7 @@ function PlannedRouteDetail() {
 						}
 					/>
 
-					<div className={cn(ui.panel, 'mb-4 p-[1.1rem_1.2rem_1.15rem]')}>
+					<div className={panelClass('mb-4 p-[1.1rem_1.2rem_1.15rem]')}>
 						<h3 className="m-0 mb-3">Path</h3>
 						<WaypointEditor
 							ref={pathRef}
@@ -257,7 +257,7 @@ function PlannedRouteDetail() {
 								{openGap != null && <OpenRouteBadge gapMeters={openGap} size={22} />}
 							</>
 						}
-						titleClassName={ui.runTitle}
+						titleClassName={runTitleClass}
 						lead={
 							<>
 								<p>{route.notes || 'Planned route.'}</p>
@@ -273,7 +273,7 @@ function PlannedRouteDetail() {
 						actions={
 							<>
 								<button
-									className={mapsPref === 'apple' ? ui.btnPrimary : ui.btnGhost}
+									className={buttonClass({ variant: mapsPref === 'apple' ? 'primary' : 'ghost' })}
 									type="button"
 									onClick={openAppleMaps}
 								>
@@ -282,7 +282,7 @@ function PlannedRouteDetail() {
 									<Icon name="external" size={13} />
 								</button>
 								<button
-									className={mapsPref === 'desktop' ? ui.btnPrimary : ui.btnGhost}
+									className={buttonClass({ variant: mapsPref === 'desktop' ? 'primary' : 'ghost' })}
 									type="button"
 									onClick={openInBrouter}
 								>
@@ -291,7 +291,7 @@ function PlannedRouteDetail() {
 									<Icon name="external" size={13} />
 								</button>
 								<button
-									className={ui.btnGhost}
+									className={buttonClass({ variant: 'ghost' })}
 									type="button"
 									onClick={() => downloadPlannedRouteGpx(route.name, route.geojson, route.waypoints)}
 								>
@@ -305,7 +305,7 @@ function PlannedRouteDetail() {
 									</>
 								)}
 								{appleMapsUrl && (
-									<p className={cn(ui.muted, 'mt-3 mb-0 max-w-[36ch] text-[0.92rem] basis-full')}>
+									<p className={cn('text-muted', 'mt-3 mb-0 max-w-[36ch] text-[0.92rem] basis-full')}>
 										Opens a pin at the start. Tap it, then Create a Custom Route, and tap along the
 										trail.
 									</p>
@@ -314,10 +314,10 @@ function PlannedRouteDetail() {
 						}
 					/>
 
-					<div className={cn(ui.panel, 'mb-4 p-0 overflow-hidden max-sm:order-1')}>
+					<div className={panelClass('mb-4 p-0 overflow-hidden max-sm:order-1')}>
 						<div className="hidden sm:block p-[1.1rem_1.2rem_0.65rem]">
 							<h3>Route</h3>
-							<p className={cn(ui.muted, 'mt-1')}>Kilometres and available GPX waypoints are marked</p>
+							<p className={cn('text-muted', 'mt-1')}>Kilometres and available GPX waypoints are marked</p>
 						</div>
 						<PlannedRouteMap
 							geojson={route.geojson}
@@ -326,19 +326,19 @@ function PlannedRouteDetail() {
 						/>
 					</div>
 
-					<div className={cn(ui.metrics, 'mb-4 max-sm:order-2')}>
-						<div className={cn(ui.metric, ui.metricEmph)}>
+					<div className={metricsClass('mb-4 max-sm:order-2')}>
+						<div className={metricClass(true)}>
 							<b>{route.distance_km ?? '—'}</b>
 							<span>km</span>
 						</div>
 						{route.est_time && (
-							<div className={cn(ui.metric, ui.metricEmph)}>
+							<div className={metricClass(true)}>
 								<b>{route.est_time}</b>
 								<span>estimated time</span>
 							</div>
 						)}
 						{elevationLabel && (
-							<div className={ui.metric}>
+							<div className={metricClass()}>
 								<b>{elevationLabel}</b>
 								<span>
 									{route.elev_gain != null || route.elev_loss != null
@@ -348,7 +348,7 @@ function PlannedRouteDetail() {
 							</div>
 						)}
 						{waypointCount > 0 && (
-							<div className={ui.metric}>
+							<div className={metricClass()}>
 								<b>{waypointCount}</b>
 								<span>{waypointCount === 1 ? 'waypoint' : 'waypoints'}</span>
 							</div>
@@ -366,13 +366,13 @@ function PlannedRouteDetail() {
 					</div>
 
 					{route.waypoints.length > 0 && (
-						<div className={cn(ui.panel, 'mb-4 max-sm:order-6')}>
+						<div className={panelClass('mb-4 max-sm:order-6')}>
 							<h3>Waypoints</h3>
 							<div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-0 mt-3 border-t border-line [&>div]:flex [&>div]:flex-col [&>div]:gap-[0.15rem] [&>div]:py-[0.7rem] [&>div]:pr-4 [&>div]:border-b [&>div]:border-line">
 								{route.waypoints.map((waypoint, index) => (
 									<div key={`${waypoint.name}-${index}`}>
 										<strong>{waypoint.name}</strong>
-										<span className={ui.muted}>
+										<span className={'text-muted'}>
 											{waypoint.lat.toFixed(5)}, {waypoint.lng.toFixed(5)}
 										</span>
 									</div>

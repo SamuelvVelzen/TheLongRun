@@ -1,6 +1,6 @@
 import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
 import { importGpx } from '$lib/server/functions';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { Link, useNavigate, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { BestEffortBadges } from './BestEffortBadges';
@@ -8,7 +8,7 @@ import { DeleteButton } from './DeleteButton';
 import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
 import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, Button, Form, useAppForm } from './ui';
+import { Actions, Button, Form, useAppForm, buttonClass, actionsClass, tagClass, dropzoneClass } from './ui';
 
 export type GpxImportResult = {
 	name: string;
@@ -127,7 +127,7 @@ export function GpxImport({
 	return (
 		<>
 			<label
-				className={cn(ui.dropzone, dragOver && ui.dropzoneOver)}
+				className={dropzoneClass(dragOver && true)}
 				onDragOver={(e) => {
 					e.preventDefault();
 					setDragOver(true);
@@ -148,8 +148,8 @@ export function GpxImport({
 				/>
 				<Icon name="upload" size={34} />
 				<strong>Choose a GPX</strong>
-				<span className={ui.muted}>or tap to browse — multiple files supported</span>
-				<span className={cn(ui.muted, 'hidden [@media(hover:hover)_and_(pointer:fine)]:block')}>
+				<span className={'text-muted'}>or tap to browse — multiple files supported</span>
+				<span className={cn('text-muted', 'hidden [@media(hover:hover)_and_(pointer:fine)]:block')}>
 					You can also drop files here
 				</span>
 			</label>
@@ -164,7 +164,7 @@ export function GpxImport({
 							<code className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
 								{f.name}
 							</code>
-							<span className={ui.muted}>{(f.size / 1024).toFixed(0)} KB</span>
+							<span className={'text-muted'}>{(f.size / 1024).toFixed(0)} KB</span>
 							<DeleteButton
 								label={`Delete ${f.name}`}
 								disabled={busy}
@@ -229,7 +229,7 @@ export function GpxImport({
 								key={r.name}
 								className="flex flex-wrap items-center gap-[0.45rem] py-2 border-b border-line last:border-b-0"
 							>
-								<span className={cn(ui.tag, r.status === 'ok' && ui.tagAccent)}>
+								<span className={tagClass(r.status === 'ok' && true)}>
 									<Icon name={r.status === 'ok' ? 'check' : 'close'} size={12} />
 									{r.status}
 								</span>
@@ -242,9 +242,9 @@ export function GpxImport({
 										</Link>
 									</>
 								)}
-								{r.distanceKm != null && <span className={ui.muted}>({r.distanceKm} km)</span>}
-								{r.duplicate && <span className={ui.muted}>— already logged, refreshed its map</span>}
-								{r.message && <span className={ui.muted}>— {r.message}</span>}
+								{r.distanceKm != null && <span className={'text-muted'}>({r.distanceKm} km)</span>}
+								{r.duplicate && <span className={'text-muted'}>— already logged, refreshed its map</span>}
+								{r.message && <span className={'text-muted'}>— {r.message}</span>}
 								{r.highlights && r.highlights.length > 0 && (
 									<BestEffortBadges highlights={r.highlights} />
 								)}
@@ -252,9 +252,9 @@ export function GpxImport({
 						))}
 					</ul>
 					{coachAfter && lastOk?.slug && (
-						<div className={cn(ui.actions, 'mt-3')}>
+						<div className={actionsClass('mt-3')}>
 							<Link
-								className={ui.btnPrimary}
+								className={buttonClass()}
 								to="/runs/$slug"
 								params={{ slug: lastOk.slug }}
 							>

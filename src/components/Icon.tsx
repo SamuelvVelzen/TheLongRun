@@ -1,5 +1,6 @@
+import { tagClass } from './ui/Tag';
 import { activityLabel, normalizeActivityType, type ActivityType } from '$lib/activity';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import type { ReactNode } from 'react';
 
 export type IconName =
@@ -383,7 +384,7 @@ export function ActivityIcon({
 
 export function ActivityTag({ type, className }: { type: string; className?: string }) {
 	return (
-		<span className={cn(ui.tag, ui.tagAccent, className)}>
+		<span className={tagClass(true, className)}>
 			<ActivityIcon type={type} />
 			{activityLabel(type)}
 		</span>

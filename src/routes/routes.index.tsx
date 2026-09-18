@@ -1,3 +1,4 @@
+import { buttonClass, panelClass, fieldClass, reqClass, gridClass, sectionTitleClass, dropzoneClass, runTitleClass, runRowClass } from '../components/ui';
 import { AuthGate, useAuthed } from '$lib/auth';
 import {
     createPlannedRoute,
@@ -7,7 +8,7 @@ import {
 } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import type { PlannedRoute } from '$lib/types';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { DeferredData } from '../components/DeferredData';
@@ -132,7 +133,7 @@ function PlannedRoutes() {
 			{authed ? (
 			<div className="mb-5 grid gap-3">
 				{drawing ? (
-					<div className={ui.panel}>
+					<div className={panelClass()}>
 						<WaypointEditor
 							emptyHint="Tap to drop pins along the loop"
 							hint="Place pins in order. Tap a pin to remove it, or tap the line to add one between. Drag to adjust."
@@ -141,8 +142,8 @@ function PlannedRoutes() {
 							onClose={closeDraw}
 							onSave={saveDrawn}
 						>
-							<label className={ui.field}>
-								<span className={ui.req}>Name</span>
+							<label className={fieldClass}>
+								<span className={reqClass}>Name</span>
 								<input
 									value={routeName}
 									required
@@ -156,7 +157,7 @@ function PlannedRoutes() {
 					</div>
 				) : (
 					<button
-						className={cn(ui.btnPrimary, 'justify-self-start')}
+						className={buttonClass({ className: 'justify-self-start' })}
 						type="button"
 						onClick={() => setDrawing(true)}
 					>
@@ -166,7 +167,7 @@ function PlannedRoutes() {
 				)}
 				{drawing ? null : (
 					<label
-						className={cn(ui.dropzone, dragOver && ui.dropzoneOver)}
+						className={dropzoneClass(dragOver && true)}
 						onDragOver={(event) => {
 							event.preventDefault();
 							setDragOver(true);
@@ -187,8 +188,8 @@ function PlannedRoutes() {
 						/>
 						<Icon name="upload" size={34} />
 						<strong>{busy ? 'Saving route…' : 'Choose a GPX'}</strong>
-						<span className={ui.muted}>or tap to browse · waypoints are imported when available</span>
-						<span className={cn(ui.muted, 'hidden [@media(hover:hover)_and_(pointer:fine)]:block')}>
+						<span className={'text-muted'}>or tap to browse · waypoints are imported when available</span>
+						<span className={cn('text-muted', 'hidden [@media(hover:hover)_and_(pointer:fine)]:block')}>
 							You can also drop a GPX or GeoJSON file here
 						</span>
 					</label>
@@ -229,7 +230,7 @@ function PlannedRoutesList({
 	return (
 		<>
 			<section className="mb-1" aria-labelledby="planned-routes-map">
-				<div className={cn(ui.sectionTitle, 'mt-2')}>
+				<div className={sectionTitleClass('mt-2')}>
 					<div>
 						<h2 id="planned-routes-map">Saved route map</h2>
 						<p>
@@ -248,13 +249,13 @@ function PlannedRoutesList({
 				/>
 			</section>
 
-			<div className={ui.sectionTitle}>
+			<div className={sectionTitleClass()}>
 				<div>
 					<h2>Saved routes</h2>
 					<p>{data.routes.length} total · open a route to attach it to a plan day</p>
 				</div>
 			</div>
-			<div className={ui.grid}>
+			<div className={gridClass()}>
 				{data.routes.map((route) => (
 					<PlannedRouteRow key={route.slug} route={route} />
 				))}
@@ -326,8 +327,7 @@ function PlannedRouteRow({
 	return (
 		<div className="relative group">
 			<div
-				className={cn(
-					ui.runRow,
+				className={runRowClass(
 					'grid-cols-[1.35fr_0.55fr_0.65fr_0.65fr] pr-[3.25rem] cursor-pointer',
 					(route.plan_link_count > 0 || route.activity_link_count > 0) &&
 						'border-[color-mix(in_srgb,var(--color-accent)_40%,var(--color-line))]'
@@ -344,11 +344,11 @@ function PlannedRouteRow({
 				}}
 			>
 				<div>
-					<div className={cn(ui.runTitle, 'font-[650] mb-[0.15rem]')}>
+					<div className={cn(runTitleClass, 'font-[650] mb-[0.15rem]')}>
 						<span className="min-w-0">{route.name}</span>
 						{route.open_gap_m != null && <OpenRouteBadge gapMeters={route.open_gap_m} />}
 					</div>
-					<div className={ui.muted}>{linkSummary(route)}</div>
+					<div className={'text-muted'}>{linkSummary(route)}</div>
 				</div>
 				<div>{route.distance_km ?? '—'} km</div>
 				<div>{route.elev_gain != null ? `↑ ${route.elev_gain} m` : 'Elevation —'}</div>

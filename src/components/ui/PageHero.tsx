@@ -1,5 +1,6 @@
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import type { ReactNode } from 'react';
+import { ui } from './tokens';
 
 export function PageHero({
 	kicker,

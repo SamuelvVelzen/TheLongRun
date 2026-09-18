@@ -1,3 +1,4 @@
+import { buttonClass, panelClass, fieldClass } from './ui';
 import { activityLabel, normalizeActivityType } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
 import { attachPlannedRoute, detachPlannedRoute } from '$lib/server/functions';
@@ -7,7 +8,7 @@ import type {
     PlannedRouteActivityLink,
     PlannedRoutePlanLink
 } from '$lib/types';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
@@ -73,9 +74,9 @@ export function RouteAttach({
 	}
 
 	return (
-		<div className={cn(ui.panel, 'mb-4 [&_>h3]:m-0')}>
+		<div className={panelClass('mb-4 [&_>h3]:m-0')}>
 			<h3>Use this route</h3>
-			<p className={cn(ui.muted, 'mt-[0.3rem] m-0')}>
+			<p className={cn('text-muted', 'mt-[0.3rem] m-0')}>
 				Attach it to upcoming plan days — the same loop can cover Monday and later weeks — or
 				link it to a logged activity.
 			</p>
@@ -97,14 +98,14 @@ export function RouteAttach({
 											Week {link.week} · {link.day}
 											{link.date ? ` · ${shortDate(link.date)}` : ''}
 										</strong>
-										<div className={ui.muted}>
+										<div className={'text-muted'}>
 											{activityLabel(link.activity_type)} · {link.label}
 											{link.distance_km != null ? ` · ${link.distance_km} km` : ''}
 										</div>
 									</div>
 									{authed && (
 									<button
-										className={cn(ui.btnGhost, ui.btnDanger, 'shrink-0 min-h-9 px-[0.8rem] py-1.5')}
+										className={buttonClass({ variant: 'danger', className: 'shrink-0 min-h-9 px-[0.8rem] py-1.5' })}
 										type="button"
 										disabled={busy}
 										onClick={() =>
@@ -122,10 +123,10 @@ export function RouteAttach({
 							))}
 						</div>
 					) : (
-						<p className={cn(ui.muted, 'm-0 mb-[0.65rem] text-[0.92rem]')}>Not on a plan day yet.</p>
+						<p className={cn('text-muted', 'm-0 mb-[0.65rem] text-[0.92rem]')}>Not on a plan day yet.</p>
 					)}
 					{authed && planOptions.length > 0 && (
-						<label className={ui.field}>
+						<label className={fieldClass}>
 							<span>Add a plan day</span>
 							<Select
 								disabled={busy}
@@ -179,14 +180,14 @@ export function RouteAttach({
 										<strong>
 											{link.date} · {link.day || activityLabel(link.activity_type)}
 										</strong>
-										<div className={ui.muted}>
+										<div className={'text-muted'}>
 											{activityLabel(link.activity_type)}
 											{link.distance_km != null ? ` · ${link.distance_km} km` : ''}
 										</div>
 									</Link>
 									{authed && (
 									<button
-										className={cn(ui.btnGhost, ui.btnDanger, 'shrink-0 min-h-9 px-[0.8rem] py-1.5')}
+										className={buttonClass({ variant: 'danger', className: 'shrink-0 min-h-9 px-[0.8rem] py-1.5' })}
 										type="button"
 										disabled={busy}
 										onClick={() =>
@@ -204,13 +205,13 @@ export function RouteAttach({
 							))}
 						</div>
 					) : (
-						<p className={cn(ui.muted, 'm-0 mb-[0.65rem] text-[0.92rem]')}>
+						<p className={cn('text-muted', 'm-0 mb-[0.65rem] text-[0.92rem]')}>
 							Not linked to a logged activity yet.
 						</p>
 					)}
 					{authed && activityOptions.length > 0 && (
 						<div className="grid gap-[0.65rem]">
-							<label className={ui.field}>
+							<label className={fieldClass}>
 								<span>Find an activity</span>
 								<input
 									type="search"
@@ -220,7 +221,7 @@ export function RouteAttach({
 									onChange={(event) => setQuery(event.target.value)}
 								/>
 							</label>
-							<label className={ui.field}>
+							<label className={fieldClass}>
 								<span>Link an activity</span>
 								<Select
 									disabled={busy || !filteredActivities.length}

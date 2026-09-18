@@ -1,5 +1,9 @@
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import type { FormHTMLAttributes, HTMLAttributes, ReactNode } from 'react';
+import { ui } from './tokens';
+
+export const formClass = ui.form;
+export const formSectionTitleClass = ui.formSectionTitle;
 
 export function Form({ className, ...props }: FormHTMLAttributes<HTMLFormElement>) {
 	return <form className={cn(ui.form, className)} {...props} />;

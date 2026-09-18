@@ -1,5 +1,6 @@
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
+import { ui } from './tokens';
 import {
 	useCallback,
 	useEffect,

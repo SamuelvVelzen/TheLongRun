@@ -1,4 +1,4 @@
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { Select } from './Select';
 
@@ -50,7 +50,7 @@ export function PlaceFilter({
 		>
 			{showCountry && (
 				<label className={filterLabel}>
-					<span className={ui.muted}>Country</span>
+					<span className={'text-muted'}>Country</span>
 					<Select
 						size="compact"
 						value={country}
@@ -77,7 +77,7 @@ export function PlaceFilter({
 			)}
 			{showProvince && (
 				<label className={filterLabel}>
-					<span className={ui.muted}>
+					<span className={'text-muted'}>
 						<span className="sm:hidden">Province</span>
 						<span className="hidden sm:inline">Prov.</span>
 					</span>
@@ -106,7 +106,7 @@ export function PlaceFilter({
 			)}
 			{showPlace && (
 				<label className={filterLabel}>
-					<span className={ui.muted}>Place</span>
+					<span className={'text-muted'}>Place</span>
 					<Select
 						size="compact"
 						value={place}

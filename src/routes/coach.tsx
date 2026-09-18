@@ -25,7 +25,7 @@ import {
 } from '$lib/server/functions';
 import type { GearContext, GearKind, GearWear } from '$lib/gear';
 import { appHead } from '$lib/title';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import {
 	formatPatternProse,
 	patternsEqual,
@@ -44,7 +44,7 @@ import { PageHero } from '../components/PageHero';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { Select } from '../components/Select';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, Button, Field, Form, Textarea, useAppForm } from '../components/ui';
+import { Actions, Button, Field, Form, Textarea, useAppForm, buttonClass, panelClass, actionsClass, formClass, fieldClass, tabBarClass } from '../components/ui';
 import {
 	rowsFrom,
 	toPattern,
@@ -146,14 +146,14 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 
 	return (
 		<>
-			<div className={cn(ui.panel, ui.form, 'mb-4')}>
-				<div className={ui.field}>
+			<div className={panelClass(formClass, 'mb-4')}>
+				<div className={fieldClass}>
 					<span>Week</span>
 					<div className="hidden max-sm:flex flex-col gap-[0.35rem]">
 						<div className="flex items-stretch gap-2">
 							<button
 								type="button"
-								className={cn(ui.btnGhost, ui.btnIcon)}
+								className={buttonClass({ variant: 'ghost', size: 'icon' })}
 								aria-label="Previous week"
 								disabled={selected <= 1}
 								onClick={() => setWeek(selected - 1)}
@@ -178,7 +178,7 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 							/>
 							<button
 								type="button"
-								className={cn(ui.btnGhost, ui.btnIcon)}
+								className={buttonClass({ variant: 'ghost', size: 'icon' })}
 								aria-label="Next week"
 								disabled={selected >= weekCount}
 								onClick={() => setWeek(selected + 1)}
@@ -186,7 +186,7 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 								<Icon name="arrow" size={18} />
 							</button>
 						</div>
-						<p className={cn(ui.muted, 'm-0 text-[0.82rem]')}>
+						<p className={cn('text-muted', 'm-0 text-[0.82rem]')}>
 							{planWeekDateRange(selected, planData.calendar)}
 							{byWeek.has(selected) ? '' : ' · no plan yet'}
 						</p>
@@ -228,13 +228,13 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 						</div>
 					</div>
 				</div>
-				<p className={cn(ui.muted, 'm-0 max-sm:hidden')}>
+				<p className={cn('text-muted', 'm-0 max-sm:hidden')}>
 					Copy this week (live status plus JSON) into a new chat, or every week that already
 					has sessions. Paste an updated JSON block back below.
 				</p>
-				<div className={ui.actions}>
+				<div className={actionsClass()}>
 					<button
-						className={ui.btnGhost}
+						className={buttonClass({ variant: 'ghost' })}
 						type="button"
 						disabled={!view}
 						onClick={() => view && copyText('week', formatWeekPlanClipboard(view, todayIso))}
@@ -243,7 +243,7 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 						{copied === 'week' ? 'Copied' : 'Copy this week'}
 					</button>
 					<button
-						className={ui.btnGhost}
+						className={buttonClass({ variant: 'ghost' })}
 						type="button"
 						disabled={!planData.views.length}
 						onClick={() => copyText('all', formatAllWeeksClipboard(planData.views, todayIso))}
@@ -271,16 +271,16 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 					}
 				/>
 			) : (
-				<p className={cn(ui.muted, 'mt-0 mb-4')}>
+				<p className={cn('text-muted', 'mt-0 mb-4')}>
 					Week {selected} ({planWeekDateRange(selected, planData.calendar)}) is not in the plan yet.
 				</p>
 			)}
 			{authed && (
 				<JsonPasteForm
-					className={cn(ui.panel, 'mt-4')}
+					className={panelClass('mt-4')}
 					title="Paste updated JSON"
 					description={
-						<p className={cn(ui.muted, 'mt-[0.3rem]')}>
+						<p className={cn('text-muted', 'mt-[0.3rem]')}>
 							Same shape as Generate — one week object or an array of weeks. Merged by week
 							number.
 						</p>
@@ -350,7 +350,7 @@ function Coach() {
 
 	return (
 		<>
-			<div className={ui.coachTabs}>
+			<div className={tabBarClass()}>
 				<SegmentedToggle
 					fill
 					aria-label="Coach"
@@ -612,16 +612,16 @@ function CoachPanels({
 	return (
 		<>
 			{tab === 'training' && (
-				<div className={cn(ui.panel, ui.form, 'mb-4')}>
-					<div className={ui.field}>
+				<div className={panelClass(formClass, 'mb-4')}>
+					<div className={fieldClass}>
 						<span>Usual week</span>
-						<span className={cn(ui.muted, 'font-normal')}>
+						<span className={cn('text-muted', 'font-normal')}>
 							Day and sport — the AI chooses easy / quality / long / etc. plus distance. Mark a
 							session can't change (commute) or optional, and add notes the coach will see. Change
 							days for this week without saving; Generate will use them. Save only if this should
 							become your default.
 						</span>
-						<span className={cn(ui.muted, 'font-normal')}>
+						<span className={cn('text-muted', 'font-normal')}>
 							Saved default is {formatPatternProse(savedPattern)}.
 						</span>
 						{authed ? (
@@ -634,12 +634,12 @@ function CoachPanels({
 					</div>
 					{authed && (mixDirty || mixBusy) && (
 						<>
-							<p className={cn(ui.muted, 'm-0')}>
+							<p className={cn('text-muted', 'm-0')}>
 								Unsaved — Generate will plan this week with these days, not your saved usual week.
 							</p>
-							<div className={cn(ui.actions, 'mt-[0.35rem]')}>
+							<div className={actionsClass('mt-[0.35rem]')}>
 								<button
-									className={ui.btnGhost}
+									className={buttonClass({ variant: 'ghost' })}
 									type="button"
 									onClick={() => setUsual(rowsFrom(savedPattern))}
 									disabled={mixBusy}
@@ -647,7 +647,7 @@ function CoachPanels({
 									Revert to saved
 								</button>
 								<button
-									className={ui.btnPrimary}
+									className={buttonClass()}
 									type="button"
 									onClick={saveDefaultMix}
 									disabled={mixBusy}
@@ -667,7 +667,7 @@ function CoachPanels({
 					<ol className="list-none m-0 p-0 flex flex-col gap-6 max-sm:gap-[1.15rem] [&>li>strong]:block [&>li>strong]:text-[1.05rem] [&_li.done>strong]:text-accent-fg">
 						<li className={runs.length ? 'done' : 'current'}>
 							<strong>1. Import the GPX</strong>
-							<span className={cn(ui.muted, 'block mt-1')}>
+							<span className={cn('text-muted', 'block mt-1')}>
 								Download from Strava, then drop it here. One file or several — they all go into the
 								prompt, along with other this-week sessions that still need a write-up.
 							</span>
@@ -691,7 +691,7 @@ function CoachPanels({
 									</ul>
 								</div>
 							)}
-							<div className={cn(ui.panel, ui.form, 'mt-3')}>
+							<div className={panelClass(formClass, 'mt-3')}>
 								{authed ? (
 									<GpxImport
 										onImported={(ok) => {
@@ -712,10 +712,10 @@ function CoachPanels({
 										}}
 									/>
 								) : (
-									<p className={cn(ui.muted, 'm-0')}>Sign in to import a GPX.</p>
+									<p className={cn('text-muted', 'm-0')}>Sign in to import a GPX.</p>
 								)}
 							</div>
-							<p className={cn(ui.muted, 'mt-2')}>
+							<p className={cn('text-muted', 'mt-2')}>
 								No GPS?{' '}
 								<Link to="/import" search={{ mode: 'manual' }}>
 									Log manually
@@ -725,7 +725,7 @@ function CoachPanels({
 						</li>
 						<li className={runs.length ? (allWrote ? 'done' : 'current') : undefined}>
 							<strong>2. How it felt</strong>
-							<span className={cn(ui.muted, 'block mt-1')}>
+							<span className={cn('text-muted', 'block mt-1')}>
 								Write how it felt — GPS numbers are already in the prompt. Under each activity,
 								add session, cadence, and gear when Strava did not (or tap scores yourself). For
 								races, pin the result and add bib / results when prompted.
@@ -759,23 +759,23 @@ function CoachPanels({
 									</div>
 								))}
 							{!runs.length && (
-								<p className={cn(ui.muted, 'mt-[0.4rem]')}>
+								<p className={cn('text-muted', 'mt-[0.4rem]')}>
 									Import a GPX (or log manually) first.
 								</p>
 							)}
 						</li>
 						<li className={runs.length && debriefPrompt ? 'current' : undefined}>
 							<strong>3. Copy the prompt</strong>
-							<span className={cn(ui.muted, 'block mt-1')}>
+							<span className={cn('text-muted', 'block mt-1')}>
 								{includePlan
 									? 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary, any scores it read from your write-up, and the rest of the week. Distance, time, elevation, and pace per km are already in the prompt — no screenshots.'
 									: 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary and any scores it read from your write-up. The prompt also tells the AI to return an updated week if remaining sessions should change — even with “Include this week’s plan” off. Distance, time, elevation, and pace per km are already in the prompt — no screenshots.'}
 							</span>
 							{debrief.error && !debriefPrompt && (
-								<p className={cn(ui.muted, 'mt-[0.4rem]')}>{debrief.error}</p>
+								<p className={cn('text-muted', 'mt-[0.4rem]')}>{debrief.error}</p>
 							)}
 							{debriefPrompt && (
-								<div className={cn(ui.panel, ui.form, 'mt-3')}>
+								<div className={panelClass(formClass, 'mt-3')}>
 									<label className="flex items-start gap-3 cursor-pointer m-0 select-none">
 										<input
 											className="mt-1 size-5 shrink-0 accent-[var(--accent,#c8f25a)]"
@@ -785,7 +785,7 @@ function CoachPanels({
 										/>
 										<span>
 											<span className="block text-fg font-semibold">Include this week’s plan</span>
-											<span className={cn(ui.muted, 'block font-normal')}>
+											<span className={cn('text-muted', 'block font-normal')}>
 												Turn on for a new chat so the coach sees this week’s sessions (and can
 												return an updated week). Leave off if you are continuing a chat that
 												already has the plan — that keeps the prompt smaller.
@@ -811,14 +811,14 @@ function CoachPanels({
 						</li>
 						<li>
 							<strong>4. Paste the AI’s JSON</strong>
-							<span className={cn(ui.muted, 'block mt-1')}>
+							<span className={cn('text-muted', 'block mt-1')}>
 								{includePlan
 									? 'A short notes summary for this activity plus the updated rest of the week. Days can change. Advice stays in the chat — only the JSON is saved.'
 									: 'A short notes summary for this activity, and an updated week if remaining sessions should change. Advice stays in the chat — only the JSON is saved.'}
 							</span>
 							{authed ? (
 								<JsonPasteForm
-									className={cn(ui.panel, 'mt-3')}
+									className={panelClass('mt-3')}
 									placeholder={
 										includePlan
 											? '{ "feelings": { "slug": "…", "notes": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
@@ -858,14 +858,14 @@ function CoachPanels({
 
 			{tab === 'generate' && authed && (
 				<>
-					<div className={cn(ui.panel, ui.form, 'mb-4')}>
-						<div className={ui.field}>
+					<div className={panelClass(formClass, 'mb-4')}>
+						<div className={fieldClass}>
 							<span>History window</span>
 							<div className="flex flex-wrap items-center gap-x-6 gap-y-[0.55rem]">
 								<DateRangeFilter range={range} to="/coach" />
 							</div>
 						</div>
-						<p className={cn(ui.muted, 'mt-[0.4rem] mb-0')}>
+						<p className={cn('text-muted', 'mt-[0.4rem] mb-0')}>
 							Weekly volume and the activity table both cover {range.label.toLowerCase()}. Shorter
 							windows keep the prompt tighter.
 							{planData.activeGoal
@@ -876,7 +876,7 @@ function CoachPanels({
 							</Link>
 							.
 						</p>
-						<p className={cn(ui.muted, 'mt-2 mb-0')}>
+						<p className={cn('text-muted', 'mt-2 mb-0')}>
 							{mixDirty ? (
 								<>
 									{weekPhraseCap}: {formatPatternProse(usualPattern)} — not saved as your usual week
@@ -903,7 +903,7 @@ function CoachPanels({
 					</div>
 
 					{briefText && (
-						<div className={cn(ui.panel, ui.form)}>
+						<div className={panelClass(formClass)}>
 							<h3>Prompt (editable — tweak before you copy)</h3>
 							<Field className="mt-2">
 								<Textarea
@@ -927,10 +927,10 @@ function CoachPanels({
 					)}
 
 					<JsonPasteForm
-						className={cn(ui.panel, 'mt-4')}
+						className={panelClass('mt-4')}
 						title={`Save ${weekPhrase}’s plan`}
 						description={
-							<p className={cn(ui.muted, 'mt-[0.3rem]')}>
+							<p className={cn('text-muted', 'mt-[0.3rem]')}>
 								Paste the JSON block your AI returned — merged by week number. Keep your usual
 								days unless the reply explained a shift.
 							</p>

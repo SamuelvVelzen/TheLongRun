@@ -1,6 +1,6 @@
+import { buttonClass } from '../components/ui';
 import { SignInLink } from '$lib/auth';
 import { appHead } from '$lib/title';
-import { ui } from '$lib/ui';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { PageHero } from '../components/PageHero';
 
@@ -33,8 +33,8 @@ function LoginFailed() {
 			lead="Viewing is open. Editing needs a Cloudflare Access sign-in; after that this page sets a 30-day session so you are not asked every day."
 			actions={
 				<>
-					<SignInLink className={ui.btnPrimary}>Try again</SignInLink>
-					<Link className={ui.btnGhost} to="/">
+					<SignInLink className={buttonClass()}>Try again</SignInLink>
+					<Link className={buttonClass({ variant: 'ghost' })} to="/">
 						Back to dashboard
 					</Link>
 				</>

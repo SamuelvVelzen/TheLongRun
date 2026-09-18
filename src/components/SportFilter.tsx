@@ -1,10 +1,11 @@
+import { segItemClass, segToggleClass } from './ui/SegmentedToggle';
 import {
     ACTIVITY_TYPES,
     activityLabel,
     normalizeActivityType,
     type ActivityType
 } from '$lib/activity';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { sportChipLabel } from './Icon';
 
@@ -105,7 +106,7 @@ export function SportFilter({
 		<div className="contents">
 			<div
 				className={cn(
-					ui.segToggle,
+					segToggleClass,
 					'sm:[&_button]:min-h-9 sm:[&_button]:px-2.5 sm:[&_button]:text-[0.82rem] sm:[&_button]:gap-1'
 				)}
 				role="group"
@@ -118,7 +119,7 @@ export function SportFilter({
 						<button
 							key={o.value}
 							type="button"
-							className={ui.segItem}
+							className={segItemClass}
 							aria-pressed={pressed}
 							onClick={() => {
 								const next = toggleSport(sport, o.value, defaultSport, availableTypes);

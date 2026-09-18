@@ -1,14 +1,17 @@
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type ReactNode
+	createContext,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode
 } from 'react';
+import { ui } from './tokens';
+
+export const snackActionClass = ui.snackAction;
 
 export type SnackbarVariant = 'success' | 'error' | 'info';
 

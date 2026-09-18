@@ -1,5 +1,5 @@
 import type { TrainingTrends, TrendSeries } from '$lib/trends';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { Sparkline } from './Sparkline';
 import { TipBubble, TipCaption, TipValue, usePinnedTip } from './Tip';
@@ -25,7 +25,7 @@ export function TrendsSection({
 				<h2 id="trends-heading" className="text-[1.5rem] font-extrabold tracking-[-0.02em]">
 					{heading}
 				</h2>
-				<p className={cn(ui.muted, 'mt-[0.2rem] text-[0.9rem]')}>{caption}</p>
+				<p className={cn('text-muted', 'mt-[0.2rem] text-[0.9rem]')}>{caption}</p>
 			</div>
 
 			<div className="grid grid-cols-1 gap-x-6 gap-y-[1.15rem] min-[721px]:grid-cols-2 max-[720px]:gap-5">
@@ -36,7 +36,7 @@ export function TrendsSection({
 								<span className="block font-semibold uppercase tracking-[0.06em] text-[0.78rem] text-muted">
 									{series.title}
 								</span>
-								<span className={cn(ui.muted, 'block text-[0.78rem] mt-[0.15rem]')}>
+								<span className={cn('text-muted', 'block text-[0.78rem] mt-[0.15rem]')}>
 									{series.subtitle}
 								</span>
 							</div>

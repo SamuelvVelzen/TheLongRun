@@ -1,4 +1,5 @@
-import { cn, ui } from '$lib/ui';
+import { routeChipClass } from './ui';
+import { cn } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 
 export function MapPinIcon({ size = 14 }: { size?: number }) {
@@ -29,7 +30,7 @@ export function RouteChip({
 		distanceKm != null && !/\bkm\b/i.test(name) ? ` · ${distanceKm} km` : '';
 	return (
 		<Link
-			className={cn(ui.routeChip, className)}
+			className={cn(routeChipClass, className)}
 			to="/routes/$slug"
 			params={{ slug }}
 			title={`Open route ${name}`}

@@ -1,3 +1,4 @@
+import { buttonClass, snackActionClass } from './ui';
 import { useAuthed } from '$lib/auth';
 import { loadLeaflet } from '$lib/leaflet';
 import {
@@ -19,7 +20,7 @@ import { getLastHeading, noteGpsHeading } from '$lib/location-heading';
 import { addBasemap, attachMapChrome, leafletMapOptions, type MapChromeHandle } from '$lib/map-chrome';
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
 import { getLiveLocation, pingLiveLocation, stopLiveLocation } from '$lib/server/functions';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import {
     useCallback,
     useEffect,
@@ -163,16 +164,16 @@ function LiveLocationBroadcaster() {
 				onClose={() => setConfirmOpen(false)}
 				actions={
 					<>
-						<button className={ui.btnGhost} type="button" onClick={() => setConfirmOpen(false)}>
+						<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={() => setConfirmOpen(false)}>
 							Cancel
 						</button>
-						<button className={ui.btnPrimary} type="button" onClick={() => void start()}>
+						<button className={buttonClass()} type="button" onClick={() => void start()}>
 							Share
 						</button>
 					</>
 				}
 			>
-				<p className={cn(ui.muted, 'm-0 leading-[1.45]')}>
+				<p className={cn('text-muted', 'm-0 leading-[1.45]')}>
 					Anyone looking at this site will see where you are on the map. The pin updates about
 					once a minute. You can stop at any time.
 				</p>
@@ -189,7 +190,7 @@ function LiveLocationBroadcaster() {
 						<p className="m-0 flex-1 text-[0.88rem] leading-[1.35]">
 							Location is being shared on the map.
 						</p>
-						<button className={ui.snackAction} type="button" onClick={() => void stop()}>
+						<button className={snackActionClass} type="button" onClick={() => void stop()}>
 							Stop
 						</button>
 					</div>
@@ -258,20 +259,20 @@ function LiveLocationWatch() {
 				onClose={dismissPrompt}
 				actions={
 					<>
-						<button className={ui.btnGhost} type="button" onClick={dismissPrompt}>
+						<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={dismissPrompt}>
 							Not now
 						</button>
-						<button className={ui.btnPrimary} type="button" onClick={openWatch}>
+						<button className={buttonClass()} type="button" onClick={openWatch}>
 							Watch live
 						</button>
 					</>
 				}
 			>
-				<p className={cn(ui.muted, 'm-0 leading-[1.45]')}>
+				<p className={cn('text-muted', 'm-0 leading-[1.45]')}>
 					They're sharing where they are right now. Open a fullscreen map to follow the pin — it
 					updates about once a minute.
 				</p>
-				<p className={cn(ui.muted, 'm-0 text-[0.82rem]')}>Updated {liveAgo(ping.updatedAt)}</p>
+				<p className={cn('text-muted', 'm-0 text-[0.82rem]')}>Updated {liveAgo(ping.updatedAt)}</p>
 			</Dialog>
 			{!watching && !promptOpen ? (
 				<div
@@ -283,7 +284,7 @@ function LiveLocationWatch() {
 					>
 						<span className="size-2 shrink-0 rounded-full bg-live" aria-hidden="true" />
 						<p className="m-0 flex-1 text-[0.88rem] leading-[1.35]">Live location is on the map.</p>
-						<button className={ui.snackAction} type="button" onClick={() => setWatching(true)}>
+						<button className={snackActionClass} type="button" onClick={() => setWatching(true)}>
 							Watch
 						</button>
 					</div>

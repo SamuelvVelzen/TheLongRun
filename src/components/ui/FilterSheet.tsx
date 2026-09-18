@@ -1,6 +1,7 @@
 import type { DateRange } from '$lib/date-range';
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
+import { ui } from './tokens';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { Icon } from '../Icon';
 import { sportSummaryLabel } from '../SportFilter';

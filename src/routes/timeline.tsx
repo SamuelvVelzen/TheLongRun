@@ -1,3 +1,4 @@
+import { buttonClass, panelClass, sectionTitleClass, mapBadgeClass, runTitleClass, actionsClass } from '../components/ui';
 import {
     activityLabel,
     activityPlural,
@@ -23,7 +24,7 @@ import { createActivityGroupFn, deleteRun, deleteRunsFn, exportActivitiesFn, get
 import { formatTimelineClipboard } from '$lib/timeline-copy';
 import { appHead } from '$lib/title';
 import type { ActivityGroupInfo, RunWithMap } from '$lib/types';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { ActivityFilters } from '../components/ActivityFilters';
@@ -105,7 +106,7 @@ function groupItems(items: TimelineItem[]) {
 
 function MapPin() {
 	return (
-		<span className={ui.mapBadge} title="Route map available" aria-label="Has route map">
+		<span className={mapBadgeClass()} title="Route map available" aria-label="Has route map">
 			<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
 				<path
 					fill="currentColor"
@@ -189,7 +190,7 @@ function RunCardBody({
 	return (
 		<>
 			<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.35rem]">
-				<strong className={ui.runTitle}>
+				<strong className={runTitleClass}>
 					{run.date}
 					{run.has_map && <MapPin />}
 					{hasContext(run) && <FeelBadge />}
@@ -200,7 +201,7 @@ function RunCardBody({
 				(run.session && run.session !== 'other') ||
 				run.week != null ||
 				run.start_time) && (
-				<p className={cn(ui.muted, 'mt-[0.2rem] text-[0.82rem]')}>
+				<p className={cn('text-muted', 'mt-[0.2rem] text-[0.82rem]')}>
 					{[
 						run.day || null,
 						run.session && run.session !== 'other' ? run.session : null,
@@ -227,7 +228,7 @@ function RunCardBody({
 			</div>
 			<BestEffortBadges compact highlights={highlights} />
 			{run.notes && (
-				<p className={cn(ui.muted, 'mt-[0.35rem] line-clamp-1 overflow-hidden max-sm:mt-[0.28rem]')}>
+				<p className={cn('text-muted', 'mt-[0.35rem] line-clamp-1 overflow-hidden max-sm:mt-[0.28rem]')}>
 					{run.notes}
 				</p>
 			)}
@@ -419,16 +420,16 @@ function TimelineBody({
 				actionsClassName="justify-start!"
 				actions={
 					<>
-						<Link className={ui.btnPrimary} to="/import">
+						<Link className={buttonClass()} to="/import">
 							<Icon name="plus" size={16} />
 							Add activity
 						</Link>
-						<Link className={ui.btnGhost} to="/coach">
+						<Link className={buttonClass({ variant: 'ghost' })} to="/coach">
 							<Icon name="coach" size={16} />
 							Coach
 						</Link>
 						<button
-							className={ui.btnGhost}
+							className={buttonClass({ variant: 'ghost' })}
 							type="button"
 							disabled={!runs.length}
 							title="Copy the filtered activity log for an AI chat"
@@ -450,7 +451,7 @@ function TimelineBody({
 			/>
 
 			{authed && selecting ? (
-				<p className={cn(ui.muted, 'mt-[-0.35rem] mb-4')}>
+				<p className={cn('text-muted', 'mt-[-0.35rem] mb-4')}>
 					{selectMode === 'delete'
 						? 'Tap activities to delete. Grouped sessions delete all their parts.'
 						: selectMode === 'export'
@@ -460,13 +461,13 @@ function TimelineBody({
 			) : null}
 
 			{neverLogged ? (
-				<div className={cn(ui.panel, ui.muted)}>No activities yet.</div>
+				<div className={panelClass('text-muted')}>No activities yet.</div>
 			) : filteredEmpty ? (
-				<div className={cn(ui.panel, ui.muted, 'grid gap-[0.85rem] justify-items-start')}>
+				<div className={panelClass('text-muted', 'grid gap-[0.85rem] justify-items-start')}>
 					<p>
 						No {activityPlural(sport)} in {range.label.toLowerCase()}.
 					</p>
-					<Link className={ui.btnGhost} to="/timeline" search={{}}>
+					<Link className={buttonClass({ variant: 'ghost' })} to="/timeline" search={{}}>
 						Show all time
 					</Link>
 				</div>
@@ -483,7 +484,7 @@ function TimelineBody({
 
 					{months.map((month) => (
 						<div key={month.key}>
-							<div className={ui.sectionTitle}>
+							<div className={sectionTitleClass()}>
 								<div>
 									<h2>{month.label}</h2>
 									<p>{activityTally(month.items.length, sport, month.totalKm)}</p>
@@ -517,7 +518,7 @@ function TimelineBody({
 												)}
 											>
 												<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.35rem]">
-													<strong className={ui.runTitle}>
+													<strong className={runTitleClass}>
 														{groupedSessionTitle(
 															item.group,
 															item.members.length,
@@ -529,7 +530,7 @@ function TimelineBody({
 														<ActivityTag key={t} type={t} />
 													))}
 												</div>
-												<p className={cn(ui.muted, 'mt-[0.2rem] text-[0.82rem]')}>
+												<p className={cn('text-muted', 'mt-[0.2rem] text-[0.82rem]')}>
 													{[
 														`${item.members.length} parts`,
 														item.stats.start_time || null,
@@ -574,7 +575,7 @@ function TimelineBody({
 													params={{ id: item.group.id }}
 												>
 													<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.35rem]">
-														<strong className={ui.runTitle}>
+														<strong className={runTitleClass}>
 															{groupedSessionTitle(
 																item.group,
 																item.members.length,
@@ -586,7 +587,7 @@ function TimelineBody({
 															<ActivityTag key={t} type={t} />
 														))}
 													</div>
-													<p className={cn(ui.muted, 'mt-[0.2rem] text-[0.82rem]')}>
+													<p className={cn('text-muted', 'mt-[0.2rem] text-[0.82rem]')}>
 														{[
 															`${item.members.length} parts`,
 															item.stats.start_time || null,
@@ -699,18 +700,17 @@ function TimelineBody({
 			)}
 			{authed && selecting ? (
 				<div
-					className={cn(
-						ui.actions,
-						ui.stickyActions,
+					className={actionsClass(
+						true,
 						'fixed left-1/2 z-30 w-[min(1120px,calc(100%-2rem))] -translate-x-1/2'
 					)}
 				>
-					<button className={ui.btnGhost} type="button" onClick={clearSelect}>
+					<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={clearSelect}>
 						Cancel
 					</button>
 					{selectMode === 'delete' ? (
 						<button
-							className={cn(ui.btnGhost, ui.btnDanger, ui.stickyPrimary)}
+							className={buttonClass({ variant: 'danger', stickyPrimary: true })}
 							type="button"
 							disabled={!picked.length}
 							onClick={() => setPendingMass(true)}
@@ -719,7 +719,7 @@ function TimelineBody({
 						</button>
 					) : selectMode === 'export' ? (
 						<button
-							className={cn(ui.btnPrimary, ui.stickyPrimary)}
+							className={buttonClass({ stickyPrimary: true })}
 							type="button"
 							disabled={!picked.length || exporting}
 							onClick={() => void exportPicked()}
@@ -728,7 +728,7 @@ function TimelineBody({
 						</button>
 					) : (
 						<button
-							className={cn(ui.btnPrimary, ui.stickyPrimary)}
+							className={buttonClass({ stickyPrimary: true })}
 							type="button"
 							disabled={picked.length < 2}
 							onClick={() => void groupPicked()}

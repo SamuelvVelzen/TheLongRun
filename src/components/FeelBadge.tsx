@@ -1,9 +1,9 @@
-import { ui } from '$lib/ui';
+import { feelBadgeClass } from './ui';
 
 /** Small badge marking an activity that carries subjective "how it felt" context. */
 export function FeelBadge() {
 	return (
-		<span className={ui.feelBadge} title="Has how-it-felt notes" aria-label="Has feel notes">
+		<span className={feelBadgeClass} title="Has how-it-felt notes" aria-label="Has feel notes">
 			<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
 				<path
 					fill="currentColor"

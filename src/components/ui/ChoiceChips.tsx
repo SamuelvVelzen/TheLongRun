@@ -1,5 +1,5 @@
-import { ui } from '$lib/ui';
 import type { ReactNode } from 'react';
+import { ui } from './tokens';
 
 export type ChoiceOption<T extends string> = {
 	value: T;

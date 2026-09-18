@@ -1,3 +1,4 @@
+import { panelClass } from './ui';
 import type { BestEffortBoardRow, EffortHighlight } from '$lib/best-efforts';
 import {
 	effortBoardHasMixedYears,
@@ -6,7 +7,7 @@ import {
 	formatEffortYear2
 } from '$lib/best-efforts';
 import { groupIdFromOwnerSlug, isGroupOwnerSlug as isGroupEffortSlug } from '$lib/group';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 import { Icon } from './Icon';
 
@@ -69,7 +70,7 @@ function EffortDate({
 	return (
 		<span
 			className={cn(
-				ui.muted,
+				'text-muted',
 				'leading-snug',
 				'max-[720px]:flex max-[720px]:flex-col max-[720px]:gap-[0.05rem]'
 			)}
@@ -99,13 +100,13 @@ export function BestEffortBoard({
 	if (!rows.length) return null;
 	const showYear = effortBoardHasMixedYears(rows);
 	return (
-		<div className={cn(ui.panel, 'mb-5')}>
+		<div className={panelClass('mb-5')}>
 			<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
 				<h3 className="inline-flex items-center gap-2 m-0">
 					<Icon name="trophy" size={18} />
 					Best efforts
 				</h3>
-				<p className={cn(ui.muted, 'text-[0.85rem]')}>
+				<p className={cn('text-muted', 'text-[0.85rem]')}>
 					{caption || 'All-time top 3, like Strava'}
 				</p>
 			</div>
@@ -126,7 +127,7 @@ export function BestEffortBoard({
 							const entry = row.entries.find((e) => e.rank === rank);
 							if (!entry)
 								return (
-									<span key={rank} className={ui.muted}>
+									<span key={rank} className={'text-muted'}>
 										—
 									</span>
 								);

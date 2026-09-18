@@ -1,5 +1,6 @@
+import { mapBadgeClass } from './ui';
 import { formatStraightLineGap } from '$lib/format';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { Icon } from './Icon';
 
 export function openRouteWarningLabel(gapMeters: number): string {
@@ -18,7 +19,7 @@ export function OpenRouteBadge({
 }) {
 	const label = openRouteWarningLabel(gapMeters);
 	return (
-		<span className={cn(ui.mapBadge, 'text-warn', className)} title={label} aria-label={label}>
+		<span className={mapBadgeClass('text-warn', className)} title={label} aria-label={label}>
 			<Icon name="warning" size={size} />
 		</span>
 	);

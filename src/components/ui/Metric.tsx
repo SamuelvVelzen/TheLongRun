@@ -1,8 +1,21 @@
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import type { HTMLAttributes, ReactNode } from 'react';
+import { ui } from './tokens';
+
+export function metricsClass(...parts: Array<string | false | null | undefined>) {
+	return cn(ui.metrics, ...parts);
+}
+
+export function metricClass(...parts: Array<string | boolean | false | null | undefined>) {
+	return cn(
+		ui.metric,
+		parts.some((p) => p === true) && ui.metricEmph,
+		...parts.filter((p): p is string => typeof p === 'string')
+	);
+}
 
 export function Metrics({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-	return <div className={cn(ui.metrics, className)} {...props} />;
+	return <div className={metricsClass(className)} {...props} />;
 }
 
 export function Metric({
@@ -18,7 +31,7 @@ export function Metric({
 	label?: ReactNode;
 } & HTMLAttributes<HTMLDivElement>) {
 	return (
-		<div className={cn(ui.metric, emph && ui.metricEmph, className)} {...props}>
+		<div className={metricClass(emph && ui.metricEmph, className)} {...props}>
 			{value != null || label != null ? (
 				<>
 					{value != null ? <b>{value}</b> : null}

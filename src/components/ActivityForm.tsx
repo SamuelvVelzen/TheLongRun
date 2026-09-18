@@ -22,7 +22,7 @@ import {
 	type GearWear
 } from '$lib/gear';
 import { weekNumberForDate, type PlanCalendar } from '$lib/plan';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import type { ReactNode } from 'react';
 import { FeelChips, WantedFasterChips } from './FeelChips';
 import { GearField } from './GearField';
@@ -77,7 +77,7 @@ export function ActivityForm({
 			}}
 		>
 			{fromPlan && (
-				<p className={cn(ui.muted, 'm-0 text-[0.9rem]')}>
+				<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>
 					Prefilling this gym session from the plan — change anything that was different.
 				</p>
 			)}

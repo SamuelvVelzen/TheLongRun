@@ -1,8 +1,8 @@
+import { panelClass, formClass, tabBarClass } from '../components/ui';
 import type { ActivityType } from '$lib/activity';
 import { SignInPanel, useAuthed } from '$lib/auth';
 import { getLogDefaults } from '$lib/server/functions';
 import { appHead } from '$lib/title';
-import { cn, ui } from '$lib/ui';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
@@ -77,7 +77,7 @@ function AddActivity() {
 				<SignInPanel title="Sign in to add an activity" />
 			) : (
 				<>
-					<div className={ui.coachTabs}>
+					<div className={tabBarClass()}>
 						<SegmentedToggle
 							fill
 							aria-label="How to add"
@@ -110,7 +110,7 @@ function AddActivity() {
 					</div>
 
 					{mode === 'gpx' ? (
-						<div className={cn(ui.panel, ui.form)}>
+						<div className={panelClass(formClass)}>
 							<GpxImport coachAfter />
 						</div>
 					) : (

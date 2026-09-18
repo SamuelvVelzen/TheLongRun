@@ -1,5 +1,6 @@
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import type { TextareaHTMLAttributes } from 'react';
+import { ui } from './tokens';
 
 export type TextareaVariant = 'default' | 'editor' | 'debrief';
 

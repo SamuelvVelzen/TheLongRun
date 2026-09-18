@@ -1,9 +1,12 @@
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { Icon } from '../Icon';
 import { Actions } from './Actions';
 import { Button } from './Button';
+import { ui } from './tokens';
+
+export const dialogPanelMedalClass = ui.dialogPanelMedal;
 
 export function Dialog({
 	open,

@@ -1,5 +1,6 @@
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import type { MouseEvent, ReactNode } from 'react';
+import { buttonClass } from './ui';
 import { Icon } from './Icon';
 
 export type MoreMenuItem = {
@@ -37,7 +38,7 @@ export function MoreMenu({
 				className={cn(
 					compact
 						? 'inline-flex items-center justify-center appearance-none size-7 min-h-7 min-w-7 p-0 rounded-full border-0 bg-transparent text-muted cursor-pointer hover:text-fg hover:bg-fg/[0.08]'
-						: cn(ui.btnGhost, ui.btnIcon),
+						: buttonClass({ variant: 'ghost', size: 'icon' }),
 					'list-none [&::-webkit-details-marker]:hidden'
 				)}
 				aria-label={label}

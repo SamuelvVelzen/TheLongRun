@@ -1,5 +1,6 @@
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { ui } from './tokens';
 
 export type ButtonVariant = 'primary' | 'ghost' | 'danger';
 export type ButtonSize = 'default' | 'sm' | 'icon';

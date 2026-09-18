@@ -1,3 +1,4 @@
+import { buttonClass, panelClass, actionsClass, metricsClass, metricClass } from '../components/ui';
 import { activityLabel, headlineMetric, showsField } from '$lib/activity';
 import { saveExportedFile, shareOrDownload } from '$lib/activity-export';
 import { AuthGate } from '$lib/auth';
@@ -16,7 +17,7 @@ import {
     ungroupActivitiesFn
 } from '$lib/server/functions';
 import { activityTitlePart, appHead } from '$lib/title';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { BestEffortBadges } from '../components/BestEffortBadges';
@@ -122,13 +123,13 @@ function GroupDetail() {
 				actions={
 					<AuthGate>
 						<>
-							<button type="button" className={ui.btnGhost} onClick={() => setAddOpen(true)}>
+							<button type="button" className={buttonClass({ variant: 'ghost' })} onClick={() => setAddOpen(true)}>
 								<Icon name="plus" size={16} />
 								Add part
 							</button>
 							<button
 								type="button"
-								className={ui.btnGhost}
+								className={buttonClass({ variant: 'ghost' })}
 								onClick={() => setPendingUngroup(true)}
 							>
 								Ungroup
@@ -138,19 +139,19 @@ function GroupDetail() {
 				}
 			/>
 
-			<div className={cn(ui.metrics, 'mb-4')}>
+			<div className={metricsClass('mb-4')}>
 				{showsField(stats.activity_type, 'distance') && (
-					<div className={cn(ui.metric, ui.metricEmph)}>
+					<div className={metricClass(true)}>
 						<b>{stats.distance_km ?? '—'}</b>
 						<span>km</span>
 					</div>
 				)}
-				<div className={cn(ui.metric, ui.metricEmph)}>
+				<div className={metricClass(true)}>
 					<b>{metric.value}</b>
 					<span>{metricSub}</span>
 				</div>
 				{metric.unit !== '' && (
-					<div className={cn(ui.metric, ui.metricEmph)}>
+					<div className={metricClass(true)}>
 						<b>{stats.time || '—'}</b>
 						<span>
 							{stats.elapsed_time && stats.elapsed_time !== stats.time
@@ -160,7 +161,7 @@ function GroupDetail() {
 					</div>
 				)}
 				{stats.avg_hr != null || stats.max_hr != null ? (
-					<div className={ui.metric}>
+					<div className={metricClass()}>
 						<div className="flex items-baseline gap-1">
 							<b>{stats.avg_hr ?? '—'}</b>
 							<span className="text-muted text-[0.95rem]">/</span>
@@ -170,13 +171,13 @@ function GroupDetail() {
 					</div>
 				) : null}
 				{showsField(stats.activity_type, 'elevation') && (
-					<div className={ui.metric}>
+					<div className={metricClass()}>
 						<b>{stats.elev_gain != null ? stats.elev_gain : '—'}</b>
 						<span>elev m</span>
 					</div>
 				)}
 				{stats.calories != null && (
-					<div className={ui.metric}>
+					<div className={metricClass()}>
 						<b>{stats.calories}</b>
 						<span>kcal</span>
 					</div>
@@ -186,10 +187,10 @@ function GroupDetail() {
 			<BestEffortBadges highlights={highlights} />
 
 			{routeIds.length > 0 && (
-				<div className={cn(ui.panel, 'mb-4 p-0 overflow-hidden')}>
+				<div className={panelClass('mb-4 p-0 overflow-hidden')}>
 					<div className="p-[1.1rem_1.2rem_0.6rem]">
 						<h3>Route</h3>
-						<p className={cn(ui.muted, 'm-0 mt-1 text-[0.85rem]')}>
+						<p className={cn('text-muted', 'm-0 mt-1 text-[0.85rem]')}>
 							{routeIds.length} GPS parts — pause between files is not drawn as a line
 						</p>
 					</div>
@@ -205,10 +206,10 @@ function GroupDetail() {
 				<SplitsPanel analytics={analytics} hrMaxManual={hrMaxManual} hrMaxAllTime={hrMaxAllTime} />
 			)}
 
-			<div className={cn(ui.panel, 'mb-4')}>
+			<div className={panelClass('mb-4')}>
 				<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
 					<h3>Parts</h3>
-					<p className={cn(ui.muted, 'text-[0.85rem]')}>original imported activities</p>
+					<p className={cn('text-muted', 'text-[0.85rem]')}>original imported activities</p>
 				</div>
 				<div className="grid gap-2">
 					{members.map((run) => (
@@ -221,7 +222,7 @@ function GroupDetail() {
 									{run.date}
 									{run.start_time ? ` · ${run.start_time}` : ''}
 								</strong>
-								<span className={cn(ui.muted, 'block text-[0.82rem]')}>
+								<span className={cn('text-muted', 'block text-[0.82rem]')}>
 									{[
 										activityLabel(run.activity_type),
 										showsField(run.activity_type, 'distance') && run.distance_km != null
@@ -237,7 +238,7 @@ function GroupDetail() {
 							<AuthGate>
 								<button
 									type="button"
-									className={cn(ui.btnGhost, ui.btnSm)}
+									className={buttonClass({ variant: 'ghost', size: 'sm' })}
 									onClick={() => setRemoveSlug(run.slug)}
 								>
 									Remove
@@ -248,17 +249,17 @@ function GroupDetail() {
 				</div>
 			</div>
 
-			<div className={cn(ui.panel, 'mb-4')}>
+			<div className={panelClass('mb-4')}>
 				<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
 					<h3>Export</h3>
-					<p className={cn(ui.muted, 'text-[0.85rem]')}>one file for Strava; Apple Health is a hop</p>
+					<p className={cn('text-muted', 'text-[0.85rem]')}>one file for Strava; Apple Health is a hop</p>
 				</div>
-				<div className={cn(ui.actions, 'justify-start!')}>
+				<div className={actionsClass('justify-start!')}>
 					{canCombinedExport && (
 						<>
 							<button
 								type="button"
-								className={ui.btnPrimary}
+								className={buttonClass()}
 								disabled={exporting}
 								onClick={() => void onExport('gpx')}
 							>
@@ -267,7 +268,7 @@ function GroupDetail() {
 							</button>
 							<button
 								type="button"
-								className={ui.btnGhost}
+								className={buttonClass({ variant: 'ghost' })}
 								disabled={exporting}
 								onClick={() => void onExport('tcx')}
 							>
@@ -278,7 +279,7 @@ function GroupDetail() {
 					{canZipExport && (
 						<button
 							type="button"
-							className={canCombinedExport ? ui.btnGhost : ui.btnPrimary}
+							className={buttonClass({ variant: canCombinedExport ? 'ghost' : 'primary' })}
 							disabled={exporting}
 							onClick={() => void onExport('zip')}
 						>
@@ -287,7 +288,7 @@ function GroupDetail() {
 						</button>
 					)}
 				</div>
-				<p className={cn(ui.muted, 'mt-3 mb-0 text-[0.82rem]')}>
+				<p className={cn('text-muted', 'mt-3 mb-0 text-[0.82rem]')}>
 					{stats.mixed
 						? 'Mixed sports cannot be one Strava/Apple activity. Download each part and upload separately.'
 						: 'Upload the GPX in Strava (+ → Upload activity). Apple Fitness has no file import — use Strava’s Apple Health sync, or open the file in HealthFit / RunGap. If these parts are already in Health from Apple Watch, uploading again creates a second workout.'}
@@ -303,12 +304,12 @@ function GroupDetail() {
 				onClose={() => setAddOpen(false)}
 				actions={
 					<>
-						<button type="button" className={ui.btnGhost} onClick={() => setAddOpen(false)}>
+						<button type="button" className={buttonClass({ variant: 'ghost' })} onClick={() => setAddOpen(false)}>
 							Cancel
 						</button>
 						<button
 							type="button"
-							className={ui.btnPrimary}
+							className={buttonClass()}
 							disabled={!addPick}
 							onClick={async () => {
 								if (!addPick) return;
@@ -342,7 +343,7 @@ function GroupDetail() {
 							>
 								<span>
 									<strong>{opt.date}</strong>
-									<span className={cn(ui.muted, 'block text-[0.82rem]')}>
+									<span className={cn('text-muted', 'block text-[0.82rem]')}>
 										{[
 											activityLabel(opt.activity_type),
 											opt.start_time || null,
@@ -355,7 +356,7 @@ function GroupDetail() {
 							</button>
 						))
 					) : (
-						<p className={cn(ui.muted, 'm-0')}>No ungrouped activities left to add.</p>
+						<p className={cn('text-muted', 'm-0')}>No ungrouped activities left to add.</p>
 					)}
 				</div>
 			</Dialog>

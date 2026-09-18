@@ -16,7 +16,7 @@ import { calendarFromGoal, daysUntil, mondayIso } from '$lib/plan';
 import { clearGoal, completeGoal, getGoalBrief, getGoalsData, saveActiveGoal } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import type { Goal } from '$lib/types';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
@@ -27,7 +27,7 @@ import { PageHero } from '../components/PageHero';
 import { RouteLine } from '../components/RouteLine';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, Button, Field, Form, FormGrid, FormSection, Textarea, useAppForm } from '../components/ui';
+import { Actions, Button, Field, Form, FormGrid, FormSection, Textarea, useAppForm, buttonClass, panelClass, actionsClass, sectionTitleClass, tabBarClass } from '../components/ui';
 
 type GoalsTab = 'races' | 'medals';
 type GoalsSearch = { tab?: GoalsTab };
@@ -127,7 +127,7 @@ function GoalsPage() {
 
 	return (
 		<>
-			<div className={ui.coachTabs}>
+			<div className={tabBarClass()}>
 				<SegmentedToggle
 					fill
 					aria-label="Goals"
@@ -259,13 +259,13 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 							}
 						/>
 					) : (
-						<section className={cn(ui.panel, 'mb-6')}>
-							<p className={cn(ui.muted, 'mt-0')}>
+						<section className={panelClass('mb-6')}>
+							<p className={cn('text-muted', 'mt-0')}>
 								No race on the calendar. Coach still plans this week as base training.
 							</p>
 							{authed && editingId !== 'new' && (
-								<div className={cn(ui.actions, 'justify-start!')}>
-									<button className={ui.btnPrimary} type="button" onClick={() => setEditingId('new')}>
+								<div className={actionsClass('justify-start!')}>
+									<button className={buttonClass()} type="button" onClick={() => setEditingId('new')}>
 										<Icon name="flag" size={16} />
 										Set a goal
 									</button>
@@ -282,18 +282,18 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 									}}
 								/>
 							)}
-							{!authed && <p className={cn(ui.muted, 'mb-0')}>Sign in to set a race.</p>}
+							{!authed && <p className={cn('text-muted', 'mb-0')}>Sign in to set a race.</p>}
 						</section>
 					)}
 
 					{data.activeGoal && authed && editingId === 'new' && (
-						<section className={cn(ui.panel, 'mb-6 grid gap-3')}>
+						<section className={panelClass('mb-6 grid gap-3')}>
 							<div>
 								<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
 									<Icon name="plus" size={14} />
 									Add race
 								</p>
-								<p className={cn(ui.muted, 'm-0 mt-1')}>
+								<p className={cn('text-muted', 'm-0 mt-1')}>
 									Later dates wait. A sooner date takes over as active and resets the plan.
 								</p>
 							</div>
@@ -311,7 +311,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 
 					{(pastOpen.length > 0 || olderVisible) && (
 						<>
-							<section className={ui.sectionTitle}>
+							<section className={sectionTitleClass()}>
 								<div>
 									<h2>Unpinned</h2>
 									<p>
@@ -332,7 +332,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 
 					{(data.activeGoal || later.length > 0) && (
 						<>
-							<section className={ui.sectionTitle}>
+							<section className={sectionTitleClass()}>
 								<div>
 									<h2>Up next</h2>
 									<p>
@@ -380,7 +380,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 									</p>
 								</div>
 								{authed && data.activeGoal && editingId !== 'new' && (
-									<button className={ui.btnPrimary} type="button" onClick={() => setEditingId('new')}>
+									<button className={buttonClass()} type="button" onClick={() => setEditingId('new')}>
 										<Icon name="plus" size={16} />
 										Add race
 									</button>
@@ -403,7 +403,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 								/>
 							))}
 							{!authed && data.activeGoal && (
-								<p className={cn(ui.muted, 'mb-6')}>Sign in to add another race.</p>
+								<p className={cn('text-muted', 'mb-6')}>Sign in to add another race.</p>
 							)}
 						</>
 					)}
@@ -420,8 +420,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 									<button
 										key={g.id}
 										type="button"
-										className={cn(
-											ui.panel,
+										className={panelClass(
 											'text-left cursor-pointer transition-[border-color,transform] duration-150 hover:border-accent/40 hover:-translate-y-px flex items-stretch justify-between gap-3'
 										)}
 										onClick={() => setOpenMedal(g)}
@@ -435,7 +434,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 											<p className="font-display font-bold text-[2.1rem] tracking-[-0.04em] text-accent-fg m-0 mt-2 leading-none">
 												{g.result?.time || '—'}
 											</p>
-											<p className={cn(ui.muted, 'm-0 mt-2')}>
+											<p className={cn('text-muted', 'm-0 mt-2')}>
 												{formatRaceDate(g.date)}
 												{g.result?.distance_km != null
 													? ` · ${g.result.distance_km} km`
@@ -454,8 +453,8 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 							})}
 						</div>
 					) : (
-						<section className={ui.panel}>
-							<p className={cn(ui.muted, 'm-0')}>
+						<section className={panelClass()}>
+							<p className={cn('text-muted', 'm-0')}>
 								Nothing on the wall yet. Pin a result after you run the race.
 							</p>
 						</section>
@@ -542,7 +541,7 @@ function PinRaceResult({
 	return (
 		<div className="grid gap-3 pt-3 border-t border-line">
 			<h3 className="m-0">Pin race result</h3>
-			<p className={cn(ui.muted, 'm-0')}>
+			<p className={cn('text-muted', 'm-0')}>
 				Pick the activity you ran. That time becomes the medal.
 				{goal.bib_number ? ` Bib ${goal.bib_number} is already saved.` : ''}
 			</p>
@@ -578,7 +577,7 @@ function PinRaceResult({
 				</Form>
 			) : (
 				<>
-					<p className={cn(ui.muted, 'm-0')}>
+					<p className={cn('text-muted', 'm-0')}>
 						No matching activity yet.{' '}
 						<Link className="text-accent-fg font-semibold" to="/import">
 							Import the GPX
@@ -620,19 +619,19 @@ function ActiveGoalCard({
 }) {
 	const days = daysUntil(goal.date);
 	return (
-		<section className={cn(ui.panel, 'mb-6 grid gap-4')}>
+		<section className={panelClass('mb-6 grid gap-4')}>
 			<div>
 				<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
 					<Icon name="flag" size={14} />
 					Active
 				</p>
 				<h2 className="font-display text-[1.7rem] tracking-[-0.03em] m-0 mt-1">{goal.name}</h2>
-				<p className={cn(ui.muted, 'm-0 mt-1')}>{goalSummaryLine(goal)}</p>
+				<p className={cn('text-muted', 'm-0 mt-1')}>{goalSummaryLine(goal)}</p>
 				<GoalUrlLinks url={goal.url} itineraryUrl={goal.itinerary_url} />
 			</div>
 			<div className="flex flex-wrap gap-6">
 				<div>
-					<span className={cn('block text-[0.78rem]', ui.muted)}>
+					<span className={cn('block text-[0.78rem]', 'text-muted')}>
 						{days == null ? 'Race day' : days > 0 ? 'Days to go' : days === 0 ? 'Race day' : 'Days since'}
 					</span>
 					<strong className="font-display text-[2.1rem] tracking-[-0.04em] text-accent-fg leading-none">
@@ -640,11 +639,11 @@ function ActiveGoalCard({
 					</strong>
 				</div>
 				<div>
-					<span className={cn('block text-[0.78rem]', ui.muted)}>Plan</span>
+					<span className={cn('block text-[0.78rem]', 'text-muted')}>Plan</span>
 					<strong className="font-display text-[1.35rem] tracking-[-0.03em]">
 						{weekCount} week{weekCount === 1 ? '' : 's'}
 					</strong>
-					<p className={cn(ui.muted, 'm-0 mt-1 text-[0.85rem]')}>
+					<p className={cn('text-muted', 'm-0 mt-1 text-[0.85rem]')}>
 						Monday {goal.plan_start} through race week
 					</p>
 				</div>
@@ -656,19 +655,19 @@ function ActiveGoalCard({
 					))}
 				</ul>
 			)}
-			{goal.notes ? <p className={cn(ui.muted, 'm-0 whitespace-pre-wrap')}>{goal.notes}</p> : null}
+			{goal.notes ? <p className={cn('text-muted', 'm-0 whitespace-pre-wrap')}>{goal.notes}</p> : null}
 			{authed && (
-				<div className={cn(ui.actions, 'justify-start!')}>
+				<div className={actionsClass('justify-start!')}>
 					{!editing && (
-						<button className={ui.btnGhost} type="button" onClick={onEdit}>
+						<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={onEdit}>
 							<Icon name="pencil" size={16} />
 							Edit
 						</button>
 					)}
-					<button className={cn(ui.btnGhost, ui.btnDanger)} type="button" onClick={onClear}>
+					<button className={buttonClass({ variant: 'danger' })} type="button" onClick={onClear}>
 						Clear
 					</button>
-					<Link className={ui.btnGhost} to="/coach" search={{ tab: 'plan' }}>
+					<Link className={buttonClass({ variant: 'ghost' })} to="/coach" search={{ tab: 'plan' }}>
 						<Icon name="board" size={16} />
 						Plan
 					</Link>
@@ -706,7 +705,7 @@ function UpcomingGoalCard({
 	const days = daysUntil(goal.date);
 	const past = days != null && days < 0;
 	return (
-		<section className={cn(ui.panel, 'mb-3 grid gap-3')}>
+		<section className={panelClass('mb-3 grid gap-3')}>
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div>
 					<p className="m-0 inline-flex items-center gap-1.5 text-muted font-bold text-[0.72rem] tracking-[0.08em] uppercase">
@@ -714,11 +713,11 @@ function UpcomingGoalCard({
 						{past ? 'Past' : 'Upcoming'}
 					</p>
 					<h3 className="font-display text-[1.35rem] tracking-[-0.03em] m-0 mt-1">{goal.name}</h3>
-					<p className={cn(ui.muted, 'm-0 mt-1')}>{goalSummaryLine(goal)}</p>
+					<p className={cn('text-muted', 'm-0 mt-1')}>{goalSummaryLine(goal)}</p>
 					<GoalUrlLinks url={goal.url} itineraryUrl={goal.itinerary_url} />
 				</div>
 				<div className="text-right">
-					<span className={cn('block text-[0.78rem]', ui.muted)}>
+					<span className={cn('block text-[0.78rem]', 'text-muted')}>
 						{days == null ? 'Race day' : days > 0 ? 'Days to go' : days === 0 ? 'Race day' : 'Days since'}
 					</span>
 					<strong className="font-display text-[1.7rem] tracking-[-0.04em] leading-none">
@@ -727,14 +726,14 @@ function UpcomingGoalCard({
 				</div>
 			</div>
 			{authed && (
-				<div className={cn(ui.actions, 'justify-start!')}>
+				<div className={actionsClass('justify-start!')}>
 					{!editing && (
-						<button className={ui.btnGhost} type="button" onClick={onEdit}>
+						<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={onEdit}>
 							<Icon name="pencil" size={16} />
 							Edit
 						</button>
 					)}
-					<button className={cn(ui.btnGhost, ui.btnDanger)} type="button" onClick={onRemove}>
+					<button className={buttonClass({ variant: 'danger' })} type="button" onClick={onRemove}>
 						Remove
 					</button>
 				</div>
@@ -1022,7 +1021,7 @@ function GoalForm({
 				)}
 				{copyTab === 'generate' && (
 					<>
-						<p className={cn(ui.muted, 'm-0')}>
+						<p className={cn('text-muted', 'm-0')}>
 							Same as Coach: build a prompt from this race plus your last 30 days of activities, copy
 							it to an AI, then paste the JSON back to fill the form.
 						</p>

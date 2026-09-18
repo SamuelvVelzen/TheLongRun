@@ -1,6 +1,7 @@
+import { buttonClass, panelClass, actionsClass, formClass } from '../components/ui';
 import { createContext, useContext, type MouseEventHandler, type ReactNode } from 'react';
 import { useRouterState } from '@tanstack/react-router';
-import { cn, ui } from './ui';
+import { cn } from './ui';
 
 const AuthContext = createContext(false);
 
@@ -83,13 +84,13 @@ export function SignInPanel({
 	body?: string;
 }) {
 	return (
-		<div className={cn(ui.panel, ui.form)}>
+		<div className={panelClass(formClass)}>
 			<h2 className="m-0">{title}</h2>
-			<p className={cn(ui.muted, 'mt-[0.35rem] mb-0')}>
+			<p className={cn('text-muted', 'mt-[0.35rem] mb-0')}>
 				{body ?? 'Sign in to add, edit, or delete.'}
 			</p>
-			<div className={ui.actions}>
-				<SignInLink className={ui.btnPrimary}>Sign in</SignInLink>
+			<div className={actionsClass()}>
+				<SignInLink className={buttonClass()}>Sign in</SignInLink>
 			</div>
 		</div>
 	);

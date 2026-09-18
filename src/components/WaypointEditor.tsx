@@ -1,6 +1,7 @@
+import { buttonClass } from './ui';
 import type { GpsContextTrack, GpsPoint, GpsWaypoint } from '$lib/gps-repair';
 import { previewGpsNetwork } from '$lib/server/functions';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
 import { type ReactNode, type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { GpsWaypointMap } from './GpsWaypointMap';
 import { Icon } from './Icon';
@@ -123,7 +124,7 @@ export function WaypointEditor({
 	return (
 		<div className="grid gap-3">
 			{children}
-			{hint ? <p className={cn(ui.muted, 'm-0 text-[0.92rem]')}>{hint}</p> : null}
+			{hint ? <p className={cn('text-muted', 'm-0 text-[0.92rem]')}>{hint}</p> : null}
 			<GpsWaypointMap
 				waypoints={waypoints}
 				contextTracks={contextTracks}
@@ -144,7 +145,7 @@ export function WaypointEditor({
 			/>
 			<div className="flex flex-wrap items-center gap-2">
 				<button
-					className={cn(ui.btnGhost, ui.btnIcon)}
+					className={buttonClass({ variant: 'ghost', size: 'icon' })}
 					type="button"
 					disabled={busy || past.length === 0}
 					aria-label="Undo pin"
@@ -154,7 +155,7 @@ export function WaypointEditor({
 					<Icon name="undo" size={16} />
 				</button>
 				<button
-					className={cn(ui.btnGhost, ui.btnIcon)}
+					className={buttonClass({ variant: 'ghost', size: 'icon' })}
 					type="button"
 					disabled={busy || future.length === 0}
 					aria-label="Redo pin"
@@ -164,7 +165,7 @@ export function WaypointEditor({
 					<Icon name="redo" size={16} />
 				</button>
 				<button
-					className={cn(ui.btnGhost, ui.btnSm)}
+					className={buttonClass({ variant: 'ghost', size: 'sm' })}
 					type="button"
 					disabled={busy || waypoints.length === 0}
 					onClick={() => apply([])}
@@ -182,18 +183,18 @@ export function WaypointEditor({
 					/>
 				</label>
 			</div>
-			<p className={cn(ui.muted, 'm-0 text-[0.78rem] text-right')}>
+			<p className={cn('text-muted', 'm-0 text-[0.78rem] text-right')}>
 				BRouter bike/hike network — not trains. Uncheck to keep the line you drew.
 			</p>
 			{embedded ? null : (
 				<div className="flex flex-wrap justify-end gap-2">
 					{onClose ? (
-						<button className={cn(ui.btnGhost, ui.btnSm)} type="button" disabled={busy} onClick={onClose}>
+						<button className={buttonClass({ variant: 'ghost', size: 'sm' })} type="button" disabled={busy} onClick={onClose}>
 							Close
 						</button>
 					) : null}
 					<button
-						className={cn(ui.btnPrimary, ui.btnSm)}
+						className={buttonClass({ size: 'sm' })}
 						type="button"
 						disabled={busy || waypoints.length < 2 || !onSave}
 						onClick={() =>

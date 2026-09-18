@@ -1,6 +1,10 @@
 import { useNavigate } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { cn, ui } from '$lib/ui';
+import { cn } from '$lib/ui';
+import { ui } from './tokens';
+
+export const segToggleClass = ui.segToggle;
+export const segItemClass = ui.segItem;
 
 type SearchFn = (prev: Record<string, unknown>) => Record<string, unknown>;
 

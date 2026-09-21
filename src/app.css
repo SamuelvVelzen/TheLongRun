@@ -121,7 +121,14 @@
 :root {
 	--app-header-inner: 3.65rem;
 	--app-header-desktop: 2.75rem;
-	--app-header-height: calc(var(--app-header-inner) + env(safe-area-inset-top, 0px));
+	--safe-top: env(safe-area-inset-top, 0px);
+	--safe-right: env(safe-area-inset-right, 0px);
+	--safe-bottom: env(safe-area-inset-bottom, 0px);
+	--safe-left: env(safe-area-inset-left, 0px);
+	/* Full home-indicator inset (~34px, often more in iOS PWAs) leaves a huge empty band under the tabs. */
+	--safe-bottom-chrome: min(var(--safe-bottom), 1rem);
+	--tab-bar-offset: calc(4.5rem + var(--safe-bottom-chrome));
+	--app-header-height: calc(var(--app-header-inner) + var(--safe-top));
 	--sticky-chrome-bg: color-mix(in srgb, var(--canvas-top) 78%, transparent);
 	--sticky-chrome-bg-mobile: color-mix(in srgb, var(--canvas-top) 96%, transparent);
 	--page-bg:
@@ -374,11 +381,11 @@
 	}
 
 	body:has(.sticky-actions) .scroll-to-top {
-		bottom: calc(11rem + env(safe-area-inset-bottom, 0px));
+		bottom: calc(10rem + var(--safe-bottom-chrome));
 	}
 
 	body:has(.sticky-actions) .snack-host {
-		bottom: calc(11rem + env(safe-area-inset-bottom, 0px));
+		bottom: calc(10rem + var(--safe-bottom-chrome));
 	}
 }
 
@@ -606,6 +613,10 @@ body.overlay-open {
 	-webkit-touch-callout: none;
 	background: var(--canvas);
 	box-shadow: var(--shadow-tab);
+	padding-top: 0.3rem;
+	padding-right: max(0.35rem, var(--safe-right));
+	padding-bottom: max(0.3rem, var(--safe-bottom-chrome));
+	padding-left: max(0.35rem, var(--safe-left));
 }
 
 body.map-fs-active .tab-bar,

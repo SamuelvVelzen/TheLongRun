@@ -38,10 +38,10 @@ export function ScrollToTop() {
 			className={cn(
 				'scroll-to-top fixed z-30 inline-flex items-center justify-center p-0 rounded-full border border-line bg-surface/92 text-fg shadow-lift backdrop-blur-[10px] cursor-pointer',
 				'size-11 min-h-11 min-w-11',
-				'right-[max(0.85rem,env(safe-area-inset-right,0px))] bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px))]',
+				'right-[max(0.85rem,var(--safe-right))] bottom-[calc(1.15rem+var(--safe-bottom))]',
 				'max-sm:size-9 max-sm:min-h-9 max-sm:min-w-9',
-				'max-sm:left-[max(0.85rem,env(safe-area-inset-left,0px))] max-sm:right-auto',
-				'max-sm:bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))]',
+				'max-sm:left-[max(0.85rem,var(--safe-left))] max-sm:right-auto',
+				'max-sm:bottom-[calc(var(--tab-bar-offset)+0.65rem)]',
 				'transition-[opacity,transform,border-color,color,visibility] duration-200',
 				'hover:border-accent/45 hover:text-accent-fg active:border-accent/45 active:text-accent-fg',
 				visible

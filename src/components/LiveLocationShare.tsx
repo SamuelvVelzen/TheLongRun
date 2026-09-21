@@ -1,4 +1,3 @@
-import { buttonClass, snackActionClass } from './ui';
 import { useAuthed } from '$lib/auth';
 import { loadLeaflet } from '$lib/leaflet';
 import {
@@ -32,6 +31,7 @@ import {
 import { Dialog } from './Dialog';
 import { Icon } from './Icon';
 import { errorMessage, useSnackbar } from './Snackbar';
+import { buttonClass, snackActionClass } from './ui';
 
 function currentPosition(): Promise<GeolocationPosition> {
 	return new Promise((resolve, reject) => {
@@ -180,7 +180,7 @@ function LiveLocationBroadcaster() {
 			</Dialog>
 			{sharing ? (
 				<div
-					className="live-share-host fixed z-[55] inset-x-0 bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px))] flex justify-center px-4 pointer-events-none max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:px-3"
+					className="live-share-host fixed z-[55] inset-x-0 bottom-[calc(1.15rem+var(--safe-bottom))] flex justify-center px-4 pointer-events-none max-sm:bottom-(--tab-bar-offset) max-sm:px-3"
 				>
 					<div
 						className="live-share-banner pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.65rem] pr-[0.45rem] pl-[0.9rem] rounded-[14px] border border-live/40 bg-surface shadow-lift"
@@ -276,7 +276,7 @@ function LiveLocationWatch() {
 			</Dialog>
 			{!watching && !promptOpen ? (
 				<div
-					className="live-watch-host fixed z-[55] inset-x-0 bottom-[calc(1.15rem+env(safe-area-inset-bottom,0px))] flex justify-center px-4 pointer-events-none max-sm:bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] max-sm:px-3"
+					className="live-watch-host fixed z-[55] inset-x-0 bottom-[calc(1.15rem+var(--safe-bottom))] flex justify-center px-4 pointer-events-none max-sm:bottom-(--tab-bar-offset) max-sm:px-3"
 				>
 					<div
 						className="pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.65rem] pr-[0.45rem] pl-[0.9rem] rounded-[14px] border border-live/40 bg-surface shadow-lift"

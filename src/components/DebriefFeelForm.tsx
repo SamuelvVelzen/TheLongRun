@@ -1,5 +1,6 @@
 import { activityLabel, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
 import { parseOptionalNumber } from '$lib/activity-form';
+import { HABIT_PLACEHOLDERS, type HabitPair } from '$lib/activity-habits';
 import {
     gearKindForActivity,
     gearMetaForActivity,
@@ -49,6 +50,8 @@ export type DebriefFeelRun = {
 	wanted_faster?: boolean | null;
 	surface?: string;
 	notes?: string;
+	before_notes?: string;
+	after_notes?: string;
 	hasFeel?: boolean;
 };
 
@@ -56,17 +59,21 @@ export function DebriefFeelForm({
 	run,
 	heading,
 	writeup,
+	habitDraft,
 	gear,
 	gearWear,
 	onWriteupChange,
+	onHabitChange,
 	onSaved
 }: {
 	run: DebriefFeelRun;
 	heading?: ReactNode;
 	writeup: string;
+	habitDraft: HabitPair;
 	gear: GearContext;
 	gearWear: Record<GearKind, Record<string, GearWear>>;
 	onWriteupChange: (text: string) => void;
+	onHabitChange: (field: keyof HabitPair, text: string) => void;
 	onSaved: () => void | Promise<void>;
 }) {
 	const snack = useSnackbar();
@@ -106,11 +113,12 @@ export function DebriefFeelForm({
 		},
 		validators: { onSubmit: debriefFeelSchema },
 		onSubmit: async ({ value }) => {
-			if (!detailsOpen && !scoresOpen) return;
 			try {
 				await saveActivityFeel({
 					data: {
 						slug: run.slug,
+						before_notes: habitDraft.before,
+						after_notes: habitDraft.after,
 						...(detailsOpen && activityType === 'run'
 							? {
 									session: value.session,
@@ -179,6 +187,25 @@ export function DebriefFeelForm({
 					rows={12}
 				/>
 			</Field>
+
+			<FormGrid>
+				<Field label="Before">
+					<Textarea
+						rows={2}
+						placeholder={HABIT_PLACEHOLDERS[activityType].before}
+						value={habitDraft.before}
+						onChange={(e) => onHabitChange('before', e.target.value)}
+					/>
+				</Field>
+				<Field label="After">
+					<Textarea
+						rows={2}
+						placeholder={HABIT_PLACEHOLDERS[activityType].after}
+						value={habitDraft.after}
+						onChange={(e) => onHabitChange('after', e.target.value)}
+					/>
+				</Field>
+			</FormGrid>
 
 			{(activityType === 'run' || showsField(activityType, 'gear')) && (
 				<>
@@ -341,16 +368,14 @@ export function DebriefFeelForm({
 				</>
 			)}
 
-			{(detailsOpen || scoresOpen) && (
-				<Actions>
-					<form.AppForm>
-						<form.SubmitButton busyLabel="Saving…">
-							<Icon name="check" size={16} />
-							Save
-						</form.SubmitButton>
-					</form.AppForm>
-				</Actions>
-			)}
+			<Actions>
+				<form.AppForm>
+					<form.SubmitButton busyLabel="Saving…">
+						<Icon name="check" size={16} />
+						Save
+					</form.SubmitButton>
+				</form.AppForm>
+			</Actions>
 		</Form>
 	);
 }

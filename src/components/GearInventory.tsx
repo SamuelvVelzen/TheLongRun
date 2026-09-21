@@ -275,8 +275,7 @@ export function GearInventory({
 	return (
 		<div className={panelClass(authed && formClass, 'mb-5')}>
 			<div>
-				<h2>Gear</h2>
-				<p className={cn('text-muted', 'mt-1 mb-0 text-[0.9rem]')}>
+				<p className={cn('text-muted', 'mt-0 mb-0 text-[0.9rem]')}>
 					{empty && !authed
 						? 'No kit in the inventory yet.'
 						: 'Default kit is used when you log or import that sport. Mileage is counted from logged activities — Strava GPX files do not include gear.'}

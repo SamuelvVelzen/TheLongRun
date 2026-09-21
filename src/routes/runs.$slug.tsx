@@ -6,6 +6,7 @@ import {
     showsField
 } from '$lib/activity';
 import { runToActivityForm, toUpdateRunInput } from '$lib/activity-form';
+import { HABIT_PLACEHOLDERS, withHabitDefaults } from '$lib/activity-habits';
 import { useAuthed } from '$lib/auth';
 import { gearKindForActivity, gearMetaForActivity, gearPickerOptions } from '$lib/gear';
 import {
@@ -40,7 +41,7 @@ import { RouteChip } from '../components/RouteChip';
 import { RouteMap } from '../components/RouteMap';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 import { SplitsPanel } from '../components/SplitsPanel';
-import { Button, buttonClass, panelClass, metricsClass, metricClass, mapBadgeClass, runTitleClass } from '../components/ui';
+import { Button, buttonClass, mapBadgeClass, metricClass, metricsClass, panelClass, runTitleClass } from '../components/ui';
 
 type RunSearch = { edit?: boolean };
 
@@ -306,7 +307,8 @@ function RunDetail() {
 		gpsContextTracks,
 		calendar,
 		group,
-		groupOptions
+		groupOptions,
+		habits
 	} = Route.useLoaderData();
 	const router = useRouter();
 	const authed = useAuthed();
@@ -341,6 +343,10 @@ function RunDetail() {
 
 	const viewGearKind = gearKindForActivity(r.activity_type);
 	const viewGearMeta = gearMetaForActivity(r.activity_type);
+	const ritual = withHabitDefaults(r.activity_type, habits, {
+		before: r.before_notes,
+		after: r.after_notes
+	});
 
 	const hrFill =
 		r.avg_hr != null && r.max_hr != null && r.max_hr > 0
@@ -416,7 +422,9 @@ function RunDetail() {
 			elev_gain: r.elev_gain,
 			cadence: r.cadence,
 			gear: r.gear || '',
-			notes: r.notes || ''
+			notes: r.notes || '',
+			before_notes: r.before_notes || '',
+			after_notes: r.after_notes || ''
 		};
 	}
 
@@ -541,8 +549,13 @@ function RunDetail() {
 					calendar={calendar}
 					gear={gear}
 					gearWear={gearWear}
+					habits={habits}
 					extraGear={[r.gear]}
-					defaultValues={runToActivityForm(r)}
+					defaultValues={runToActivityForm({
+						...r,
+						before_notes: ritual.before,
+						after_notes: ritual.after
+					})}
 					submitLabel="Save changes"
 					cancel={
 						<Button variant="ghost" type="button" onClick={requestLeaveEdit}>
@@ -842,6 +855,22 @@ function RunDetail() {
 								onSave={(v) => patchRun({ notes: v })}
 							/>
 						)}
+						<InlineText
+							label="Before"
+							value={r.before_notes || ritual.before}
+							multiline
+							placeholder={HABIT_PLACEHOLDERS[normalizeActivityType(r.activity_type)].before}
+							editable={authed}
+							onSave={(v) => patchRun({ before_notes: v })}
+						/>
+						<InlineText
+							label="After"
+							value={r.after_notes || ritual.after}
+							multiline
+							placeholder={HABIT_PLACEHOLDERS[normalizeActivityType(r.activity_type)].after}
+							editable={authed}
+							onSave={(v) => patchRun({ after_notes: v })}
+						/>
 						{r.start_time && (
 							<p className={cn('text-muted', 'mt-[0.4rem] mb-0 text-[0.82rem]')}>
 								Started {r.start_time}

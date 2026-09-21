@@ -42,6 +42,10 @@ export interface RunRecord {
 	strava_id: string;
 	route: string;
 	notes: string;
+	/** This session’s before ritual; empty means “use the sport default”. */
+	before_notes: string;
+	/** This session’s after ritual; empty means “use the sport default”. */
+	after_notes: string;
 	/** Location reverse-geocoded from the activity's start coordinate (Nominatim), '' if unknown. */
 	country: string;
 	province: string;

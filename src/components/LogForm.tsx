@@ -1,5 +1,6 @@
 import { normalizeActivityType, type ActivityType } from '$lib/activity';
 import { emptyActivityForm, toCreateRunInput } from '$lib/activity-form';
+import { withHabitDefaults, type ActivityHabits } from '$lib/activity-habits';
 import { dayFromIsoDate } from '$lib/format';
 import { gearKindForActivity, type GearContext, type GearKind, type GearWear } from '$lib/gear';
 import { type PlanCalendar } from '$lib/plan';
@@ -24,6 +25,7 @@ export function LogForm({
 	gear,
 	gearWear,
 	calendar,
+	habits,
 	prefill,
 	strengthTops = []
 }: {
@@ -31,6 +33,7 @@ export function LogForm({
 	gear: GearContext;
 	gearWear?: Record<GearKind, Record<string, GearWear>>;
 	calendar: PlanCalendar;
+	habits: ActivityHabits;
 	prefill?: LogFormPrefill;
 	strengthTops?: RecentLiftTop[];
 }) {
@@ -56,6 +59,7 @@ export function LogForm({
 				: 'easy';
 	const gearKind = gearKindForActivity(activityType);
 	const notes = fromPlan ? fillStrengthNotesFromTops(prefill?.notes ?? '', strengthTops) : '';
+	const ritual = withHabitDefaults(activityType, habits);
 
 	return (
 		<ActivityForm
@@ -63,6 +67,7 @@ export function LogForm({
 			calendar={calendar}
 			gear={gear}
 			gearWear={gearWear}
+			habits={habits}
 			submitLabel="Save activity"
 			defaultValues={emptyActivityForm({
 				date: dateValue,
@@ -70,7 +75,9 @@ export function LogForm({
 				session: defaultSession,
 				time: prefill?.time || '',
 				gear: gearKind ? gear[gearKind].active : '',
-				notes
+				notes,
+				before_notes: ritual.before,
+				after_notes: ritual.after
 			})}
 			cancel={
 				<Link className={buttonClass({ variant: 'ghost' })} to="/">

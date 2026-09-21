@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS runs (
 	strava_id      TEXT NOT NULL DEFAULT '',
 	route          TEXT NOT NULL DEFAULT '',
 	notes          TEXT NOT NULL DEFAULT '',
+	before_notes   TEXT NOT NULL DEFAULT '',
+	after_notes    TEXT NOT NULL DEFAULT '',
 	country        TEXT NOT NULL DEFAULT '',
 	province       TEXT NOT NULL DEFAULT '',
 	place          TEXT NOT NULL DEFAULT '',

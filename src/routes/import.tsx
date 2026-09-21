@@ -121,6 +121,7 @@ function AddActivity() {
 									gear={data.gear}
 									gearWear={data.gearWear}
 									calendar={data.calendar}
+									habits={data.habits}
 									strengthTops={data.strengthTops}
 									prefill={
 										prefillType

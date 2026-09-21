@@ -1,35 +1,43 @@
 import { showsField } from '$lib/activity';
+import { emptyActivityHabits } from '$lib/activity-habits';
 import { useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
 import { composeDebriefPrompt } from '$lib/debrief';
 import {
-	clearDebriefWriteups,
-	readDebriefWriteups,
-	writeDebriefWriteups
+    clearDebriefHabits,
+    readDebriefHabits,
+    seedDebriefHabits,
+    setDebriefHabitField
+} from '$lib/debrief-habits';
+import {
+    clearDebriefWriteups,
+    readDebriefWriteups,
+    writeDebriefWriteups
 } from '$lib/debrief-writeups';
 import type { GearContext, GearKind, GearWear } from '$lib/gear';
 import {
-	formatAllWeeksClipboard,
-	formatWeekPlanClipboard,
-	isoDateLocal,
-	planWeekDateRange,
-	planWeekDateRangeShort
+    formatAllWeeksClipboard,
+    formatWeekPlanClipboard,
+    isoDateLocal,
+    planWeekDateRange,
+    planWeekDateRangeShort
 } from '$lib/plan';
 import {
-	getCoachBrief,
-	getCoachPlan,
-	getDebriefPrompt,
-	getWeekPattern,
-	saveDebrief,
-	savePlanWeeks,
-	saveWeekPattern
+    getCoachBrief,
+    getCoachPlan,
+    getDebriefPrompt,
+    getWeekPattern,
+    saveActivityFeel,
+    saveDebrief,
+    savePlanWeeks,
+    saveWeekPattern
 } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import { cn } from '$lib/ui';
 import {
-	formatPatternProse,
-	patternsEqual,
-	type WeekPattern
+    formatPatternProse,
+    patternsEqual,
+    type WeekPattern
 } from '$lib/week-mix';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
@@ -46,10 +54,10 @@ import { Select } from '../components/Select';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 import { Actions, actionsClass, Button, buttonClass, Field, fieldClass, Form, formClass, panelClass, runTitleClass, tabBarClass, Textarea, useAppForm } from '../components/ui';
 import {
-	rowsFrom,
-	toPattern,
-	WeekPatternEditor,
-	type SlotRow
+    rowsFrom,
+    toPattern,
+    WeekPatternEditor,
+    type SlotRow
 } from '../components/WeekPatternEditor';
 import { WeekPlanBoard } from '../components/WeekPlanBoard';
 
@@ -475,6 +483,7 @@ function CoachPanels({
 
 	const [debrief, setDebrief] = useState(initialDebrief);
 	const [writeups, setWriteups] = useState(readDebriefWriteups);
+	const [habitDrafts, setHabitDrafts] = useState(readDebriefHabits);
 	const [debriefPrompt, setDebriefPrompt] = useState(() =>
 		composeDebriefPrompt(
 			initialDebrief.prompt,
@@ -483,7 +492,9 @@ function CoachPanels({
 				: initialDebrief.run
 					? [initialDebrief.run]
 					: [],
-			{}
+			{},
+			{},
+			initialDebrief.habits ?? emptyActivityHabits()
 		)
 	);
 	const [debriefCopied, setDebriefCopied] = useState(false);
@@ -520,8 +531,22 @@ function CoachPanels({
 
 	useEffect(() => {
 		const featured = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
-		setDebriefPrompt(composeDebriefPrompt(debrief.prompt, featured, writeups));
-	}, [debrief, writeups]);
+		const habits = debrief.habits ?? emptyActivityHabits();
+		setHabitDrafts((prev) => seedDebriefHabits(featured, habits, prev));
+	}, [debrief]);
+
+	useEffect(() => {
+		const featured = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
+		setDebriefPrompt(
+			composeDebriefPrompt(
+				debrief.prompt,
+				featured,
+				writeups,
+				habitDrafts,
+				debrief.habits ?? emptyActivityHabits()
+			)
+		);
+	}, [debrief, writeups, habitDrafts]);
 
 	const runs = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
 	const many = runs.length > 1;
@@ -536,6 +561,10 @@ function CoachPanels({
 			writeDebriefWriteups(next);
 			return next;
 		});
+	}
+
+	function setHabit(slugKey: string, field: 'before' | 'after', text: string) {
+		setHabitDrafts((prev) => setDebriefHabitField(slugKey, field, text, prev));
 	}
 
 	async function refreshDebrief() {
@@ -753,9 +782,11 @@ function CoachPanels({
 											run={r}
 											heading={many ? <DebriefRunTitle run={r} /> : undefined}
 											writeup={writeups[r.slug] ?? ''}
+											habitDraft={habitDrafts[r.slug] ?? { before: '', after: '' }}
 											gear={gear}
 											gearWear={gearWear}
 											onWriteupChange={(text) => setWriteup(r.slug, text)}
+											onHabitChange={(field, text) => setHabit(r.slug, field, text)}
 											onSaved={refreshDebrief}
 										/>
 										{(() => {
@@ -840,6 +871,17 @@ function CoachPanels({
 									submitIcon="check"
 									errorLabel="Could not save debrief."
 									onSubmit={async (json) => {
+										for (const r of runs) {
+											const h = habitDrafts[r.slug];
+											if (!h) continue;
+											await saveActivityFeel({
+												data: {
+													slug: r.slug,
+													before_notes: h.before,
+													after_notes: h.after
+												}
+											});
+										}
 										const res = await saveDebrief({ data: json });
 										const bits: string[] = [];
 										if (res.feelingsUpdated) {
@@ -854,6 +896,7 @@ function CoachPanels({
 										snack.success(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
 										if (res.feelingsUpdatedSlugs.length) {
 											setWriteups((prev) => clearDebriefWriteups(res.feelingsUpdatedSlugs, prev));
+											setHabitDrafts((prev) => clearDebriefHabits(res.feelingsUpdatedSlugs, prev));
 										}
 										await router.invalidate();
 									}}

@@ -68,10 +68,14 @@ const headerLinks = [
 const moreLinks = [
 	{ href: '/goals', label: 'Goals', icon: 'trophy' },
 	{ href: '/import', label: 'Add activity', icon: 'plus' },
+	{ href: '/gear', label: 'Gear', icon: 'gear' },
 	{ href: '/context', label: 'Context', icon: 'context' }
 ] as const;
 
-const desktopMoreLinks = [{ href: '/context', label: 'Context', icon: 'context' }] as const;
+const desktopMoreLinks = [
+	{ href: '/gear', label: 'Gear', icon: 'gear' },
+	{ href: '/context', label: 'Context', icon: 'context' }
+] as const;
 
 const tabs = [
 	{ href: '/', label: 'Home', icon: 'home', primary: false },
@@ -168,7 +172,7 @@ function RootShell() {
 						<Outlet />
 					</main>
 					<nav
-						className="tab-bar hidden max-sm:flex flex-none items-stretch justify-around z-40 gap-[0.15rem] min-h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pt-[0.3rem] pl-[max(0.35rem,env(safe-area-inset-left,0px))] pr-[max(0.35rem,env(safe-area-inset-right,0px))] pb-[calc(0.3rem+env(safe-area-inset-bottom,0px))] border-t border-line"
+						className="tab-bar hidden max-sm:flex flex-none items-stretch justify-around z-40 gap-[0.15rem] border-t border-line"
 						aria-label="Primary"
 					>
 						{tabs.map((tab) => (
@@ -206,7 +210,7 @@ function RootShell() {
 								onClick={closeDetails}
 								aria-hidden="true"
 							/>
-							<div className="fixed left-3 right-3 bottom-[calc(5.1rem+env(safe-area-inset-bottom,0px))] z-[41] grid gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">
+							<div className="fixed left-3 right-3 bottom-(--tab-bar-offset) z-[41] grid gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">
 								{extra.map((l) => (
 									<Link
 										key={l.href}

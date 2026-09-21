@@ -12,6 +12,13 @@ import {
 	activityFormSchema,
 	type ActivityFormValues
 } from '$lib/activity-form';
+import {
+	HABIT_PLACEHOLDERS,
+	emptyActivityHabits,
+	habitPairFor,
+	isReplaceableHabitField,
+	type ActivityHabits
+} from '$lib/activity-habits';
 import { dayFromIsoDate } from '$lib/format';
 import {
 	gearKindForActivity,
@@ -46,6 +53,7 @@ export function ActivityForm({
 	gear,
 	gearWear,
 	extraGear,
+	habits = emptyActivityHabits(),
 	submitLabel,
 	cancel,
 	onSubmit
@@ -56,6 +64,7 @@ export function ActivityForm({
 	gear: GearContext;
 	gearWear?: Record<GearKind, Record<string, GearWear>>;
 	extraGear?: string[];
+	habits?: ActivityHabits;
 	submitLabel: string;
 	cancel: ReactNode;
 	onSubmit: (values: ActivityFormValues) => void | Promise<void>;
@@ -116,6 +125,13 @@ export function ActivityForm({
 									const kind = gearKindForActivity(next);
 									if (kind) form.setFieldValue('gear', gear[kind].active ?? '');
 									if (next !== 'run') form.setFieldValue('session', 'other');
+									const pair = habitPairFor(habits, next);
+									if (isReplaceableHabitField(form.getFieldValue('before_notes'), 'before', next, habits)) {
+										form.setFieldValue('before_notes', pair.before);
+									}
+									if (isReplaceableHabitField(form.getFieldValue('after_notes'), 'after', next, habits)) {
+										form.setFieldValue('after_notes', pair.after);
+									}
 								}
 							}}
 							children={(field) => (
@@ -400,6 +416,28 @@ export function ActivityForm({
 										)}
 									/>
 								)}
+								<FormGrid className="mt-[0.85rem]">
+									<form.AppField
+										name="before_notes"
+										children={(field) => (
+											<field.TextAreaField
+												label="Before"
+												rows={2}
+												placeholder={HABIT_PLACEHOLDERS[normalizeActivityType(activityType)].before}
+											/>
+										)}
+									/>
+									<form.AppField
+										name="after_notes"
+										children={(field) => (
+											<field.TextAreaField
+												label="After"
+												rows={2}
+												placeholder={HABIT_PLACEHOLDERS[normalizeActivityType(activityType)].after}
+											/>
+										)}
+									/>
+								</FormGrid>
 							</FormSection>
 						</>
 					)}

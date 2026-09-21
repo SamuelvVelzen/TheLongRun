@@ -7,6 +7,11 @@ import {
 } from '$lib/plan';
 import { goalIdFrom, pickSoonestOpenGoal, stampGoalsByDate } from '$lib/goals';
 import {
+	emptyActivityHabits,
+	normalizeActivityHabits,
+	type ActivityHabits
+} from '$lib/activity-habits';
+import {
 	asGearNameList,
 	emptyGear,
 	normalizeGearCatalog,
@@ -304,6 +309,24 @@ export async function saveHrMaxSetting(hrMax: number | null): Promise<void> {
 export async function saveWeekPatternSetting(pattern: WeekPattern): Promise<WeekPattern> {
 	const next = await saveSettings({ weekPattern: pattern });
 	return next.weekPattern;
+}
+
+const HABITS_FILE = 'activity-habits.json';
+
+export async function loadActivityHabits(): Promise<ActivityHabits> {
+	const raw = await readContextFile(HABITS_FILE);
+	if (!raw.trim()) return emptyActivityHabits();
+	try {
+		return normalizeActivityHabits(JSON.parse(raw));
+	} catch {
+		return emptyActivityHabits();
+	}
+}
+
+export async function persistActivityHabits(habits: ActivityHabits): Promise<ActivityHabits> {
+	const next = normalizeActivityHabits(habits);
+	await writeContextFile(HABITS_FILE, `${JSON.stringify(next, null, 2)}\n`);
+	return next;
 }
 
 const GEAR_FILE = 'gear-inventory.json';

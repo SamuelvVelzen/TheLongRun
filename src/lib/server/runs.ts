@@ -55,6 +55,8 @@ function rowToRun(row: Record<string, unknown>): RunRecord {
 		strava_id: toStr(row.strava_id),
 		route: toStr(row.route),
 		notes: toStr(row.notes),
+		before_notes: toStr(row.before_notes),
+		after_notes: toStr(row.after_notes),
 		country: toStr(row.country),
 		province: toStr(row.province),
 		place: toStr(row.place),
@@ -77,13 +79,14 @@ async function upsertRun(r: RunColumns): Promise<RunRecord> {
 			slug, date, week, day, activity_type, session, effort, shins, legs, energy, weather, surface,
 			wanted_faster, distance_km, start_time, "time", elapsed_time, avg_pace, avg_hr, max_hr,
 			elev_gain, calories, kilojoules, max_speed, cadence, shoes, summary_image, splits_image,
-			strava_id, route, notes, country, province, place, best_efforts
+			strava_id, route, notes, before_notes, after_notes, country, province, place, best_efforts
 		) VALUES (
 			${r.slug}, ${r.date}, ${r.week}, ${r.day}, ${r.activity_type}, ${r.session}, ${r.effort}, ${r.shins},
 			${r.legs}, ${r.energy}, ${r.weather}, ${r.surface}, ${r.wanted_faster}, ${r.distance_km},
 			${r.start_time}, ${r.time}, ${r.elapsed_time}, ${r.avg_pace}, ${r.avg_hr}, ${r.max_hr},
 			${r.elev_gain}, ${r.calories}, ${r.kilojoules}, ${r.max_speed}, ${r.cadence}, ${r.gear},
-			${r.summary_image}, ${r.splits_image}, ${r.strava_id}, ${r.route}, ${r.notes}, ${r.country},
+			${r.summary_image}, ${r.splits_image}, ${r.strava_id}, ${r.route}, ${r.notes},
+			${r.before_notes}, ${r.after_notes}, ${r.country},
 			${r.province}, ${r.place}, ${efforts}
 		)
 		ON CONFLICT (slug) DO UPDATE SET
@@ -97,6 +100,7 @@ async function upsertRun(r: RunColumns): Promise<RunRecord> {
 			kilojoules = EXCLUDED.kilojoules, max_speed = EXCLUDED.max_speed, cadence = EXCLUDED.cadence,
 			shoes = EXCLUDED.shoes, summary_image = EXCLUDED.summary_image, splits_image = EXCLUDED.splits_image,
 			strava_id = EXCLUDED.strava_id, route = EXCLUDED.route, notes = EXCLUDED.notes,
+			before_notes = EXCLUDED.before_notes, after_notes = EXCLUDED.after_notes,
 			country = EXCLUDED.country, province = EXCLUDED.province, place = EXCLUDED.place,
 			best_efforts = EXCLUDED.best_efforts
 		RETURNING *
@@ -166,6 +170,8 @@ export interface SaveRunInput {
 	strava_id?: string;
 	route?: string;
 	notes: string;
+	before_notes?: string;
+	after_notes?: string;
 	country?: string;
 	province?: string;
 	place?: string;
@@ -205,6 +211,8 @@ export type FeelingsPatch = {
 	session?: string;
 	cadence?: number | null;
 	gear?: string;
+	before_notes?: string;
+	after_notes?: string;
 };
 
 /**
@@ -231,7 +239,9 @@ export async function updateRunFeelings(slug: string, p: FeelingsPatch): Promise
 		notes,
 		session: p.session !== undefined ? p.session.trim() : run.session,
 		cadence: pick(p.cadence, run.cadence),
-		gear: p.gear !== undefined ? p.gear.trim() : run.gear
+		gear: p.gear !== undefined ? p.gear.trim() : run.gear,
+		before_notes: p.before_notes !== undefined ? p.before_notes.trim() : run.before_notes,
+		after_notes: p.after_notes !== undefined ? p.after_notes.trim() : run.after_notes
 	};
 	const sql = getSql();
 	await sql`
@@ -245,7 +255,9 @@ export async function updateRunFeelings(slug: string, p: FeelingsPatch): Promise
 			notes = ${merged.notes},
 			session = ${merged.session},
 			cadence = ${merged.cadence},
-			shoes = ${merged.gear}
+			shoes = ${merged.gear},
+			before_notes = ${merged.before_notes},
+			after_notes = ${merged.after_notes}
 		WHERE slug = ${slug}
 	`;
 	return true;
@@ -321,6 +333,8 @@ export async function saveRun(input: SaveRunInput): Promise<RunRecord> {
 		strava_id: input.strava_id || '',
 		route: input.route || '',
 		notes: input.notes?.trim() ?? '',
+		before_notes: input.before_notes?.trim() ?? '',
+		after_notes: input.after_notes?.trim() ?? '',
 		country: input.country || '',
 		province: input.province || '',
 		place: input.place || '',
@@ -395,6 +409,8 @@ export async function writeRun(run: RunRecord): Promise<RunRecord> {
 		strava_id: run.strava_id || '',
 		route: run.route || '',
 		notes: run.notes?.trim() ?? '',
+		before_notes: run.before_notes?.trim() ?? '',
+		after_notes: run.after_notes?.trim() ?? '',
 		country: run.country || '',
 		province: run.province || '',
 		place: run.place || '',
@@ -426,6 +442,8 @@ export type UpdateRunFields = {
 	cadence: number | null;
 	gear: string;
 	notes: string;
+	before_notes: string;
+	after_notes: string;
 };
 
 /**
@@ -478,6 +496,8 @@ export async function updateRun(slug: string, fields: UpdateRunFields): Promise<
 		strava_id: existing.strava_id,
 		route: existing.route,
 		notes: fields.notes,
+		before_notes: fields.before_notes,
+		after_notes: fields.after_notes,
 		country: existing.country,
 		province: existing.province,
 		place: existing.place,

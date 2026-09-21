@@ -4,8 +4,8 @@ import { appHead } from '$lib/title';
 import { cn } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
+import { ActivityHabitsEditor } from '../components/ActivityHabitsEditor';
 import { DeferredData } from '../components/DeferredData';
-import { GearInventory } from '../components/GearInventory';
 import { Icon } from '../components/Icon';
 import { PageHero } from '../components/PageHero';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
@@ -24,9 +24,9 @@ function Context() {
 		<>
 			<PageHero
 				variant="quiet"
-				kicker="Profile, gear, and race notes"
+				kicker="Profile, habits, and race notes"
 				title="Context"
-				lead="Read the formatted docs and edit markdown when something changes. Races live on Goals."
+				lead="Usual before/after habits per sport, then the formatted docs. Races live on Goals. Kit lives on Gear."
 			/>
 			<DeferredData promise={page}>{(data) => <ContextBody data={data} />}</DeferredData>
 		</>
@@ -71,7 +71,7 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 
 	return (
 		<>
-			<GearInventory initial={data.gear} wear={data.gearWear} authed={authed} />
+			<ActivityHabitsEditor initial={data.habits} authed={authed} />
 
 			<div className={gridClass()}>
 				{data.files.map((file) => (

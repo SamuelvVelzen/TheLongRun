@@ -1,6 +1,12 @@
 import { ACTIVITY_TYPES, activityCount, activityLabel, activityPlural, metricText, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
 import { combinedActivityGpx, combinedActivityTcx, memberActivityGpx, safeFilename } from '$lib/activity-export';
 import {
+    formatUsualHabitsSection,
+    normalizeActivityHabits,
+    withHabitDefaults,
+    type ActivityHabits
+} from '$lib/activity-habits';
+import {
     computeBestEffortsFromSplits,
     computeBestEffortsFromTrack,
     distanceLabel,
@@ -14,7 +20,7 @@ import {
 } from '$lib/best-efforts';
 import { combinedAnalytics, trackFromGeoJson } from '$lib/combine-track';
 import { dateRangeFromSearch, filterRunsByRange, type DateRange, type RangeKind } from '$lib/date-range';
-import { DEBRIEF_WRITEUP_TOKEN } from '$lib/debrief';
+import { DEBRIEF_HABITS_TOKEN, DEBRIEF_WRITEUP_TOKEN } from '$lib/debrief';
 import { dayFromIsoDate, formatDuration, guessSession, localDateTimeToUtcMs, normalizeStartTime, parseDurationSeconds } from '$lib/format';
 import {
     catalogHasItems,
@@ -120,18 +126,19 @@ import {
 } from '$lib/week-mix';
 import { zipStoreBytes } from '$lib/zip';
 import { createServerFn } from '@tanstack/react-start';
-import matter from 'gray-matter';
 import { requireAuth } from './auth';
 import { brouterAlongPins } from './brouter';
 import {
     clearLiveLocation,
     currentPlanWeek,
+    loadActivityHabits,
     loadGear,
     loadGoalStore,
     loadLiveLocation,
     loadPlan,
     loadSettings,
     loadTrainingContext,
+    persistActivityHabits,
     persistGear,
     readContextFile,
     rememberGearName,
@@ -392,7 +399,7 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 		const run = await getRun(slug);
 		if (!run) return null;
 		const routeId = routeIdForRun(run);
-		const [geo, routeIds, gear, settings, allTimeMaxHr, allRuns, plannedRoute, training, group, plannedRoutes] =
+		const [geo, routeIds, gear, settings, allTimeMaxHr, allRuns, plannedRoute, training, group, plannedRoutes, habits] =
 			await Promise.all([
 				routeId ? getRouteGeoJson(routeId) : Promise.resolve(null),
 				listRouteIds(),
@@ -403,7 +410,8 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 				getActivityRouteRef(slug),
 				loadTrainingContext(),
 				membershipForSlug(slug),
-				listPlannedRoutes()
+				listPlannedRoutes(),
+				loadActivityHabits()
 			]);
 		const analytics = geo
 			? analyticsFromProperties(
@@ -479,7 +487,8 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 			gpsContextTracks,
 			calendar: training.calendar,
 			group,
-			groupOptions
+			groupOptions,
+			habits
 		};
 	});
 
@@ -491,16 +500,17 @@ export const saveHrMax = createServerFn({ method: 'POST' }).middleware([requireA
 	});
 
 export const getLogDefaults = createServerFn({ method: 'GET' }).handler(async () => {
-	const [week, gear, runs, training] = await Promise.all([
+	const [week, gear, runs, training, habits] = await Promise.all([
 		currentPlanWeek(),
 		loadGear(),
 		listRuns(),
-		loadTrainingContext()
+		loadTrainingContext(),
+		loadActivityHabits()
 	]);
 	const strengthTops = recentExerciseTops(
 		runs.filter((r) => normalizeActivityType(r.activity_type) === 'strength').sort(byDateNewestFirst)
 	);
-	return { week, gear, gearWear: wearByAllGear(runs), calendar: training.calendar, strengthTops };
+	return { week, gear, gearWear: wearByAllGear(runs), calendar: training.calendar, strengthTops, habits };
 });
 
 export const getRouteGeoJsonFn = createServerFn({ method: 'GET' })
@@ -524,23 +534,6 @@ const CONTEXT_FILES: { name: string; title: string }[] = [
 ];
 
 export type ContextFile = { name: string; title: string; body: string; html: string };
-
-function gearAsMarkdown(gear: GearContext) {
-	const parts: string[] = [];
-	for (const kind of GEAR_KINDS) {
-		const catalog = gear[kind];
-		const meta = gearMeta(kind);
-		const yaml = {
-			active: catalog.active,
-			rotation: catalog.rotation,
-			retired: catalog.retired
-		};
-		parts.push(
-			`## ${meta.section} — ${meta.label}\n\n${matter.stringify(catalog.notes ? `${catalog.notes}\n` : '', yaml)}`
-		);
-	}
-	return parts.join('\n');
-}
 
 function historyWindowPhrase(range: DateRange): string {
 	return range.label.toLowerCase();
@@ -689,18 +682,21 @@ ${blocks.join('\n\n')}`;
 }
 
 export const getContextData = createServerFn({ method: 'GET' }).handler(async () => {
-	const [gear, runs] = await Promise.all([loadGear(), listRuns()]);
-	const raw = await Promise.all(CONTEXT_FILES.map((f) => readContextFile(f.name)));
+	const [habits, raw] = await Promise.all([
+		loadActivityHabits(),
+		Promise.all(CONTEXT_FILES.map((f) => readContextFile(f.name)))
+	]);
 	const files: ContextFile[] = CONTEXT_FILES.map((f, i) => {
 		const body = raw[i]!;
 		const html = f.name.endsWith('.json') ? renderJsonPretty(body) : renderMarkdown(body);
 		return { name: f.name, title: f.title, body, html };
 	});
-	const allContext = [
-		`# ===== gear-inventory.json =====\n\n${gearAsMarkdown(gear).trim()}`,
-		...files.map((f) => `# ===== ${f.name} =====\n\n${f.body.trim()}`)
-	].join('\n\n');
-	return { gear, gearWear: wearByAllGear(runs), files, allContext };
+	return { habits, files };
+});
+
+export const getGearData = createServerFn({ method: 'GET' }).handler(async () => {
+	const [gear, runs] = await Promise.all([loadGear(), listRuns()]);
+	return { gear, gearWear: wearByAllGear(runs) };
 });
 
 export const getCoachBrief = createServerFn({ method: 'GET' })
@@ -726,7 +722,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 	})
 	.handler(async ({ data }) => {
 		const range = data.range;
-		const [allRuns, training, gearInventory, profile, injury, gear, raceStrategy, settings] =
+		const [allRuns, training, gearInventory, profile, injury, gear, raceStrategy, settings, habits] =
 			await Promise.all([
 				listRuns(),
 				loadTrainingContext(),
@@ -735,7 +731,8 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 				readContextFile('injury.md'),
 				readContextFile('gear.md'),
 				readContextFile('race-strategy.md'),
-				loadSettings()
+				loadSettings(),
+				loadActivityHabits()
 			]);
 		const { plan, calendar, activeGoal, medals, store } = training;
 		const defaultPattern = data.defaultPattern ?? settings.weekPattern;
@@ -961,6 +958,8 @@ ${profile.trim() || '(none)'}
 
 ## Injury rules
 ${injury.trim() || '(none)'}
+
+${formatUsualHabitsSection(habits)}
 
 ## Fueling & checklist
 ${gear.trim() || '(none)'}
@@ -1231,7 +1230,9 @@ function debriefRunSummary(r: RunRecord) {
 		energy: r.energy,
 		wanted_faster: r.wanted_faster,
 		surface: r.surface,
-		notes: r.notes
+		notes: r.notes,
+		before_notes: r.before_notes,
+		after_notes: r.after_notes
 	};
 }
 
@@ -1307,14 +1308,15 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 	})
 	.handler(async ({ data }) => {
 		const { slug, includePlan } = data;
-		const [allRuns, week, injury, settings, training, gearInventory, allTimeMaxHr] = await Promise.all([
+		const [allRuns, week, injury, settings, training, gearInventory, allTimeMaxHr, habits] = await Promise.all([
 			listRuns(),
 			currentPlanWeek(),
 			readContextFile('injury.md'),
 			loadSettings(),
 			loadTrainingContext(),
 			loadGear(),
-			getMaxHrAllTime()
+			getMaxHrAllTime(),
+			loadActivityHabits()
 		]);
 		const { goals } = training.store;
 		const { calendar } = training;
@@ -1346,6 +1348,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 				raceBySlug: {} as Record<string, DebriefRaceHint | null>,
 				gear: gearInventory,
 				gearWear: wearByAllGear(allRuns),
+				habits,
 				weekView,
 				error: 'Import this session’s GPX first — the prompt needs those numbers.'
 			};
@@ -1404,7 +1407,8 @@ ${sessionLines}
 ${unplannedLines ? `## Unplanned activities this week\nThese logs did not match a planned session — extra load, already done. Do not add a plan row just to file them.\n${unplannedLines}\n` : ''}`
 			: '';
 		const notesRule =
-			'- `feelings.notes` is a **short** first-person summary of What I wrote (about 2–5 sentences) for the activity log. Keep my voice. Keep the useful specifics (shins after, shoes, questions you answered). Do **not** paste the whole write-up. Omit `notes` if I wrote nothing. For strength, notes are extra commentary only — never rewrite the lift list.';
+			'- `feelings.notes` is a **short** first-person summary of What I wrote (about 2–5 sentences) for the activity log. Keep my voice. Keep the useful specifics (shins after, shoes, questions you answered). Do **not** paste the whole write-up. Omit `notes` if I wrote nothing. For strength, notes are extra commentary only — never rewrite the lift list.\n' +
+			'- Before/after in **This session’s habits** are what I actually did. If they differ from Usual habits, treat the session block as ground truth. Do not copy those rituals into `feelings.notes` or into week `detail`.';
 		const scoresRule =
 			'- Scores marked – were not tapped in the app. Infer effort/shins/legs/energy (and wanted_faster / surface) from What I wrote when the text is clear enough for a number. Omit a field if the write-up does not support it. Do not invent from GPS. If How I felt already has a number, omit that field — keep mine. Do not copy example numbers.\n' +
 			'- `session` (runs only): easy / quality / long / race / … — keep mine if already set; infer from What I wrote only when obvious.\n' +
@@ -1468,11 +1472,18 @@ This is my own account of ${sessionWord} — as long as I needed, including ques
 
 ${DEBRIEF_WRITEUP_TOKEN}
 
+## This session's habits
+Before/after as I did them this time — may differ from Usual habits. Treat overrides as ground truth. Do not assume the template if this block differs.
+
+${DEBRIEF_HABITS_TOKEN}
+
 ## Other activities already logged this week
 ${otherThisWeek.length ? otherThisWeek.map(formatRunBriefLine).join('\n') : `- (none besides ${many ? 'these' : 'this one'})`}
 ${planSections}
 ## Injury rules
 ${injury.trim() || '(none)'}
+
+${formatUsualHabitsSection(habits)}
 
 ${reply}`;
 		const runs = featured.map(debriefRunSummary);
@@ -1485,6 +1496,7 @@ ${reply}`;
 			raceBySlug,
 			gear: gearInventory,
 			gearWear: wearByAllGear(allRuns),
+			habits,
 			weekView,
 			error: null as string | null
 		};
@@ -1502,6 +1514,8 @@ export type ActivityFeelInput = {
 	session?: string;
 	cadence?: number | null;
 	gear?: string;
+	before_notes?: string;
+	after_notes?: string;
 };
 
 export const saveActivityFeel = createServerFn({ method: 'POST' }).middleware([requireAuth])
@@ -1518,6 +1532,8 @@ export const saveActivityFeel = createServerFn({ method: 'POST' }).middleware([r
 		if (data.session !== undefined) patch.session = data.session.trim();
 		if (data.cadence !== undefined) patch.cadence = data.cadence;
 		if (data.gear !== undefined) patch.gear = data.gear.trim();
+		if (data.before_notes !== undefined) patch.before_notes = data.before_notes.trim();
+		if (data.after_notes !== undefined) patch.after_notes = data.after_notes.trim();
 		const ok = await updateRunFeelings(data.slug, patch);
 		if (!ok) throw new Error('Activity not found.');
 		if (data.gear !== undefined) {
@@ -1550,6 +1566,8 @@ export type CreateRunInput = {
 	cadence: number | null;
 	gear: string;
 	notes: string;
+	before_notes?: string;
+	after_notes?: string;
 };
 
 export const createRun = createServerFn({ method: 'POST' }).middleware([requireAuth])
@@ -1567,11 +1585,17 @@ export const createRun = createServerFn({ method: 'POST' }).middleware([requireA
 		if (!weather) {
 			weather = await fetchWeatherForDateTime(date, start_time || null, null, null, time || null);
 		}
+		const activity_type = normalizeActivityType(data.activity_type);
+		const habits = await loadActivityHabits();
+		const ritual = withHabitDefaults(activity_type, habits, {
+			before: data.before_notes,
+			after: data.after_notes
+		});
 		const run = await saveRun({
 			date,
 			week,
 			day,
-			activity_type: normalizeActivityType(data.activity_type),
+			activity_type,
 			session,
 			effort: data.effort,
 			shins: data.shins,
@@ -1592,7 +1616,9 @@ export const createRun = createServerFn({ method: 'POST' }).middleware([requireA
 			summary_image: '',
 			splits_image: '',
 			strava_id: '',
-			notes: data.notes
+			notes: data.notes,
+			before_notes: ritual.before,
+			after_notes: ritual.after
 		});
 		await rememberGearName(run.gear, run.activity_type);
 		return { slug: run.slug };
@@ -1703,6 +1729,7 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 
 		const kind = gearKindForActivity(activity_type);
 		const importedGear = kind ? (await loadGear())[kind].active : '';
+		const ritual = withHabitDefaults(activity_type, await loadActivityHabits());
 
 		const run = await saveRun({
 			date: parsed.date,
@@ -1733,6 +1760,8 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 			strava_id: '',
 			route,
 			notes: 'Imported from GPX.',
+			before_notes: ritual.before,
+			after_notes: ritual.after,
 			country: geo.country,
 			province: geo.province,
 			place: geo.place,
@@ -1913,6 +1942,8 @@ export type UpdateRunInput = {
 	cadence: number | null;
 	gear: string;
 	notes: string;
+	before_notes?: string;
+	after_notes?: string;
 };
 
 export const updateRun = createServerFn({ method: 'POST' }).middleware([requireAuth])
@@ -1946,7 +1977,9 @@ export const updateRun = createServerFn({ method: 'POST' }).middleware([requireA
 			elev_gain: data.elev_gain,
 			cadence: data.cadence,
 			gear: data.gear.trim(),
-			notes: data.notes
+			notes: data.notes,
+			before_notes: data.before_notes?.trim() ?? '',
+			after_notes: data.after_notes?.trim() ?? ''
 		};
 		const run = await dbUpdateRun(data.slug, fields);
 		await rememberGearName(run.gear, run.activity_type);
@@ -2425,6 +2458,12 @@ export const saveGear = createServerFn({ method: 'POST' }).middleware([requireAu
 		return { ok: true };
 	});
 
+export const saveActivityHabits = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: ActivityHabits) => normalizeActivityHabits(d))
+	.handler(async ({ data }) => {
+		return persistActivityHabits(data);
+	});
+
 const EDITABLE = new Set(CONTEXT_FILES.map((f) => f.name));
 
 export const saveContextFile = createServerFn({ method: 'POST' }).middleware([requireAuth])
@@ -2482,11 +2521,12 @@ export const getGoalBrief = createServerFn({ method: 'GET' })
 	}))
 	.handler(async ({ data }) => {
 		const range = dateRangeFromSearch({ range: '30d' });
-		const [allRuns, training, injury, raceStrategy] = await Promise.all([
+		const [allRuns, training, injury, raceStrategy, habits] = await Promise.all([
 			listRuns(),
 			loadTrainingContext(),
 			readContextFile('injury.md'),
-			readContextFile('race-strategy.md')
+			readContextFile('race-strategy.md'),
+			loadActivityHabits()
 		]);
 		const { medals } = training;
 		const windowRuns = filterRunsByRange(allRuns, range).sort(byDateNewestFirst);
@@ -2563,6 +2603,8 @@ ${activityRows}
 
 ## Injury rules
 ${injury.trim() || '(none)'}
+
+${formatUsualHabitsSection(habits)}
 
 ## Race strategy (hand-written, may lag)
 ${raceStrategy.trim() || '(none)'}

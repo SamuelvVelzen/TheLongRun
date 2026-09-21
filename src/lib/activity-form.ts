@@ -34,7 +34,9 @@ export const activityFormSchema = z.object({
 	elev_gain: z.string(),
 	cadence: z.string(),
 	gear: z.string(),
-	notes: z.string()
+	notes: z.string(),
+	before_notes: z.string(),
+	after_notes: z.string()
 });
 
 export type ActivityFormValues = z.infer<typeof activityFormSchema>;
@@ -74,7 +76,9 @@ export function toCreateRunInput(values: ActivityFormValues): CreateRunInput {
 		elev_gain: parseOptionalNumber(values.elev_gain),
 		cadence: parseOptionalNumber(values.cadence),
 		gear: values.gear,
-		notes: values.notes
+		notes: values.notes,
+		before_notes: values.before_notes,
+		after_notes: values.after_notes
 	};
 }
 
@@ -111,7 +115,9 @@ export function emptyActivityForm(partial?: Partial<ActivityFormValues>): Activi
 		elev_gain: partial?.elev_gain ?? '',
 		cadence: partial?.cadence ?? '',
 		gear: partial?.gear ?? '',
-		notes: partial?.notes ?? ''
+		notes: partial?.notes ?? '',
+		before_notes: partial?.before_notes ?? '',
+		after_notes: partial?.after_notes ?? ''
 	};
 }
 
@@ -137,6 +143,8 @@ export function runToActivityForm(run: Pick<
 	| 'cadence'
 	| 'gear'
 	| 'notes'
+	| 'before_notes'
+	| 'after_notes'
 >): ActivityFormValues {
 	const activity_type = normalizeActivityType(run.activity_type);
 	return {
@@ -159,7 +167,9 @@ export function runToActivityForm(run: Pick<
 		elev_gain: numStr(run.elev_gain),
 		cadence: numStr(run.cadence),
 		gear: run.gear || '',
-		notes: run.notes || ''
+		notes: run.notes || '',
+		before_notes: run.before_notes || '',
+		after_notes: run.after_notes || ''
 	};
 }
 

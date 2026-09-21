@@ -12,6 +12,7 @@ export type IconName =
 	| 'plus'
 	| 'upload'
 	| 'context'
+	| 'gear'
 	| 'map'
 	| 'external'
 	| 'filter'
@@ -102,6 +103,13 @@ function Paths({ name }: { name: IconName }) {
 				<>
 					<path d="M7 4h8l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
 					<path d="M15 4v5h5M9 13h6M9 17h4" />
+				</>
+			);
+		case 'gear':
+			return (
+				<>
+					<path d="M5 16.2c0-1 .7-2.4 2.2-3L9.2 12l1-2.8c.3-.7.9-1.2 1.7-1.2h3.2c1.1 0 2 .6 2.5 1.6L19.4 13v3.2H5z" />
+					<path d="M7.2 16.2h10.2M8.4 18.4h7.4" />
 				</>
 			);
 		case 'map':

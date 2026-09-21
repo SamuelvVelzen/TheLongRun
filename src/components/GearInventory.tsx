@@ -1,8 +1,14 @@
 import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
-import { habitsHaveText, type ActivityHabits, type HabitPair } from '$lib/activity-habits';
+import {
+    compactHabitText,
+    habitsHaveText,
+    type ActivityHabits,
+    type HabitPair
+} from '$lib/activity-habits';
 import {
     addGear,
     catalogHasItems,
+    formatGearKm,
     GEAR_KINDS,
     gearKey,
     gearKindForActivity,
@@ -25,14 +31,47 @@ import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { SportHabitsForm } from './ActivityHabitsEditor';
 import { ConfirmDialog } from './Dialog';
-import { sportChipLabel } from './Icon';
+import { Icon, sportChipLabel } from './Icon';
 import { errorMessage, useSnackbar } from './Snackbar';
 import { Actions, buttonClass, Form, formClass, formSectionTitleClass, panelClass, statusPillClass, useAppForm } from './ui';
 
-/** Kit shown under this sport — walk shares Run's shoes, strength has none. */
+/** Kit shown in the open editor — walk shares Run's shoes, strength has none. */
 function kitKindForSection(type: ActivityType): GearKind | null {
 	if (type === 'walk' || type === 'strength') return null;
 	return gearKindForActivity(type);
+}
+
+function clipPreview(text: string, max = 56): string {
+	const t = compactHabitText(text);
+	if (t.length <= max) return t;
+	return `${t.slice(0, max - 1).trimEnd()}…`;
+}
+
+/** Closed-row line: daily/primary kit + km, or habits when there is no kit. */
+function sectionPreview(
+	type: ActivityType,
+	gear: GearContext,
+	wear: Record<GearKind, Record<string, GearWear>>,
+	habits: ActivityHabits
+): string {
+	const kind = gearKindForActivity(type);
+	if (kind) {
+		const catalog = gear[kind];
+		const bits: string[] = [];
+		if (catalog.active) {
+			const w = wear[kind][gearKey(catalog.active)];
+			bits.push(w && w.km > 0 ? `${catalog.active} · ${formatGearKm(w.km)}` : catalog.active);
+		}
+		const extra = catalog.rotation.filter((n) => gearKey(n) !== gearKey(catalog.active)).length;
+		if (extra) bits.push(extra === 1 ? '1 more' : `${extra} more`);
+		if (bits.length) return bits.join(' · ');
+		if (type === 'walk') return 'Same shoes as Run';
+		return gearMeta(kind).emptyLabel.replace(/\.$/, '');
+	}
+	const pair = habits[type];
+	const habit = clipPreview(pair.before || pair.after);
+	if (habit) return habit;
+	return 'No kit';
 }
 
 function ItemRow({
@@ -309,36 +348,72 @@ export function GearInventory({
 
 			{ACTIVITY_TYPES.map((type) => {
 				const kind = kitKindForSection(type);
+				const preview = sectionPreview(type, gear, wear, habits);
 				return (
-					<div key={type} className="mt-6 first:mt-5">
-						<h3 className={cn(formSectionTitleClass, 'flex items-center gap-1.5')}>
-							{sportChipLabel(type, activityLabel(type))}
-						</h3>
-						{type === 'walk' ? (
-							<p className={cn('text-muted', 'mt-0 mb-0 text-[0.88rem]')}>
-								Walks use the same shoes as Run. Mileage from walks still counts on those pairs.
+					<details key={type} className="group mt-6 first:mt-5">
+						<summary className="list-none cursor-pointer [&::-webkit-details-marker]:hidden">
+							<div className="flex items-center gap-2 min-h-11">
+								<h3
+									className={cn(
+										formSectionTitleClass,
+										'flex items-center gap-1.5 m-0 mb-0 pb-0 border-b-0 min-w-0 flex-1'
+									)}
+								>
+									{sportChipLabel(type, activityLabel(type))}
+								</h3>
+								<span
+									className={buttonClass({
+										variant: 'ghost',
+										size: 'icon',
+										className: 'pointer-events-none'
+									})}
+									aria-hidden="true"
+								>
+									<Icon
+										name="arrow"
+										size={16}
+										className="rotate-90 transition-transform duration-150 group-open:-rotate-90"
+									/>
+								</span>
+							</div>
+							<p
+								className={cn(
+									'text-muted',
+									'm-0 mt-0 mb-2 text-[0.88rem] truncate group-open:hidden'
+								)}
+							>
+								{preview}
 							</p>
-						) : null}
-						{kind ? (
-							<div className="mt-3">
+							<div className="border-b border-line" />
+						</summary>
+						<div className="mt-3">
+							{type === 'walk' ? (
+								<p className={cn('text-muted', 'mt-0 mb-0 text-[0.88rem]')}>
+									Walks use the same shoes as Run. Mileage from walks still counts on those
+									pairs.
+								</p>
+							) : null}
+							{kind ? (
 								<KindSection
 									kind={kind}
 									catalog={gear[kind]}
 									wear={wear[kind]}
 									authed={authed}
 									busy={busy}
-									onPersist={(catalog, message) => persist({ ...gear, [kind]: catalog }, message)}
+									onPersist={(catalog, message) =>
+										persist({ ...gear, [kind]: catalog }, message)
+									}
 									onRemove={(name) => setRemove({ kind, name })}
 								/>
-							</div>
-						) : null}
-						<SportHabitsForm
-							type={type}
-							pair={habits[type]}
-							authed={authed}
-							onSave={(pair) => persistHabits(type, pair)}
-						/>
-					</div>
+							) : null}
+							<SportHabitsForm
+								type={type}
+								pair={habits[type]}
+								authed={authed}
+								onSave={(pair) => persistHabits(type, pair)}
+							/>
+						</div>
+					</details>
 				);
 			})}
 

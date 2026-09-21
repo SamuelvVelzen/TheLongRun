@@ -1822,9 +1822,7 @@ export const repairRunGps = createServerFn({ method: 'POST' }).middleware([requi
 		}
 
 		const durationSec =
-			parseDurationSeconds(run.elapsed_time) ??
-			parseDurationSeconds(run.time) ??
-			parseDurationSeconds(planned?.est_time ?? '');
+			parseDurationSeconds(run.elapsed_time) ?? parseDurationSeconds(run.time);
 		const startMs = activityStartMs(run, out);
 		const durationMs = durationSec != null && durationSec > 0 ? durationSec * 1000 : null;
 		if (startMs != null && durationMs != null) {

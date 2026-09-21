@@ -158,7 +158,6 @@ export type PlannedRoute = {
 	elev_min: number | null;
 	elev_max: number | null;
 	point_count: number;
-	est_time: string;
 	saved_on: string;
 	country: string;
 	province: string;

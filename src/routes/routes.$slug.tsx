@@ -331,12 +331,6 @@ function PlannedRouteDetail() {
 							<b>{route.distance_km ?? '—'}</b>
 							<span>km</span>
 						</div>
-						{route.est_time && (
-							<div className={metricClass(true)}>
-								<b>{route.est_time}</b>
-								<span>estimated time</span>
-							</div>
-						)}
 						{elevationLabel && (
 							<div className={metricClass()}>
 								<b>{elevationLabel}</b>

@@ -67,7 +67,6 @@ CREATE TABLE IF NOT EXISTS planned_routes (
 	elev_min     REAL,
 	elev_max     REAL,
 	point_count  INTEGER NOT NULL DEFAULT 0,
-	est_time     TEXT NOT NULL DEFAULT '',
 	saved_on     TEXT NOT NULL,
 	country      TEXT NOT NULL DEFAULT '',
 	province     TEXT NOT NULL DEFAULT '',

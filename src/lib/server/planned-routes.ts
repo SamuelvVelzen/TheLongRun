@@ -54,7 +54,6 @@ function rowToRoute(row: Record<string, unknown>): PlannedRoute {
 		elev_min: toNum(row.elev_min),
 		elev_max: toNum(row.elev_max),
 		point_count: toNum(row.point_count) ?? 0,
-		est_time: toStr(row.est_time),
 		saved_on: toStr(row.saved_on),
 		country: toStr(row.country),
 		province: toStr(row.province),
@@ -103,7 +102,7 @@ export async function listPlannedRoutes(): Promise<PlannedRoute[]> {
 	const sql = getSql();
 	const rows = (await sql`
 		SELECT r.slug, r.name, r.notes, r.distance_km, r.elev_gain, r.elev_loss, r.elev_min, r.elev_max,
-			r.point_count, r.est_time, r.saved_on, r.country, r.province, r.place, r.waypoints, r.polyline,
+			r.point_count, r.saved_on, r.country, r.province, r.place, r.waypoints, r.polyline,
 			COALESCE(p.plan_link_count, 0) AS plan_link_count,
 			COALESCE(a.activity_link_count, 0) AS activity_link_count
 		FROM planned_routes r
@@ -217,7 +216,6 @@ async function insertPlannedRoute(
 		| 'kmMarkers'
 		| 'startLat'
 		| 'startLng'
-		| 'estTime'
 	>,
 	notes?: string
 ): Promise<PlannedRoute> {
@@ -234,16 +232,16 @@ async function insertPlannedRoute(
 	const rows = (await sql`
 		INSERT INTO planned_routes (
 			slug, name, notes, distance_km, elev_gain, elev_loss, elev_min, elev_max,
-			point_count, est_time, saved_on, country, province, place, waypoints, geojson, polyline
+			point_count, saved_on, country, province, place, waypoints, geojson, polyline
 		) VALUES (
 			${slug}, ${parsed.name}, ${notes?.trim() ?? ''}, ${parsed.distanceKm},
 			${parsed.elevGain}, ${parsed.elevLoss}, ${parsed.elevMin}, ${parsed.elevMax},
-			${parsed.points.length}, ${parsed.estTime}, ${saved_on}, ${geo.country}, ${geo.province}, ${geo.place},
+			${parsed.points.length}, ${saved_on}, ${geo.country}, ${geo.province}, ${geo.place},
 			${JSON.stringify(parsed.waypoints)}, ${JSON.stringify(geojson)},
 			${polylineJson(polylineFromGeoJson(geojson))}
 		)
 		RETURNING slug, name, notes, distance_km, elev_gain, elev_loss, elev_min, elev_max,
-			point_count, est_time, saved_on, country, province, place, waypoints, polyline
+			point_count, saved_on, country, province, place, waypoints, polyline
 	`) as Record<string, unknown>[];
 	return rowToRoute(rows[0]!);
 }
@@ -276,8 +274,7 @@ export async function savePlannedFromTrack(input: {
 			points,
 			waypoints: input.waypoints,
 			startLat: points[0]?.lat ?? null,
-			startLng: points[0]?.lng ?? null,
-			estTime: ''
+			startLng: points[0]?.lng ?? null
 		},
 		input.notes
 	);
@@ -297,7 +294,7 @@ export async function updatePlannedRoute(
 		UPDATE planned_routes SET name = ${name}, notes = ${notes}
 		WHERE slug = ${slug}
 		RETURNING slug, name, notes, distance_km, elev_gain, elev_loss, elev_min, elev_max,
-			point_count, est_time, saved_on, country, province, place, waypoints, polyline
+			point_count, saved_on, country, province, place, waypoints, polyline
 	`) as Record<string, unknown>[];
 	return rows.length ? rowToRoute(rows[0]!) : null;
 }
@@ -339,7 +336,6 @@ export async function replacePlannedRouteTrack(
 			elev_min = ${stats.elevMin},
 			elev_max = ${stats.elevMax},
 			point_count = ${points.length},
-			est_time = ${''},
 			country = ${geo.country},
 			province = ${geo.province},
 			place = ${geo.place},
@@ -348,7 +344,7 @@ export async function replacePlannedRouteTrack(
 			polyline = ${polylineJson(polylineFromGeoJson(geojson))}
 		WHERE slug = ${slug}
 		RETURNING slug, name, notes, distance_km, elev_gain, elev_loss, elev_min, elev_max,
-			point_count, est_time, saved_on, country, province, place, waypoints, polyline
+			point_count, saved_on, country, province, place, waypoints, polyline
 	`) as Record<string, unknown>[];
 	return rows.length ? rowToRoute(rows[0]!) : null;
 }

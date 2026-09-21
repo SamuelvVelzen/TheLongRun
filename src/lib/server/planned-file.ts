@@ -20,7 +20,6 @@ export type ParsedPlannedRoute = {
 	kmMarkers: KmMarker[];
 	startLat: number | null;
 	startLng: number | null;
-	estTime: string;
 };
 
 const MAX_SEG_M = 5000;
@@ -63,33 +62,20 @@ function round2(n: number): number {
 	return Math.round(n * 100) / 100;
 }
 
-/** BRouter writes `<!-- track-length = 3958 filtered ascend = 8 … time=11m 9s -->`. */
+/** BRouter writes `<!-- track-length = 3958 filtered ascend = 8 … -->`. */
 function parseBrouterComment(xml: string): {
 	lengthM: number | null;
 	ascend: number | null;
-	estTime: string;
 } {
 	const comment = xml.match(/<!--([\s\S]*?)-->/);
-	if (!comment) return { lengthM: null, ascend: null, estTime: '' };
+	if (!comment) return { lengthM: null, ascend: null };
 	const body = comment[1]!;
 	const len = body.match(/track-length\s*=\s*([\d.]+)/i);
 	const asc = body.match(/filtered\s+ascend\s*=\s*([\d.]+)/i);
-	const time = body.match(/\btime\s*=\s*((?:\d+\s*h\s*)?(?:\d+\s*m\s*)?(?:\d+\s*s)?)/i);
 	return {
 		lengthM: len ? Number(len[1]) : null,
-		ascend: asc ? Number(asc[1]) : null,
-		estTime: time ? formatBrouterTime(time[1]!.trim()) : ''
+		ascend: asc ? Number(asc[1]) : null
 	};
-}
-
-function formatBrouterTime(raw: string): string {
-	if (!raw) return '';
-	const h = Number(raw.match(/(\d+)\s*h/i)?.[1] ?? 0);
-	const m = Number(raw.match(/(\d+)\s*m/i)?.[1] ?? 0);
-	const s = Number(raw.match(/(\d+)\s*s/i)?.[1] ?? 0);
-	if (!h && !m && !s) return '';
-	if (h) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-	return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 export function plannedTrackStats(points: { lat: number; lng: number; elev?: number }[]): {
@@ -233,8 +219,7 @@ function parsePlannedGpx(xml: string, filename: string): ParsedPlannedRoute {
 		points,
 		waypoints,
 		startLat: points[0]?.lat ?? null,
-		startLng: points[0]?.lng ?? null,
-		estTime: brouter.estTime
+		startLng: points[0]?.lng ?? null
 	};
 }
 
@@ -302,7 +287,6 @@ function parsePlannedGeoJson(text: string, filename: string): ParsedPlannedRoute
 	let name = '';
 	let brouterLenM: number | null = null;
 	let brouterAscend: number | null = null;
-	let brouterTime = '';
 
 	for (const f of features) {
 		const geom = (f.geometry ?? f) as { type?: string; coordinates?: unknown };
@@ -316,17 +300,6 @@ function parsePlannedGeoJson(text: string, filename: string): ParsedPlannedRoute
 			if (!name && typeof props.name === 'string') name = props.name.trim();
 			brouterLenM = brouterLenM ?? asNum(props['track-length'] ?? props.trackLength);
 			brouterAscend = brouterAscend ?? asNum(props['filtered-ascend'] ?? props.filteredAscend);
-			if (!brouterTime && typeof props['total-time'] === 'number') {
-				const sec = Math.round(props['total-time'] as number);
-				if (sec > 0) {
-					const h = Math.floor(sec / 3600);
-					const m = Math.floor((sec % 3600) / 60);
-					const s = sec % 60;
-					brouterTime = h
-						? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-						: `${m}:${String(s).padStart(2, '0')}`;
-				}
-			}
 		} else if (gType === 'Point') {
 			const pt = coordPoint(geom.coordinates);
 			if (pt) {
@@ -362,8 +335,7 @@ function parsePlannedGeoJson(text: string, filename: string): ParsedPlannedRoute
 		points: slim,
 		waypoints,
 		startLat: slim[0]?.lat ?? null,
-		startLng: slim[0]?.lng ?? null,
-		estTime: brouterTime
+		startLng: slim[0]?.lng ?? null
 	};
 }
 

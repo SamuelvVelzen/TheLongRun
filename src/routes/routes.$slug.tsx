@@ -18,6 +18,7 @@ import { appHead } from '$lib/title';
 import { cn } from '$lib/ui';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { z } from 'zod';
 import { DeleteButton, EditButton } from '../components/DeleteButton';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
@@ -26,9 +27,8 @@ import { PageHero } from '../components/PageHero';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 import { RouteAttach } from '../components/RouteAttach';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, Button, Form, Panel, useAppForm, buttonClass, panelClass, metricsClass, metricClass, runTitleClass } from '../components/ui';
+import { Actions, Button, buttonClass, Form, metricClass, metricsClass, Panel, panelClass, runTitleClass, useAppForm } from '../components/ui';
 import { WaypointEditor, type WaypointEditorHandle } from '../components/WaypointEditor';
-import { z } from 'zod';
 
 export const Route = createFileRoute('/routes/$slug')({
 	loader: async ({ params }) => {

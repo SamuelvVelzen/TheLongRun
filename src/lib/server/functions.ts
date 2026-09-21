@@ -37,8 +37,13 @@ import {
 import {
     activityLooksLikeRace,
     canPinRaceResult,
+    formatHorizonLabel,
+    formatIntentionPromptLine,
+    formatLaterRacePromptLine,
+    isRaceGoal,
     normalizeGoalInput,
     normalizeGoalUrl,
+    openIntentions,
     pickSoonestOpenGoal,
     pinCandidatesForGoal,
     resultFromActivity,
@@ -316,6 +321,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 	]);
 	const groups = await enrichAllGroupEfforts(groupsRaw, runs);
 	const { plan, calendar, activeGoal, medals } = training;
+	const nextIntention = openIntentions(training.store.goals)[0] ?? null;
 	const weekNum = weekToPlan(calendar);
 	const week = plan.find((w) => w.week === weekNum) ?? plan[plan.length - 1] ?? null;
 	const weekView = attachPlanRoutes(pickBannerWeekView(plan, runs, calendar), planRefs);
@@ -327,6 +333,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 		weekView,
 		streak: sessionStreak(runs, plan, calendar),
 		activeGoal,
+		nextIntention,
 		lastMedal: medals[0] ?? null,
 		calendar
 	} satisfies {
@@ -337,6 +344,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 		weekView: WeekView | null;
 		streak: number;
 		activeGoal: Goal | null;
+		nextIntention: Goal | null;
 		lastMedal: Goal | null;
 		calendar: PlanCalendar;
 	};
@@ -372,6 +380,7 @@ export const getCoachPlan = createServerFn({ method: 'GET' }).handler(async () =
 		generateWeek: weekToGenerate(plan, runs, calendar),
 		calendar,
 		activeGoal,
+		intentions: openIntentions(training.store.goals),
 		routes: plannedRoutes.map(
 			(r): SessionRouteRef => ({
 				slug: r.slug,
@@ -870,11 +879,23 @@ ${thisWeekLogs.map(formatRunBriefLine).join('\n')}
 		const lastMedalLine = lastMedal
 			? `- Last race: ${lastMedal.name} on ${lastMedal.date}${lastMedal.result?.time ? ` in ${lastMedal.result.time}` : ''}${lastMedal.result?.pace ? ` (${lastMedal.result.pace}/km)` : ''}`
 			: '';
+		const laterRaces = store.goals
+			.filter((g) => g.status !== 'done' && g.id !== activeGoal?.id && isRaceGoal(g))
+			.sort((a, b) => a.date.localeCompare(b.date));
+		const laterLines = laterRaces.map(formatLaterRacePromptLine).join('\n');
+		const intentions = openIntentions(store.goals);
+		const intentionLines = intentions.map(formatIntentionPromptLine).join('\n');
+		const intentionLookahead =
+			intentions.length === 0
+				? ''
+				: ` Look-ahead (not booked): ${intentions
+						.map((g) => `**${g.name}** (${g.distance_km} km) in **${formatHorizonLabel(g.horizon)}**`)
+						.join('; ')}.`;
 		const toward = activeGoal
 			? `I'm training toward **${activeGoal.name}** (${activeGoal.distance_km} km) on **${activeGoal.date}**${
 					daysToRace != null ? ` — **${daysToRace} days** away` : ''
 				}`
-			: `There is **no race on the calendar**. Plan ${weekPhrase} as base / consistency training`;
+			: `There is **no race on the calendar**. Plan ${weekPhrase} as base / consistency training.${intentionLookahead}`;
 		const ladderLine = activeGoal
 			? 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering and laddering toward the race. Strength sessions need a gym kind in `label`, duration/load/tempo in `detail`, and the lift list in `exercises`.'
 			: 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering. Strength sessions need a gym kind in `label`, duration/load/tempo in `detail`, and the lift list in `exercises`. No race to peak for — keep it sustainable.';
@@ -885,12 +906,6 @@ ${thisWeekLogs.map(formatRunBriefLine).join('\n')}
 			? `Start from the saved week JSON — do not replace it with the usual-week skeleton. Keep completed sessions as they were (do not add \`"status": "completed"\`). Revise what's still ahead, same days and sports unless notes or recovery require a shift. Never move or skip a slot marked **can't change**. Optional slots may be skipped with \`"status": "skipped"\`. You may add a session for an extra I declared in the notes. If you drop a session, set \`"status": "skipped"\`. ${SKIP_STATUS_PROMPT} Only move a usual day if you must, and say why in prose. ${STRENGTH_SESSION_PROMPT}`
 			: `Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, …), \`"distance_km"\` (null for strength), and \`"detail"\`. ${STRENGTH_SESSION_PROMPT} The example labels and distances below are placeholders, not prescriptions. Never move or skip a slot marked **can't change**. Optional slots may be skipped with \`"status": "skipped"\`. ${SKIP_STATUS_PROMPT} Only move a usual day if recovery, heat, life, or the notes require it — and say why in prose.`;
 
-		const laterRaces = store.goals
-			.filter((g) => g.status !== 'done' && g.id !== activeGoal?.id)
-			.sort((a, b) => a.date.localeCompare(b.date));
-		const laterLines = laterRaces
-			.map((g) => `- Later: ${g.name} — ${g.distance_km} km on ${g.date} (not the current training target)`)
-			.join('\n');
 		const goalSection = activeGoal
 			? `## Goal
 - Race: ${activeGoal.name} — ${activeGoal.distance_km} km on ${activeGoal.date}${daysToRace != null ? ` (~${daysToRace} days to go)` : ''}
@@ -902,11 +917,11 @@ ${activeGoal.start_time ? `- Start: ${activeGoal.start_time}` : ''}
 ${activeGoal.url ? `- Race URL: ${activeGoal.url}` : ''}
 ${activeGoal.itinerary_url ? `- Itinerary: ${activeGoal.itinerary_url}` : ''}
 ${(activeGoal.primary ?? []).map((p) => `- Priority: ${p}`).join('\n')}
-${laterLines ? `${laterLines}\n` : ''}${activeGoal.notes ? `\n${activeGoal.notes}\n` : ''}`
+${laterLines ? `${laterLines}\n` : ''}${intentionLines ? `${intentionLines}\n` : ''}${activeGoal.notes ? `\n${activeGoal.notes}\n` : ''}`
 			: `## Goal
 - No active race. This is a base week.
 ${lastMedalLine}
-`;
+${intentionLines ? `${intentionLines}\n` : ''}`;
 
 		const timingSection = calendar.rolling
 			? `## Timing (use these exact values — do not guess dates)
@@ -927,7 +942,7 @@ You are my coach for the sports I actually do — not a running-only coach. ${to
 ${briefAsk}
 
 ## How to read this brief
-Goal and Timing come from the race and calendar I set. All-time summary, weekly volume, and the Activity log are auto-computed from logs and are **current**. Runner profile, injury, gear, and race strategy are hand-written and may lag. If they disagree on numbers (longest run, weekly volume), **prefer the computed sections**.
+Goal and Timing come from the booked race and calendar I set. Look-aheads are not races — they constrain the horizon, they do not set race day. All-time summary, weekly volume, and the Activity log are auto-computed from logs and are **current**. Runner profile, injury, gear, and race strategy are hand-written and may lag. If they disagree on numbers (longest run, weekly volume), **prefer the computed sections**.
 
 ${goalSection}
 ${timingSection}
@@ -2489,10 +2504,12 @@ export const saveContextFile = createServerFn({ method: 'POST' }).middleware([re
 	});
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_HORIZON_RE = /^\d{4}-\d{2}$/;
 
 type GoalBriefDraft = {
 	name: string;
 	date: string;
+	horizon: string;
 	distance_km: number | string | undefined;
 	sport: string;
 	time_goal: string;
@@ -2509,6 +2526,7 @@ export const getGoalBrief = createServerFn({ method: 'GET' })
 	.validator((d: Partial<GoalBriefDraft> = {}) => ({
 		name: typeof d?.name === 'string' ? d.name : '',
 		date: typeof d?.date === 'string' ? d.date : '',
+		horizon: typeof d?.horizon === 'string' ? d.horizon : '',
 		distance_km: d?.distance_km,
 		sport: typeof d?.sport === 'string' ? d.sport : 'run',
 		time_goal: typeof d?.time_goal === 'string' ? d.time_goal : '',
@@ -2540,8 +2558,9 @@ export const getGoalBrief = createServerFn({ method: 'GET' })
 					.split('\n')
 					.map((s) => s.trim())
 					.filter(Boolean);
-		const daysToRace =
-			data.date && ISO_DATE_RE.test(data.date) ? Math.max(0, daysUntil(data.date) ?? 0) : null;
+		const booked = Boolean(data.date && ISO_DATE_RE.test(data.date));
+		const horizon = ISO_HORIZON_RE.test(data.horizon.trim()) ? data.horizon.trim() : '';
+		const daysToRace = booked ? Math.max(0, daysUntil(data.date) ?? 0) : null;
 		const lastMedal = medals[0];
 		const lastMedalLine = lastMedal
 			? `- Last race: ${lastMedal.name} on ${lastMedal.date}${lastMedal.result?.time ? ` in ${lastMedal.result.time}` : ''}${lastMedal.result?.pace ? ` (${lastMedal.result.pace}/km)` : ''}`
@@ -2557,27 +2576,36 @@ export const getGoalBrief = createServerFn({ method: 'GET' })
 				.join('\n') || '| – | – | – | – | – | – | – |';
 		const extra = data.extra.trim();
 		const exampleJson = JSON.stringify(
-			{
-				name: data.name.trim(),
-				date: data.date || '',
-				distance_km: distanceKm,
-				sport,
-				time_goal: data.time_goal.trim(),
-				plan_start: data.plan_start || '',
-				url: data.url.trim(),
-				itinerary_url: data.itinerary_url.trim(),
-				primary: primaryLines,
-				notes: data.notes.trim()
-			},
+			booked
+				? {
+						name: data.name.trim(),
+						date: data.date || '',
+						distance_km: distanceKm,
+						sport,
+						time_goal: data.time_goal.trim(),
+						plan_start: data.plan_start || '',
+						url: data.url.trim(),
+						itinerary_url: data.itinerary_url.trim(),
+						primary: primaryLines,
+						notes: data.notes.trim()
+					}
+				: {
+						name: data.name.trim(),
+						horizon: horizon || '',
+						distance_km: distanceKm,
+						sport,
+						time_goal: data.time_goal.trim(),
+						url: data.url.trim(),
+						itinerary_url: data.itinerary_url.trim(),
+						primary: primaryLines,
+						notes: data.notes.trim()
+					},
 			null,
 			2
 		);
-		return `# The Long Run — race brief
-
-## Coaching brief
-You are helping me set this race in my training app. Propose **priorities** (how I should train toward it) and **notes** (course, logistics, race-day intent). Keep every identity field and any priorities/notes I already filled unless I asked to change them. Fill empty identity fields only from the race URL, itinerary URL, or my extra notes — do not guess.
-
-## Race (current draft)
+		const briefKind = booked ? 'race' : 'look-ahead';
+		const identity = booked
+			? `## Race (current draft)
 - Name: ${data.name.trim() || '(empty — fill if you can)'}
 - Date: ${data.date || '(empty)'}
 - Distance: ${distanceKm != null ? `${distanceKm} km` : '(empty)'}
@@ -2586,7 +2614,28 @@ You are helping me set this race in my training app. Propose **priorities** (how
 - Plan starts (Monday): ${data.plan_start || '(empty)'}
 ${daysToRace != null ? `- Days to race: ${daysToRace}${daysToRace === 0 ? ' (race day or already past)' : ''}` : ''}
 - Race URL: ${data.url.trim() || '(none)'}
+- Itinerary URL: ${data.itinerary_url.trim() || '(none)'}`
+			: `## Look-ahead (current draft)
+- Name: ${data.name.trim() || '(empty — fill if you can)'}
+- Horizon: ${horizon ? formatHorizonLabel(horizon) : '(empty — pick a month)'}
+- Distance: ${distanceKm != null ? `${distanceKm} km` : '(empty)'}
+- Sport: ${activityLabel(sport)}
+- Time goal: ${data.time_goal.trim() || '(empty)'}
+- URL: ${data.url.trim() || '(none)'}
 - Itinerary URL: ${data.itinerary_url.trim() || '(none)'}
+This is **not a booked race**. Do not invent a race date, plan start, peak, or taper.`;
+		const coaching = booked
+			? 'You are helping me set this race in my training app. Propose **priorities** (how I should train toward it) and **notes** (course, logistics, race-day intent). Keep every identity field and any priorities/notes I already filled unless I asked to change them. Fill empty identity fields only from the race URL, itinerary URL, or my extra notes — do not guess.'
+			: 'You are helping me set a **look-ahead**, not a booked race. Propose **priorities** (how I should train toward that month) and **notes**. Do not invent a race date. Do not peak or taper. Keep every identity field and any priorities/notes I already filled unless I asked to change them.';
+		const replyNotes = booked
+			? '`notes` is a few sentences on course / logistics / race-day intent.'
+			: '`notes` is a few sentences on why this look-ahead matters. Leave `date` and `plan_start` empty.';
+		return `# The Long Run — ${briefKind} brief
+
+## Coaching brief
+${coaching}
+
+${identity}
 - Current priorities:
 ${primaryLines.length ? primaryLines.map((p) => `  - ${p}`).join('\n') : '  - (none yet)'}
 - Current notes: ${data.notes.trim() || '(none yet)'}
@@ -2610,7 +2659,7 @@ ${formatUsualHabitsSection(habits)}
 ${raceStrategy.trim() || '(none)'}
 
 ## When you reply
-Give a short assessment in prose if you want. Then output **one JSON object** I can paste back, with exactly these keys. If a draft field is empty, leave it \`""\`, \`null\`, or \`[]\` unless a URL or my extra notes make it clear. Do not copy example placeholders. \`primary\` is an array of 3–6 short priorities (one line each). \`notes\` is a few sentences on course / logistics / race-day intent. Keep any URL I gave.
+Give a short assessment in prose if you want. Then output **one JSON object** I can paste back, with exactly these keys. If a draft field is empty, leave it \`""\`, \`null\`, or \`[]\` unless a URL or my extra notes make it clear. Do not copy example placeholders. \`primary\` is an array of 3–6 short priorities (one line each). ${replyNotes} Keep any URL I gave.
 
 \`\`\`json
 ${exampleJson}
@@ -2626,8 +2675,9 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 	]);
 	const { activeGoal, medals, calendar, store } = training;
 	const upcoming = store.goals
-		.filter((g) => g.status !== 'done' && g.id !== activeGoal?.id)
+		.filter((g) => g.status !== 'done' && g.id !== activeGoal?.id && isRaceGoal(g))
 		.sort((a, b) => a.date.localeCompare(b.date));
+	const intentions = openIntentions(store.goals);
 	const candidatesByGoalId: Record<string, ReturnType<typeof pinCandidatesForGoal>> = {};
 	for (const g of store.goals) {
 		if (!canPinRaceResult(g)) continue;
@@ -2691,6 +2741,7 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 	return {
 		activeGoal,
 		upcoming,
+		intentions,
 		medals,
 		calendar,
 		candidatesByGoalId,
@@ -2723,16 +2774,25 @@ export const saveActiveGoal = createServerFn({ method: 'POST' }).middleware([req
 	.handler(async ({ data }) => {
 		const name = data.name.trim();
 		const date = data.date.trim();
-		if (!name) throw new Error('Give the race a name.');
-		if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Race date must be YYYY-MM-DD.');
+		const horizon = String(data.horizon ?? '').trim().slice(0, 7);
+		if (!name) throw new Error('Give it a name.');
+		const booked = ISO_DATE_RE.test(date);
+		if (!booked && !ISO_HORIZON_RE.test(horizon)) {
+			throw new Error('Pick a race date or a look-ahead month.');
+		}
 		const store = await loadGoalStore();
 		const existing = data.id ? (store.goals.find((g) => g.id === data.id) ?? null) : null;
 		const next = normalizeGoalInput(data, existing);
-		if (next.date < next.plan_start) {
+		const isIntention = !isRaceGoal(next);
+		if (!isIntention && next.date < next.plan_start) {
 			throw new Error('Race day needs to be on or after the plan start.');
 		}
 		if (store.goals.some((g) => g.id === next.id && g.id !== existing?.id)) {
-			throw new Error('A race with that name and date is already on the calendar.');
+			throw new Error(
+				isIntention
+					? 'A look-ahead with that name and month is already saved.'
+					: 'A race with that name and date is already on the calendar.'
+			);
 		}
 		const beforeId = pickSoonestOpenGoal(store.goals)?.id ?? null;
 		const others = store.goals.filter((g) => g.id !== next.id);
@@ -2744,6 +2804,7 @@ export const saveActiveGoal = createServerFn({ method: 'POST' }).middleware([req
 			id: next.id,
 			weekCount: calendarFromGoal(next).weekCount,
 			isActive: active?.id === next.id,
+			isIntention,
 			activeName: active?.name ?? next.name
 		};
 	});

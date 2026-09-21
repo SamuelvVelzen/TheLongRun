@@ -52,6 +52,7 @@ export function rollingCalendar(today = new Date()): PlanCalendar {
 }
 
 export function calendarFromGoal(goal: { plan_start: string; date: string }): PlanCalendar {
+	if (!goal.date) return rollingCalendar();
 	const startIso = mondayIso(goal.plan_start);
 	return { startIso, weekCount: weeksThrough(startIso, goal.date), rolling: false };
 }

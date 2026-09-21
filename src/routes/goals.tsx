@@ -1,17 +1,20 @@
 import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
+import { goalFormSchema, goalToFormValues, pinRaceSchema, toGoalInput } from '$lib/goal-form';
 import {
     activityLooksLikeRace,
     canPinRaceResult,
     emptyGoalDraft,
+    formatHorizonLabel,
+    formatHorizonShort,
     goalDraftFromReply,
     goalUrlHref,
+    isHorizonPast,
     isOlderPastRace,
     isUnpinnedPastRace,
     planStartHint,
     shiftPlanStartWithRaceDate
 } from '$lib/goals';
-import { goalFormSchema, goalToFormValues, pinRaceSchema, toGoalInput } from '$lib/goal-form';
 import { calendarFromGoal, daysUntil, mondayIso } from '$lib/plan';
 import { clearGoal, completeGoal, getGoalBrief, getGoalsData, saveActiveGoal } from '$lib/server/functions';
 import { appHead } from '$lib/title';
@@ -27,7 +30,7 @@ import { PageHero } from '../components/PageHero';
 import { RouteLine } from '../components/RouteLine';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, Button, Field, Form, FormGrid, FormSection, Textarea, useAppForm, buttonClass, panelClass, actionsClass, sectionTitleClass, tabBarClass } from '../components/ui';
+import { Actions, actionsClass, Button, buttonClass, Field, Form, FormGrid, FormSection, panelClass, sectionTitleClass, tabBarClass, Textarea, useAppForm } from '../components/ui';
 
 type GoalsTab = 'races' | 'medals';
 type GoalsSearch = { tab?: GoalsTab };
@@ -62,16 +65,24 @@ function formatRaceDate(iso: string) {
 }
 
 function goalSummaryLine(
-	goal: Pick<Goal, 'date' | 'distance_km' | 'sport' | 'time_goal' | 'bib_number' | 'wave' | 'start_time'>
+	goal: Pick<
+		Goal,
+		'date' | 'horizon' | 'distance_km' | 'sport' | 'time_goal' | 'bib_number' | 'wave' | 'start_time'
+	>
 ) {
+	const when = goal.date
+		? formatRaceDate(goal.date)
+		: goal.horizon
+			? formatHorizonLabel(goal.horizon)
+			: null;
 	return [
-		formatRaceDate(goal.date),
-		goal.start_time || null,
+		when,
+		goal.date ? goal.start_time || null : null,
 		`${goal.distance_km} km`,
 		activityLabel(goal.sport),
 		goal.time_goal ? `goal ${goal.time_goal}` : null,
-		goal.wave ? `wave ${goal.wave}` : null,
-		goal.bib_number ? `bib ${goal.bib_number}` : null
+		goal.date && goal.wave ? `wave ${goal.wave}` : null,
+		goal.date && goal.bib_number ? `bib ${goal.bib_number}` : null
 	]
 		.filter(Boolean)
 		.join(' · ');
@@ -164,7 +175,7 @@ function GoalsPage() {
 				lead={
 					tab === 'medals'
 						? 'Finished races live here with the time you pinned. Open one for the goal you set and the activity you ran.'
-						: 'The soonest race is active — it drives the plan length and the generate prompt. Later races wait. Older past races stay hidden until you open them.'
+						: 'The soonest booked race is active — it drives the plan length. Look-aheads are a month only: coach can see them, they never set race day. Later races wait. Older past races stay hidden until you open them.'
 				}
 			/>
 
@@ -178,11 +189,14 @@ function GoalsPage() {
 function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; tab: GoalsTab }) {
 	const router = useRouter();
 	const snack = useSnackbar();
-	const [editingId, setEditingId] = useState<string | 'new' | null>(data.activeGoal ? null : 'new');
+	const [editingId, setEditingId] = useState<string | 'new' | 'new-look' | null>(
+		data.activeGoal || data.upcoming.length || data.intentions.length ? null : 'new'
+	);
 	const [pendingRemove, setPendingRemove] = useState<{
 		id: string;
 		name: string;
 		isActive: boolean;
+		isIntention?: boolean;
 	} | null>(null);
 	const [openMedal, setOpenMedal] = useState<Goal | null>(null);
 	const [showOlder, setShowOlder] = useState(false);
@@ -261,20 +275,32 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 					) : (
 						<section className={panelClass('mb-6')}>
 							<p className={cn('text-muted', 'mt-0')}>
-								No race on the calendar. Coach still plans this week as base training.
+								No race on the calendar. Coach still plans this week as base training
+								{data.intentions.length
+									? `, with ${data.intentions.length === 1 ? 'a look-ahead' : 'look-aheads'} below.`
+									: '.'}
 							</p>
-							{authed && editingId !== 'new' && (
+							{authed && editingId !== 'new' && editingId !== 'new-look' && (
 								<div className={actionsClass('justify-start!')}>
 									<button className={buttonClass()} type="button" onClick={() => setEditingId('new')}>
 										<Icon name="flag" size={16} />
-										Set a goal
+										Set a race
+									</button>
+									<button
+										className={buttonClass({ variant: 'ghost' })}
+										type="button"
+										onClick={() => setEditingId('new-look')}
+									>
+										<Icon name="calendar" size={16} />
+										Look-ahead
 									</button>
 								</div>
 							)}
-							{authed && editingId === 'new' && (
+							{authed && (editingId === 'new' || editingId === 'new-look') && (
 								<GoalForm
 									initial={null}
-									submitLabel="Set goal"
+									defaultKind={editingId === 'new-look' ? 'intention' : 'race'}
+									submitLabel={editingId === 'new-look' ? 'Save look-ahead' : 'Set race'}
 									onCancel={() => setEditingId(null)}
 									onSaved={async () => {
 										setEditingId(null);
@@ -286,20 +312,23 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 						</section>
 					)}
 
-					{data.activeGoal && authed && editingId === 'new' && (
+					{data.activeGoal && authed && (editingId === 'new' || editingId === 'new-look') && (
 						<section className={panelClass('mb-6 grid gap-3')}>
 							<div>
 								<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
 									<Icon name="plus" size={14} />
-									Add race
+									{editingId === 'new-look' ? 'Add look-ahead' : 'Add race'}
 								</p>
 								<p className={cn('text-muted', 'm-0 mt-1')}>
-									Later dates wait. A sooner date takes over as active and resets the plan.
+									{editingId === 'new-look'
+										? 'Month only — coach can see it when planning. It never sets race day or plan length.'
+										: 'Later dates wait. A sooner date takes over as active and resets the plan.'}
 								</p>
 							</div>
 							<GoalForm
 								initial={null}
-								submitLabel="Add race"
+								defaultKind={editingId === 'new-look' ? 'intention' : 'race'}
+								submitLabel={editingId === 'new-look' ? 'Save look-ahead' : 'Add race'}
 								onCancel={() => setEditingId(null)}
 								onSaved={async () => {
 									setEditingId(null);
@@ -379,7 +408,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 										)}
 									</p>
 								</div>
-								{authed && data.activeGoal && editingId !== 'new' && (
+								{authed && data.activeGoal && editingId !== 'new' && editingId !== 'new-look' && (
 									<button className={buttonClass()} type="button" onClick={() => setEditingId('new')}>
 										<Icon name="plus" size={16} />
 										Add race
@@ -405,6 +434,53 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 							{!authed && data.activeGoal && (
 								<p className={cn('text-muted', 'mb-6')}>Sign in to add another race.</p>
 							)}
+						</>
+					)}
+
+					{(data.intentions.length > 0 || (authed && data.activeGoal)) && (
+						<>
+							<section className={sectionTitleClass()}>
+								<div>
+									<h2>Look-ahead</h2>
+									<p>
+										{data.intentions.length
+											? 'No race picked yet — month only. Coach sees these when planning. They never set race day or plan length. Fill in a date when you book one.'
+											: 'Want a half in April but no race yet? Save the distance and month so planning can look ahead.'}
+									</p>
+								</div>
+								{authed && editingId !== 'new' && editingId !== 'new-look' && (
+									<button
+										className={buttonClass()}
+										type="button"
+										onClick={() => setEditingId('new-look')}
+									>
+										<Icon name="plus" size={16} />
+										Add look-ahead
+									</button>
+								)}
+							</section>
+							{data.intentions.map((g) => (
+								<IntentionGoalCard
+									key={g.id}
+									goal={g}
+									authed={authed}
+									editing={editingId === g.id}
+									onEdit={() => setEditingId(g.id)}
+									onCancelEdit={() => setEditingId(null)}
+									onSaved={async () => {
+										setEditingId(null);
+										await router.invalidate();
+									}}
+									onRemove={() =>
+										setPendingRemove({
+											id: g.id,
+											name: g.name,
+											isActive: false,
+											isIntention: true
+										})
+									}
+								/>
+							))}
 						</>
 					)}
 				</>
@@ -474,15 +550,27 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 
 			<ConfirmDialog
 				open={pendingRemove != null}
-				title={pendingRemove?.isActive ? 'Clear this goal?' : `Remove ${pendingRemove?.name ?? 'this race'}?`}
+				title={
+					pendingRemove?.isActive
+						? 'Clear this goal?'
+						: `Remove ${pendingRemove?.name ?? (pendingRemove?.isIntention ? 'this look-ahead' : 'this race')}?`
+				}
 				description={
 					pendingRemove?.isActive
 						? nextAfterClear
 							? `The race leaves the calendar and this week’s plan resets. ${nextAfterClear.name} becomes the training target.`
 							: 'The race leaves the calendar. This week’s plan resets. Medals stay.'
-						: 'This race leaves the calendar. The current plan and active goal stay put.'
+						: pendingRemove?.isIntention
+							? 'This look-ahead leaves the list. The current plan and active goal stay put.'
+							: 'This race leaves the calendar. The current plan and active goal stay put.'
 				}
-				confirmLabel={pendingRemove?.isActive ? 'Clear goal' : 'Remove race'}
+				confirmLabel={
+					pendingRemove?.isActive
+						? 'Clear goal'
+						: pendingRemove?.isIntention
+							? 'Remove look-ahead'
+							: 'Remove race'
+				}
 				onClose={() => setPendingRemove(null)}
 				onConfirm={async () => {
 					if (!pendingRemove) return;
@@ -748,20 +836,84 @@ function UpcomingGoalCard({
 	);
 }
 
+function IntentionGoalCard({
+	goal,
+	authed,
+	editing,
+	onEdit,
+	onCancelEdit,
+	onSaved,
+	onRemove
+}: {
+	goal: Goal;
+	authed: boolean;
+	editing: boolean;
+	onEdit: () => void;
+	onCancelEdit: () => void;
+	onSaved: () => void | Promise<void>;
+	onRemove: () => void;
+}) {
+	const past = isHorizonPast(goal.horizon);
+	return (
+		<section className={panelClass('mb-3 grid gap-3')}>
+			<div className="flex flex-wrap items-start justify-between gap-3">
+				<div>
+					<p className="m-0 inline-flex items-center gap-1.5 text-muted font-bold text-[0.72rem] tracking-[0.08em] uppercase">
+						<Icon name="calendar" size={14} />
+						{past ? 'Window passed' : 'Look-ahead'}
+					</p>
+					<h3 className="font-display text-[1.35rem] tracking-[-0.03em] m-0 mt-1">{goal.name}</h3>
+					<p className={cn('text-muted', 'm-0 mt-1')}>{goalSummaryLine(goal)}</p>
+					<GoalUrlLinks url={goal.url} itineraryUrl={goal.itinerary_url} />
+				</div>
+				<div className="text-right">
+					<span className={cn('block text-[0.78rem]', 'text-muted')}>Month</span>
+					<strong className="font-display text-[1.7rem] tracking-[-0.04em] leading-none">
+						{formatHorizonShort(goal.horizon)}
+					</strong>
+				</div>
+			</div>
+			{authed && (
+				<div className={actionsClass('justify-start!')}>
+					{!editing && (
+						<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={onEdit}>
+							<Icon name="pencil" size={16} />
+							Edit
+						</button>
+					)}
+					<button className={buttonClass({ variant: 'danger' })} type="button" onClick={onRemove}>
+						Remove
+					</button>
+				</div>
+			)}
+			{authed && editing && (
+				<GoalForm initial={goal} submitLabel="Save look-ahead" onCancel={onCancelEdit} onSaved={onSaved} />
+			)}
+		</section>
+	);
+}
+
 function GoalForm({
 	initial,
+	defaultKind,
 	submitLabel,
 	onCancel,
 	onSaved
 }: {
 	initial: Goal | null;
+	defaultKind?: 'race' | 'intention';
 	submitLabel: string;
 	onCancel: () => void;
 	onSaved: () => void | Promise<void>;
 }) {
 	const snack = useSnackbar();
 	const draft = initial ?? emptyGoalDraft();
-	const defaultValues = goalToFormValues(draft);
+	const defaultValues = goalToFormValues(
+		!initial && defaultKind === 'intention'
+			? { ...draft, date: '', horizon: '', plan_start: '' }
+			: draft,
+		initial ? undefined : defaultKind
+	);
 	const lastDate = useRef(defaultValues.date);
 	const [copyTab, setCopyTab] = useState<'copy' | 'generate'>(() =>
 		hasRaceCopy(draft.primary, draft.notes) ? 'copy' : 'generate'
@@ -778,16 +930,18 @@ function GoalForm({
 		onSubmit: async ({ value }) => {
 			try {
 				const res = await saveActiveGoal({ data: toGoalInput(value, initial?.id) });
-				let weeks = 1;
-				try {
-					weeks = calendarFromGoal({
-						plan_start: mondayIso(value.plan_start),
-						date: value.date
-					}).weekCount;
-				} catch {
-					weeks = 1;
-				}
-				if (res.isActive) {
+				if (res.isIntention) {
+					snack.success('Saved — look-ahead only. Coach will not treat this as race day.');
+				} else if (res.isActive) {
+					let weeks = 1;
+					try {
+						weeks = calendarFromGoal({
+							plan_start: mondayIso(value.plan_start),
+							date: value.date
+						}).weekCount;
+					} catch {
+						weeks = 1;
+					}
 					snack.success(`Saved — ${weeks} week plan through race day.`);
 				} else {
 					snack.success(`Saved — later on the calendar. Training stays on ${res.activeName}.`);
@@ -806,7 +960,8 @@ function GoalForm({
 			const next = await getGoalBrief({
 				data: {
 					name: value.name,
-					date: value.date,
+					date: value.kind === 'race' ? value.date : '',
+					horizon: value.horizon,
 					distance_km: value.distance_km,
 					sport: value.sport,
 					time_goal: value.time_goal,
@@ -849,7 +1004,12 @@ function GoalForm({
 					);
 				}
 				form.setFieldValue('date', patch.date);
+				form.setFieldValue('horizon', patch.date.slice(0, 7));
+				form.setFieldValue('kind', 'race');
 				lastDate.current = patch.date;
+			}
+			if (patch.horizon !== undefined && patch.date === undefined) {
+				form.setFieldValue('horizon', patch.horizon);
 			}
 			if (patch.distance_km !== undefined) form.setFieldValue('distance_km', patch.distance_km);
 			if (patch.sport !== undefined) form.setFieldValue('sport', patch.sport);
@@ -876,37 +1036,100 @@ function GoalForm({
 				void form.handleSubmit();
 			}}
 		>
-			<form.AppField
-				name="name"
-				children={(field) => (
-					<field.TextField label="Race name" required placeholder="Amersfoort 10K" />
+			<form.Subscribe selector={(s) => s.values.kind}>
+				{(kind) => (
+					<div className="mb-1">
+						<SegmentedToggle
+							fill
+							aria-label="Goal type"
+							value={kind}
+							onChange={(next) => {
+								form.setFieldValue('kind', next);
+								if (next === 'intention') {
+									const date = form.getFieldValue('date');
+									const horizon = form.getFieldValue('horizon');
+									if (!horizon && date) form.setFieldValue('horizon', date.slice(0, 7));
+									form.setFieldValue('date', '');
+								} else if (!form.getFieldValue('plan_start')) {
+									form.setFieldValue('plan_start', mondayIso(new Date()));
+								}
+							}}
+							options={[
+								{ value: 'race', label: 'Booked race' },
+								{ value: 'intention', label: 'Look-ahead' }
+							]}
+						/>
+					</div>
 				)}
-			/>
-			<FormGrid>
-				<form.AppField
-					name="date"
-					listeners={{
-						onChange: ({ value }) => {
-							if (!value) return;
-							const prev = lastDate.current;
-							lastDate.current = value;
-							if (prev && prev !== value) {
-								form.setFieldValue(
-									'plan_start',
-									shiftPlanStartWithRaceDate(form.getFieldValue('plan_start'), prev, value)
-								);
-							}
-						}
-					}}
-					children={(field) => <field.TextField label="Race date" required type="date" />}
-				/>
-				<form.AppField
-					name="distance_km"
-					children={(field) => (
-						<field.TextField label="Distance (km)" required type="number" min={0.1} step="0.1" />
-					)}
-				/>
-			</FormGrid>
+			</form.Subscribe>
+			<form.Subscribe selector={(s) => s.values.kind}>
+				{(kind) => (
+					<form.AppField
+						name="name"
+						children={(field) => (
+							<field.TextField
+								label={kind === 'intention' ? 'Name' : 'Race name'}
+								required
+								placeholder={kind === 'intention' ? 'Half marathon' : 'Amersfoort 10K'}
+							/>
+						)}
+					/>
+				)}
+			</form.Subscribe>
+			<form.Subscribe selector={(s) => s.values.kind}>
+				{(kind) =>
+					kind === 'intention' ? (
+						<FormGrid>
+							<form.AppField
+								name="horizon"
+								children={(field) => (
+									<field.TextField
+										label="Month"
+										required
+										type="month"
+										hint="No race picked yet — planning uses this window, not a race day."
+									/>
+								)}
+							/>
+							<form.AppField
+								name="distance_km"
+								children={(field) => (
+									<field.TextField label="Distance (km)" required type="number" min={0.1} step="0.1" />
+								)}
+							/>
+						</FormGrid>
+					) : (
+						<FormGrid>
+							<form.AppField
+								name="date"
+								listeners={{
+									onChange: ({ value }) => {
+										if (!value) return;
+										const prev = lastDate.current;
+										lastDate.current = value;
+										form.setFieldValue('horizon', value.slice(0, 7));
+										if (prev && prev !== value) {
+											form.setFieldValue(
+												'plan_start',
+												shiftPlanStartWithRaceDate(form.getFieldValue('plan_start'), prev, value)
+											);
+										} else if (!form.getFieldValue('plan_start')) {
+											form.setFieldValue('plan_start', mondayIso(new Date()));
+										}
+									}
+								}}
+								children={(field) => <field.TextField label="Race date" required type="date" />}
+							/>
+							<form.AppField
+								name="distance_km"
+								children={(field) => (
+									<field.TextField label="Distance (km)" required type="number" min={0.1} step="0.1" />
+								)}
+							/>
+						</FormGrid>
+					)
+				}
+			</form.Subscribe>
 			<form.AppField
 				name="sport"
 				children={(field) => (
@@ -924,43 +1147,59 @@ function GoalForm({
 					name="time_goal"
 					children={(field) => <field.TextField label="Time goal" placeholder="45:00" />}
 				/>
-				<form.AppField
-					name="bib_number"
-					children={(field) => (
-						<field.TextField label="Bib number" placeholder="e.g. 4821" inputMode="numeric" />
-					)}
-				/>
-			</FormGrid>
-			<FormGrid>
-				<form.AppField
-					name="wave"
-					children={(field) => <field.TextField label="Wave" placeholder="e.g. 2" />}
-				/>
-				<form.AppField
-					name="start_time"
-					children={(field) => <field.TextField label="Start time" type="time" />}
-				/>
-			</FormGrid>
-			<form.Subscribe selector={(s) => [s.values.plan_start, s.values.date] as const}>
-				{([planStart, date]) => (
-					<form.AppField
-						name="plan_start"
-						listeners={{
-							onBlur: ({ value }) => {
-								const monday = mondayIso(value);
-								if (monday !== value) form.setFieldValue('plan_start', monday);
-							}
-						}}
-						children={(field) => (
-							<field.TextField
-								label="Plan starts (Monday)"
-								required
-								type="date"
-								hint={planStartHint(planStart, date)}
+				<form.Subscribe selector={(s) => s.values.kind}>
+					{(kind) =>
+						kind === 'race' ? (
+							<form.AppField
+								name="bib_number"
+								children={(field) => (
+									<field.TextField label="Bib number" placeholder="e.g. 4821" inputMode="numeric" />
+								)}
 							/>
-						)}
-					/>
-				)}
+						) : (
+							<div />
+						)
+					}
+				</form.Subscribe>
+			</FormGrid>
+			<form.Subscribe selector={(s) => s.values.kind}>
+				{(kind) =>
+					kind === 'race' ? (
+						<>
+							<FormGrid>
+								<form.AppField
+									name="wave"
+									children={(field) => <field.TextField label="Wave" placeholder="e.g. 2" />}
+								/>
+								<form.AppField
+									name="start_time"
+									children={(field) => <field.TextField label="Start time" type="time" />}
+								/>
+							</FormGrid>
+							<form.Subscribe selector={(s) => [s.values.plan_start, s.values.date] as const}>
+								{([planStart, date]) => (
+									<form.AppField
+										name="plan_start"
+										listeners={{
+											onBlur: ({ value }) => {
+												const monday = mondayIso(value);
+												if (monday !== value) form.setFieldValue('plan_start', monday);
+											}
+										}}
+										children={(field) => (
+											<field.TextField
+												label="Plan starts (Monday)"
+												required
+												type="date"
+												hint={planStartHint(planStart, date)}
+											/>
+										)}
+									/>
+								)}
+							</form.Subscribe>
+						</>
+					) : null
+				}
 			</form.Subscribe>
 			<FormGrid>
 				<form.AppField
@@ -1022,8 +1261,9 @@ function GoalForm({
 				{copyTab === 'generate' && (
 					<>
 						<p className={cn('text-muted', 'm-0')}>
-							Same as Coach: build a prompt from this race plus your last 30 days of activities, copy
-							it to an AI, then paste the JSON back to fill the form.
+							Same as Coach: build a prompt from this goal plus your last 30 days of activities, copy
+							it to an AI, then paste the JSON back to fill the form. For a look-ahead the prompt
+							will not invent a race day.
 						</p>
 						<Field label="Anything extra for the prompt? (optional)">
 							<Textarea

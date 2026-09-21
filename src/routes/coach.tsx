@@ -15,6 +15,7 @@ import {
     writeDebriefWriteups
 } from '$lib/debrief-writeups';
 import type { GearContext, GearKind, GearWear } from '$lib/gear';
+import { formatHorizonShort } from '$lib/goals';
 import {
     formatAllWeeksClipboard,
     formatWeekPlanClipboard,
@@ -925,7 +926,11 @@ function CoachPanels({
 							windows keep the prompt tighter.
 							{planData.activeGoal
 								? ` Generating week ${planData.generateWeek} of ${planData.calendar.weekCount} toward ${planData.activeGoal.name}.`
-								: ' No race on the calendar — this prompt is a base week.'}{' '}
+								: planData.intentions.length
+									? ` No race on the calendar — this prompt is a base week, with a look-ahead (${planData.intentions
+											.map((g) => `${g.name} in ${formatHorizonShort(g.horizon)}`)
+											.join(', ')}).`
+									: ' No race on the calendar — this prompt is a base week.'}{' '}
 							<Link className="text-accent-fg font-semibold" to="/goals">
 								Goals
 							</Link>

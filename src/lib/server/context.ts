@@ -107,7 +107,10 @@ function normalizeStoredGoal(item: unknown): Goal | null {
 	if (!item || typeof item !== 'object') return null;
 	const o = item as Record<string, unknown>;
 	const name = String(o.name ?? o.race_name ?? '').trim();
-	const date = toIsoDate(o.date ?? o.race_date, '');
+	const dateRaw = toIsoDate(o.date ?? o.race_date, '');
+	const date = /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : '';
+	const horizonRaw = String(o.horizon ?? '').trim().slice(0, 7);
+	const horizon = /^\d{4}-\d{2}$/.test(horizonRaw) ? horizonRaw : date ? date.slice(0, 7) : '';
 	if (!name && !date) return null;
 	const distance = Number(o.distance_km ?? o.race_distance_km ?? 10);
 	const primary = Array.isArray(o.primary)
@@ -128,11 +131,12 @@ function normalizeStoredGoal(item: unknown): Goal | null {
 				}
 			: null;
 	const plan = Array.isArray(o.plan) ? (o.plan as PlanWeek[]) : null;
-	const planStart = toIsoDate(o.plan_start, date);
+	const planStart = date ? toIsoDate(o.plan_start, date) : toIsoDate(o.plan_start, '');
 	return {
-		id: String(o.id ?? '').trim() || goalIdFrom(name || 'race', date),
+		id: String(o.id ?? '').trim() || goalIdFrom(name || 'race', date || horizon),
 		name: name || 'Race',
 		date,
+		horizon,
 		distance_km: Number.isFinite(distance) && distance > 0 ? distance : 10,
 		sport: String(o.sport ?? 'run') || 'run',
 		time_goal: String(o.time_goal ?? ''),
@@ -165,10 +169,12 @@ function parseLegacyGoalsMd(raw: string): Goal | null {
 				.map((s) => s.replace(/^- /, '').trim())
 				.filter(Boolean);
 	const distance = Number(data.race_distance_km ?? 10);
+	const raceDate = date || '2026-09-27';
 	return {
-		id: goalIdFrom(name || 'race', date || '2026-09-27'),
+		id: goalIdFrom(name || 'race', raceDate),
 		name: name || '10K',
-		date: date || '2026-09-27',
+		date: raceDate,
+		horizon: raceDate.slice(0, 7),
 		distance_km: Number.isFinite(distance) && distance > 0 ? distance : 10,
 		sport: 'run',
 		time_goal: String(data.time_goal ?? ''),

@@ -69,7 +69,10 @@ export type GoalResult = {
 export interface Goal {
 	id: string;
 	name: string;
+	/** Race day `YYYY-MM-DD`. Empty on a look-ahead (month only). */
 	date: string;
+	/** `YYYY-MM` window when no race is booked. Derived from `date` on a race. */
+	horizon: string;
 	distance_km: number;
 	sport: string;
 	time_goal: string;

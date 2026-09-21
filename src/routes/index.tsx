@@ -1,4 +1,3 @@
-import { buttonClass, panelClass, actionsClass, gridClass, sectionTitleClass, runRowClass, mapBadgeClass, runTitleClass } from '../components/ui';
 import {
     activityLabel,
     activityListHeading,
@@ -16,6 +15,7 @@ import {
     routeIdsForRuns,
     type RangeKind
 } from '$lib/date-range';
+import { formatHorizonShort } from '$lib/goals';
 import { collapseRuns, groupedSessionTitle } from '$lib/group';
 import { buildDashboardStats, daysUntil, sessionMeasureLabel, weekToPlan, weekViewIsClosed, type DashboardStats } from '$lib/plan';
 import { getDashboardData } from '$lib/server/functions';
@@ -40,6 +40,7 @@ import {
     sportIsAll
 } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
+import { actionsClass, buttonClass, gridClass, mapBadgeClass, panelClass, runRowClass, runTitleClass, sectionTitleClass } from '../components/ui';
 
 type DashSearch = RangeSearch & { sport?: string; country?: string; province?: string; place?: string };
 
@@ -427,9 +428,11 @@ function DashboardBody({
 									? raceDays != null && raceDays < 0
 										? `Since ${data.activeGoal.name}`
 										: `Days to ${data.activeGoal.name}`
-									: data.lastMedal
-										? data.lastMedal.name
-										: 'Next race'}
+									: data.nextIntention
+										? 'Look-ahead'
+										: data.lastMedal
+											? data.lastMedal.name
+											: 'Next race'}
 							</span>
 							<strong className={cn(statsValue, 'text-accent-fg text-[2.1rem] max-sm:text-[1.7rem]')}>
 								{data.activeGoal ? (
@@ -440,6 +443,8 @@ function DashboardBody({
 									) : (
 										Math.abs(raceDays)
 									)
+								) : data.nextIntention ? (
+									formatHorizonShort(data.nextIntention.horizon)
 								) : data.lastMedal?.result?.time ? (
 									data.lastMedal.result.time
 								) : (
@@ -448,9 +453,13 @@ function DashboardBody({
 									</Link>
 								)}
 							</strong>
-							{data.activeGoal || data.lastMedal ? (
+							{data.activeGoal || data.nextIntention || data.lastMedal ? (
 								<Link className="text-[0.78rem] text-accent-fg font-semibold" to="/goals">
-									{data.activeGoal && raceDays != null && raceDays < 0 ? 'Pin result' : 'Goals'}
+									{data.activeGoal && raceDays != null && raceDays < 0
+										? 'Pin result'
+										: data.nextIntention && !data.activeGoal
+											? data.nextIntention.name
+											: 'Goals'}
 								</Link>
 							) : null}
 						</div>

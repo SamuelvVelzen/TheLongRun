@@ -7,13 +7,64 @@ import { normalizeStartTime } from '$lib/format';
 import { daysUntil, isoDateLocal, mondayIso, weeksThrough } from '$lib/plan';
 import type { Goal, GoalResult, RunRecord } from '$lib/types';
 
-export function goalIdFrom(name: string, date: string): string {
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_HORIZON = /^\d{4}-\d{2}$/;
+
+export function goalIdFrom(name: string, dateOrHorizon: string): string {
 	const slug =
 		name
 			.toLowerCase()
 			.replace(/[^a-z0-9]+/g, '-')
 			.replace(/^-+|-+$/g, '') || 'race';
-	return `${slug}-${date.slice(0, 10)}`;
+	const suffix =
+		dateOrHorizon
+			.trim()
+			.replace(/[^0-9-]/g, '')
+			.replace(/^-+|-+$/g, '') || 'tbd';
+	return `${slug}-${suffix}`;
+}
+
+export function isRaceGoal(goal: Pick<Goal, 'date'>): boolean {
+	return ISO_DATE.test(goal.date.slice(0, 10));
+}
+
+/** Open look-ahead: a target with a month, no booked race day. */
+export function isIntentionGoal(goal: Pick<Goal, 'date' | 'status'>): boolean {
+	return goal.status !== 'done' && !isRaceGoal(goal);
+}
+
+export function normalizeHorizon(raw: string, fromDate = ''): string {
+	const date = fromDate.slice(0, 10);
+	if (ISO_DATE.test(date)) return date.slice(0, 7);
+	const s = String(raw ?? '')
+		.trim()
+		.slice(0, 7);
+	return ISO_HORIZON.test(s) ? s : '';
+}
+
+export function formatHorizonLabel(horizon: string): string {
+	const m = String(horizon ?? '').match(/^(\d{4})-(\d{2})$/);
+	if (!m) return horizon || 'sometime';
+	const d = new Date(Number(m[1]), Number(m[2]) - 1, 1);
+	if (Number.isNaN(d.getTime())) return horizon;
+	return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+}
+
+export function formatHorizonShort(horizon: string): string {
+	const m = String(horizon ?? '').match(/^(\d{4})-(\d{2})$/);
+	if (!m) return horizon || '—';
+	const d = new Date(Number(m[1]), Number(m[2]) - 1, 1);
+	if (Number.isNaN(d.getTime())) return horizon;
+	return d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+}
+
+export function isHorizonPast(horizon: string, today = new Date()): boolean {
+	const key = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+	return Boolean(horizon) && horizon < key;
+}
+
+export function intentionSortKey(goal: Pick<Goal, 'horizon' | 'name'>): string {
+	return `${goal.horizon || '9999-99'}\t${goal.name}`;
 }
 
 export function emptyGoalDraft(today = new Date()): Omit<Goal, 'id' | 'status' | 'result' | 'plan'> {
@@ -21,6 +72,7 @@ export function emptyGoalDraft(today = new Date()): Omit<Goal, 'id' | 'status' |
 	return {
 		name: '',
 		date,
+		horizon: date.slice(0, 7),
 		distance_km: 10,
 		sport: 'run',
 		time_goal: '',
@@ -41,6 +93,7 @@ export type GoalInput = {
 	id?: string;
 	name: string;
 	date: string;
+	horizon?: string;
 	distance_km: number;
 	sport: string;
 	time_goal: string;
@@ -74,14 +127,17 @@ export function goalUrlHref(raw: string): string | null {
 
 export function normalizeGoalInput(input: GoalInput, existing?: Goal | null): Goal {
 	const name = input.name.trim() || 'Race';
-	const date = input.date.slice(0, 10);
-	const plan_start = mondayIso(input.plan_start || date);
-	const id = existing?.id || input.id?.trim() || goalIdFrom(name, date);
+	const dateRaw = input.date.trim().slice(0, 10);
+	const date = ISO_DATE.test(dateRaw) ? dateRaw : '';
+	const horizon = normalizeHorizon(input.horizon ?? existing?.horizon ?? '', date);
+	const plan_start = date ? mondayIso(input.plan_start || date) : '';
+	const id = existing?.id || input.id?.trim() || goalIdFrom(name, date || horizon);
 	const distance = Number(input.distance_km);
 	return {
 		id,
 		name,
 		date,
+		horizon,
 		distance_km: Number.isFinite(distance) && distance > 0 ? distance : 10,
 		sport: normalizeActivityType(input.sport || 'run'),
 		time_goal: input.time_goal.trim(),
@@ -108,11 +164,10 @@ export type MedalDetailsInput = {
 	medal_notes?: string;
 };
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
 export type GoalDraftFields = {
 	name: string;
 	date: string;
+	horizon: string;
 	distance_km: string;
 	sport: ActivityType;
 	time_goal: string;
@@ -194,6 +249,9 @@ export function goalDraftFromReply(text: string): GoalDraftPatch {
 	if (typeof obj.name === 'string') patch.name = obj.name;
 	const date = asIsoDate(obj.date ?? obj.race_date);
 	if (date) patch.date = date;
+	const horizonRaw = String(obj.horizon ?? '').trim().slice(0, 7);
+	if (ISO_HORIZON.test(horizonRaw)) patch.horizon = horizonRaw;
+	else if (date) patch.horizon = date.slice(0, 7);
 	if (obj.distance_km != null && obj.distance_km !== '') {
 		const n = Number(obj.distance_km ?? obj.race_distance_km);
 		if (Number.isFinite(n) && n > 0) patch.distance_km = String(n);
@@ -214,16 +272,22 @@ export function goalDraftFromReply(text: string): GoalDraftPatch {
 	return patch;
 }
 
-/** Soonest open race: next date on/after today, else the most recent unpinned past race. */
+/** Soonest booked race. Look-aheads never become the training target. */
 export function pickSoonestOpenGoal(goals: Goal[], today = new Date()): Goal | null {
 	const todayIso = isoDateLocal(today);
-	const open = goals.filter((g) => g.status !== 'done');
+	const open = goals.filter((g) => g.status !== 'done' && isRaceGoal(g));
 	if (!open.length) return null;
 	const upcoming = open
 		.filter((g) => g.date >= todayIso)
 		.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
 	if (upcoming[0]) return upcoming[0];
 	return [...open].sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name))[0] ?? null;
+}
+
+export function openIntentions(goals: Goal[]): Goal[] {
+	return goals
+		.filter(isIntentionGoal)
+		.sort((a, b) => intentionSortKey(a).localeCompare(intentionSortKey(b)));
 }
 
 export function stampGoalsByDate(goals: Goal[], today = new Date()): Goal[] {
@@ -266,19 +330,21 @@ export type GoalPinCandidate = Pick<
 export const PAST_RACE_PIN_DAYS = 7;
 
 export function canPinRaceResult(goal: Pick<Goal, 'date' | 'status'>, today?: Date): boolean {
-	if (goal.status === 'done') return false;
+	if (goal.status === 'done' || !isRaceGoal(goal)) return false;
 	const days = daysUntil(goal.date, today);
-	return days == null || days <= 1;
+	return days != null && days <= 1;
 }
 
 /** Past, not active, and still inside the week window — shown under Unpinned. */
 export function isUnpinnedPastRace(goal: Pick<Goal, 'date'>, today?: Date): boolean {
+	if (!isRaceGoal(goal)) return false;
 	const days = daysUntil(goal.date, today);
 	return days != null && days < 0 && days >= -PAST_RACE_PIN_DAYS;
 }
 
 /** Past and older than the week window — hidden by default. */
 export function isOlderPastRace(goal: Pick<Goal, 'date'>, today?: Date): boolean {
+	if (!isRaceGoal(goal)) return false;
 	const days = daysUntil(goal.date, today);
 	return days != null && days < -PAST_RACE_PIN_DAYS;
 }
@@ -288,6 +354,7 @@ export function pinCandidatesForGoal(
 	runs: GoalPinCandidate[],
 	limit = 40
 ): GoalPinCandidate[] {
+	if (!isRaceGoal(goal)) return [];
 	const raceAt = Date.parse(`${goal.date}T00:00:00`);
 	const sport = normalizeActivityType(goal.sport);
 	const dayMs = 24 * 60 * 60 * 1000;
@@ -337,6 +404,7 @@ export function shiftPlanStartWithRaceDate(planStart: string, fromRaceDate: stri
 }
 
 export function planStartHint(planStart: string, raceDate: string): string {
+	if (!ISO_DATE.test(raceDate.slice(0, 10))) return '';
 	const start = mondayIso(planStart);
 	const weeks = weeksThrough(start, raceDate);
 	const race = new Date(`${raceDate}T12:00:00`);
@@ -344,4 +412,14 @@ export function planStartHint(planStart: string, raceDate: string): string {
 		? raceDate
 		: race.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 	return `Week 1 starts Monday ${start} · ${weeks} week${weeks === 1 ? '' : 's'} through ${raceLabel}`;
+}
+
+export function formatIntentionPromptLine(goal: Pick<Goal, 'name' | 'distance_km' | 'horizon' | 'notes'>): string {
+	const when = formatHorizonLabel(goal.horizon);
+	const note = goal.notes.trim() ? ` Notes: ${goal.notes.trim()}` : '';
+	return `- Intention (not booked): ${goal.name} — ${goal.distance_km} km in ${when}. Date unknown. Use as a look-ahead constraint, not as race week. Do not peak or taper for this.${note}`;
+}
+
+export function formatLaterRacePromptLine(goal: Pick<Goal, 'name' | 'distance_km' | 'date'>): string {
+	return `- Later: ${goal.name} — ${goal.distance_km} km on ${goal.date} (not the current training target)`;
 }

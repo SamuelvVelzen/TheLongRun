@@ -1,16 +1,15 @@
 import { useAuthed } from '$lib/auth';
 import { getContextData, saveContextFile } from '$lib/server/functions';
 import { appHead } from '$lib/title';
-import { cn } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
+import { z } from 'zod';
 import { ActivityHabitsEditor } from '../components/ActivityHabitsEditor';
 import { DeferredData } from '../components/DeferredData';
 import { Icon } from '../components/Icon';
 import { PageHero } from '../components/PageHero';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, Button, Form, useAppForm, panelClass, gridClass } from '../components/ui';
-import { z } from 'zod';
+import { Actions, Button, Form, gridClass, panelClass, useAppForm } from '../components/ui';
 
 export const Route = createFileRoute('/context')({
 	loader: () => ({ page: getContextData() }),
@@ -24,9 +23,9 @@ function Context() {
 		<>
 			<PageHero
 				variant="quiet"
-				kicker="Profile, habits, and race notes"
+				kicker="Standing notes"
 				title="Context"
-				lead="Usual before/after habits per sport, then the formatted docs. Races live on Goals. Kit lives on Gear."
+				lead="Usual habits, profile, injury rules, and fueling. The week lives on Coach. Race day lives on Goals. Kit lives on Gear."
 			/>
 			<DeferredData promise={page}>{(data) => <ContextBody data={data} />}</DeferredData>
 		</>
@@ -84,9 +83,6 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 						<summary className="cursor-pointer list-none flex flex-wrap items-baseline gap-x-3 gap-y-[0.45rem] min-h-11 [&::-webkit-details-marker]:hidden">
 							<span className="font-display text-[1.15rem] max-sm:text-[1.05rem] max-sm:[overflow-wrap:anywhere]">
 								{file.title}
-							</span>
-							<span className={cn('text-muted', 'text-[0.85rem] max-sm:flex-[1_1_100%] max-sm:text-[0.8rem] max-sm:[overflow-wrap:anywhere] max-sm:break-words')}>
-								data/context/{file.name}
 							</span>
 						</summary>
 

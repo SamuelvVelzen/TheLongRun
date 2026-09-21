@@ -1,42 +1,42 @@
 import {
-	calendarFromGoal,
-	filterPlanForCalendar,
-	planWeekIndex,
-	rollingCalendar,
-	type PlanCalendar
-} from '$lib/plan';
-import { goalIdFrom, pickSoonestOpenGoal, stampGoalsByDate } from '$lib/goals';
-import {
-	emptyActivityHabits,
-	normalizeActivityHabits,
-	type ActivityHabits
+    emptyActivityHabits,
+    normalizeActivityHabits,
+    type ActivityHabits
 } from '$lib/activity-habits';
 import {
-	asGearNameList,
-	emptyGear,
-	normalizeGearCatalog,
-	normalizeGearContext,
-	gearKey,
-	gearKindForActivity,
-	type GearCatalog,
-	type GearContext
+    asGearNameList,
+    emptyGear,
+    gearKey,
+    gearKindForActivity,
+    normalizeGearCatalog,
+    normalizeGearContext,
+    type GearCatalog,
+    type GearContext
 } from '$lib/gear';
-import type { Goal, PlanWeek } from '$lib/types';
+import { goalIdFrom, pickSoonestOpenGoal, stampGoalsByDate } from '$lib/goals';
 import {
-	isLiveLocationFresh,
-	roundCoord,
-	roundHeading,
-	type LiveLocationPing
+    isLiveLocationFresh,
+    roundCoord,
+    roundHeading,
+    type LiveLocationPing
 } from '$lib/live-location';
 import {
-	clonePattern,
-	DEFAULT_WEEK_PATTERN,
-	mixFromPattern,
-	normalizeWeekMix,
-	normalizeWeekPattern,
-	patternFromMix,
-	type WeekMix,
-	type WeekPattern
+    calendarFromGoal,
+    filterPlanForCalendar,
+    planWeekIndex,
+    rollingCalendar,
+    type PlanCalendar
+} from '$lib/plan';
+import type { Goal, PlanWeek } from '$lib/types';
+import {
+    clonePattern,
+    DEFAULT_WEEK_PATTERN,
+    mixFromPattern,
+    normalizeWeekMix,
+    normalizeWeekPattern,
+    patternFromMix,
+    type WeekMix,
+    type WeekPattern
 } from '$lib/week-mix';
 import matter from 'gray-matter';
 import { getSql } from './db';
@@ -194,6 +194,24 @@ function parseLegacyGoalsMd(raw: string): Goal | null {
 	};
 }
 
+let raceStrategyMigrated = false;
+
+/** One-shot: race-day strategy belongs on the booked goal, not a global context file. */
+export async function migrateRaceStrategyToActiveGoal(): Promise<void> {
+	if (raceStrategyMigrated) return;
+	raceStrategyMigrated = true;
+	const raw = (await readContextFile('race-strategy.md')).trim();
+	if (!raw) return;
+	const store = await loadGoalStore();
+	const active = pickSoonestOpenGoal(store.goals);
+	if (active && !String(active.notes ?? '').trim()) {
+		await saveGoalStore({
+			goals: store.goals.map((g) => (g.id === active.id ? { ...g, notes: raw } : g))
+		});
+	}
+	await writeContextFile('race-strategy.md', '');
+}
+
 export async function loadGoalStore(): Promise<GoalStore> {
 	const json = await readContextFile('goals.json');
 	const parsed = json ? parseStore(json) : null;
@@ -225,6 +243,7 @@ export type TrainingContext = {
 };
 
 export async function loadTrainingContext(): Promise<TrainingContext> {
+	await migrateRaceStrategyToActiveGoal();
 	const [store, rawPlan] = await Promise.all([loadGoalStore(), loadPlan()]);
 	const goals = stampGoalsByDate(store.goals);
 	const stamped = { goals };

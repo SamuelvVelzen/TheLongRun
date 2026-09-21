@@ -143,6 +143,7 @@ import {
     loadPlan,
     loadSettings,
     loadTrainingContext,
+    migrateRaceStrategyToActiveGoal,
     persistActivityHabits,
     persistGear,
     readContextFile,
@@ -537,9 +538,7 @@ export const getWeather = createServerFn({ method: 'GET' })
 const CONTEXT_FILES: { name: string; title: string }[] = [
 	{ name: 'profile.md', title: 'Runner profile' },
 	{ name: 'injury.md', title: 'Injury rules' },
-	{ name: 'gear.md', title: 'Fueling & checklist' },
-	{ name: 'training-plan.md', title: 'Training plan notes' },
-	{ name: 'race-strategy.md', title: 'Race strategy' }
+	{ name: 'gear.md', title: 'Fueling & checklist' }
 ];
 
 export type ContextFile = { name: string; title: string; body: string; html: string };
@@ -691,6 +690,7 @@ ${blocks.join('\n\n')}`;
 }
 
 export const getContextData = createServerFn({ method: 'GET' }).handler(async () => {
+	await migrateRaceStrategyToActiveGoal();
 	const [habits, raw] = await Promise.all([
 		loadActivityHabits(),
 		Promise.all(CONTEXT_FILES.map((f) => readContextFile(f.name)))
@@ -731,7 +731,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 	})
 	.handler(async ({ data }) => {
 		const range = data.range;
-		const [allRuns, training, gearInventory, profile, injury, gear, raceStrategy, settings, habits] =
+		const [allRuns, training, gearInventory, profile, injury, gear, settings, habits] =
 			await Promise.all([
 				listRuns(),
 				loadTrainingContext(),
@@ -739,7 +739,6 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 				readContextFile('profile.md'),
 				readContextFile('injury.md'),
 				readContextFile('gear.md'),
-				readContextFile('race-strategy.md'),
 				loadSettings(),
 				loadActivityHabits()
 			]);
@@ -942,7 +941,7 @@ You are my coach for the sports I actually do — not a running-only coach. ${to
 ${briefAsk}
 
 ## How to read this brief
-Goal and Timing come from the booked race and calendar I set. Look-aheads are not races — they constrain the horizon, they do not set race day. All-time summary, weekly volume, and the Activity log are auto-computed from logs and are **current**. Runner profile, injury, gear, and race strategy are hand-written and may lag. If they disagree on numbers (longest run, weekly volume), **prefer the computed sections**.
+Goal and Timing come from the booked race and calendar I set. Look-aheads are not races — they constrain the horizon, they do not set race day. All-time summary, weekly volume, and the Activity log are auto-computed from logs and are **current**. Runner profile, injury, and fueling are hand-written and may lag. If they disagree on numbers (longest run, weekly volume), **prefer the computed sections**. Race-day intent lives on the goal notes, not a global file.
 
 ${goalSection}
 ${timingSection}
@@ -978,9 +977,6 @@ ${formatUsualHabitsSection(habits)}
 
 ## Fueling & checklist
 ${gear.trim() || '(none)'}
-
-## Race strategy
-${raceStrategy.trim() || '(none)'}
 
 ${mixSection}
 
@@ -2489,15 +2485,6 @@ export const saveContextFile = createServerFn({ method: 'POST' }).middleware([re
 		if (!EDITABLE.has(name) || name.includes('..') || name.includes('/') || name.includes('\\')) {
 			throw new Error('That file cannot be edited.');
 		}
-		if (name.endsWith('.json')) {
-			const trimmed = body.trim();
-			if (!trimmed) body = '[]\n';
-			try {
-				JSON.parse(body);
-			} catch {
-				throw new Error('plan.json must be valid JSON.');
-			}
-		}
 		if (body.length > 0 && !body.endsWith('\n')) body = `${body}\n`;
 		await writeContextFile(name, body);
 		return { ok: true };
@@ -2539,11 +2526,10 @@ export const getGoalBrief = createServerFn({ method: 'GET' })
 	}))
 	.handler(async ({ data }) => {
 		const range = dateRangeFromSearch({ range: '30d' });
-		const [allRuns, training, injury, raceStrategy, habits] = await Promise.all([
+		const [allRuns, training, injury, habits] = await Promise.all([
 			listRuns(),
 			loadTrainingContext(),
 			readContextFile('injury.md'),
-			readContextFile('race-strategy.md'),
 			loadActivityHabits()
 		]);
 		const { medals } = training;
@@ -2654,9 +2640,6 @@ ${activityRows}
 ${injury.trim() || '(none)'}
 
 ${formatUsualHabitsSection(habits)}
-
-## Race strategy (hand-written, may lag)
-${raceStrategy.trim() || '(none)'}
 
 ## When you reply
 Give a short assessment in prose if you want. Then output **one JSON object** I can paste back, with exactly these keys. If a draft field is empty, leave it \`""\`, \`null\`, or \`[]\` unless a URL or my extra notes make it clear. Do not copy example placeholders. \`primary\` is an array of 3–6 short priorities (one line each). ${replyNotes} Keep any URL I gave.

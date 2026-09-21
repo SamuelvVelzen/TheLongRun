@@ -4,7 +4,6 @@ import { appHead } from '$lib/title';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { z } from 'zod';
-import { ActivityHabitsEditor } from '../components/ActivityHabitsEditor';
 import { DeferredData } from '../components/DeferredData';
 import { Icon } from '../components/Icon';
 import { PageHero } from '../components/PageHero';
@@ -25,7 +24,7 @@ function Context() {
 				variant="quiet"
 				kicker="Standing notes"
 				title="Context"
-				lead="Usual habits, profile, injury rules, and fueling. The week lives on Coach. Race day lives on Goals. Kit lives on Gear."
+				lead="Profile, injury rules, and fueling. The week lives on Coach. Race day lives on Goals. Kit and usual habits live on Gear."
 			/>
 			<DeferredData promise={page}>{(data) => <ContextBody data={data} />}</DeferredData>
 		</>
@@ -70,8 +69,6 @@ function ContextBody({ data }: { data: Awaited<ReturnType<typeof getContextData>
 
 	return (
 		<>
-			<ActivityHabitsEditor initial={data.habits} authed={authed} />
-
 			<div className={gridClass()}>
 				{data.files.map((file) => (
 					<details

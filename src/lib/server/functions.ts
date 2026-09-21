@@ -1,213 +1,213 @@
 import { ACTIVITY_TYPES, activityCount, activityLabel, activityPlural, metricText, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
 import { combinedActivityGpx, combinedActivityTcx, memberActivityGpx, safeFilename } from '$lib/activity-export';
 import {
-    formatUsualHabitsSection,
-    normalizeActivityHabits,
-    withHabitDefaults,
-    type ActivityHabits
+	formatUsualHabitsSection,
+	normalizeActivityHabits,
+	withHabitDefaults,
+	type ActivityHabits
 } from '$lib/activity-habits';
 import {
-    computeBestEffortsFromSplits,
-    computeBestEffortsFromTrack,
-    distanceLabel,
-    effortsEqual,
-    formatEffortTime,
-    highlightsForActivity,
-    mergeMissingBestEfforts,
-    missingEffortKeys,
-    supportsBestEfforts,
-    type EffortHighlight
+	computeBestEffortsFromSplits,
+	computeBestEffortsFromTrack,
+	distanceLabel,
+	effortsEqual,
+	formatEffortTime,
+	highlightsForActivity,
+	mergeMissingBestEfforts,
+	missingEffortKeys,
+	supportsBestEfforts,
+	type EffortHighlight
 } from '$lib/best-efforts';
 import { combinedAnalytics, trackFromGeoJson } from '$lib/combine-track';
 import { dateRangeFromSearch, filterRunsByRange, type DateRange, type RangeKind } from '$lib/date-range';
 import { DEBRIEF_HABITS_TOKEN, DEBRIEF_WRITEUP_TOKEN } from '$lib/debrief';
 import { dayFromIsoDate, formatDuration, guessSession, localDateTimeToUtcMs, normalizeStartTime, parseDurationSeconds } from '$lib/format';
 import {
-    catalogHasItems,
-    formatGearKm,
-    GEAR_KINDS,
-    gearKey,
-    gearKindForActivity,
-    gearMeta,
-    wearByAllGear,
-    type GearCatalog,
-    type GearContext,
-    type GearKind
+	catalogHasItems,
+	formatGearKm,
+	GEAR_KINDS,
+	gearKey,
+	gearKindForActivity,
+	gearMeta,
+	wearByAllGear,
+	type GearCatalog,
+	type GearContext,
+	type GearKind
 } from '$lib/gear';
 import {
-    activityLooksLikeRace,
-    canPinRaceResult,
-    formatHorizonLabel,
-    formatIntentionPromptLine,
-    formatLaterRacePromptLine,
-    isRaceGoal,
-    normalizeGoalInput,
-    normalizeGoalUrl,
-    openIntentions,
-    pickSoonestOpenGoal,
-    pinCandidatesForGoal,
-    resultFromActivity,
-    type GoalInput,
-    type MedalDetailsInput
+	activityLooksLikeRace,
+	canPinRaceResult,
+	formatHorizonLabel,
+	formatIntentionPromptLine,
+	formatLaterRacePromptLine,
+	isRaceGoal,
+	normalizeGoalInput,
+	normalizeGoalUrl,
+	openIntentions,
+	pickSoonestOpenGoal,
+	pinCandidatesForGoal,
+	resultFromActivity,
+	type GoalInput,
+	type MedalDetailsInput
 } from '$lib/goals';
 import {
-    attachHrSeries,
-    densifyWaypoints,
-    diagnoseGps,
-    normalizeTrackPoints,
-    normalizeWaypoints,
-    samplesFromGeoJson,
-    stampAlongDistance,
-    trackDistanceMeters
+	attachHrSeries,
+	densifyWaypoints,
+	diagnoseGps,
+	normalizeTrackPoints,
+	normalizeWaypoints,
+	samplesFromGeoJson,
+	stampAlongDistance,
+	trackDistanceMeters
 } from '$lib/gps-repair';
 import { combineRunStats, groupedSessionTitle, sortGroupMembers } from '$lib/group';
 import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import {
-    buildWeekView,
-    calendarFromGoal,
-    dateForSessionDay,
-    daysUntil,
-    formatUnplannedBrief,
-    isoDateLocal,
-    isRestLike,
-    isSkippedStatus,
-    keepSoonestNext,
-    mondayIso,
-    pickBannerWeekView,
-    plannedSessionFor,
-    planSessionRouteKey,
-    planWeekDateRange,
-    planWeekEndIso,
-    planWeekIndex,
-    planWeekStartIso,
-    sessionCanLinkRoute,
-    sessionStreak,
-    SKIP_STATUS_PROMPT,
-    upcomingPlanSessions,
-    weekNumberForDate,
-    weekToGenerate,
-    weekToPlan,
-    withSessionRoutes,
-    type PlanCalendar,
-    type WeekView
+	buildWeekView,
+	calendarFromGoal,
+	dateForSessionDay,
+	daysUntil,
+	formatUnplannedBrief,
+	isoDateLocal,
+	isRestLike,
+	isSkippedStatus,
+	keepSoonestNext,
+	mondayIso,
+	pickBannerWeekView,
+	plannedSessionFor,
+	planSessionRouteKey,
+	planWeekDateRange,
+	planWeekEndIso,
+	planWeekIndex,
+	planWeekStartIso,
+	sessionCanLinkRoute,
+	sessionStreak,
+	SKIP_STATUS_PROMPT,
+	upcomingPlanSessions,
+	weekNumberForDate,
+	weekToGenerate,
+	weekToPlan,
+	withSessionRoutes,
+	type PlanCalendar,
+	type WeekView
 } from '$lib/plan';
 import {
-    analyticsFromProperties,
-    analyticsToProperties,
-    computeRouteAnalytics,
-    withEffectiveHrZones,
-    type RouteAnalytics
+	analyticsFromProperties,
+	analyticsToProperties,
+	computeRouteAnalytics,
+	withEffectiveHrZones,
+	type RouteAnalytics
 } from '$lib/splits';
 import {
-    formatStrengthHistoryBrief,
-    normalizePlanStrengthExercises,
-    parseStrengthNotes,
-    recentExerciseTops,
-    strengthSummary
+	formatStrengthHistoryBrief,
+	normalizePlanStrengthExercises,
+	parseStrengthNotes,
+	recentExerciseTops,
+	strengthSummary
 } from '$lib/strength';
 import type {
-    ActivityAttachOption,
-    ActivityGroupInfo,
-    Goal,
-    PlanAttachOption,
-    PlannedRoute,
-    PlannedRouteActivityLink,
-    PlannedRoutePlanLink,
-    PlanWeek,
-    RouteTrack,
-    RunRecord,
-    RunWithMap,
-    SessionRouteRef
+	ActivityAttachOption,
+	ActivityGroupInfo,
+	Goal,
+	PlanAttachOption,
+	PlannedRoute,
+	PlannedRouteActivityLink,
+	PlannedRoutePlanLink,
+	PlanWeek,
+	RouteTrack,
+	RunRecord,
+	RunWithMap,
+	SessionRouteRef
 } from '$lib/types';
 import {
-    exampleSessionsForPattern,
-    formatPatternLines,
-    formatPatternPromptSection,
-    normalizeWeekPattern,
-    patternHasSlotMeta,
-    SLOT_CONSTRAINT_PROMPT,
-    STRENGTH_SESSION_PROMPT,
-    type WeekPattern
+	exampleSessionsForPattern,
+	formatPatternLines,
+	formatPatternPromptSection,
+	normalizeWeekPattern,
+	patternHasSlotMeta,
+	SLOT_CONSTRAINT_PROMPT,
+	STRENGTH_SESSION_PROMPT,
+	type WeekPattern
 } from '$lib/week-mix';
 import { zipStoreBytes } from '$lib/zip';
 import { createServerFn } from '@tanstack/react-start';
 import { requireAuth } from './auth';
 import { brouterAlongPins } from './brouter';
 import {
-    clearLiveLocation,
-    currentPlanWeek,
-    loadActivityHabits,
-    loadGear,
-    loadGoalStore,
-    loadLiveLocation,
-    loadPlan,
-    loadSettings,
-    loadTrainingContext,
-    migrateRaceStrategyToActiveGoal,
-    persistActivityHabits,
-    persistGear,
-    readContextFile,
-    rememberGearName,
-    saveGoalStore,
-    saveHrMaxSetting,
-    saveLiveLocation,
-    savePlan,
-    saveWeekPatternSetting,
-    writeContextFile
+	clearLiveLocation,
+	currentPlanWeek,
+	loadActivityHabits,
+	loadGear,
+	loadGoalStore,
+	loadLiveLocation,
+	loadPlan,
+	loadSettings,
+	loadTrainingContext,
+	migrateRaceStrategyToActiveGoal,
+	persistActivityHabits,
+	persistGear,
+	readContextFile,
+	rememberGearName,
+	saveGoalStore,
+	saveHrMaxSetting,
+	saveLiveLocation,
+	savePlan,
+	saveWeekPatternSetting,
+	writeContextFile
 } from './context';
 import { reverseGeocode, timezoneForCoord } from './geo';
 import { parseGpx } from './gpx';
 import {
-    addActivityToGroup,
-    createActivityGroup,
-    enrichAllGroupEfforts,
-    enrichGroupEfforts,
-    getActivityGroup,
-    listActivityGroups,
-    membershipForSlug,
-    removeActivityFromGroup,
-    tracksForMembers,
-    ungroupActivities
+	addActivityToGroup,
+	createActivityGroup,
+	enrichAllGroupEfforts,
+	enrichGroupEfforts,
+	getActivityGroup,
+	listActivityGroups,
+	membershipForSlug,
+	removeActivityFromGroup,
+	tracksForMembers,
+	ungroupActivities
 } from './groups';
 import {
-    attachRouteToActivity as dbAttachRouteToActivity,
-    attachRouteToPlan as dbAttachRouteToPlan,
-    deletePlannedRoute as dbDeletePlannedRoute,
-    detachRouteLink as dbDetachRouteLink,
-    replacePlannedRouteTrack as dbReplacePlannedRouteTrack,
-    updatePlannedRoute as dbUpdatePlannedRoute,
-    getActivityRouteRef,
-    getPlannedRoute,
-    listPlannedRoutes,
-    listPlannedRouteTracks,
-    listPlanRouteRefs,
-    listRouteLinks,
-    savePlannedFromFile,
-    savePlannedFromTrack
+	attachRouteToActivity as dbAttachRouteToActivity,
+	attachRouteToPlan as dbAttachRouteToPlan,
+	deletePlannedRoute as dbDeletePlannedRoute,
+	detachRouteLink as dbDetachRouteLink,
+	replacePlannedRouteTrack as dbReplacePlannedRouteTrack,
+	updatePlannedRoute as dbUpdatePlannedRoute,
+	getActivityRouteRef,
+	getPlannedRoute,
+	listPlannedRoutes,
+	listPlannedRouteTracks,
+	listPlanRouteRefs,
+	listRouteLinks,
+	savePlannedFromFile,
+	savePlannedFromTrack
 } from './planned-routes';
 import {
-    getRouteGeoJson,
-    listRouteEffortSources,
-    loadRouteAnalytics,
-    routeIdForRun,
-    saveRouteGeoJson
+	getRouteGeoJson,
+	listRouteEffortSources,
+	loadRouteAnalytics,
+	routeIdForRun,
+	saveRouteGeoJson
 } from './route-analytics';
 import { listRouteTracks } from './routes';
 import {
-    deleteRun as dbDeleteRun,
-    updateRun as dbUpdateRun,
-    findRunsByDate,
-    getMaxHrAllTime,
-    getRun,
-    listRouteIds,
-    listRuns,
-    runHasMap,
-    saveRun,
-    setRunBestEfforts,
-    setRunRoute,
-    updateRunFeelings,
-    type FeelingsPatch,
-    type UpdateRunFields
+	deleteRun as dbDeleteRun,
+	updateRun as dbUpdateRun,
+	findRunsByDate,
+	getMaxHrAllTime,
+	getRun,
+	listRouteIds,
+	listRuns,
+	runHasMap,
+	saveRun,
+	setRunBestEfforts,
+	setRunRoute,
+	updateRunFeelings,
+	type FeelingsPatch,
+	type UpdateRunFields
 } from './runs';
 import { DEFAULT_START_HHMM, fetchWeatherForDateTime } from './weather';
 
@@ -691,21 +691,18 @@ ${blocks.join('\n\n')}`;
 
 export const getContextData = createServerFn({ method: 'GET' }).handler(async () => {
 	await migrateRaceStrategyToActiveGoal();
-	const [habits, raw] = await Promise.all([
-		loadActivityHabits(),
-		Promise.all(CONTEXT_FILES.map((f) => readContextFile(f.name)))
-	]);
+	const raw = await Promise.all(CONTEXT_FILES.map((f) => readContextFile(f.name)));
 	const files: ContextFile[] = CONTEXT_FILES.map((f, i) => {
 		const body = raw[i]!;
 		const html = f.name.endsWith('.json') ? renderJsonPretty(body) : renderMarkdown(body);
 		return { name: f.name, title: f.title, body, html };
 	});
-	return { habits, files };
+	return { files };
 });
 
 export const getGearData = createServerFn({ method: 'GET' }).handler(async () => {
-	const [gear, runs] = await Promise.all([loadGear(), listRuns()]);
-	return { gear, gearWear: wearByAllGear(runs) };
+	const [gear, runs, habits] = await Promise.all([loadGear(), listRuns(), loadActivityHabits()]);
+	return { gear, gearWear: wearByAllGear(runs), habits };
 });
 
 export const getCoachBrief = createServerFn({ method: 'GET' })

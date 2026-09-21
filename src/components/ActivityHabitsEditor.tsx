@@ -1,50 +1,36 @@
+import { activityLabel, type ActivityType } from '$lib/activity';
 import {
-    ACTIVITY_TYPES,
-    activityLabel
-} from '$lib/activity';
-import {
+    compactHabitText,
     HABIT_PLACEHOLDERS,
-    normalizeActivityHabits,
-    type ActivityHabits
+    type HabitPair
 } from '$lib/activity-habits';
-import { saveActivityHabits } from '$lib/server/functions';
 import { cn } from '$lib/ui';
-import { useRouter } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
-import { Icon, sportChipLabel } from './Icon';
+import { useEffect } from 'react';
+import { Icon } from './Icon';
 import { errorMessage, useSnackbar } from './Snackbar';
-import {
-    Actions,
-    Form,
-    formSectionTitleClass,
-    panelClass,
-    useAppForm
-} from './ui';
+import { Actions, Form, FormGrid, useAppForm } from './ui';
 
-export function ActivityHabitsEditor({
-	initial,
-	authed
+export function SportHabitsForm({
+	type,
+	pair,
+	authed,
+	onSave
 }: {
-	initial: ActivityHabits;
+	type: ActivityType;
+	pair: HabitPair;
 	authed: boolean;
+	onSave: (pair: HabitPair) => Promise<void>;
 }) {
-	const router = useRouter();
 	const snack = useSnackbar();
-	const [habits, setHabits] = useState(initial);
-
-	useEffect(() => {
-		setHabits(initial);
-	}, [initial]);
-
 	const form = useAppForm({
-		defaultValues: habits,
+		defaultValues: pair,
 		onSubmit: async ({ value }) => {
 			try {
-				const saved = await saveActivityHabits({ data: value });
-				setHabits(saved);
-				form.reset(saved);
-				snack.success('Saved activity habits');
-				await router.invalidate();
+				await onSave({
+					before: compactHabitText(value.before),
+					after: compactHabitText(value.after)
+				});
+				snack.success(`Saved ${activityLabel(type).toLowerCase()} habits`);
 			} catch (err) {
 				snack.error(errorMessage(err, 'Save failed'));
 			}
@@ -52,79 +38,94 @@ export function ActivityHabitsEditor({
 	});
 
 	useEffect(() => {
-		form.reset(habits);
-	}, [habits]);
+		form.reset(pair);
+	}, [pair]);
+
+	const caption = (
+		<p className={cn('text-muted', 'm-0 mb-2 text-[0.8rem] font-display uppercase tracking-[0.08em]')}>
+			Habits
+		</p>
+	);
+
+	if (!authed) {
+		if (!pair.before && !pair.after) {
+			return (
+				<div className="mt-3">
+					{caption}
+					<p className={cn('text-muted', 'mt-0 mb-0 text-[0.9rem]')}>
+						No usual before/after notes for this sport.
+					</p>
+				</div>
+			);
+		}
+		return (
+			<div className="mt-3">
+				{caption}
+				<div className="grid gap-3 min-[721px]:grid-cols-2">
+					{pair.before ? (
+						<div>
+							<p className={cn('text-muted', 'm-0 mb-1 text-[0.82rem]')}>Before</p>
+							<p className="m-0 whitespace-pre-wrap">{pair.before}</p>
+						</div>
+					) : null}
+					{pair.after ? (
+						<div>
+							<p className={cn('text-muted', 'm-0 mb-1 text-[0.82rem]')}>After</p>
+							<p className="m-0 whitespace-pre-wrap">{pair.after}</p>
+						</div>
+					) : null}
+				</div>
+			</div>
+		);
+	}
 
 	return (
-		<div className={panelClass('mb-5')}>
-			<div>
-				<h2>Activity habits</h2>
-				<p className={cn('text-muted', 'mt-1 mb-0 text-[0.9rem]')}>
-					Generic before/after notes for every sport — warmup walks, stretches. Change them on a
-					single activity when that day was different. Coach-plan session notes stay specific to
-					that day.
-				</p>
-			</div>
-
-			<Form
-				className="mt-4"
-				onSubmit={(e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					void form.handleSubmit();
-				}}
-			>
-				{ACTIVITY_TYPES.map((type) => (
-					<div key={type} className="mt-5 first:mt-0">
-						<h3 className={formSectionTitleClass}>{sportChipLabel(type, activityLabel(type))}</h3>
-						<div className="grid gap-3 min-[721px]:grid-cols-2">
-							<form.AppField
-								name={`${type}.before`}
-								children={(field) => (
-									<field.TextAreaField
-										label="Before"
-										rows={3}
-										disabled={!authed}
-										placeholder={HABIT_PLACEHOLDERS[type].before}
-									/>
-								)}
-							/>
-							<form.AppField
-								name={`${type}.after`}
-								children={(field) => (
-									<field.TextAreaField
-										label="After"
-										rows={3}
-										disabled={!authed}
-										placeholder={HABIT_PLACEHOLDERS[type].after}
-									/>
-								)}
-							/>
-						</div>
-					</div>
-				))}
-				{authed && (
-					<form.Subscribe selector={(s) => s.values}>
-						{(values) => {
-							const a = normalizeActivityHabits(values);
-							const b = normalizeActivityHabits(habits);
-							const dirty = ACTIVITY_TYPES.some(
-								(t) => a[t].before !== b[t].before || a[t].after !== b[t].after
-							);
-							return dirty ? (
-								<Actions>
-									<form.AppForm>
-										<form.SubmitButton busyLabel="Saving…">
-											<Icon name="check" size={16} />
-											Save habits
-										</form.SubmitButton>
-									</form.AppForm>
-								</Actions>
-							) : null;
-						}}
-					</form.Subscribe>
-				)}
-			</Form>
-		</div>
+		<Form
+			className="mt-3"
+			onSubmit={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				void form.handleSubmit();
+			}}
+		>
+			{caption}
+			<FormGrid>
+				<form.AppField
+					name="before"
+					children={(field) => (
+						<field.TextAreaField
+							label="Before"
+							rows={3}
+							placeholder={HABIT_PLACEHOLDERS[type].before}
+						/>
+					)}
+				/>
+				<form.AppField
+					name="after"
+					children={(field) => (
+						<field.TextAreaField
+							label="After"
+							rows={3}
+							placeholder={HABIT_PLACEHOLDERS[type].after}
+						/>
+					)}
+				/>
+			</FormGrid>
+			<form.Subscribe selector={(s) => s.values}>
+				{(values) =>
+					compactHabitText(values.before) !== pair.before ||
+					compactHabitText(values.after) !== pair.after ? (
+						<Actions>
+							<form.AppForm>
+								<form.SubmitButton busyLabel="Saving…">
+									<Icon name="check" size={16} />
+									Save habits
+								</form.SubmitButton>
+							</form.AppForm>
+						</Actions>
+					) : null
+				}
+			</form.Subscribe>
+		</Form>
 	);
 }

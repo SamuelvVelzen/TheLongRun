@@ -19,12 +19,19 @@ function GearPage() {
 		<>
 			<PageHero
 				variant="quiet"
-				kicker="Shoes and bikes"
+				kicker="Kit and habits"
 				title="Gear"
-				lead="Default kit is used when you log or import that sport. Mileage is counted from logged activities."
+				lead="Default kit and usual before/after notes for each sport. Mileage is counted from logged activities."
 			/>
 			<DeferredData promise={page}>
-				{(data) => <GearInventory initial={data.gear} wear={data.gearWear} authed={authed} />}
+				{(data) => (
+					<GearInventory
+						initial={data.gear}
+						wear={data.gearWear}
+						habits={data.habits}
+						authed={authed}
+					/>
+				)}
 			</DeferredData>
 		</>
 	);

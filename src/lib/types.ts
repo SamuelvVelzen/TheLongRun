@@ -116,7 +116,7 @@ export type PlanStrengthExercise = {
 export interface PlanSession {
 	day: string;
 	label: string;
-	/** run | walk | ride | strength — omitted on older plan rows (treat as run). */
+	/** run | walk | bike | strength — omitted on older plan rows (treat as run). */
 	activity_type?: string;
 	distance_km: number | null;
 	detail: string;

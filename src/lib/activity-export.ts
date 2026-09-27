@@ -10,14 +10,14 @@ export type ExportSegment = {
 const STRAVA_GPX_TYPE: Record<ActivityType, string> = {
 	run: 'running',
 	walk: 'walking',
-	ride: 'cycling',
+	bike: 'cycling',
 	strength: 'workout'
 };
 
 const TCX_SPORT: Record<ActivityType, string> = {
 	run: 'Running',
 	walk: 'Walking',
-	ride: 'Biking',
+	bike: 'Biking',
 	strength: 'Other'
 };
 

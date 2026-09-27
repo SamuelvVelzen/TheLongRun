@@ -16,7 +16,7 @@ export const ACTIVITY_SESSIONS = [
 
 export const activityFormSchema = z.object({
 	date: z.string().trim().min(1, 'Date is required'),
-	activity_type: z.enum(['run', 'walk', 'ride', 'strength']),
+	activity_type: z.enum(['run', 'walk', 'bike', 'strength']),
 	session: z.string(),
 	effort: z.number().nullable(),
 	shins: z.number().nullable(),

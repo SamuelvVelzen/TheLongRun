@@ -22,7 +22,7 @@ function clockLabel(startTime: string | null | undefined): string {
 
 function sportWord(activityType: string | null | undefined): string {
 	switch (normalizeActivityType(activityType)) {
-		case 'ride':
+		case 'bike':
 			return 'bike';
 		case 'walk':
 			return 'walk';

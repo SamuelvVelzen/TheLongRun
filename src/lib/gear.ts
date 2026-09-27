@@ -47,7 +47,7 @@ export type GearKindMeta = {
 	customPlaceholder: string;
 	emptyLabel: string;
 	notesPlaceholder: string;
-	/** Sport used for wear count copy ("3 rides"). Shoes mix run+walk → activities. */
+	/** Sport used for wear count copy ("3 bikes"). Shoes mix run+walk → activities. */
 	wearSport: ActivityType | null;
 };
 
@@ -70,9 +70,9 @@ export const GEAR_KIND_META: Record<GearKind, GearKindMeta> = {
 	},
 	bike: {
 		kind: 'bike',
-		activityTypes: ['ride'],
+		activityTypes: ['bike'],
 		label: 'Bicycle',
-		section: 'Ride',
+		section: 'Bike',
 		itemSingular: 'bike',
 		itemPlural: 'bikes',
 		activeLabel: 'Primary',
@@ -82,14 +82,14 @@ export const GEAR_KIND_META: Record<GearKind, GearKindMeta> = {
 		customPlaceholder: 'Bike name',
 		emptyLabel: 'No bikes in the inventory yet.',
 		notesPlaceholder: 'Which bike for what, service notes…',
-		wearSport: 'ride'
+		wearSport: 'bike'
 	}
 };
 
 export function gearKindForActivity(activity: string | null | undefined): GearKind | null {
 	const t = normalizeActivityType(activity);
 	if (t === 'run' || t === 'walk') return 'shoes';
-	if (t === 'ride') return 'bike';
+	if (t === 'bike') return 'bike';
 	return null;
 }
 

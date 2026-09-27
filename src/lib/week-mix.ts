@@ -37,7 +37,7 @@ const MAX_SLOT_NOTES = 400;
 export const ZERO_WEEK_MIX: WeekMix = {
 	run: 0,
 	walk: 0,
-	ride: 0,
+	bike: 0,
 	strength: 0
 };
 
@@ -46,7 +46,7 @@ const MAX_SLOTS = 14;
 /** Usual week until the user saves their own skeleton. */
 export const DEFAULT_WEEK_PATTERN: WeekPattern = [
 	{ day: 'Tuesday', activity_type: 'run' },
-	{ day: 'Wednesday', activity_type: 'ride' },
+	{ day: 'Wednesday', activity_type: 'bike' },
 	{ day: 'Thursday', activity_type: 'strength' },
 	{ day: 'Friday', activity_type: 'run' },
 	{ day: 'Sunday', activity_type: 'run' }
@@ -108,7 +108,7 @@ export function patternsEqual(a: WeekPattern, b: WeekPattern): boolean {
 
 const PREFERRED_DAYS: Record<ActivityType, Weekday[]> = {
 	run: ['Tuesday', 'Friday', 'Sunday', 'Thursday', 'Monday', 'Saturday', 'Wednesday'],
-	ride: ['Wednesday', 'Saturday', 'Monday', 'Thursday', 'Tuesday', 'Friday', 'Sunday'],
+	bike: ['Wednesday', 'Saturday', 'Monday', 'Thursday', 'Tuesday', 'Friday', 'Sunday'],
 	strength: ['Thursday', 'Monday', 'Wednesday', 'Tuesday', 'Friday', 'Saturday', 'Sunday'],
 	walk: ['Saturday', 'Monday', 'Wednesday', 'Thursday', 'Friday', 'Sunday', 'Tuesday']
 };
@@ -208,7 +208,7 @@ export function normalizeWeekMix(raw: unknown): WeekMix {
 	const o = raw as Record<string, unknown>;
 	let any = false;
 	for (const t of ACTIVITY_TYPES) {
-		const n = Number(o[t]);
+		const n = Number(t === 'bike' ? (o[t] ?? o.ride) : o[t]);
 		if (Number.isFinite(n)) {
 			any = true;
 			out[t] = Math.max(0, Math.min(MAX_COUNT, Math.round(n)));
@@ -255,7 +255,7 @@ function exampleDistance(type: ActivityType, index: number, total: number): numb
 		if (index === 1) return 8;
 		return 6;
 	}
-	if (type === 'ride') return 25;
+	if (type === 'bike') return 25;
 	if (type === 'walk') return 5;
 	return 6;
 }
@@ -331,7 +331,7 @@ export function formatPatternPromptSection(opts: {
 			: `For **${opts.weekPhrase}** use this skeleton instead:\n${now}`,
 		count
 			? `**Keep these days and sports.** You choose the session kind (\`label\`: Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, Push, Pull, Hypertrophy, Strength, Circuit, Core — never a bare "Gym"), plus distance (null for strength) and intent. There is no duration field — put time, load, and rest in \`detail\`, and the lift list in \`exercises\`. The skeleton has no kinds — do not copy placeholder labels. Do not invent a different weekday pattern (do not move a Tuesday run to Wednesday just because a template prefers other days). Only shift a usual session if recovery, heat, life, or the notes below require it — never shift a **can't change** slot — and if you move a day, say why in prose.`
-			: `I did not pin a usual week — plan whatever the week needs across the sports I do (run, ride, walk, strength). Do not default to a 3-run template.`
+			: `I did not pin a usual week — plan whatever the week needs across the sports I do (run, bike, walk, strength). Do not default to a 3-run template.`
 	];
 	lines.push(SLOT_CONSTRAINT_PROMPT);
 	lines.push(STRENGTH_SESSION_PROMPT);

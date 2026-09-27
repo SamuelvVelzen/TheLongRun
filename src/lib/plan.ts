@@ -225,7 +225,7 @@ export function sessionCanLinkRoute(
 
 const LEADING_MIN = /^(\d+(?:\.\d+)?)\s*(?:min(?:ute)?s?)\b/i;
 
-/** Distance for run/ride/walk; leading minutes from `detail` for strength. */
+/** Distance for run/bike/walk; leading minutes from `detail` for strength. */
 export function sessionMeasureLabel(
 	session: Pick<PlanSession, 'activity_type' | 'distance_km' | 'detail'>
 ): string {

@@ -10,7 +10,7 @@ export const EMPTY_HABIT_PAIR: HabitPair = { before: '', after: '' };
 export const EMPTY_ACTIVITY_HABITS: ActivityHabits = {
 	run: { ...EMPTY_HABIT_PAIR },
 	walk: { ...EMPTY_HABIT_PAIR },
-	ride: { ...EMPTY_HABIT_PAIR },
+	bike: { ...EMPTY_HABIT_PAIR },
 	strength: { ...EMPTY_HABIT_PAIR }
 };
 
@@ -23,7 +23,7 @@ export const HABIT_PLACEHOLDERS: ActivityHabits = {
 		before: 'Warmup stretches',
 		after: 'Cooldown stretches'
 	},
-	ride: {
+	bike: {
 		before: 'Warmup spin / mobility',
 		after: 'Cooldown spin / stretch'
 	},
@@ -56,7 +56,8 @@ export function normalizeActivityHabits(raw: unknown): ActivityHabits {
 	const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
 	const out = emptyActivityHabits();
 	for (const type of ACTIVITY_TYPES) {
-		out[type] = normalizeHabitPair(o[type]);
+		const raw = o[type] ?? (type === 'bike' ? o.ride : undefined);
+		out[type] = normalizeHabitPair(raw);
 	}
 	return out;
 }
@@ -65,7 +66,7 @@ export function emptyActivityHabits(): ActivityHabits {
 	return {
 		run: { before: '', after: '' },
 		walk: { before: '', after: '' },
-		ride: { before: '', after: '' },
+		bike: { before: '', after: '' },
 		strength: { before: '', after: '' }
 	};
 }

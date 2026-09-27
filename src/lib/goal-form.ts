@@ -26,7 +26,7 @@ export const goalFormSchema = z
 		date: z.string(),
 		horizon: z.string(),
 		distance_km: z.string().trim().min(1, 'Distance is required'),
-		sport: z.enum(['run', 'walk', 'ride', 'strength']),
+		sport: z.enum(['run', 'walk', 'bike', 'strength']),
 		time_goal: z.string(),
 		bib_number: z.string(),
 		wave: z.string(),

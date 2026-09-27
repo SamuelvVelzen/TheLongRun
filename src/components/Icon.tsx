@@ -28,7 +28,7 @@ export type IconName =
 	| 'grid'
 	| 'run'
 	| 'walk'
-	| 'ride'
+	| 'bike'
 	| 'strength'
 	| 'skip'
 	| 'circle'
@@ -218,7 +218,7 @@ function Paths({ name }: { name: IconName }) {
 					<path d="M12.2 12.6 9.6 16.6" />
 				</>
 			);
-		case 'ride':
+		case 'bike':
 			return (
 				<>
 					<circle cx="6.2" cy="16.4" r="3.1" />
@@ -375,7 +375,7 @@ const ACTIVITY_ICON: Record<ActivityType | 'all', IconName> = {
 	all: 'grid',
 	run: 'run',
 	walk: 'walk',
-	ride: 'ride',
+	bike: 'bike',
 	strength: 'strength'
 };
 

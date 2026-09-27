@@ -46,11 +46,11 @@ export type TrainingTrends = {
 };
 
 const PACE_MAX_SECS = 60 * 20;
-const RIDE_KPH_MAX = 80;
+const BIKE_KPH_MAX = 80;
 const WEEK_COUNT = 12;
 const RUN_SERIES_LIMIT = 16;
 const EASY_SESSIONS = new Set(['easy', 'shakeout', 'steady']);
-const PACE_SPORT_ORDER: ActivityType[] = ['run', 'walk', 'ride'];
+const PACE_SPORT_ORDER: ActivityType[] = ['run', 'walk', 'bike'];
 
 function mondayOf(isoDate: string): Date {
 	const d = new Date(`${isoDate}T12:00:00`);
@@ -181,17 +181,17 @@ function runPaceSecs(run: RunRecord): number | null {
 	return secs;
 }
 
-function rideKph(run: RunRecord): number | null {
+function bikeKph(run: RunRecord): number | null {
 	const sec = parseDurationSeconds(run.time);
 	if (!run.distance_km || !sec || sec <= 0) return null;
 	const kph = run.distance_km / (sec / 3600);
-	if (!Number.isFinite(kph) || kph < 5 || kph > RIDE_KPH_MAX) return null;
+	if (!Number.isFinite(kph) || kph < 5 || kph > BIKE_KPH_MAX) return null;
 	return kph;
 }
 
 function metricForSport(run: RunRecord, sport: ActivityType): number | null {
 	if (normalizeActivityType(run.activity_type) !== sport) return null;
-	if (sport === 'ride') return rideKph(run);
+	if (sport === 'bike') return bikeKph(run);
 	if (sport === 'run' || sport === 'walk') return runPaceSecs(run);
 	return null;
 }
@@ -222,10 +222,10 @@ function buildPaceSeries(runs: RunRecord[]): TrendSeries | null {
 	const rows = useEasy ? easy : all;
 	if (rows.length < 2) return null;
 
-	const lowerIsBetter = sport !== 'ride';
-	const unit = sport === 'ride' ? 'km/h' : '/km';
+	const lowerIsBetter = sport !== 'bike';
+	const unit = sport === 'bike' ? 'km/h' : '/km';
 	const formatValue = (v: number) =>
-		sport === 'ride' ? v.toFixed(1).replace(/\.0$/, '') : formatDuration(v);
+		sport === 'bike' ? v.toFixed(1).replace(/\.0$/, '') : formatDuration(v);
 
 	const points: TrendPoint[] = rows.map(({ run, value }) => ({
 		label: run.date.slice(5),
@@ -236,16 +236,16 @@ function buildPaceSeries(runs: RunRecord[]): TrendSeries | null {
 	const first = points[0]!;
 	const last = points[points.length - 1]!;
 	const noun =
-		sport === 'run' ? 'runs' : sport === 'walk' ? 'walks' : 'rides';
+		sport === 'run' ? 'runs' : sport === 'walk' ? 'walks' : 'bikes';
 	const title =
-		sport === 'ride'
-			? 'Ride speed'
+		sport === 'bike'
+			? 'Bike speed'
 			: useEasy && sport === 'run'
 				? 'Easy pace'
 				: 'Pace';
 	const subtitle = useEasy
 		? `Last ${points.length} easy ${noun}`
-		: `Last ${points.length} with ${sport === 'ride' ? 'speed' : 'pace'}`;
+		: `Last ${points.length} with ${sport === 'bike' ? 'speed' : 'pace'}`;
 
 	return {
 		id: 'pace',
@@ -255,7 +255,7 @@ function buildPaceSeries(runs: RunRecord[]): TrendSeries | null {
 		points,
 		latest: formatValue(last.value),
 		delta: formatDelta(first.value, last.value, {
-			format: sport === 'ride' ? (n) => n.toFixed(1).replace(/\.0$/, '') : (secs) => formatDuration(secs)
+			format: sport === 'bike' ? (n) => n.toFixed(1).replace(/\.0$/, '') : (secs) => formatDuration(secs)
 		}),
 		lowerIsBetter: lowerIsBetter || undefined
 	};

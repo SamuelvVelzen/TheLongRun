@@ -391,21 +391,12 @@ function TimelineBody({
 				place={place}
 				availableSports={availableSports}
 				actions={
-					authed && !selecting && items.length ? (
+					authed && items.length ? (
 						<TimelineMore
 							canGroup={items.filter((it) => it.kind === 'run').length >= 2}
-							onGroup={() => {
-								setPicked([]);
-								setSelectMode('group');
-							}}
-							onExport={() => {
-								setPicked([]);
-								setSelectMode('export');
-							}}
-							onDelete={() => {
-								setPicked([]);
-								setSelectMode('delete');
-							}}
+							onGroup={() => setSelectMode('group')}
+							onExport={() => setSelectMode('export')}
+							onDelete={() => setSelectMode('delete')}
 						/>
 					) : null
 				}
@@ -710,7 +701,7 @@ function TimelineBody({
 				<div
 					className={actionsClass(
 						true,
-						'fixed left-1/2 z-30 w-[min(1120px,calc(100%-2rem))] -translate-x-1/2'
+						'fixed left-1/2 z-30 w-auto max-w-[calc(100%-2rem)] -translate-x-1/2 max-sm:bottom-[calc(var(--tab-bar-offset)+0.65rem)]'
 					)}
 				>
 					<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={clearSelect}>

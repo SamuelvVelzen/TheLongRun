@@ -5,10 +5,10 @@ import {
 } from './activity';
 import type { RunRecord } from './types';
 
-export type GearKind = 'shoes' | 'bike';
+export type GearKind = 'shoes' | 'walk_shoes' | 'bike';
 export type GearRole = 'active' | 'rotation' | 'retired' | 'logged';
 
-export const GEAR_KINDS: GearKind[] = ['shoes', 'bike'];
+export const GEAR_KINDS: GearKind[] = ['shoes', 'walk_shoes', 'bike'];
 
 export type GearCatalog = {
 	active: string;
@@ -36,7 +36,7 @@ export type GearKindMeta = {
 	activityTypes: ActivityType[];
 	/** Short heading next to the activity, e.g. "Shoes". */
 	label: string;
-	/** Context section, e.g. "Run & walk". */
+	/** Context section, e.g. "Run". */
 	section: string;
 	itemSingular: string;
 	itemPlural: string;
@@ -47,16 +47,16 @@ export type GearKindMeta = {
 	customPlaceholder: string;
 	emptyLabel: string;
 	notesPlaceholder: string;
-	/** Sport used for wear count copy ("3 bikes"). Shoes mix run+walk → activities. */
+	/** Sport used for wear count copy ("3 runs", "2 walks"). */
 	wearSport: ActivityType | null;
 };
 
 export const GEAR_KIND_META: Record<GearKind, GearKindMeta> = {
 	shoes: {
 		kind: 'shoes',
-		activityTypes: ['run', 'walk'],
+		activityTypes: ['run'],
 		label: 'Shoes',
-		section: 'Run & walk',
+		section: 'Run',
 		itemSingular: 'pair',
 		itemPlural: 'pairs',
 		activeLabel: 'Daily',
@@ -66,7 +66,23 @@ export const GEAR_KIND_META: Record<GearKind, GearKindMeta> = {
 		customPlaceholder: 'Pair name',
 		emptyLabel: 'No pairs in the inventory yet.',
 		notesPlaceholder: 'When to use which pair, replacement notes…',
-		wearSport: null
+		wearSport: 'run'
+	},
+	walk_shoes: {
+		kind: 'walk_shoes',
+		activityTypes: ['walk'],
+		label: 'Shoes',
+		section: 'Walk',
+		itemSingular: 'pair',
+		itemPlural: 'pairs',
+		activeLabel: 'Daily',
+		setActiveLabel: 'Set daily',
+		addLabel: 'Add a pair',
+		addPlaceholder: 'e.g. Hoka Bondi 8',
+		customPlaceholder: 'Pair name',
+		emptyLabel: 'No pairs in the inventory yet.',
+		notesPlaceholder: 'When to use which pair, replacement notes…',
+		wearSport: 'walk'
 	},
 	bike: {
 		kind: 'bike',
@@ -88,7 +104,8 @@ export const GEAR_KIND_META: Record<GearKind, GearKindMeta> = {
 
 export function gearKindForActivity(activity: string | null | undefined): GearKind | null {
 	const t = normalizeActivityType(activity);
-	if (t === 'run' || t === 'walk') return 'shoes';
+	if (t === 'run') return 'shoes';
+	if (t === 'walk') return 'walk_shoes';
 	if (t === 'bike') return 'bike';
 	return null;
 }
@@ -107,7 +124,7 @@ export function emptyCatalog(): GearCatalog {
 }
 
 export function emptyGear(): GearContext {
-	return { shoes: emptyCatalog(), bike: emptyCatalog() };
+	return { shoes: emptyCatalog(), walk_shoes: emptyCatalog(), bike: emptyCatalog() };
 }
 
 export function gearKey(name: string | null | undefined): string {
@@ -184,10 +201,12 @@ function catalogFromUnknown(value: unknown): GearCatalog {
 export function normalizeGearContext(input: unknown): GearContext {
 	if (!input || typeof input !== 'object') return emptyGear();
 	const o = input as Record<string, unknown>;
-	if (o.shoes != null || o.bike != null) {
+	if (o.shoes != null || o.walk_shoes != null || o.bike != null) {
+		const base = emptyGear();
 		return {
-			shoes: catalogFromUnknown(o.shoes),
-			bike: catalogFromUnknown(o.bike)
+			shoes: o.shoes != null ? catalogFromUnknown(o.shoes) : base.shoes,
+			walk_shoes: o.walk_shoes != null ? catalogFromUnknown(o.walk_shoes) : base.walk_shoes,
+			bike: o.bike != null ? catalogFromUnknown(o.bike) : base.bike
 		};
 	}
 	if ('active' in o || 'rotation' in o || 'retired' in o) {
@@ -231,6 +250,7 @@ export function wearByAllGear(
 ): Record<GearKind, Record<string, GearWear>> {
 	return {
 		shoes: wearByGearKind(runs, 'shoes'),
+		walk_shoes: wearByGearKind(runs, 'walk_shoes'),
 		bike: wearByGearKind(runs, 'bike')
 	};
 }

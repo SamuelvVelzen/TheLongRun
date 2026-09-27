@@ -35,9 +35,9 @@ import { Icon, sportChipLabel } from './Icon';
 import { errorMessage, useSnackbar } from './Snackbar';
 import { Actions, buttonClass, Form, formClass, formSectionTitleClass, panelClass, statusPillClass, useAppForm } from './ui';
 
-/** Kit shown in the open editor — walk shares Run's shoes, strength has none. */
+/** Kit shown in the open editor — strength has none. */
 function kitKindForSection(type: ActivityType): GearKind | null {
-	if (type === 'walk' || type === 'strength') return null;
+	if (type === 'strength') return null;
 	return gearKindForActivity(type);
 }
 
@@ -65,7 +65,6 @@ function sectionPreview(
 		const extra = catalog.rotation.filter((n) => gearKey(n) !== gearKey(catalog.active)).length;
 		if (extra) bits.push(extra === 1 ? '1 more' : `${extra} more`);
 		if (bits.length) return bits.join(' · ');
-		if (type === 'walk') return 'Same shoes as Run';
 		return gearMeta(kind).emptyLabel.replace(/\.$/, '');
 	}
 	const pair = habits[type];
@@ -387,12 +386,6 @@ export function GearInventory({
 							<div className="border-b border-line" />
 						</summary>
 						<div className="mt-3">
-							{type === 'walk' ? (
-								<p className={cn('text-muted', 'mt-0 mb-0 text-[0.88rem]')}>
-									Walks use the same shoes as Run. Mileage from walks still counts on those
-									pairs.
-								</p>
-							) : null}
 							{kind ? (
 								<KindSection
 									kind={kind}

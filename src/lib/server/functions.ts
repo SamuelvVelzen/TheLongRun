@@ -210,6 +210,7 @@ import {
 	type FeelingsPatch,
 	type UpdateRunFields
 } from './runs';
+import { inferSurfaceFromTrack } from './surface';
 import { DEFAULT_START_HHMM, fetchWeatherForDateTime } from './weather';
 
 const withMap = (runs: RunRecord[], routeIds: Set<string>): RunWithMap[] =>
@@ -1722,6 +1723,14 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 				elev_gain: parsed.elevGain,
 				max_speed: parsed.maxSpeed
 			});
+			if (
+				!(existingDup.surface ?? '').trim() &&
+				showsField(activity_type, 'surface') &&
+				parsed.points.length >= 2
+			) {
+				const surface = await inferSurfaceFromTrack(parsed.points);
+				if (surface) await updateRunFeelings(existingDup.slug, { surface });
+			}
 			const efforts = supportsBestEfforts(activity_type) ? parsed.bestEfforts : [];
 			if (efforts.length) await setRunBestEfforts(existingDup.slug, efforts);
 			const highlights = await highlightsAfterSave(existingDup.slug, activity_type, efforts);
@@ -1735,19 +1744,23 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 			};
 		}
 
-		const weather = await fetchWeatherForDateTime(
-			parsed.date,
-			parsed.startClock || null,
-			null,
-			null,
-			parsed.time || null
-		);
-
-		// Reverse-geocode the start coordinate for country / province / municipality (best-effort).
-		const geo =
+		const trackPoints =
+			showsField(activity_type, 'surface') && parsed.points.length >= 2 ? parsed.points : [];
+		const [weather, geo, surface] = await Promise.all([
+			fetchWeatherForDateTime(
+				parsed.date,
+				parsed.startClock || null,
+				parsed.startLat ?? null,
+				parsed.startLng ?? null,
+				parsed.time || null
+			),
 			parsed.startLat != null && parsed.startLng != null
-				? await reverseGeocode(parsed.startLat, parsed.startLng)
-				: { country: '', province: '', place: '' };
+				? reverseGeocode(parsed.startLat, parsed.startLng)
+				: Promise.resolve({ country: '', province: '', place: '' }),
+			trackPoints.length >= 2
+				? inferSurfaceFromTrack(trackPoints)
+				: Promise.resolve('')
+		]);
 
 		const kind = gearKindForActivity(activity_type);
 		const importedGear = kind ? (await loadGear())[kind].active : '';
@@ -1764,7 +1777,7 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 			legs: null,
 			energy: null,
 			weather,
-			surface: '',
+			surface,
 			wanted_faster: null,
 			distance_km: parsed.distanceKm,
 			start_time: parsed.startClock,

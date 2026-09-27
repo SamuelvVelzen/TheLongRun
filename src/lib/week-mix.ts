@@ -208,7 +208,7 @@ export function normalizeWeekMix(raw: unknown): WeekMix {
 	const o = raw as Record<string, unknown>;
 	let any = false;
 	for (const t of ACTIVITY_TYPES) {
-		const n = Number(t === 'bike' ? (o[t] ?? o.ride) : o[t]);
+		const n = Number(o[t]);
 		if (Number.isFinite(n)) {
 			any = true;
 			out[t] = Math.max(0, Math.min(MAX_COUNT, Math.round(n)));

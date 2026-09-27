@@ -56,8 +56,7 @@ export function normalizeActivityHabits(raw: unknown): ActivityHabits {
 	const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
 	const out = emptyActivityHabits();
 	for (const type of ACTIVITY_TYPES) {
-		const raw = o[type] ?? (type === 'bike' ? o.ride : undefined);
-		out[type] = normalizeHabitPair(raw);
+		out[type] = normalizeHabitPair(o[type]);
 	}
 	return out;
 }

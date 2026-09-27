@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPES, activityCount, activityLabel, activityPlural, metricText, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
+import { ACTIVITY_TYPES, activityCount, activityLabel, activityPlural, importActivityType, metricText, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
 import { combinedActivityGpx, combinedActivityTcx, memberActivityGpx, safeFilename } from '$lib/activity-export';
 import {
 	formatUsualHabitsSection,
@@ -1672,7 +1672,7 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 			throw new Error('Could not read a date/time from that GPX file.');
 		}
 
-		const activity_type = normalizeActivityType(data.activityType || parsed.detectedType);
+		const activity_type = importActivityType(data.activityType || parsed.detectedType);
 		const day = dayFromIsoDate(parsed.date);
 		const { calendar } = await loadTrainingContext();
 		const week = weekNumberForDate(parsed.date, calendar);

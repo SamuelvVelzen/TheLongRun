@@ -1,3 +1,4 @@
+import { normalizeActivityType } from '$lib/activity';
 import {
     emptyActivityHabits,
     normalizeActivityHabits,
@@ -138,7 +139,7 @@ function normalizeStoredGoal(item: unknown): Goal | null {
 		date,
 		horizon,
 		distance_km: Number.isFinite(distance) && distance > 0 ? distance : 10,
-		sport: String(o.sport ?? 'run') || 'run',
+		sport: normalizeActivityType(String(o.sport ?? 'run') || 'run'),
 		time_goal: String(o.time_goal ?? ''),
 		primary,
 		notes: String(o.notes ?? '').trim(),

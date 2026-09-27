@@ -3,6 +3,7 @@ import { emptyActivityHabits } from '$lib/activity-habits';
 import { useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
 import { composeDebriefPrompt } from '$lib/debrief';
+import { readGenerateDraft, writeGenerateDraft, type GenerateDraft } from '$lib/generate-draft';
 import {
     clearDebriefHabits,
     readDebriefHabits,
@@ -41,7 +42,7 @@ import {
     type WeekPattern
 } from '$lib/week-mix';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
 import { DebriefFeelForm } from '../components/DebriefFeelForm';
 import { DebriefRacePanel } from '../components/DebriefRacePanel';
@@ -53,7 +54,7 @@ import { PageHero } from '../components/PageHero';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { Select } from '../components/Select';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, actionsClass, Button, buttonClass, Field, fieldClass, Form, formClass, panelClass, runTitleClass, tabBarClass, Textarea, useAppForm } from '../components/ui';
+import { Actions, actionsClass, Button, buttonClass, Field, fieldClass, Form, formClass, panelClass, runTitleClass, tabBarClass, Textarea } from '../components/ui';
 import {
     rowsFrom,
     toPattern,
@@ -480,7 +481,19 @@ function CoachPanels({
 	const includePlan = search.includePlan === true;
 
 	const [copied, setCopied] = useState(false);
-	const [briefText, setBriefText] = useState('');
+	const [generateDraft, setGenerateDraft] = useState(readGenerateDraft);
+
+	useLayoutEffect(() => {
+		setGenerateDraft(readGenerateDraft());
+	}, []);
+
+	function patchGenerateDraft(partial: Partial<GenerateDraft>) {
+		setGenerateDraft((prev) => {
+			const next = { ...prev, ...partial };
+			writeGenerateDraft(next);
+			return next;
+		});
+	}
 
 	const [debrief, setDebrief] = useState(initialDebrief);
 	const [writeups, setWriteups] = useState(readDebriefWriteups);
@@ -601,7 +614,9 @@ function CoachPanels({
 					note: mixNote
 				}
 			});
-			setBriefText(`${next}\n## My question\n${question.trim() || defaultQ}\n`);
+			patchGenerateDraft({
+				brief: `${next}\n## My question\n${question.trim() || defaultQ}\n`
+			});
 		} catch (e) {
 			snack.error(errorMessage(e, 'Could not build the prompt.'));
 		}
@@ -627,7 +642,7 @@ function CoachPanels({
 
 	function download() {
 		const date = new Date().toISOString().slice(0, 10);
-		const blob = new Blob([briefText], { type: 'text/markdown;charset=utf-8' });
+		const blob = new Blob([generateDraft.brief], { type: 'text/markdown;charset=utf-8' });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
@@ -640,7 +655,7 @@ function CoachPanels({
 
 	async function copy() {
 		try {
-			await navigator.clipboard.writeText(briefText);
+			await navigator.clipboard.writeText(generateDraft.brief);
 			setCopied(true);
 			setTimeout(() => setCopied(false), 1800);
 		} catch {
@@ -956,21 +971,27 @@ function CoachPanels({
 						</p>
 						<GenerateBriefForm
 							weekPhrase={weekPhrase}
-							defaultQ={defaultQ}
-							hasBrief={Boolean(briefText)}
+							mixNote={generateDraft.mixNote}
+							question={generateDraft.question ?? defaultQ}
+							questionPlaceholder={defaultQ}
+							hasBrief={Boolean(generateDraft.brief)}
+							onMixNoteChange={(mixNote) => patchGenerateDraft({ mixNote })}
+							onQuestionChange={(question) =>
+								patchGenerateDraft({ question: question === defaultQ ? null : question })
+							}
 							onGenerate={generateBrief}
 						/>
 					</div>
 
-					{briefText && (
+					{generateDraft.brief && (
 						<div className={panelClass(formClass)}>
 							<h3>Prompt (editable — tweak before you copy)</h3>
 							<Field className="mt-2">
 								<Textarea
 									variant="editor"
 									rows={16}
-									value={briefText}
-									onChange={(e) => setBriefText(e.target.value)}
+									value={generateDraft.brief}
+									onChange={(e) => patchGenerateDraft({ brief: e.target.value })}
 								/>
 							</Field>
 							<Actions>
@@ -1014,54 +1035,59 @@ function CoachPanels({
 
 function GenerateBriefForm({
 	weekPhrase,
-	defaultQ,
+	mixNote,
+	question,
+	questionPlaceholder,
 	hasBrief,
+	onMixNoteChange,
+	onQuestionChange,
 	onGenerate
 }: {
 	weekPhrase: string;
-	defaultQ: string;
+	mixNote: string;
+	question: string;
+	questionPlaceholder: string;
 	hasBrief: boolean;
+	onMixNoteChange: (text: string) => void;
+	onQuestionChange: (text: string) => void;
 	onGenerate: (mixNote: string, question: string) => Promise<void>;
 }) {
-	const form = useAppForm({
-		defaultValues: { mixNote: '', question: defaultQ },
-		onSubmit: async ({ value }) => {
-			await onGenerate(value.mixNote, value.question);
-		}
-	});
+	const [busy, setBusy] = useState(false);
 
 	return (
 		<Form
 			onSubmit={(e) => {
 				e.preventDefault();
 				e.stopPropagation();
-				void form.handleSubmit();
+				if (busy) return;
+				setBusy(true);
+				void onGenerate(mixNote, question).finally(() => setBusy(false));
 			}}
 		>
-			<form.AppField
-				name="mixNote"
-				children={(field) => (
-					<field.TextAreaField
-						label={`Anything unusual ${weekPhrase}? (optional)`}
-						hint="Logged extras that did not match the plan are included automatically. Use this for extras that have not happened yet."
-						placeholder="e.g. extra walk Wednesday, considering a Saturday bike instead of the hike-prep walk"
-						rows={2}
-					/>
-				)}
-			/>
-			<form.AppField
-				name="question"
-				children={(field) => (
-					<field.TextAreaField label="Your question for the AI" placeholder={defaultQ} rows={3} />
-				)}
-			/>
+			<Field
+				label={`Anything unusual ${weekPhrase}? (optional)`}
+				hint="Logged extras that did not match the plan are included automatically. Use this for extras that have not happened yet."
+			>
+				<Textarea
+					rows={2}
+					placeholder="e.g. extra walk Wednesday, considering a Saturday bike instead of the hike-prep walk"
+					value={mixNote}
+					onChange={(e) => onMixNoteChange(e.target.value)}
+				/>
+			</Field>
+			<Field label="Your question for the AI">
+				<Textarea
+					rows={3}
+					placeholder={questionPlaceholder}
+					value={question}
+					onChange={(e) => onQuestionChange(e.target.value)}
+				/>
+			</Field>
 			<Actions>
-				<form.AppForm>
-					<form.SubmitButton busyLabel="Building…">
-						<Icon name="sparkle" size={16} />
-						{hasBrief ? 'Regenerate prompt' : 'Generate prompt'}
-					</form.SubmitButton>
-				</form.AppForm>
+				<Button type="submit" variant="primary" disabled={busy}>
+					<Icon name="sparkle" size={16} />
+					{busy ? 'Building…' : hasBrief ? 'Regenerate prompt' : 'Generate prompt'}
+				</Button>
 			</Actions>
 		</Form>
 	);

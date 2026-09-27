@@ -23,14 +23,14 @@ import { cn } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
-import { ConfirmDialog } from '../components/Dialog';
+import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { Icon, sportChipLabel } from '../components/Icon';
 import { MedalDialog } from '../components/MedalDialog';
 import { PageHero } from '../components/PageHero';
 import { RouteLine } from '../components/RouteLine';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, actionsClass, Button, buttonClass, Field, Form, FormGrid, FormSection, panelClass, sectionTitleClass, tabBarClass, Textarea, useAppForm } from '../components/ui';
+import { Actions, actionsClass, Button, buttonClass, dialogPanelMedalClass, Field, Form, FormGrid, FormSection, panelClass, sectionTitleClass, tabBarClass, Textarea, useAppForm } from '../components/ui';
 
 type GoalsTab = 'races' | 'medals';
 type GoalsSearch = { tab?: GoalsTab };
@@ -189,9 +189,9 @@ function GoalsPage() {
 function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; tab: GoalsTab }) {
 	const router = useRouter();
 	const snack = useSnackbar();
-	const [editingId, setEditingId] = useState<string | 'new' | 'new-look' | null>(
-		data.activeGoal || data.upcoming.length || data.intentions.length ? null : 'new'
-	);
+	const [editingId, setEditingId] = useState<string | 'new' | 'new-look' | null>(null);
+	const adding = editingId === 'new' || editingId === 'new-look';
+	const addingLook = editingId === 'new-look';
 	const [pendingRemove, setPendingRemove] = useState<{
 		id: string;
 		name: string;
@@ -280,7 +280,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 									? `, with ${data.intentions.length === 1 ? 'a look-ahead' : 'look-aheads'} below.`
 									: '.'}
 							</p>
-							{authed && editingId !== 'new' && editingId !== 'new-look' && (
+							{authed && (
 								<div className={actionsClass('justify-start!')}>
 									<button className={buttonClass()} type="button" onClick={() => setEditingId('new')}>
 										<Icon name="flag" size={16} />
@@ -296,45 +296,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 									</button>
 								</div>
 							)}
-							{authed && (editingId === 'new' || editingId === 'new-look') && (
-								<GoalForm
-									initial={null}
-									defaultKind={editingId === 'new-look' ? 'intention' : 'race'}
-									submitLabel={editingId === 'new-look' ? 'Save look-ahead' : 'Set race'}
-									onCancel={() => setEditingId(null)}
-									onSaved={async () => {
-										setEditingId(null);
-										await router.invalidate();
-									}}
-								/>
-							)}
 							{!authed && <p className={cn('text-muted', 'mb-0')}>Sign in to set a race.</p>}
-						</section>
-					)}
-
-					{data.activeGoal && authed && (editingId === 'new' || editingId === 'new-look') && (
-						<section className={panelClass('mb-6 grid gap-3')}>
-							<div>
-								<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
-									<Icon name="plus" size={14} />
-									{editingId === 'new-look' ? 'Add look-ahead' : 'Add race'}
-								</p>
-								<p className={cn('text-muted', 'm-0 mt-1')}>
-									{editingId === 'new-look'
-										? 'Month only — coach can see it when planning. It never sets race day or plan length.'
-										: 'Later dates wait. A sooner date takes over as active and resets the plan.'}
-								</p>
-							</div>
-							<GoalForm
-								initial={null}
-								defaultKind={editingId === 'new-look' ? 'intention' : 'race'}
-								submitLabel={editingId === 'new-look' ? 'Save look-ahead' : 'Add race'}
-								onCancel={() => setEditingId(null)}
-								onSaved={async () => {
-									setEditingId(null);
-									await router.invalidate();
-								}}
-							/>
 						</section>
 					)}
 
@@ -408,7 +370,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 										)}
 									</p>
 								</div>
-								{authed && data.activeGoal && editingId !== 'new' && editingId !== 'new-look' && (
+								{authed && data.activeGoal && (
 									<button className={buttonClass()} type="button" onClick={() => setEditingId('new')}>
 										<Icon name="plus" size={16} />
 										Add race
@@ -448,7 +410,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 											: 'Want a half in April but no race yet? Save the distance and month so planning can look ahead.'}
 									</p>
 								</div>
-								{authed && editingId !== 'new' && editingId !== 'new-look' && (
+								{authed && (
 									<button
 										className={buttonClass()}
 										type="button"
@@ -538,6 +500,34 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 				</>
 			)}
 
+			<Dialog
+				open={adding}
+				title={addingLook ? 'Add look-ahead' : data.activeGoal ? 'Add race' : 'Set a race'}
+				onClose={() => setEditingId(null)}
+				className={cn(dialogPanelMedalClass, 'sm:max-w-[min(42rem,100%)]!')}
+			>
+				<p className={cn('text-muted', 'm-0')}>
+					{addingLook
+						? 'Month only — coach can see it when planning. It never sets race day or plan length.'
+						: data.activeGoal
+							? 'Later dates wait. A sooner date takes over as active and resets the plan.'
+							: 'The soonest booked race becomes active and sets the plan length.'}
+				</p>
+				{adding ? (
+					<GoalForm
+						key={addingLook ? 'new-look' : 'new'}
+						initial={null}
+						defaultKind={addingLook ? 'intention' : 'race'}
+						submitLabel={addingLook ? 'Save look-ahead' : data.activeGoal ? 'Add race' : 'Set race'}
+						onCancel={() => setEditingId(null)}
+						onSaved={async () => {
+							setEditingId(null);
+							await router.invalidate();
+						}}
+					/>
+				) : null}
+			</Dialog>
+
 			<MedalDialog
 				open={openMedal != null}
 				goal={openMedal}
@@ -577,7 +567,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 					try {
 						await clearGoal({ data: pendingRemove.id });
 						setPendingRemove(null);
-						setEditingId(pendingRemove.isActive && !nextAfterClear ? 'new' : null);
+						setEditingId(null);
 						if (pendingRemove.isActive) {
 							snack.success(
 								nextAfterClear

@@ -1,5 +1,5 @@
 import {
-    compactHabitText,
+    MAX_HABIT_NOTES,
     withHabitDefaults,
     type ActivityHabits,
     type HabitPair
@@ -84,7 +84,7 @@ export function setDebriefHabitField(
 		[slug]: {
 			before: prev[slug]?.before ?? '',
 			after: prev[slug]?.after ?? '',
-			[field]: compactHabitText(text)
+			[field]: text.slice(0, MAX_HABIT_NOTES)
 		}
 	};
 	writeDebriefHabits(next);

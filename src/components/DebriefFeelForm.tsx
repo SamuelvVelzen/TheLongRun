@@ -114,11 +114,13 @@ export function DebriefFeelForm({
 		validators: { onSubmit: debriefFeelSchema },
 		onSubmit: async ({ value }) => {
 			try {
+				const writeupNotes = writeup.trim();
 				await saveActivityFeel({
 					data: {
 						slug: run.slug,
 						before_notes: habitDraft.before,
 						after_notes: habitDraft.after,
+						...(writeupNotes ? { notes: writeupNotes } : {}),
 						...(detailsOpen && activityType === 'run'
 							? {
 									session: value.session,

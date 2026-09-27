@@ -199,6 +199,35 @@ export async function setRunBestEfforts(slug: string, efforts: BestEffort[]): Pr
 	await sql`UPDATE runs SET best_efforts = ${json} WHERE slug = ${slug}`;
 }
 
+/** Refresh device/GPS metrics when re-importing a track onto an existing activity. */
+export async function setRunImportMetrics(
+	slug: string,
+	metrics: {
+		distance_km: number | null;
+		time: string;
+		elapsed_time: string;
+		avg_pace: string;
+		avg_hr: number | null;
+		max_hr: number | null;
+		elev_gain: number | null;
+		max_speed: number | null;
+	}
+): Promise<void> {
+	const sql = getSql();
+	await sql`
+		UPDATE runs SET
+			distance_km = ${metrics.distance_km},
+			"time" = ${metrics.time},
+			elapsed_time = ${metrics.elapsed_time},
+			avg_pace = ${metrics.avg_pace},
+			avg_hr = ${metrics.avg_hr},
+			max_hr = ${metrics.max_hr},
+			elev_gain = ${metrics.elev_gain},
+			max_speed = ${metrics.max_speed}
+		WHERE slug = ${slug}
+	`;
+}
+
 export type FeelingsPatch = {
 	effort?: number | null;
 	shins?: number | null;

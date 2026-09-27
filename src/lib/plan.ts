@@ -465,23 +465,18 @@ export function weekDayGroups(view: WeekView, today = new Date()): WeekDayGroup[
 	});
 	if (groups.length <= 1) return groups;
 
-	const jsDay = today.getDay();
-	const todayWeekdayIdx = jsDay === 0 ? 6 : jsDay - 1;
-	const todayName = WEEKDAYS[todayWeekdayIdx];
+	const todayIso = isoDateLocal(today);
+	const dates = groups.map((g) => g.date).filter((d): d is string => Boolean(d));
+	if (!dates.length) return groups;
+	const minDate = dates.reduce((a, b) => (a < b ? a : b));
+	const maxDate = dates.reduce((a, b) => (a > b ? a : b));
+	// Lead with today only inside the week that contains today. A future or past
+	// week stays Monday–Sunday, so the same weekday name is not pulled forward.
+	if (todayIso < minDate || todayIso > maxDate) return groups;
 
-	let rotateFrom = groups.findIndex((g) => g.isToday);
+	let rotateFrom = groups.findIndex((g) => g.isToday || g.date === todayIso);
 	if (rotateFrom < 0) {
-		rotateFrom = groups.findIndex((g) => g.day === todayName);
-	}
-	if (rotateFrom < 0) {
-		for (let i = 0; i < 7; i++) {
-			const day = WEEKDAYS[(todayWeekdayIdx + i) % 7];
-			const idx = groups.findIndex((g) => g.day === day);
-			if (idx >= 0) {
-				rotateFrom = idx;
-				break;
-			}
-		}
+		rotateFrom = groups.findIndex((g) => g.date != null && g.date >= todayIso);
 	}
 	if (rotateFrom <= 0) return groups;
 	return [...groups.slice(rotateFrom), ...groups.slice(0, rotateFrom)];

@@ -113,12 +113,31 @@ export function parseGpx(xml: string): ParsedGpx {
 		}
 	}
 
-	// Aggregate distance / moving time / elevation from the track.
+	const rollup = rollupTrack(track);
+	return finishParsed(track, {
+		date,
+		startClock,
+		detectedType,
+		firstPoint,
+		headlineDistanceMeters: rollup.distanceMeters
+	}, rollup);
+}
+
+type TrackRollup = {
+	distanceMeters: number;
+	movingSeconds: number;
+	elevGain: number;
+	avgHr: number | null;
+	maxHr: number | null;
+	maxSpeedKmh: number;
+	elapsedSeconds: number | null;
+};
+
+function rollupTrack(track: TrackSample[]): TrackRollup {
 	let distanceMeters = 0;
 	let movingSeconds = 0;
 	let elevGain = 0;
 	const hrs: number[] = [];
-	// (time, cumulative distance) samples for a smoothed max-speed pass.
 	const series: { t: number; d: number }[] = [];
 
 	for (let i = 0; i < track.length; i++) {
@@ -142,7 +161,6 @@ export function parseGpx(xml: string): ParsedGpx {
 		if (p.timeMs != null) series.push({ t: p.timeMs, d: distanceMeters });
 	}
 
-	// Max speed over a rolling ~5s window — single-point GPS jitter no longer spikes it.
 	let maxSpeedKmh = 0;
 	const WIN_MS = 5000;
 	for (let i = 0, j = 0; i < series.length; i++) {
@@ -158,39 +176,188 @@ export function parseGpx(xml: string): ParsedGpx {
 	const last = [...track].reverse().find((p) => p.timeMs != null)?.timeMs ?? null;
 	const elapsedSeconds = first != null && last != null ? Math.max(0, (last - first) / 1000) : null;
 
-	const distanceKm = distanceMeters > 0 ? Math.round((distanceMeters / 1000) * 100) / 100 : null;
-	const moving = movingSeconds > 0 ? Math.round(movingSeconds) : null;
-	const avgHr = hrs.length ? Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length) : null;
-	const maxHr = hrs.length ? Math.max(...hrs) : null;
+	return {
+		distanceMeters,
+		movingSeconds,
+		elevGain,
+		avgHr: hrs.length ? Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length) : null,
+		maxHr: hrs.length ? Math.max(...hrs) : null,
+		maxSpeedKmh,
+		elapsedSeconds
+	};
+}
+
+function finishParsed(
+	track: TrackSample[],
+	meta: {
+		date: string;
+		startClock: string;
+		detectedType: string;
+		firstPoint: TrackSample | undefined;
+		/** Watch / lap total when importing TCX; otherwise GPS rollup distance. */
+		headlineDistanceMeters: number;
+	},
+	rollup: TrackRollup
+): ParsedGpx {
+	const gpsMeters = rollup.distanceMeters;
+	const headlineMeters = meta.headlineDistanceMeters > 0 ? meta.headlineDistanceMeters : gpsMeters;
+	const moving = rollup.movingSeconds > 0 ? Math.round(rollup.movingSeconds) : null;
+	const distanceKm = headlineMeters > 0 ? Math.round((headlineMeters / 1000) * 100) / 100 : null;
+	const { avgHr, maxHr } = rollup;
 
 	const analytics = track.length >= 2 ? computeRouteAnalytics(track, { avgHr, maxHr }) : null;
 	const bestEfforts = computeBestEffortsFromTrack(track);
 
 	return {
-		date,
-		startClock,
+		date: meta.date,
+		startClock: meta.startClock,
 		distanceKm,
 		movingSeconds: moving,
 		time: moving != null ? formatDuration(moving) : '',
-		elapsedTime: elapsedSeconds != null ? formatDuration(elapsedSeconds) : '',
-		avgPace: distanceMeters && moving ? formatPace(distanceMeters, moving) : '',
+		elapsedTime:
+			rollup.elapsedSeconds != null ? formatDuration(rollup.elapsedSeconds) : '',
+		avgPace: headlineMeters && moving ? formatPace(headlineMeters, moving) : '',
 		avgHr,
 		maxHr,
-		elevGain: elevGain > 0 ? Math.round(elevGain * 10) / 10 : null,
-		maxSpeed: maxSpeedKmh > 0 ? Math.round(maxSpeedKmh * 10) / 10 : null,
-		// A treadmill/indoor run is a single static point repeated — no real route. Skip the track
-		// so no bogus one-point map gets stored.
+		elevGain: rollup.elevGain > 0 ? Math.round(rollup.elevGain * 10) / 10 : null,
+		maxSpeed: rollup.maxSpeedKmh > 0 ? Math.round(rollup.maxSpeedKmh * 10) / 10 : null,
 		points:
-			distanceMeters > 50
+			gpsMeters > 50
 				? downsample(
 						track.map((p) => ({ lat: p.lat, lng: p.lng, timeMs: p.timeMs, elev: p.elev })),
 						2500
 					)
 				: [],
 		analytics,
-		detectedType,
-		startLat: firstPoint?.lat ?? null,
-		startLng: firstPoint?.lng ?? null,
+		detectedType: meta.detectedType,
+		startLat: meta.firstPoint?.lat ?? null,
+		startLng: meta.firstPoint?.lng ?? null,
 		bestEfforts
 	};
+}
+
+/** Lap / device odometer totals from Garmin TCX (first DistanceMeters per Lap is the lap summary). */
+function tcxDeviceDistanceMeters(xml: string): number {
+	let fromLaps = 0;
+	const lapRe = /<Lap\b[^>]*>([\s\S]*?)<\/Lap>/gi;
+	let lapMatch: RegExpExecArray | null;
+	while ((lapMatch = lapRe.exec(xml))) {
+		const block = lapMatch[1]!;
+		const m = block.match(/<DistanceMeters>([0-9.]+)<\/DistanceMeters>/);
+		if (m) {
+			const n = Number(m[1]);
+			if (Number.isFinite(n) && n > 0) fromLaps += n;
+		}
+	}
+	if (fromLaps > 0) return fromLaps;
+
+	let max = 0;
+	const tpRe = /<Trackpoint\b[^>]*>[\s\S]*?<\/Trackpoint>/gi;
+	let tpMatch: RegExpExecArray | null;
+	while ((tpMatch = tpRe.exec(xml))) {
+		const m = tpMatch[0].match(/<DistanceMeters>([0-9.]+)<\/DistanceMeters>/);
+		if (m) {
+			const n = Number(m[1]);
+			if (Number.isFinite(n) && n > max) max = n;
+		}
+	}
+	return max;
+}
+
+function dateAndClockFromTrack(
+	track: TrackSample[],
+	firstTimeIso: string | null | undefined
+): { date: string; startClock: string; TZ: string } {
+	const firstPoint = track.find((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+	const TZ = (firstPoint && timezoneForCoord(firstPoint.lat, firstPoint.lng)) || 'Europe/Amsterdam';
+	let date = '';
+	let startClock = '';
+	if (firstTimeIso) {
+		const ms = Date.parse(firstTimeIso);
+		if (!Number.isNaN(ms)) {
+			const d = new Date(ms);
+			date = new Intl.DateTimeFormat('en-CA', {
+				timeZone: TZ,
+				year: 'numeric',
+				month: '2-digit',
+				day: '2-digit'
+			}).format(d);
+			startClock = new Intl.DateTimeFormat('en-GB', {
+				timeZone: TZ,
+				hour: '2-digit',
+				minute: '2-digit',
+				hour12: false
+			}).format(d);
+		}
+	}
+	return { date, startClock, TZ };
+}
+
+export function parseTcx(xml: string): ParsedGpx {
+	const sportMatch = xml.match(/<Activity\b[^>]*\bSport="([^"]+)"/i);
+	const detectedType = sportMatch?.[1] ?? '';
+
+	const blocks = xml.match(/<Trackpoint\b[^>]*>[\s\S]*?<\/Trackpoint>/gi) ?? [];
+	const track: TrackSample[] = [];
+	for (const block of blocks) {
+		const latStr = child(block, 'LatitudeDegrees');
+		const lngStr = child(block, 'LongitudeDegrees');
+		if (!latStr || !lngStr) continue;
+		const lat = Number(latStr);
+		const lng = Number(lngStr);
+		if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+		if (Math.abs(lat) > 90 || Math.abs(lng) > 180 || (lat === 0 && lng === 0)) continue;
+
+		const sample: TrackSample = { lat, lng };
+		const timeStr = child(block, 'Time');
+		if (timeStr) {
+			const ms = Date.parse(timeStr);
+			if (!Number.isNaN(ms)) sample.timeMs = ms;
+		}
+		const hrBlock = block.match(/<HeartRateBpm\b[^>]*>[\s\S]*?<\/HeartRateBpm>/i);
+		const hrRaw = hrBlock ? child(hrBlock[0], 'Value') : null;
+		if (hrRaw != null) {
+			const n = Number(hrRaw);
+			if (Number.isFinite(n) && n > 0) sample.hr = Math.round(n);
+		}
+		const alt = child(block, 'AltitudeMeters');
+		if (alt != null) {
+			const n = Number(alt);
+			if (Number.isFinite(n)) sample.elev = n;
+		}
+		track.push(sample);
+	}
+
+	const firstPoint = track.find((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+	const activityId = xml.match(/<Id>([^<]+)<\/Id>/i)?.[1]?.trim();
+	const firstTime = child(blocks[0] ?? '', 'Time') ?? activityId ?? null;
+	const { date, startClock } = dateAndClockFromTrack(track, firstTime);
+
+	const rollup = rollupTrack(track);
+	const deviceMeters = tcxDeviceDistanceMeters(xml);
+	const headlineDistanceMeters = deviceMeters > 0 ? deviceMeters : rollup.distanceMeters;
+
+	return finishParsed(
+		track,
+		{
+			date,
+			startClock,
+			detectedType,
+			firstPoint,
+			headlineDistanceMeters
+		},
+		rollup
+	);
+}
+
+/** GPX or Garmin TCX — TCX uses watch lap distance when present. */
+export function parseActivityFile(xml: string): ParsedGpx {
+	const t = xml.trim();
+	if (
+		/<TrainingCenterDatabase\b/i.test(t) ||
+		(/<Activity\b/i.test(t) && /<Trackpoint\b/i.test(t))
+	) {
+		return parseTcx(t);
+	}
+	return parseGpx(t);
 }

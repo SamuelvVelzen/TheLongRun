@@ -156,7 +156,7 @@ import {
 	writeContextFile
 } from './context';
 import { reverseGeocode, timezoneForCoord } from './geo';
-import { parseGpx } from './gpx';
+import { parseActivityFile } from './gpx';
 import {
 	addActivityToGroup,
 	createActivityGroup,
@@ -204,6 +204,7 @@ import {
 	runHasMap,
 	saveRun,
 	setRunBestEfforts,
+	setRunImportMetrics,
 	setRunRoute,
 	updateRunFeelings,
 	type FeelingsPatch,
@@ -1167,7 +1168,10 @@ function expandDebriefFeatured(
 			stillNeedsDebrief(r);
 		if (sameDay || pendingThisWeek) bySlug.set(r.slug, r);
 	}
-	for (const r of seed) bySlug.set(r.slug, r);
+	// URL slugs are a hint, not a lock — once feel is saved, drop them unless still pending.
+	for (const r of seed) {
+		if (stillNeedsDebrief(r)) bySlug.set(r.slug, r);
+	}
 	return [...bySlug.values()].sort(compareDebriefRuns);
 }
 
@@ -1635,7 +1639,7 @@ export const createRun = createServerFn({ method: 'POST' }).middleware([requireA
 export const importGpx = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((d: { xml: string; activityType?: string }) => d)
 	.handler(async ({ data }) => {
-		const parsed = parseGpx(data.xml);
+		const parsed = parseActivityFile(data.xml);
 		if (!parsed.date) {
 			if (parsed.points.length >= 2) {
 				throw new Error(
@@ -1708,6 +1712,16 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 		// Matched an existing activity → refresh its map/analytics, keep subjective data, no dup.
 		if (existingDup) {
 			if (route && route !== existingDup.route) await setRunRoute(existingDup.slug, route);
+			await setRunImportMetrics(existingDup.slug, {
+				distance_km: parsed.distanceKm,
+				time: parsed.time,
+				elapsed_time: parsed.elapsedTime,
+				avg_pace: parsed.avgPace,
+				avg_hr: parsed.avgHr,
+				max_hr: parsed.maxHr,
+				elev_gain: parsed.elevGain,
+				max_speed: parsed.maxSpeed
+			});
 			const efforts = supportsBestEfforts(activity_type) ? parsed.bestEfforts : [];
 			if (efforts.length) await setRunBestEfforts(existingDup.slug, efforts);
 			const highlights = await highlightsAfterSave(existingDup.slug, activity_type, efforts);

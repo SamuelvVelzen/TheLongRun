@@ -45,10 +45,10 @@ export function GpxImport({
 
 	function addFiles(list: FileList | null) {
 		if (!list) return;
-		const gpx = Array.from(list).filter((f) => /\.gpx$/i.test(f.name));
+		const tracks = Array.from(list).filter((f) => /\.(gpx|tcx)$/i.test(f.name));
 		setFiles((prev) => {
 			const names = new Set(prev.map((f) => f.name));
-			return [...prev, ...gpx.filter((f) => !names.has(f.name))];
+			return [...prev, ...tracks.filter((f) => !names.has(f.name))];
 		});
 	}
 
@@ -141,14 +141,16 @@ export function GpxImport({
 			>
 				<input
 					type="file"
-					accept=".gpx,application/gpx+xml"
+					accept=".gpx,.tcx,application/gpx+xml,application/vnd.garmin.tcx+xml"
 					multiple
 					hidden
 					onChange={(e) => addFiles(e.target.files)}
 				/>
 				<Icon name="upload" size={34} />
-				<strong>Choose a GPX</strong>
-				<span className={'text-muted'}>or tap to browse — multiple files supported</span>
+				<strong>Choose a GPX or TCX</strong>
+				<span className={'text-muted'}>
+					TCX from your watch keeps race distance (Strava GPX is GPS-only) — multiple files OK
+				</span>
 				<span className={cn('text-muted', 'hidden [@media(hover:hover)_and_(pointer:fine)]:block')}>
 					You can also drop files here
 				</span>

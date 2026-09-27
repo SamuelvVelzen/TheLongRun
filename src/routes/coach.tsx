@@ -588,6 +588,19 @@ function CoachPanels({
 	async function refreshDebrief() {
 		const next = await getDebriefPrompt({ data: { slug, includePlan } });
 		setDebrief(next);
+		const nextRuns = next.runs?.length ? next.runs : next.run ? [next.run] : [];
+		const nextSlug = nextRuns.map((r) => r.slug).join(',');
+		if (nextSlug !== slug) {
+			router.navigate({
+				to: '/coach',
+				search: withCoachSearch(search, {
+					tab: 'debrief',
+					slug: nextSlug || undefined
+				}),
+				replace: true,
+				resetScroll: false
+			});
+		}
 		await router.invalidate();
 	}
 
@@ -753,7 +766,7 @@ function CoachPanels({
 												<Link to="/runs/$slug" params={{ slug: r.slug }}>
 													<DebriefRunTitle run={r} />
 												</Link>
-												{r.hasFeel ? ' · feel already saved' : ' · no feel yet'}
+												{r.hasFeel ? '' : ' · no feel yet'}
 											</li>
 										))}
 									</ul>

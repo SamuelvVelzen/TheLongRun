@@ -1,4 +1,17 @@
-import { buttonClass, panelClass, fieldClass, reqClass, gridClass, sectionTitleClass, dropzoneClass, runTitleClass, runRowClass } from '../components/ui';
+import {
+	Actions,
+	Button,
+	buttonClass,
+	panelClass,
+	fieldClass,
+	reqClass,
+	gridClass,
+	sectionTitleClass,
+	dropzoneClass,
+	runTitleClass,
+	runRowClass,
+	tagClass
+} from '../components/ui';
 import { AuthGate, useAuthed } from '$lib/auth';
 import {
     createPlannedRoute,
@@ -9,7 +22,7 @@ import {
 import { appHead } from '$lib/title';
 import type { PlannedRoute } from '$lib/types';
 import { cn } from '$lib/ui';
-import { createFileRoute, useRouter } from '@tanstack/react-router';
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { DeferredData } from '../components/DeferredData';
 import { DeleteButton } from '../components/DeleteButton';
@@ -23,6 +36,18 @@ import { errorMessage, useSnackbar } from '../components/Snackbar';
 import { WaypointEditor } from '../components/WaypointEditor';
 
 type RoutesSearch = { draw?: boolean };
+
+type PlannedRouteImportResult = {
+	name: string;
+	status: 'ok' | 'error';
+	slug?: string;
+	message?: string;
+};
+
+function routeImportFiles(list: FileList | null): File[] {
+	if (!list) return [];
+	return Array.from(list).filter((f) => /\.(gpx|geojson|json)$/i.test(f.name));
+}
 
 async function refreshRoutesList(router: ReturnType<typeof useRouter>) {
 	await router.invalidate();
@@ -50,6 +75,10 @@ function PlannedRoutes() {
 	const [busy, setBusy] = useState(false);
 	const [drawing, setDrawing] = useState(() => Boolean(draw));
 	const [routeName, setRouteName] = useState('');
+	const [files, setFiles] = useState<File[]>([]);
+	const [progress, setProgress] = useState('');
+	const [results, setResults] = useState<PlannedRouteImportResult[]>([]);
+	const [pendingFile, setPendingFile] = useState<string | null>(null);
 
 	useEffect(() => {
 		if (draw) setDrawing(true);
@@ -60,23 +89,63 @@ function PlannedRoutes() {
 		if (draw) void router.navigate({ to: '/routes', search: {} });
 	}
 
-	async function importFile(file: File | undefined) {
-		if (!file) return;
-		if (!/\.(gpx|geojson|json)$/i.test(file.name)) {
+	function addFiles(list: FileList | null) {
+		const tracks = routeImportFiles(list);
+		if (!tracks.length && list?.length) {
 			snack.error('Use GPX (recommended) or GeoJSON.');
 			return;
 		}
+		setFiles((prev) => {
+			const names = new Set(prev.map((f) => f.name));
+			return [...prev, ...tracks.filter((f) => !names.has(f.name))];
+		});
+	}
+
+	function removeFile(name: string) {
+		setFiles((prev) => prev.filter((f) => f.name !== name));
+	}
+
+	async function runImport() {
+		if (!files.length) return;
 		setBusy(true);
-		try {
-			const result = await importPlannedRoute({
-				data: { text: await file.text(), filename: file.name }
-			});
-			snack.success(`Saved ${result.name}`);
+		setResults([]);
+		const out: PlannedRouteImportResult[] = [];
+		for (let i = 0; i < files.length; i++) {
+			const f = files[i]!;
+			setProgress(`Saving ${i + 1} / ${files.length}: ${f.name}`);
+			try {
+				const result = await importPlannedRoute({
+					data: { text: await f.text(), filename: f.name }
+				});
+				out.push({ name: f.name, status: 'ok', slug: result.slug });
+			} catch (error) {
+				out.push({
+					name: f.name,
+					status: 'error',
+					message: errorMessage(error, 'Import failed')
+				});
+			}
+			setResults([...out]);
+		}
+		setProgress('');
+		setBusy(false);
+		setFiles([]);
+		const ok = out.filter((r) => r.status === 'ok');
+		const fail = out.filter((r) => r.status === 'error');
+		if (ok.length && !fail.length) {
+			snack.success(
+				ok.length === 1 ? `Saved ${ok[0]!.name}` : `Saved ${ok.length} routes — compare them on the map below`
+			);
+		} else if (ok.length) {
+			snack.info(`Saved ${ok.length} of ${out.length} routes`);
+		} else {
+			snack.error(fail[0]?.message ?? 'Import failed');
+		}
+		if (ok.length) {
 			await refreshRoutesList(router);
-			await router.navigate({ to: '/routes/$slug', params: { slug: result.slug } });
-		} catch (error) {
-			snack.error(errorMessage(error, 'Import failed'));
-			setBusy(false);
+			if (ok.length === 1 && ok[0]?.slug) {
+				await router.navigate({ to: '/routes/$slug', params: { slug: ok[0].slug } });
+			}
 		}
 	}
 
@@ -176,24 +245,105 @@ function PlannedRoutes() {
 						onDrop={(event) => {
 							event.preventDefault();
 							setDragOver(false);
-							void importFile(event.dataTransfer.files[0]);
+							addFiles(event.dataTransfer.files);
 						}}
 					>
 						<input
 							type="file"
 							accept=".gpx,.geojson,.json,application/gpx+xml,application/geo+json"
+							multiple
 							hidden
 							disabled={busy}
-							onChange={(event) => void importFile(event.target.files?.[0])}
+							onChange={(event) => {
+								addFiles(event.target.files);
+								event.target.value = '';
+							}}
 						/>
 						<Icon name="upload" size={34} />
-						<strong>{busy ? 'Saving route…' : 'Choose a GPX'}</strong>
-						<span className={'text-muted'}>or tap to browse · waypoints are imported when available</span>
+						<strong>{busy ? progress || 'Saving routes…' : 'Choose GPX or GeoJSON'}</strong>
+						<span className={'text-muted'}>
+							Multiple BRouter exports OK — import them together, then compare overlap on the map
+						</span>
 						<span className={cn('text-muted', 'hidden [@media(hover:hover)_and_(pointer:fine)]:block')}>
-							You can also drop a GPX or GeoJSON file here
+							You can also drop files here
 						</span>
 					</label>
 				)}
+				{files.length > 0 && !drawing ? (
+					<>
+						<ul className="list-none m-0 p-0 grid gap-1.5">
+							{files.map((f) => (
+								<li
+									key={f.name}
+									className="flex items-center gap-[0.6rem] p-[0.5rem_0.7rem] border border-line rounded-[10px] bg-inset text-[0.9rem]"
+								>
+									<code className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+										{f.name}
+									</code>
+									<span className={'text-muted'}>{(f.size / 1024).toFixed(0)} KB</span>
+									<DeleteButton
+										label={`Remove ${f.name}`}
+										disabled={busy}
+										onClick={() => setPendingFile(f.name)}
+									/>
+								</li>
+							))}
+						</ul>
+						<Actions>
+							<Button
+								type="button"
+								variant="primary"
+								disabled={busy || files.length === 0}
+								onClick={() => void runImport()}
+							>
+								<Icon name="upload" size={16} />
+								{busy
+									? progress || 'Saving…'
+									: `Import ${files.length} ${files.length === 1 ? 'route' : 'routes'}`}
+							</Button>
+						</Actions>
+					</>
+				) : null}
+				{results.length > 0 ? (
+					<div className="mt-1">
+						<h3 className="m-0 text-[1rem]">
+							Saved {results.filter((r) => r.status === 'ok').length} / {results.length}
+						</h3>
+						<ul className="list-none m-[0.85rem_0_0] p-0 grid gap-2 text-[0.92rem]">
+							{results.map((r) => (
+								<li
+									key={r.name}
+									className="flex flex-wrap items-center gap-[0.45rem] py-2 border-b border-line last:border-b-0"
+								>
+									<span className={tagClass(r.status === 'ok')}>
+										<Icon name={r.status === 'ok' ? 'check' : 'close'} size={12} />
+										{r.status}
+									</span>
+									<code>{r.name}</code>
+									{r.slug ? (
+										<>
+											{' → '}
+											<Link to="/routes/$slug" params={{ slug: r.slug }}>
+												Open
+											</Link>
+										</>
+									) : null}
+									{r.message ? <span className={'text-muted'}>— {r.message}</span> : null}
+								</li>
+							))}
+						</ul>
+					</div>
+				) : null}
+				<ConfirmDialog
+					open={pendingFile != null}
+					title="Remove this file?"
+					description={pendingFile ? `“${pendingFile}” will be dropped from the import list.` : null}
+					confirmLabel="Remove"
+					onClose={() => setPendingFile(null)}
+					onConfirm={() => {
+						if (pendingFile) removeFile(pendingFile);
+					}}
+				/>
 			</div>
 			) : null}
 			<DeferredData promise={page}>

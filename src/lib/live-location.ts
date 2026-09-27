@@ -1,6 +1,6 @@
 /** Live location broadcast: one ping in the context table, polled by maps. */
 
-export const LIVE_LOCATION_PING_MS = 60_000;
+export const LIVE_LOCATION_PING_MS = 30_000;
 export const LIVE_LOCATION_STALE_MS = 5 * 60_000;
 export const LIVE_SHARE_KEY = 'tlr-live-share';
 export const LIVE_SHARE_EVENT = 'tlr-live-share';
@@ -73,7 +73,7 @@ export function liveShareOn(): boolean {
 
 export function liveAgo(updatedAt: number, now = Date.now()): string {
 	const s = Math.max(0, Math.round((now - updatedAt) / 1000));
-	if (s < 45) return 'just now';
+	if (s < 22) return 'just now';
 	const m = Math.max(1, Math.round(s / 60));
 	return m === 1 ? '1 min ago' : `${m} min ago`;
 }

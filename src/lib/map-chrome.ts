@@ -1,4 +1,5 @@
 /** Shared Leaflet map chrome: zoom, fit, fullscreen, scroll/touch polish. */
+import { subscribeAppResume } from '$lib/app-resume';
 import type { LeafletGlobal } from '$lib/leaflet';
 import {
 	LIVE_LOCATION_PING_MS,
@@ -918,6 +919,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	};
 	pollLive();
 	liveTimer = setInterval(pollLive, LIVE_LOCATION_PING_MS);
+	const offLiveResume = subscribeAppResume(pollLive);
 
 	const onShareEvent = () => {
 		syncShareChrome();
@@ -948,6 +950,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			stopLocate();
 			clearLiveMarker();
 			if (liveTimer != null) clearInterval(liveTimer);
+			offLiveResume();
 			window.removeEventListener(LIVE_SHARE_EVENT, onShareEvent);
 			clearSizeTimers();
 			window.removeEventListener('keydown', onKey);

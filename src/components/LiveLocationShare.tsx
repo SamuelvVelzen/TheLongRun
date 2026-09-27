@@ -1,3 +1,4 @@
+import { subscribeAppResume } from '$lib/app-resume';
 import { useAuthed } from '$lib/auth';
 import { loadLeaflet } from '$lib/leaflet';
 import {
@@ -19,6 +20,7 @@ import { getLastHeading, noteGpsHeading } from '$lib/location-heading';
 import { addBasemap, attachMapChrome, leafletMapOptions, type MapChromeHandle } from '$lib/map-chrome';
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
 import { getLiveLocation, pingLiveLocation, stopLiveLocation } from '$lib/server/functions';
+import { setScreenWakeLock } from '$lib/wake-lock';
 import { cn } from '$lib/ui';
 import {
     useCallback,
@@ -85,6 +87,7 @@ function LiveLocationBroadcaster() {
 			clearInterval(timerRef.current);
 			timerRef.current = null;
 		}
+		await setScreenWakeLock(false);
 		setOn(false);
 		setConfirmOpen(false);
 		try {
@@ -113,9 +116,10 @@ function LiveLocationBroadcaster() {
 		if (timerRef.current) clearInterval(timerRef.current);
 		timerRef.current = setInterval(() => {
 			void ping().catch(() => {
-				/* keep sharing; retry next minute */
+				/* keep sharing; retry next interval */
 			});
 		}, LIVE_LOCATION_PING_MS);
+		void setScreenWakeLock(true);
 	}, [ping, setOn, snack]);
 
 	useLayoutEffect(() => {
@@ -141,18 +145,18 @@ function LiveLocationBroadcaster() {
 			if (want === true && !sharingRef.current) setConfirmOpen(true);
 			else if (want === false && sharingRef.current) void stop();
 		};
-		const onVisible = () => {
-			if (document.visibilityState === 'visible' && sharingRef.current) {
-				void ping().catch(() => {
-					/* ignore */
-				});
-			}
+		const onResume = () => {
+			if (!sharingRef.current) return;
+			void setScreenWakeLock(true);
+			void ping().catch(() => {
+				/* ignore */
+			});
 		};
 		window.addEventListener(LIVE_SHARE_REQUEST, onRequest);
-		document.addEventListener('visibilitychange', onVisible);
+		const offResume = subscribeAppResume(onResume);
 		return () => {
 			window.removeEventListener(LIVE_SHARE_REQUEST, onRequest);
-			document.removeEventListener('visibilitychange', onVisible);
+			offResume();
 		};
 	}, [ping, stop]);
 
@@ -175,7 +179,7 @@ function LiveLocationBroadcaster() {
 			>
 				<p className={cn('text-muted', 'm-0 leading-[1.45]')}>
 					Anyone looking at this site will see where you are on the map. The pin updates about
-					once a minute. You can stop at any time.
+					every 30 seconds while this app stays open. You can stop at any time.
 				</p>
 			</Dialog>
 			{sharing ? (
@@ -228,9 +232,11 @@ function LiveLocationWatch() {
 		};
 		poll();
 		const timer = setInterval(poll, LIVE_LOCATION_PING_MS);
+		const offResume = subscribeAppResume(poll);
 		return () => {
 			cancelled = true;
 			clearInterval(timer);
+			offResume();
 		};
 	}, []);
 
@@ -270,7 +276,7 @@ function LiveLocationWatch() {
 			>
 				<p className={cn('text-muted', 'm-0 leading-[1.45]')}>
 					They're sharing where they are right now. Open a fullscreen map to follow the pin — it
-					updates about once a minute.
+					updates about every 30 seconds.
 				</p>
 				<p className={cn('text-muted', 'm-0 text-[0.82rem]')}>Updated {liveAgo(ping.updatedAt)}</p>
 			</Dialog>

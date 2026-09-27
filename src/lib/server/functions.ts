@@ -211,7 +211,11 @@ import {
 	type UpdateRunFields
 } from './runs';
 import { inferSurfaceFromTrack } from './surface';
-import { DEFAULT_START_HHMM, fetchWeatherForDateTime } from './weather';
+import {
+	DEFAULT_START_HHMM,
+	fetchWeatherForDateTime,
+	weatherLocationFromTrack
+} from './weather';
 
 const withMap = (runs: RunRecord[], routeIds: Set<string>): RunWithMap[] =>
 	runs.map((r) => ({ ...r, has_map: runHasMap(r, routeIds) }));
@@ -532,9 +536,20 @@ export const getRouteGeoJsonFn = createServerFn({ method: 'GET' })
 	});
 
 export const getWeather = createServerFn({ method: 'GET' })
-	.validator((d: { date: string; time?: string | null; duration?: string | null }) => d)
+	.validator(
+		(d: { date: string; time?: string | null; duration?: string | null; slug?: string | null }) => d
+	)
 	.handler(async ({ data }) => {
-		return fetchWeatherForDateTime(data.date, data.time ?? null, null, null, data.duration ?? null);
+		const slug = data.slug?.trim() ?? '';
+		const run = slug ? await getRun(slug) : null;
+		return fetchWeatherForDateTime(
+			data.date,
+			data.time ?? null,
+			null,
+			null,
+			data.duration ?? null,
+			run
+		);
 	});
 
 const CONTEXT_FILES: { name: string; title: string }[] = [
@@ -1596,7 +1611,14 @@ export const createRun = createServerFn({ method: 'POST' }).middleware([requireA
 		const time = data.time.trim();
 		let weather = data.weather.trim();
 		if (!weather) {
-			weather = await fetchWeatherForDateTime(date, start_time || null, null, null, time || null);
+			weather = await fetchWeatherForDateTime(
+				date,
+				start_time || null,
+				null,
+				null,
+				time || null,
+				null
+			);
 		}
 		const activity_type = normalizeActivityType(data.activity_type);
 		const habits = await loadActivityHabits();
@@ -1746,12 +1768,17 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 
 		const trackPoints =
 			showsField(activity_type, 'surface') && parsed.points.length >= 2 ? parsed.points : [];
+		const weatherLoc = weatherLocationFromTrack(
+			parsed.points,
+			parsed.startLat,
+			parsed.startLng
+		);
 		const [weather, geo, surface] = await Promise.all([
 			fetchWeatherForDateTime(
 				parsed.date,
 				parsed.startClock || null,
-				parsed.startLat ?? null,
-				parsed.startLng ?? null,
+				weatherLoc?.lat ?? null,
+				weatherLoc?.lon ?? null,
 				parsed.time || null
 			),
 			parsed.startLat != null && parsed.startLng != null

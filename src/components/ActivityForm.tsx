@@ -56,9 +56,11 @@ export function ActivityForm({
 	habits = emptyActivityHabits(),
 	submitLabel,
 	cancel,
-	onSubmit
+	onSubmit,
+	runSlug
 }: {
 	defaultValues: ActivityFormValues;
+	runSlug?: string;
 	fromPlan?: boolean;
 	calendar: PlanCalendar;
 	gear: GearContext;
@@ -348,6 +350,7 @@ export function ActivityForm({
 																	date={date}
 																	time={startTime}
 																	duration={duration}
+																	runSlug={runSlug}
 																/>
 															)}
 														/>

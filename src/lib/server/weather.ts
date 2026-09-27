@@ -1,7 +1,6 @@
 import type { RunRecord } from '$lib/types';
 import { normalizeStartTime, parseDurationSeconds } from '$lib/format';
 import { getRouteGeoJson, routeIdForRun } from './route-analytics';
-import { getSql, parseJsonColumn } from './db';
 
 /** Athlete default from typical route centroid (Harderwijk / Flevoland area, NL). Override with DEFAULT_LAT / DEFAULT_LON. */
 export const FALLBACK_LAT = 52.35;
@@ -77,18 +76,36 @@ function centroidFromGeoJson(raw: unknown): LatLon | null {
 	return centroidFromCoordinates(geo.geometry?.coordinates);
 }
 
-async function centroidFromAnyRoute(): Promise<LatLon | null> {
-	const sql = getSql();
-	const rows = (await sql`SELECT geojson FROM routes LIMIT 1`) as { geojson: unknown }[];
-	if (!rows.length) return null;
-	return centroidFromGeoJson(parseJsonColumn(rows[0]!.geojson));
-}
-
+/** Home / manual-log default when no GPS is available. Not a random stored route. */
 export async function getDefaultLocation(): Promise<LatLon> {
 	const lat = envCoord('DEFAULT_LAT');
 	const lon = envCoord('DEFAULT_LON');
 	if (lat != null && lon != null) return { lat, lon };
-	return (await centroidFromAnyRoute()) ?? { lat: FALLBACK_LAT, lon: FALLBACK_LON };
+	return { lat: FALLBACK_LAT, lon: FALLBACK_LON };
+}
+
+export function centroidFromTrackPoints(points: { lat: number; lng: number }[]): LatLon | null {
+	if (points.length < 2) return null;
+	return centroidFromCoordinates(points.map((p) => [p.lng, p.lat]));
+}
+
+/** GPS from an import file: track centroid, else start coordinate. */
+export function weatherLocationFromTrack(
+	points: { lat: number; lng: number }[],
+	startLat: number | null,
+	startLng: number | null
+): LatLon | null {
+	const fromTrack = centroidFromTrackPoints(points);
+	if (fromTrack) return fromTrack;
+	if (
+		startLat != null &&
+		startLng != null &&
+		Number.isFinite(startLat) &&
+		Number.isFinite(startLng)
+	) {
+		return { lat: startLat, lon: startLng };
+	}
+	return null;
 }
 
 export async function locationForRun(
@@ -98,6 +115,26 @@ export async function locationForRun(
 	if (id) {
 		const c = centroidFromGeoJson(await getRouteGeoJson(id));
 		if (c) return c;
+	}
+	return getDefaultLocation();
+}
+
+/** Explicit coords → stored route centroid → home default. */
+export async function resolveWeatherLocation(opts: {
+	lat?: number | null;
+	lon?: number | null;
+	route?: Pick<RunRecord, 'route' | 'strava_id'> | null;
+}): Promise<LatLon> {
+	if (
+		opts.lat != null &&
+		opts.lon != null &&
+		Number.isFinite(opts.lat) &&
+		Number.isFinite(opts.lon)
+	) {
+		return { lat: opts.lat, lon: opts.lon };
+	}
+	if (opts.route && (opts.route.route || opts.route.strava_id)) {
+		return locationForRun(opts.route);
 	}
 	return getDefaultLocation();
 }
@@ -322,12 +359,11 @@ export async function fetchWeatherForDateTime(
 	timeHHmm?: string | null,
 	lat?: number | null,
 	lon?: number | null,
-	duration?: string | null
+	duration?: string | null,
+	route?: Pick<RunRecord, 'route' | 'strava_id'> | null
 ): Promise<string> {
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '';
-	const def = await getDefaultLocation();
-	const latitude = lat != null && Number.isFinite(lat) ? lat : def.lat;
-	const longitude = lon != null && Number.isFinite(lon) ? lon : def.lon;
+	const { lat: latitude, lon: longitude } = await resolveWeatherLocation({ lat, lon, route });
 	const sampleMins = weatherSampleMinutes(timeHHmm, duration);
 
 	const hourly = 'temperature_2m,relative_humidity_2m,weather_code';
@@ -370,6 +406,5 @@ export async function fetchWeatherForDate(
 export async function weatherForRun(
 	run: Pick<RunRecord, 'date' | 'route' | 'strava_id' | 'start_time' | 'time'>
 ): Promise<string> {
-	const loc = await locationForRun(run);
-	return fetchWeatherForDateTime(run.date, run.start_time, loc.lat, loc.lon, run.time);
+	return fetchWeatherForDateTime(run.date, run.start_time, null, null, run.time, run);
 }

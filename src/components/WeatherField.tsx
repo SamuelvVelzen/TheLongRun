@@ -10,13 +10,16 @@ export function WeatherField({
 	onChange,
 	date,
 	time,
-	duration
+	duration,
+	runSlug
 }: {
 	value: string;
 	onChange: (v: string) => void;
 	date: string;
 	time: string;
 	duration?: string;
+	/** When editing an existing run, weather uses its stored GPS track. */
+	runSlug?: string;
 }) {
 	const [hint, setHint] = useState('');
 	const canFetch = Boolean(date && time);
@@ -25,7 +28,9 @@ export function WeatherField({
 		if (!canFetch) return;
 		setHint('Fetching…');
 		try {
-			const w = await getWeather({ data: { date, time, duration: duration || null } });
+			const w = await getWeather({
+				data: { date, time, duration: duration || null, slug: runSlug || null }
+			});
 			onChange(w ?? '');
 			setHint(w ? 'From Open-Meteo (hourly)' : 'No weather for that date/time');
 		} catch {

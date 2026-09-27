@@ -551,6 +551,7 @@ function RunDetail() {
 					gearWear={gearWear}
 					habits={habits}
 					extraGear={[r.gear]}
+					runSlug={r.slug}
 					defaultValues={runToActivityForm({
 						...r,
 						before_notes: ritual.before,

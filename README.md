@@ -84,5 +84,5 @@ Viewing is public; edits go through Cloudflare Access on `/login`, then a 30-day
 
 ## Weather
 
-Free [Open-Meteo](https://open-meteo.com/) (no key). Location: centroid of the run's stored route,
-else `DEFAULT_LAT`/`DEFAULT_LON`, else any stored route, else `52.35, 5.63` (NL).
+Free [Open-Meteo](https://open-meteo.com/) (no key). Location: GPS track centroid on import,
+else the run's stored route when fetching by slug, else `DEFAULT_LAT`/`DEFAULT_LON`, else `52.35, 5.63` (NL).

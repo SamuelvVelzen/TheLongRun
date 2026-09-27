@@ -415,37 +415,45 @@ function TimelineBody({
 				variant="quiet"
 				kicker="Every session in order"
 				title="Timeline"
-				lead="Add a file, open one for notes, or copy the filtered log into a chat for race-readiness and training overview."
+				lead={
+					authed
+						? 'Add a file, open one for notes, or copy the filtered log into a chat for race-readiness and training overview.'
+						: 'Open a session for the map, splits, and notes.'
+				}
 				hideActionsOnMobile
 				actionsClassName="justify-start!"
 				actions={
 					<>
-						<Link className={buttonClass()} to="/import">
-							<Icon name="plus" size={16} />
-							Add activity
-						</Link>
+						{authed ? (
+							<Link className={buttonClass()} to="/import">
+								<Icon name="plus" size={16} />
+								Add activity
+							</Link>
+						) : null}
 						<Link className={buttonClass({ variant: 'ghost' })} to="/coach">
 							<Icon name="coach" size={16} />
 							Coach
 						</Link>
-						<button
-							className={buttonClass({ variant: 'ghost' })}
-							type="button"
-							disabled={!runs.length}
-							title="Copy the filtered activity log for an AI chat"
-							aria-label="Copy the filtered timeline"
-							onClick={() => void copyTimeline()}
-						>
-							<Icon name={copied ? 'check' : 'copy'} size={16} />
-							{copied ? (
-								'Copied'
-							) : (
-								<>
-									<span className="max-sm:hidden">Copy timeline</span>
-									<span className="hidden max-sm:inline">Copy</span>
-								</>
-							)}
-						</button>
+						{authed ? (
+							<button
+								className={buttonClass({ variant: 'ghost' })}
+								type="button"
+								disabled={!runs.length}
+								title="Copy the filtered activity log for an AI chat"
+								aria-label="Copy the filtered timeline"
+								onClick={() => void copyTimeline()}
+							>
+								<Icon name={copied ? 'check' : 'copy'} size={16} />
+								{copied ? (
+									'Copied'
+								) : (
+									<>
+										<span className="max-sm:hidden">Copy timeline</span>
+										<span className="hidden max-sm:inline">Copy</span>
+									</>
+								)}
+							</button>
+						) : null}
 					</>
 				}
 			/>

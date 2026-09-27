@@ -142,14 +142,19 @@ function RowChip({
 	);
 }
 
+const staticChip =
+	'inline-flex items-center justify-center gap-1 min-h-8 min-w-0 px-2.5 py-1 rounded-full border border-solid text-[0.75rem] font-semibold leading-none';
+
 export function WeekPatternEditor({
 	rows,
 	onChange,
-	disabled
+	disabled,
+	readOnly
 }: {
 	rows: SlotRow[];
 	onChange: (rows: SlotRow[]) => void;
 	disabled?: boolean;
+	readOnly?: boolean;
 }) {
 	const [draft, setDraft] = useState<Draft | null>(null);
 	const [pending, setPending] = useState<SlotRow | null>(null);
@@ -246,7 +251,9 @@ export function WeekPatternEditor({
 	return (
 		<div className="grid gap-3 mt-[0.45rem]">
 			{grouped.length === 0 && (
-				<p className={cn('text-muted', 'm-0')}>No sessions yet — add the days you usually train.</p>
+				<p className={cn('text-muted', 'm-0')}>
+					{readOnly ? 'No usual sessions yet.' : 'No sessions yet — add the days you usually train.'}
+				</p>
 			)}
 			{grouped.map((group) => (
 				<div key={group.day} className="grid gap-[0.4rem]">
@@ -264,68 +271,99 @@ export function WeekPatternEditor({
 									className={i > 0 ? 'border-t border-line' : undefined}
 								>
 									<div className="relative flex items-center gap-2 min-h-11 px-3">
-										<button
-											type="button"
-											className="absolute inset-0 z-0 appearance-none m-0 p-0 border-0 rounded-none bg-transparent cursor-pointer hover:bg-accent/8 disabled:opacity-35 disabled:cursor-not-allowed"
-											aria-label={`Edit ${group.day} ${activityLabel(row.activity_type)}`}
-											disabled={disabled}
-											onClick={() => openEdit(row)}
-										/>
+										{readOnly ? null : (
+											<button
+												type="button"
+												className="absolute inset-0 z-0 appearance-none m-0 p-0 border-0 rounded-none bg-transparent cursor-pointer hover:bg-accent/8 disabled:opacity-35 disabled:cursor-not-allowed"
+												aria-label={`Edit ${group.day} ${activityLabel(row.activity_type)}`}
+												disabled={disabled}
+												onClick={() => openEdit(row)}
+											/>
+										)}
 										<div className="relative z-[1] flex flex-wrap items-center gap-2 min-w-0 flex-1 pointer-events-none">
 											<span className="inline-flex items-center gap-2 text-fg font-semibold">
 												<ActivityIcon type={row.activity_type} size={16} />
 												{activityLabel(row.activity_type)}
 											</span>
-											<div className="flex flex-wrap items-center gap-1.5 pointer-events-auto">
-												<RowChip
-													pressed={row.constraint === 'optional'}
-													disabled={disabled}
-													onClick={() => toggleConstraint(row, 'optional')}
-												>
-													Optional
-												</RowChip>
-												<RowChip
-													pressed={row.constraint === 'fixed'}
-													disabled={disabled}
-													aria-label="Can't change"
-													onClick={() => toggleConstraint(row, 'fixed')}
-												>
-													Can't change
-												</RowChip>
-												{!editingNote && (
-													<button
-														type="button"
-														className={cn(
-															chip,
-															notes
-																? 'max-w-[min(100%,16rem)] bg-transparent text-muted border-line font-normal hover:text-fg hover:border-accent/35'
-																: 'bg-transparent text-muted border-dashed border-line hover:text-fg hover:border-accent/35'
+											<div className={cn('flex flex-wrap items-center gap-1.5', !readOnly && 'pointer-events-auto')}>
+												{readOnly ? (
+													<>
+														{row.constraint === 'optional' && (
+															<span className={cn(staticChip, 'bg-accent text-accent-ink border-accent')}>
+																Optional
+															</span>
 														)}
-														disabled={disabled}
-														aria-label={notes ? 'Edit notes' : 'Add notes'}
-														onClick={(event) => {
-															event.stopPropagation();
-															openNotes(row);
-														}}
-													>
-														<span className={notes ? 'truncate' : undefined}>
-															{notes || '+ note'}
-														</span>
-													</button>
+														{row.constraint === 'fixed' && (
+															<span className={cn(staticChip, 'bg-accent text-accent-ink border-accent')}>
+																Can't change
+															</span>
+														)}
+														{notes ? (
+															<span
+																className={cn(
+																	staticChip,
+																	'max-w-[min(100%,16rem)] bg-transparent text-muted border-line font-normal'
+																)}
+															>
+																<span className="truncate">{notes}</span>
+															</span>
+														) : null}
+													</>
+												) : (
+													<>
+														<RowChip
+															pressed={row.constraint === 'optional'}
+															disabled={disabled}
+															onClick={() => toggleConstraint(row, 'optional')}
+														>
+															Optional
+														</RowChip>
+														<RowChip
+															pressed={row.constraint === 'fixed'}
+															disabled={disabled}
+															aria-label="Can't change"
+															onClick={() => toggleConstraint(row, 'fixed')}
+														>
+															Can't change
+														</RowChip>
+														{!editingNote && (
+															<button
+																type="button"
+																className={cn(
+																	chip,
+																	notes
+																		? 'max-w-[min(100%,16rem)] bg-transparent text-muted border-line font-normal hover:text-fg hover:border-accent/35'
+																		: 'bg-transparent text-muted border-dashed border-line hover:text-fg hover:border-accent/35'
+																)}
+																disabled={disabled}
+																aria-label={notes ? 'Edit notes' : 'Add notes'}
+																onClick={(event) => {
+																	event.stopPropagation();
+																	openNotes(row);
+																}}
+															>
+																<span className={notes ? 'truncate' : undefined}>
+																	{notes || '+ note'}
+																</span>
+															</button>
+														)}
+													</>
 												)}
 											</div>
 										</div>
-										<div className="relative z-[1] shrink-0">
-											<DeleteButton
-												compact
-												label={`Delete ${group.day} ${activityLabel(row.activity_type)}`}
-												disabled={disabled}
-												onClick={(event) => {
-													event.stopPropagation();
-													setPending(row);
-												}}
-											/>
-										</div>
+										{readOnly ? null : (
+											<div className="relative z-[1] shrink-0">
+												<DeleteButton
+													compact
+													label={`Delete ${group.day} ${activityLabel(row.activity_type)}`}
+													disabled={disabled}
+													onClick={(event) => {
+														event.stopPropagation();
+														setPending(row);
+													}}
+												/>
+											</div>
+										)}
 									</div>
 									{editingNote && (
 										<label className={cn(fieldClass, 'relative z-[1] px-3 pb-2.5')}>
@@ -356,15 +394,17 @@ export function WeekPatternEditor({
 					</div>
 				</div>
 			))}
-			<button
-				className={buttonClass({ variant: 'ghost' })}
-				type="button"
-				disabled={disabled || atCap}
-				onClick={openAdd}
-			>
-				<Icon name="plus" size={16} />
-				Add activity
-			</button>
+			{readOnly ? null : (
+				<button
+					className={buttonClass({ variant: 'ghost' })}
+					type="button"
+					disabled={disabled || atCap}
+					onClick={openAdd}
+				>
+					<Icon name="plus" size={16} />
+					Add activity
+				</button>
+			)}
 
 			<Dialog
 				open={draft != null}

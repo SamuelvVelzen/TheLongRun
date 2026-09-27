@@ -572,10 +572,12 @@ function DashboardBody({
 								<Icon name="timeline" size={16} />
 								Full timeline
 							</Link>
-							<Link className={buttonClass({ variant: 'ghost' })} to="/import">
-								<Icon name="plus" size={16} />
-								Add
-							</Link>
+							{authed ? (
+								<Link className={buttonClass({ variant: 'ghost' })} to="/import">
+									<Icon name="plus" size={16} />
+									Add
+								</Link>
+							) : null}
 						</div>
 					</div>
 

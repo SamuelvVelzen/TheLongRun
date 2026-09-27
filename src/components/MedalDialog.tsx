@@ -314,9 +314,9 @@ export function MedalDialog({
 						</div>
 					)}
 
-					<div className="grid gap-3 pt-1 border-t border-line">
-						<p className="m-0 text-[0.78rem] uppercase tracking-[0.06em] text-muted font-bold">Medal details</p>
-						{authed ? (
+					{authed ? (
+						<div className="grid gap-3 pt-1 border-t border-line">
+							<p className="m-0 text-[0.78rem] uppercase tracking-[0.06em] text-muted font-bold">Medal details</p>
 							<MedalDetailsForm
 								key={goal.id}
 								goalId={goal.id}
@@ -327,12 +327,12 @@ export function MedalDialog({
 								}}
 								onSaved={onSaved}
 							/>
-						) : goal.medal_notes ? (
+						</div>
+					) : goal.medal_notes ? (
+						<div className="grid gap-3 pt-1 border-t border-line">
 							<p className={cn('text-muted', 'm-0 whitespace-pre-wrap')}>{goal.medal_notes}</p>
-						) : (
-							<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Sign in to add bib, results link, and notes.</p>
-						)}
-					</div>
+						</div>
+					) : null}
 
 					{goal.result?.activity_slug && (
 						<div className={actionsClass()}>

@@ -338,7 +338,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 						</section>
 					)}
 
-					{(pastOpen.length > 0 || olderVisible) && (
+					{authed && (pastOpen.length > 0 || olderVisible) && (
 						<>
 							<section className={sectionTitleClass()}>
 								<div>
@@ -359,7 +359,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 						</>
 					)}
 
-					{(data.activeGoal || later.length > 0) && (
+					{authed && (data.activeGoal || later.length > 0) && (
 						<>
 							<section className={sectionTitleClass()}>
 								<div>

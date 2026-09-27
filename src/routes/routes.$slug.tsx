@@ -290,14 +290,16 @@ function PlannedRouteDetail() {
 									Open in BRouter
 									<Icon name="external" size={13} />
 								</button>
-								<button
-									className={buttonClass({ variant: 'ghost' })}
-									type="button"
-									onClick={() => downloadPlannedRouteGpx(route.name, route.geojson, route.waypoints)}
-								>
-									<Icon name="download" size={16} />
-									Download GPX
-								</button>
+								{authed && (
+									<button
+										className={buttonClass({ variant: 'ghost' })}
+										type="button"
+										onClick={() => downloadPlannedRouteGpx(route.name, route.geojson, route.waypoints)}
+									>
+										<Icon name="download" size={16} />
+										Download GPX
+									</button>
+								)}
 								{authed && (
 									<>
 										<EditButton label="Edit route" onClick={startEditing} />
@@ -349,15 +351,17 @@ function PlannedRouteDetail() {
 						)}
 					</div>
 
-					<div className="max-sm:order-5">
-						<RouteAttach
-							slug={route.slug}
-							planLinks={route.planLinks}
-							activityLinks={route.activityLinks}
-							planOptions={route.planOptions}
-							activityOptions={route.activityOptions}
-						/>
-					</div>
+					{authed ? (
+						<div className="max-sm:order-5">
+							<RouteAttach
+								slug={route.slug}
+								planLinks={route.planLinks}
+								activityLinks={route.activityLinks}
+								planOptions={route.planOptions}
+								activityOptions={route.activityOptions}
+							/>
+						</div>
+					) : null}
 
 					{route.waypoints.length > 0 && (
 						<div className={panelClass('mb-4 max-sm:order-6')}>

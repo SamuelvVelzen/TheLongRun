@@ -257,35 +257,39 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 						</div>
 					</div>
 				</div>
-				<p className={cn('text-muted', 'm-0 max-sm:hidden')}>
-					Copy this week (live status plus JSON) into a new chat, or every week that already
-					has sessions. Paste an updated JSON block back below.
-				</p>
-				<div className={actionsClass()}>
-					<button
-						className={buttonClass({ variant: 'ghost' })}
-						type="button"
-						disabled={!view}
-						onClick={() => view && copyText('week', formatWeekPlanClipboard(view, todayIso))}
-					>
-						<Icon name={copied === 'week' ? 'check' : 'copy'} size={16} />
-						{copied === 'week' ? 'Copied' : 'Copy this week'}
-					</button>
-					<button
-						className={buttonClass({ variant: 'ghost' })}
-						type="button"
-						disabled={!planData.views.length}
-						onClick={() => copyText('all', formatAllWeeksClipboard(planData.views, todayIso))}
-					>
-						<Icon name={copied === 'all' ? 'check' : 'copy'} size={16} />
-						{copied === 'all' ? 'Copied' : (
-							<>
-								<span className="max-sm:hidden">Copy all planned weeks</span>
-								<span className="hidden max-sm:inline">Copy all weeks</span>
-							</>
-						)}
-					</button>
-				</div>
+				{authed ? (
+					<>
+						<p className={cn('text-muted', 'm-0 max-sm:hidden')}>
+							Copy this week (live status plus JSON) into a new chat, or every week that already
+							has sessions. Paste an updated JSON block back below.
+						</p>
+						<div className={actionsClass()}>
+							<button
+								className={buttonClass({ variant: 'ghost' })}
+								type="button"
+								disabled={!view}
+								onClick={() => view && copyText('week', formatWeekPlanClipboard(view, todayIso))}
+							>
+								<Icon name={copied === 'week' ? 'check' : 'copy'} size={16} />
+								{copied === 'week' ? 'Copied' : 'Copy this week'}
+							</button>
+							<button
+								className={buttonClass({ variant: 'ghost' })}
+								type="button"
+								disabled={!planData.views.length}
+								onClick={() => copyText('all', formatAllWeeksClipboard(planData.views, todayIso))}
+							>
+								<Icon name={copied === 'all' ? 'check' : 'copy'} size={16} />
+								{copied === 'all' ? 'Copied' : (
+									<>
+										<span className="max-sm:hidden">Copy all planned weeks</span>
+										<span className="hidden max-sm:inline">Copy all weeks</span>
+									</>
+								)}
+							</button>
+						</div>
+					</>
+				) : null}
 			</div>
 			{view ? (
 				<WeekPlanBoard
@@ -679,22 +683,25 @@ function CoachPanels({
 				<div className={panelClass(formClass, 'mb-4')}>
 					<div className={fieldClass}>
 						<span>Usual week</span>
-						<span className={cn('text-muted', 'font-normal')}>
-							Day and sport — the AI chooses easy / quality / long / etc. plus distance. Mark a
-							session can't change (commute) or optional, and add notes the coach will see. Change
-							days for this week without saving; Generate will use them. Save only if this should
-							become your default.
-						</span>
-						<span className={cn('text-muted', 'font-normal')}>
-							Saved default is {formatPatternProse(savedPattern)}.
-						</span>
 						{authed ? (
-							<WeekPatternEditor
-								rows={usual}
-								disabled={mixBusy}
-								onChange={setUsual}
-							/>
+							<>
+								<span className={cn('text-muted', 'font-normal')}>
+									Day and sport — the AI chooses easy / quality / long / etc. plus distance. Mark a
+									session can't change (commute) or optional, and add notes the coach will see. Change
+									days for this week without saving; Generate will use them. Save only if this should
+									become your default.
+								</span>
+								<span className={cn('text-muted', 'font-normal')}>
+									Saved default is {formatPatternProse(savedPattern)}.
+								</span>
+							</>
 						) : null}
+						<WeekPatternEditor
+							rows={usual}
+							disabled={mixBusy}
+							readOnly={!authed}
+							onChange={setUsual}
+						/>
 					</div>
 					{authed && (mixDirty || mixBusy) && (
 						<>

@@ -223,15 +223,17 @@ function RootShell() {
 										{l.label}
 									</Link>
 								))}
-								<Link
-									to="/routes"
-									search={{ draw: true }}
-									className={tabMoreLink}
-									onClick={closeDetails}
-								>
-									<Icon name="map" size={18} />
-									Plan route
-								</Link>
+								{authed ? (
+									<Link
+										to="/routes"
+										search={{ draw: true }}
+										className={tabMoreLink}
+										onClick={closeDetails}
+									>
+										<Icon name="map" size={18} />
+										Plan route
+									</Link>
+								) : null}
 							<PwaInstall className={tabMoreLink} />
 							{authed ? (
 								<>
@@ -278,15 +280,17 @@ function DesktopMore() {
 						{l.label}
 					</Link>
 				))}
-				<Link
-					to="/routes"
-					search={{ draw: true }}
-					className={tabMoreLink}
-					onClick={closeDetails}
-				>
-					<Icon name="map" size={18} />
-					Plan route
-				</Link>
+				{authed ? (
+					<Link
+						to="/routes"
+						search={{ draw: true }}
+						className={tabMoreLink}
+						onClick={closeDetails}
+					>
+						<Icon name="map" size={18} />
+						Plan route
+					</Link>
+				) : null}
 				{authed ? (
 					<>
 						<LiveLocationMenuItem className={tabMoreLink} onClick={closeDetails} />

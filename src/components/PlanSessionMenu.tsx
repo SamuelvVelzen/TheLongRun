@@ -42,6 +42,7 @@ export function PlanSessionMenu({
 				day: session.day,
 				label: session.label,
 				activity_type: session.activity_type,
+				session_index: session.planIndex,
 				skipped
 			}
 		});

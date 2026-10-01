@@ -185,6 +185,8 @@ export type WeekSessionView = PlanSession & {
 	route: SessionRouteRef | null;
 	/** Activity slug when this planned session was matched to a log. */
 	logSlug: string | null;
+	/** Index in `PlanWeek.sessions` — disambiguates duplicate day/label/sport rows. */
+	planIndex: number;
 };
 
 /** Logged activity in this week that did not consume a planned session (date + sport). */
@@ -298,7 +300,7 @@ export function buildWeekView(
 	}
 	for (const list of buckets.values()) list.sort(sortLogsForMatch);
 
-	const sessions: WeekSessionView[] = week.sessions.map((s) => {
+	const sessions: WeekSessionView[] = week.sessions.map((s, planIndex) => {
 		const date = dateForSessionDay(start, s.day);
 		const isRest = isRestLike(s.label);
 		const type = sessionActivityType(s);
@@ -316,7 +318,8 @@ export function buildWeekView(
 			isToday: date === todayIso,
 			isNext: false,
 			route: null,
-			logSlug: matched?.slug ?? null
+			logSlug: matched?.slug ?? null,
+			planIndex
 		};
 	});
 	const unplanned: UnplannedActivity[] = [];

@@ -3155,11 +3155,20 @@ function matchingPlanSession(
 	week: number,
 	day: string,
 	label: string,
-	activityType: string
+	activityType: string,
+	sessionIndex?: number
 ) {
 	const weekRow = plan.find((w) => w.week === week);
 	if (!weekRow) return null;
 	const key = planSessionRouteKey(day, label, activityType);
+	if (sessionIndex != null) {
+		if (sessionIndex < 0 || sessionIndex >= weekRow.sessions.length) return null;
+		const session = weekRow.sessions[sessionIndex]!;
+		if (planSessionRouteKey(session.day, session.label, session.activity_type) !== key) {
+			return null;
+		}
+		return { weekRow, index: sessionIndex, session };
+	}
 	const index = weekRow.sessions.findIndex(
 		(s) => planSessionRouteKey(s.day, s.label, s.activity_type) === key
 	);
@@ -3173,12 +3182,15 @@ export const setPlanSessionSkipped = createServerFn({ method: 'POST' }).middlewa
 		day: string;
 		label: string;
 		activity_type?: string;
+		session_index?: number;
 		skipped: boolean;
 	}) => ({
 		week: d.week,
 		day: String(d.day ?? '').trim(),
 		label: String(d.label ?? '').trim(),
 		activity_type: normalizeActivityType(d.activity_type ?? 'run'),
+		session_index:
+			d.session_index != null && Number.isInteger(d.session_index) ? d.session_index : undefined,
 		skipped: Boolean(d.skipped)
 	}))
 	.handler(async ({ data }) => {
@@ -3187,7 +3199,14 @@ export const setPlanSessionSkipped = createServerFn({ method: 'POST' }).middlewa
 		}
 		if (!data.day || !data.label) throw new Error('That session is not on the plan.');
 		const plan = await loadPlan();
-		const found = matchingPlanSession(plan, data.week, data.day, data.label, data.activity_type);
+		const found = matchingPlanSession(
+			plan,
+			data.week,
+			data.day,
+			data.label,
+			data.activity_type,
+			data.session_index
+		);
 		if (!found) throw new Error('That session is not on the plan.');
 		if (data.skipped && isRestLike(found.session.label)) {
 			throw new Error('Rest days cannot be skipped.');

@@ -2719,6 +2719,14 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 		candidatesByGoalId[g.id] = pinCandidatesForGoal(g, runs);
 	}
 	const runBySlug = new Map(runs.map((r) => [r.slug, r]));
+	/** Medal time/distance/pace follow the linked activity, not a stale pin snapshot. */
+	const medalsLive = medals.map((g) => {
+		const slug = g.result?.activity_slug;
+		if (!slug) return g;
+		const run = runBySlug.get(slug);
+		if (!run) return g;
+		return { ...g, result: resultFromActivity(run) };
+	});
 	const trackById = new Map(tracks.map((t) => [t.id, t.coords]));
 	const medalTracks: Record<string, [number, number][]> = {};
 	const medalActivities: Record<
@@ -2744,7 +2752,7 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 			| 'elapsed_time'
 		>
 	> = {};
-	for (const g of medals) {
+	for (const g of medalsLive) {
 		const slug = g.result?.activity_slug;
 		if (!slug) continue;
 		const run = runBySlug.get(slug);
@@ -2777,7 +2785,7 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 		activeGoal,
 		upcoming,
 		intentions,
-		medals,
+		medals: medalsLive,
 		calendar,
 		candidatesByGoalId,
 		medalTracks,

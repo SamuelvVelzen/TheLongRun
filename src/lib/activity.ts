@@ -41,7 +41,7 @@ export function normalizeActivityType(v: string | null | undefined): ActivityTyp
 		.toLowerCase()
 		.replace(/[\s_-]/g, '');
 	if (['walk', 'walking', 'hike', 'hiking'].includes(t)) return 'walk';
-	if (['bike', 'biking', 'cycling', 'bicycle', 'cycle', 'ebikeride', 'riding'].includes(t))
+	if (['bike', 'biking', 'cycling', 'bicycle', 'cycle', 'ebikeride', 'riding', 'ride'].includes(t))
 		return 'bike';
 	if (
 		['strength', 'strengthtraining', 'weighttraining', 'weights', 'weightlifting', 'gym', 'workout', 'crossfit'].includes(
@@ -52,11 +52,9 @@ export function normalizeActivityType(v: string | null | undefined): ActivityTyp
 	return 'run';
 }
 
-/** GPX/TCX/Strava sport labels — not the same as stored `activity_type` (see migration 0006). */
+/** GPX/TCX/Strava sport labels — same coercion as stored types (`ride` → bike, migration 0006). */
 export function importActivityType(v: string | null | undefined): ActivityType {
-	const raw = String(v ?? '').trim();
-	if (/^ride$/i.test(raw)) return 'bike';
-	return normalizeActivityType(raw);
+	return normalizeActivityType(v);
 }
 
 export function activityLabel(v: string | null | undefined): string {

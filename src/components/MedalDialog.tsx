@@ -1,4 +1,5 @@
-import { metricsClass, metricClass, tagClass, dialogPanelMedalClass, panelClass } from './ui';
+import { PinRaceResult, type PinRaceCandidate } from './PinRaceResult';
+import { actionsClass, buttonClass, metricsClass, metricClass, tagClass, dialogPanelMedalClass, panelClass } from './ui';
 import { activityLabel, showsField } from '$lib/activity';
 import { formatDuration, parseDurationSeconds } from '$lib/format';
 import { formatMedalDistanceLine, goalUrlHref, pinnedActivityMismatch } from '$lib/goals';
@@ -186,6 +187,8 @@ export function MedalDialog({
 	track,
 	activity,
 	authed,
+	candidates = [],
+	onEditRace,
 	onClose,
 	onSaved
 }: {
@@ -194,6 +197,8 @@ export function MedalDialog({
 	track?: [number, number][];
 	activity?: MedalActivity;
 	authed: boolean;
+	candidates?: PinRaceCandidate[];
+	onEditRace?: () => void;
 	onClose: () => void;
 	onSaved?: () => void | Promise<void>;
 }) {
@@ -269,8 +274,8 @@ export function MedalDialog({
 						</p>
 						{pinMismatch && activity && (
 							<p className="m-0 text-[0.88rem] text-warn font-semibold">
-								Pinned activity is from {formatRaceDate(activity.date)} — not race day. Re-pin the
-								right run under Goals → Races if this medal should match {formatRaceDate(goal.date)}.
+								Linked activity is from {formatRaceDate(activity.date)} — not race day. Pick the
+								right run below if this medal should match {formatRaceDate(goal.date)}.
 							</p>
 						)}
 						{loc && <p className={cn('text-muted', 'm-0 text-[0.88rem]')}>{loc}</p>}
@@ -325,6 +330,25 @@ export function MedalDialog({
 							</p>
 							<p className={cn('text-muted', 'm-0 mt-1 whitespace-pre-wrap text-[0.92rem]')}>{goal.notes}</p>
 						</div>
+					)}
+
+					{authed && onEditRace && (
+						<div className={actionsClass('justify-start! pt-1 border-t border-line')}>
+							<button type="button" className={buttonClass({ variant: 'ghost' })} onClick={onEditRace}>
+								<Icon name="pencil" size={16} />
+								Edit race
+							</button>
+						</div>
+					)}
+
+					{authed && (
+						<PinRaceResult
+							goal={goal}
+							candidates={candidates}
+							mode="repin"
+							currentSlug={goal.result?.activity_slug}
+							onSaved={onSaved}
+						/>
 					)}
 
 					{authed ? (

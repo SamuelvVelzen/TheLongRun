@@ -2714,7 +2714,8 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 	const intentions = openIntentions(store.goals);
 	const candidatesByGoalId: Record<string, ReturnType<typeof pinCandidatesForGoal>> = {};
 	for (const g of store.goals) {
-		if (!canPinRaceResult(g)) continue;
+		if (g.status !== 'done' && !canPinRaceResult(g)) continue;
+		if (!isRaceGoal(g)) continue;
 		candidatesByGoalId[g.id] = pinCandidatesForGoal(g, runs);
 	}
 	const runBySlug = new Map(runs.map((r) => [r.slug, r]));
@@ -2725,6 +2726,7 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 		Pick<
 			RunRecord,
 			| 'slug'
+			| 'date'
 			| 'activity_type'
 			| 'avg_hr'
 			| 'max_hr'
@@ -2840,6 +2842,25 @@ export const saveActiveGoal = createServerFn({ method: 'POST' }).middleware([req
 			isIntention,
 			activeName: active?.name ?? next.name
 		};
+	});
+
+export const repinGoalResult = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: { goalId: string; activitySlug: string }) => d)
+	.handler(async ({ data }) => {
+		const store = await loadGoalStore();
+		const target = store.goals.find((g) => g.id === data.goalId);
+		if (!target) throw new Error('That race was not found.');
+		if (target.status !== 'done') throw new Error('Only finished races on the medal wall can be re-linked.');
+		const run = await getRun(data.activitySlug);
+		if (!run) throw new Error('That activity was not found.');
+		const done: Goal = {
+			...target,
+			result: resultFromActivity(run)
+		};
+		await saveGoalStore({
+			goals: store.goals.map((g) => (g.id === done.id ? done : g))
+		});
+		return { id: done.id };
 	});
 
 export const completeGoal = createServerFn({ method: 'POST' }).middleware([requireAuth])

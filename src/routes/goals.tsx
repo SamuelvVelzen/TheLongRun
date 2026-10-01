@@ -1,8 +1,7 @@
 import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
-import { goalFormSchema, goalToFormValues, pinRaceSchema, toGoalInput } from '$lib/goal-form';
+import { goalFormSchema, goalToFormValues, toGoalInput } from '$lib/goal-form';
 import {
-    activityLooksLikeRace,
     canPinRaceResult,
     emptyGoalDraft,
     formatHorizonLabel,
@@ -17,7 +16,7 @@ import {
     shiftPlanStartWithRaceDate
 } from '$lib/goals';
 import { calendarFromGoal, daysUntil, mondayIso } from '$lib/plan';
-import { clearGoal, completeGoal, getGoalBrief, getGoalsData, saveActiveGoal } from '$lib/server/functions';
+import { clearGoal, getGoalBrief, getGoalsData, saveActiveGoal } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import type { Goal } from '$lib/types';
 import { cn } from '$lib/ui';
@@ -27,6 +26,7 @@ import { DeferredData } from '../components/DeferredData';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { Icon, sportChipLabel } from '../components/Icon';
 import { MedalDialog } from '../components/MedalDialog';
+import { PinRaceResult } from '../components/PinRaceResult';
 import { PageHero } from '../components/PageHero';
 import { RouteLine } from '../components/RouteLine';
 import { SegmentedToggle } from '../components/SegmentedToggle';
@@ -200,6 +200,8 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 		isIntention?: boolean;
 	} | null>(null);
 	const [openMedal, setOpenMedal] = useState<Goal | null>(null);
+	const [editingMedalId, setEditingMedalId] = useState<string | null>(null);
+	const editingMedal = editingMedalId ? data.medals.find((g) => g.id === editingMedalId) ?? null : null;
 	const [showOlder, setShowOlder] = useState(false);
 	const nextAfterClear = pendingRemove?.isActive ? data.upcoming[0] : undefined;
 	const pastOpen = data.upcoming
@@ -532,10 +534,43 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 				goal={openMedal}
 				track={openMedal ? data.medalTracks[openMedal.id] : undefined}
 				activity={openMedal ? data.medalActivities[openMedal.id] : undefined}
+				candidates={openMedal ? data.candidatesByGoalId[openMedal.id] ?? [] : []}
 				authed={authed}
+				onEditRace={
+					authed && openMedal
+						? () => {
+								setEditingMedalId(openMedal.id);
+								setOpenMedal(null);
+							}
+						: undefined
+				}
 				onClose={() => setOpenMedal(null)}
 				onSaved={() => router.invalidate()}
 			/>
+
+			<Dialog
+				open={editingMedal != null}
+				title={editingMedal ? `Edit ${editingMedal.name}` : 'Edit race'}
+				onClose={() => setEditingMedalId(null)}
+				className={cn(dialogPanelMedalClass, 'sm:max-w-[min(42rem,100%)]!')}
+			>
+				<p className={cn('text-muted', 'm-0')}>
+					Updates name, date, distance, and notes. The medal time stays tied to the linked activity
+					until you change that below the race fields on the medal view.
+				</p>
+				{editingMedal ? (
+					<GoalForm
+						key={editingMedal.id}
+						initial={editingMedal}
+						submitLabel="Save race"
+						onCancel={() => setEditingMedalId(null)}
+						onSaved={async () => {
+							setEditingMedalId(null);
+							await router.invalidate();
+						}}
+					/>
+				) : null}
+			</Dialog>
 
 			<ConfirmDialog
 				open={pendingRemove != null}
@@ -583,93 +618,6 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 				}}
 			/>
 		</>
-	);
-}
-
-function PinRaceResult({
-	goal,
-	candidates
-}: {
-	goal: Goal;
-	candidates: GoalsData['candidatesByGoalId'][string];
-}) {
-	const router = useRouter();
-	const snack = useSnackbar();
-	const defaultSlug = (() => {
-		const tight = candidates.find((c) => activityLooksLikeRace(goal, c) || c.date === goal.date);
-		if (tight) return tight.slug;
-		return candidates.length === 1 ? candidates[0]!.slug : '';
-	})();
-	const form = useAppForm({
-		defaultValues: { pinSlug: defaultSlug },
-		validators: { onSubmit: pinRaceSchema },
-		onSubmit: async ({ value }) => {
-			try {
-				await completeGoal({ data: { goalId: goal.id, activitySlug: value.pinSlug } });
-				snack.success(`Saved — ${goal.name} is on the medal wall.`);
-				await router.navigate({ to: '/goals', search: { tab: 'medals' } });
-				await router.invalidate();
-			} catch (e) {
-				snack.error(errorMessage(e, 'Could not pin that result.'));
-			}
-		}
-	});
-
-	return (
-		<div className="grid gap-3 pt-3 border-t border-line">
-			<h3 className="m-0">Pin race result</h3>
-			<p className={cn('text-muted', 'm-0')}>
-				Pick the activity you ran. That time becomes the medal.
-				{goal.bib_number ? ` Bib ${goal.bib_number} is already saved.` : ''}
-			</p>
-			{candidates.length ? (
-				<Form
-					onSubmit={(e) => {
-						e.preventDefault();
-						e.stopPropagation();
-						void form.handleSubmit();
-					}}
-				>
-					<form.AppField
-						name="pinSlug"
-						children={(field) => (
-							<field.SelectField
-								label="Activity"
-								placeholder="Pick the activity…"
-								options={candidates.map((c) => ({
-									value: c.slug,
-									label: `${c.date}${c.time ? ` · ${c.time}` : ''}${c.distance_km != null ? ` · ${c.distance_km} km` : ''}`
-								}))}
-							/>
-						)}
-					/>
-					<Actions>
-						<form.AppForm>
-							<form.SubmitButton busyLabel="Saving…">
-								<Icon name="trophy" size={16} />
-								Save as medal
-							</form.SubmitButton>
-						</form.AppForm>
-					</Actions>
-				</Form>
-			) : (
-				<>
-					<p className={cn('text-muted', 'm-0')}>
-						No matching activity yet.{' '}
-						<Link className="text-accent-fg font-semibold" to="/import">
-							Import the GPX
-						</Link>
-						, then pick it here.
-					</p>
-					<Actions>
-						<Button variant="primary" disabled>
-							<Icon name="trophy" size={16} />
-							Save as medal
-						</Button>
-					</Actions>
-				</>
-			)}
-		</div>
 	);
 }
 
@@ -919,7 +867,9 @@ function GoalForm({
 		onSubmit: async ({ value }) => {
 			try {
 				const res = await saveActiveGoal({ data: toGoalInput(value, initial?.id) });
-				if (res.isIntention) {
+				if (initial?.status === 'done') {
+					snack.success('Race details saved — medal time still comes from the linked activity.');
+				} else if (res.isIntention) {
 					snack.success('Saved — look-ahead only. Coach will not treat this as race day.');
 				} else if (res.isActive) {
 					let weeks = 1;

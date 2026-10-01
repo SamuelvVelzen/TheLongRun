@@ -298,6 +298,27 @@ export function stampGoalsByDate(goals: Goal[], today = new Date()): Goal[] {
 	});
 }
 
+/** Distance line for medals: show race distance when the pinned activity distance differs. */
+export function formatMedalDistanceLine(
+	goal: Pick<Goal, 'distance_km'>,
+	result: Pick<GoalResult, 'distance_km'> | null | undefined
+): string {
+	const raceKm = goal.distance_km;
+	const logged = result?.distance_km;
+	if (logged == null || !Number.isFinite(logged)) return `${raceKm} km`;
+	if (Math.abs(logged - raceKm) < 0.35) return `${logged} km`;
+	return `${raceKm} km race · ${logged} km logged`;
+}
+
+export function pinnedActivityMismatch(
+	goal: Pick<Goal, 'date' | 'sport'>,
+	activity: Pick<RunRecord, 'date' | 'activity_type'> | null | undefined
+): boolean {
+	if (!activity || !isRaceGoal(goal)) return false;
+	if (activity.date === goal.date) return false;
+	return !activityLooksLikeRace(goal, activity);
+}
+
 export function resultFromActivity(run: Pick<RunRecord, 'slug' | 'date' | 'time' | 'distance_km' | 'avg_pace'>): GoalResult {
 	return {
 		activity_slug: run.slug,

@@ -7,6 +7,7 @@ import {
     emptyGoalDraft,
     formatHorizonLabel,
     formatHorizonShort,
+    formatMedalDistanceLine,
     goalDraftFromReply,
     goalUrlHref,
     isHorizonPast,
@@ -474,9 +475,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 											</p>
 											<p className={cn('text-muted', 'm-0 mt-2')}>
 												{formatRaceDate(g.date)}
-												{g.result?.distance_km != null
-													? ` · ${g.result.distance_km} km`
-													: ` · ${g.distance_km} km`}
+												{` · ${formatMedalDistanceLine(g, g.result)}`}
 												{g.result?.pace ? ` · ${g.result.pace}/km` : ''}
 											</p>
 										</div>

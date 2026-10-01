@@ -2738,7 +2738,6 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 			| 'province'
 			| 'country'
 			| 'effort'
-			| 'strava_id'
 			| 'start_time'
 			| 'elapsed_time'
 		>
@@ -2750,6 +2749,7 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 		if (!run) continue;
 		medalActivities[g.id] = {
 			slug: run.slug,
+			date: run.date,
 			activity_type: run.activity_type,
 			avg_hr: run.avg_hr,
 			max_hr: run.max_hr,
@@ -2763,7 +2763,6 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 			province: run.province,
 			country: run.country,
 			effort: run.effort,
-			strava_id: run.strava_id,
 			start_time: run.start_time,
 			elapsed_time: run.elapsed_time
 		};

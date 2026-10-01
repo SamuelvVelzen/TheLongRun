@@ -1,7 +1,7 @@
-import { buttonClass, actionsClass, metricsClass, metricClass, tagClass, dialogPanelMedalClass, panelClass } from './ui';
+import { metricsClass, metricClass, tagClass, dialogPanelMedalClass, panelClass } from './ui';
 import { activityLabel, showsField } from '$lib/activity';
 import { formatDuration, parseDurationSeconds } from '$lib/format';
-import { goalUrlHref } from '$lib/goals';
+import { formatMedalDistanceLine, goalUrlHref, pinnedActivityMismatch } from '$lib/goals';
 import type { Goal } from '$lib/types';
 import { cn } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
@@ -14,6 +14,7 @@ import { RouteLine } from './RouteLine';
 
 type MedalActivity = {
 	slug: string;
+	date: string;
 	activity_type: string;
 	avg_hr: number | null;
 	max_hr: number | null;
@@ -27,7 +28,6 @@ type MedalActivity = {
 	province: string;
 	country: string;
 	effort: number | null;
-	strava_id: string;
 	start_time: string;
 	elapsed_time: string;
 };
@@ -63,19 +63,33 @@ function goalDelta(goal: Goal): { beat: boolean; label: string } | null {
 
 function MedalLinks({
 	goal,
-	activity
+	activitySlug,
+	onOpenActivity
 }: {
 	goal: Goal;
-	activity: MedalActivity | undefined;
+	activitySlug?: string;
+	onOpenActivity?: () => void;
 }) {
 	const raceHref = goalUrlHref(goal.url);
 	const itineraryHref = goalUrlHref(goal.itinerary_url);
 	const resultHref = goalUrlHref(goal.result_url);
-	const stravaId = activity?.strava_id?.trim();
-	const stravaHref = stravaId ? `https://www.strava.com/activities/${stravaId}` : null;
-	if (!raceHref && !itineraryHref && !resultHref && !stravaHref) return null;
+	if (!raceHref && !itineraryHref && !resultHref && !activitySlug) return null;
 	return (
 		<div className="flex flex-wrap gap-x-4 gap-y-1">
+			{activitySlug && (
+				<Link
+					className="inline-flex items-center gap-1.5 text-accent-fg font-semibold text-[0.9rem]"
+					to="/runs/$slug"
+					params={{ slug: activitySlug }}
+					onClick={(e) => {
+						e.stopPropagation();
+						onOpenActivity?.();
+					}}
+				>
+					<Icon name="timeline" size={13} />
+					Linked activity
+				</Link>
+			)}
 			{resultHref && (
 				<a
 					className="inline-flex items-center gap-1.5 text-accent-fg font-semibold text-[0.9rem]"
@@ -107,17 +121,6 @@ function MedalLinks({
 				>
 					<Icon name="external" size={13} />
 					Itinerary
-				</a>
-			)}
-			{stravaHref && (
-				<a
-					className="inline-flex items-center gap-1.5 text-accent-fg font-semibold text-[0.9rem]"
-					href={stravaHref}
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					<Icon name="external" size={13} />
-					Strava
 				</a>
 			)}
 		</div>
@@ -203,6 +206,8 @@ export function MedalDialog({
 
 	const delta = goal ? goalDelta(goal) : null;
 	const loc = locationLabel(activity);
+	const pinMismatch = goal ? pinnedActivityMismatch(goal, activity) : false;
+	const distanceLine = goal ? formatMedalDistanceLine(goal, goal.result) : '';
 
 	return (
 		<Dialog
@@ -256,14 +261,18 @@ export function MedalDialog({
 					<div className="grid gap-1">
 						<p className={cn('text-muted', 'm-0')}>
 							{formatRaceDate(goal.date)}
-							{goal.result?.distance_km != null
-								? ` · ${goal.result.distance_km} km`
-								: ` · ${goal.distance_km} km`}
+							{` · ${distanceLine}`}
 							{goal.result?.pace ? ` · ${goal.result.pace}/km` : ''}
 							{` · ${activityLabel(goal.sport)}`}
 							{goal.start_time ? ` · ${goal.start_time}` : ''}
 							{goal.wave ? ` · wave ${goal.wave}` : ''}
 						</p>
+						{pinMismatch && activity && (
+							<p className="m-0 text-[0.88rem] text-warn font-semibold">
+								Pinned activity is from {formatRaceDate(activity.date)} — not race day. Re-pin the
+								right run under Goals → Races if this medal should match {formatRaceDate(goal.date)}.
+							</p>
+						)}
 						{loc && <p className={cn('text-muted', 'm-0 text-[0.88rem]')}>{loc}</p>}
 						{goal.bib_number && !authed && (
 							<p className="m-0 text-[0.88rem]">
@@ -272,7 +281,11 @@ export function MedalDialog({
 						)}
 					</div>
 
-					<MedalLinks goal={goal} activity={activity} />
+					<MedalLinks
+						goal={goal}
+						activitySlug={goal.result?.activity_slug}
+						onOpenActivity={onClose}
+					/>
 
 					{goal.time_goal && !delta && (
 						<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Time goal was {goal.time_goal}.</p>
@@ -334,18 +347,6 @@ export function MedalDialog({
 						</div>
 					) : null}
 
-					{goal.result?.activity_slug && (
-						<div className={actionsClass()}>
-							<Link
-								className={buttonClass()}
-								to="/runs/$slug"
-								params={{ slug: goal.result.activity_slug }}
-								onClick={onClose}
-							>
-								Open activity
-							</Link>
-						</div>
-					)}
 				</div>
 			)}
 		</Dialog>

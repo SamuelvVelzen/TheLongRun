@@ -70,7 +70,6 @@ import {
 	formatUnplannedBrief,
 	isoDateLocal,
 	isRestLike,
-	isSkippedStatus,
 	keepSoonestNext,
 	mondayIso,
 	pickBannerWeekView,
@@ -89,6 +88,7 @@ import {
 	weekToPlan,
 	withSessionRoutes,
 	type PlanCalendar,
+	type WeekSessionView,
 	type WeekView
 } from '$lib/plan';
 import {
@@ -98,9 +98,10 @@ import {
 	withEffectiveHrZones,
 	type RouteAnalytics
 } from '$lib/splits';
+import { looksLikePlanWeek, parsePlanWeeks } from '$lib/plan-schema';
+import { workoutMarkdown, workoutSummary } from '$lib/run-workout';
 import {
 	formatStrengthHistoryBrief,
-	normalizePlanStrengthExercises,
 	parseStrengthNotes,
 	recentExerciseTops,
 	strengthSummary
@@ -125,6 +126,7 @@ import {
 	formatPatternPromptSection,
 	normalizeWeekPattern,
 	patternHasSlotMeta,
+	RUN_SESSION_PROMPT,
 	SLOT_CONSTRAINT_PROMPT,
 	STRENGTH_SESSION_PROMPT,
 	type WeekPattern
@@ -910,14 +912,14 @@ ${thisWeekLogs.map(formatRunBriefLine).join('\n')}
 				}`
 			: `There is **no race on the calendar**. Plan ${weekPhrase} as base / consistency training.${intentionLookahead}`;
 		const ladderLine = activeGoal
-			? 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering and laddering toward the race. Strength sessions need a gym kind in `label`, duration/load/tempo in `detail`, and the lift list in `exercises`.'
-			: 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering. Strength sessions need a gym kind in `label`, duration/load/tempo in `detail`, and the lift list in `exercises`. No race to peak for — keep it sustainable.';
+			? 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering and laddering toward the race. Runs need their warmup / reps / cooldown as blocks in `workout`. Strength sessions need a gym kind in `label`, duration/load/tempo in `detail`, and the lift list in `exercises`.'
+			: 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering. Runs need their warmup / reps / cooldown as blocks in `workout`. Strength sessions need a gym kind in `label`, duration/load/tempo in `detail`, and the lift list in `exercises`. No race to peak for — keep it sustainable.';
 		const briefAsk = revising
 			? `Week ${targetWeek} already has a saved plan (see Training plan). **Revise remaining sessions** given what is already logged, including any unplanned extras. Start from the saved week JSON — do not rebuild from the usual-week skeleton. Keep completed planned sessions in the JSON as they were (a matching Activity log date + sport means done; do not add \`"status": "completed"\` — \`status\` is only for skipped). You may add sessions for extras I propose in the notes — say why. Flag any red flags (injury risk, overtraining, under-recovery).`
 			: `Please assess how my training is going and give me a concrete plan for **${weekPhrase}** covering **every session in my usual-week skeleton** (runs, bikes, walks, strength — whatever I pinned), keeping those days and sports. ${ladderLine} If a log ${weekPhrase} already matches a skeleton day and sport, that slot is done — keep it in the JSON to match what I did, and plan the remaining days. Flag any red flags (injury risk, overtraining, under-recovery).`;
 		const replyRules = revising
-			? `Start from the saved week JSON — do not replace it with the usual-week skeleton. Keep completed sessions as they were (do not add \`"status": "completed"\`). Revise what's still ahead, same days and sports unless notes or recovery require a shift. Never move or skip a slot marked **can't change**. Optional slots may be skipped with \`"status": "skipped"\`. You may add a session for an extra I declared in the notes. If you drop a session, set \`"status": "skipped"\`. ${SKIP_STATUS_PROMPT} Only move a usual day if you must, and say why in prose. ${STRENGTH_SESSION_PROMPT}`
-			: `Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, …), \`"distance_km"\` (null for strength), and \`"detail"\`. ${STRENGTH_SESSION_PROMPT} The example labels and distances below are placeholders, not prescriptions. Never move or skip a slot marked **can't change**. Optional slots may be skipped with \`"status": "skipped"\`. ${SKIP_STATUS_PROMPT} Only move a usual day if recovery, heat, life, or the notes require it — and say why in prose.`;
+			? `Start from the saved week JSON — do not replace it with the usual-week skeleton. Keep completed sessions as they were (do not add \`"status": "completed"\`). Revise what's still ahead, same days and sports unless notes or recovery require a shift. Never move or skip a slot marked **can't change**. Optional slots may be skipped with \`"status": "skipped"\`. You may add a session for an extra I declared in the notes. If you drop a session, set \`"status": "skipped"\`. ${SKIP_STATUS_PROMPT} Only move a usual day if you must, and say why in prose. ${RUN_SESSION_PROMPT} ${STRENGTH_SESSION_PROMPT}`
+			: `Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, …), \`"distance_km"\` (null for strength), \`"detail"\`, and \`"workout"\` for runs. ${RUN_SESSION_PROMPT} ${STRENGTH_SESSION_PROMPT} The example labels and distances below are placeholders, not prescriptions. Never move or skip a slot marked **can't change**. Optional slots may be skipped with \`"status": "skipped"\`. ${SKIP_STATUS_PROMPT} Only move a usual day if recovery, heat, life, or the notes require it — and say why in prose.`;
 
 		const goalSection = activeGoal
 			? `## Goal
@@ -1264,6 +1266,55 @@ function debriefRunSummary(r: RunRecord) {
 	};
 }
 
+type PlannedMatch =
+	| { kind: 'planned'; session: WeekSessionView }
+	| { kind: 'unplanned' }
+	| { kind: 'missing' };
+
+/** The plan session this activity filled, or why there is none. */
+function plannedSessionForActivity(
+	run: RunRecord,
+	plan: PlanWeek[],
+	runs: RunRecord[],
+	cal: PlanCalendar
+): PlannedMatch {
+	const weekNum = weekNumberForDate(run.date, cal);
+	const planWeek = weekNum != null ? plan.find((w) => w.week === weekNum) : undefined;
+	if (!planWeek?.sessions?.length) return { kind: 'missing' };
+	const view = buildWeekView(planWeek, runs, cal);
+	const session = view.sessions.find((s) => s.logSlug === run.slug);
+	if (session) return { kind: 'planned', session };
+	if (view.unplanned.some((u) => u.slug === run.slug)) return { kind: 'unplanned' };
+	return { kind: 'missing' };
+}
+
+function formatPlannedForActivity(run: RunRecord, match: PlannedMatch): string {
+	const head = `- ${run.date} ${activityLabel(run.activity_type)} (slug \`${run.slug}\`)`;
+	if (match.kind === 'unplanned') {
+		return `${head}: Unplanned — no session was planned for this day and sport. Coach it as extra load.`;
+	}
+	if (match.kind === 'missing') {
+		return `${head}: Can't find a planned session for this activity — no plan covers this date.`;
+	}
+	const s = match.session;
+	const km = s.distance_km != null ? ` · ${s.distance_km} km planned` : '';
+	const lines = [`${head}: **${s.label}**${km}`];
+	if (s.workout) {
+		lines.push(`  Summary: ${workoutSummary(s.workout)}`);
+		lines.push('  Steps:');
+		lines.push(workoutMarkdown(s.workout, '    '));
+	}
+	if (s.exercises?.length) {
+		lines.push(
+			`  Lifts: ${s.exercises
+				.map((e) => `${e.name} ${e.sets}×${e.sec != null ? `${e.sec}s` : e.reps}${e.kg != null ? ` @ ${e.kg}kg` : ''}`)
+				.join('; ')}`
+		);
+	}
+	if (s.detail.trim()) lines.push(`  Intent: ${s.detail.trim()}`);
+	return lines.join('\n');
+}
+
 function formatFeelLogged(r: RunRecord): string {
 	const scores = [
 		`effort ${r.effort ?? '–'}`,
@@ -1410,7 +1461,8 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 								: s.isNext
 									? 'next'
 									: 'upcoming';
-					return `- ${s.day}${s.date ? ` (${s.date})` : ''}: ${activityLabel(s.activity_type ?? 'run')} · ${s.label}${s.distance_km != null ? ` · ${s.distance_km} km` : ''} — ${s.detail} [${state}]`;
+					const steps = s.workout ? `${workoutSummary(s.workout)}. ` : '';
+					return `- ${s.day}${s.date ? ` (${s.date})` : ''}: ${activityLabel(s.activity_type ?? 'run')} · ${s.label}${s.distance_km != null ? ` · ${s.distance_km} km` : ''} — ${steps}${s.detail} [${state}]`;
 				})
 				.join('\n') ?? '- (no plan week)';
 		const unplannedLines = weekView?.unplanned.length
@@ -1424,9 +1476,16 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			.map((r, i) => formatDebriefFeatured(r, featuredAnalytics[i] ?? null))
 			.join('\n');
 		const feelBlock = featured.map(formatFeelLogged).join('\n');
+		const plannedHeading = many ? 'Planned for these sessions' : 'Planned for this session';
+		const plannedBlock = featured
+			.map((r) =>
+				formatPlannedForActivity(r, plannedSessionForActivity(r, training.plan, allRuns, calendar))
+			)
+			.join('\n');
+		const compareLine = `Compare what I did against **${plannedHeading}**: did each step hit its target pace or effort (use the km splits and HR in the session block), and did I cut it short or add to it? If it says Unplanned, coach it as extra load. If no plan covers the date, do not call it unplanned.`;
 		const job = includePlan
-			? `Coach from ${sessionWord}: how it went, recovery, and what to watch. Answer any questions I asked in What I wrote. Then update **this week** only if remaining sessions should change. Keep remaining sessions on their planned days unless recovery requires a shift — and if you move a day, say why. Keep non-run sessions unless recovery says otherwise.`
-			: `Coach from ${sessionWord}: how it went, recovery, and what to watch. Answer any questions I asked in What I wrote. This chat already has my week plan — use that, do not repeat it here. If remaining sessions should change, include an updated \`week\` in your JSON reply (see When you reply).`;
+			? `Coach from ${sessionWord}: how it went, recovery, and what to watch. ${compareLine} Answer any questions I asked in What I wrote. Then update **this week** only if remaining sessions should change. Keep remaining sessions on their planned days unless recovery requires a shift — and if you move a day, say why. Keep non-run sessions unless recovery says otherwise.`
+			: `Coach from ${sessionWord}: how it went, recovery, and what to watch. ${compareLine} Answer any questions I asked in What I wrote. This chat already has my week plan — use that, do not repeat it here. If remaining sessions should change, include an updated \`week\` in your JSON reply (see When you reply).`;
 		const planSections = includePlan
 			? `
 ## Current week plan${week ? ` — week ${week.week} (${week.dates}) · ${week.phase} · ${week.focus}` : ''}
@@ -1450,7 +1509,7 @@ ${unplannedLines ? `## Unplanned activities this week\nThese logs did not match 
     "phase": ${JSON.stringify(week?.phase ?? '')},
     "focus": "one-line focus after ${sessionWord}",
     "sessions": [
-      { "day": "Friday", "activity_type": "run", "label": "Easy", "distance_km": 7, "detail": "copy each day from Current week plan — do not use this Friday row as-is" }
+      { "day": "Friday", "activity_type": "run", "label": "Easy", "distance_km": 7, "detail": "copy each day from Current week plan — do not use this Friday row as-is", "workout": { "type": "easy", "blocks": [{ "kind": "run", "distance_km": 7, "pace": "6:30", "effort": "easy" }] } }
     ]
   }`
 			: '';
@@ -1458,9 +1517,10 @@ ${unplannedLines ? `## Unplanned activities this week\nThese logs did not match 
 			? `- \`week.sessions\` is the **full week** from Current week plan: keep completed/skipped rows as they were, rewrite what's still ahead. Every session needs \`"activity_type"\`. Only move a day if you must, and say why.
 - To drop a session, set \`"status": "skipped"\` on that row (why can go in \`detail\`; wording alone is not a skip). ${SKIP_STATUS_PROMPT}
 - If the week is finished, return the same session rows unchanged — do not invent a completed status (\`status\` is only \`"skipped"\`).
+- ${RUN_SESSION_PROMPT}
 - ${STRENGTH_SESSION_PROMPT}
 `
-			: `- **Week updates:** if anything still ahead should change, include \`week\` in the JSON (full week from this chat, \`activity_type\` on every session, keep completed/skipped rows as they were). Omit \`week\` only when nothing ahead changes. ${SKIP_STATUS_PROMPT} ${STRENGTH_SESSION_PROMPT}
+			: `- **Week updates:** if anything still ahead should change, include \`week\` in the JSON (full week from this chat, \`activity_type\` on every session, keep completed/skipped rows as they were). Omit \`week\` only when nothing ahead changes. ${SKIP_STATUS_PROMPT} ${RUN_SESSION_PROMPT} ${STRENGTH_SESSION_PROMPT}
 `;
 		const reply = `## When you reply
 Lead with coaching advice in prose (how ${sessionWord} went, recovery, and whether anything ahead should change). Answer any questions from What I wrote there. After the advice, output one fenced JSON object I can paste back — the JSON is what I save; the advice is not.
@@ -1495,6 +1555,9 @@ ${job}
 
 ${usualWeekSection}## ${sessionHeading}
 ${sessionBlock}
+
+## ${plannedHeading}
+${plannedBlock}
 
 ## How I felt
 – means I did not tap a number. Infer those from What I wrote when the text is clear; keep any number already here.
@@ -2289,24 +2352,16 @@ function parseJsonPayload(text: string): unknown {
 	throw new Error('That is not valid JSON — paste the JSON block your AI returned.');
 }
 
-function asPlanWeeks(parsed: unknown): PlanWeek[] {
-	const incoming = (Array.isArray(parsed) ? parsed : [parsed]).filter(
-		(w): w is PlanWeek =>
-			Boolean(w) &&
-			typeof w === 'object' &&
-			typeof (w as PlanWeek).week === 'number' &&
-			Array.isArray((w as PlanWeek).sessions)
-	);
-	return incoming;
+/** Objects in the paste that look like plan weeks (`week` + `sessions`). */
+function planWeekCandidates(parsed: unknown): unknown[] {
+	return (Array.isArray(parsed) ? parsed : [parsed]).filter(looksLikePlanWeek);
 }
 
 async function mergePlanWeeks(incoming: PlanWeek[]): Promise<{ weeks: number; updated: number[] }> {
 	if (!incoming.length) throw new Error('No plan week found in that JSON.');
 	const { calendar } = await loadTrainingContext();
 	for (const w of incoming) {
-		if (typeof w.week !== 'number') throw new Error('Each week needs a numeric "week".');
-		if (!Array.isArray(w.sessions)) throw new Error(`Week ${w.week} has no "sessions" array.`);
-		if (!Number.isInteger(w.week) || w.week < 1 || w.week > calendar.weekCount) {
+		if (w.week > calendar.weekCount) {
 			throw new Error(
 				calendar.rolling
 					? 'With no race on the calendar, paste a single week (week 1).'
@@ -2320,13 +2375,7 @@ async function mergePlanWeeks(incoming: PlanWeek[]): Promise<{ weeks: number; up
 		byWeek.set(w.week, {
 			...w,
 			start: planWeekStartIso(w.week, calendar),
-			dates: w.dates?.trim() ? w.dates : planWeekDateRange(w.week, calendar),
-			sessions: w.sessions.map((s) => {
-				const { status, exercises, ...rest } = s;
-				const lifts = normalizePlanStrengthExercises(exercises);
-				const row = lifts ? { ...rest, exercises: lifts } : rest;
-				return isSkippedStatus(status) ? { ...row, status: 'skipped' as const } : row;
-			})
+			dates: w.dates?.trim() ? w.dates : planWeekDateRange(w.week, calendar)
 		});
 	}
 	const merged = [...byWeek.values()]
@@ -2401,7 +2450,9 @@ function feelingsRowsFrom(parsed: unknown): Record<string, unknown>[] {
 export const savePlanWeeks = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((jsonText: string) => jsonText)
 	.handler(async ({ data: jsonText }) => {
-		return mergePlanWeeks(asPlanWeeks(parseJsonPayload(jsonText)));
+		const candidates = planWeekCandidates(parseJsonPayload(jsonText));
+		if (!candidates.length) throw new Error('No plan week found in that JSON.');
+		return mergePlanWeeks(parsePlanWeeks(candidates));
 	});
 
 /** Save a debrief reply: feelings for this run + an updated week plan. */
@@ -2411,8 +2462,8 @@ export const saveDebrief = createServerFn({ method: 'POST' }).middleware([requir
 		const parsed = parseJsonPayload(jsonText);
 		const rows = feelingsRowsFrom(parsed);
 		const obj = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
-		const weekBlob = obj.week ?? (asPlanWeeks(parsed).length ? parsed : null);
-		const weeks = asPlanWeeks(weekBlob);
+		const candidates = planWeekCandidates(looksLikePlanWeek(obj.week) ? obj.week : parsed);
+		const weeks = candidates.length ? parsePlanWeeks(candidates) : [];
 		if (!rows.length && !weeks.length) {
 			throw new Error('Need a "feelings" object and/or a "week" with sessions in that JSON.');
 		}

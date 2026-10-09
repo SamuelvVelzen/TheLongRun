@@ -69,11 +69,13 @@ const moreLinks = [
 	{ href: '/goals', label: 'Goals', icon: 'trophy' },
 	{ href: '/import', label: 'Add activity', icon: 'plus' },
 	{ href: '/gear', label: 'Gear', icon: 'gear' },
+	{ href: '/fuel', label: 'Fuel', icon: 'fuel' },
 	{ href: '/context', label: 'Context', icon: 'context' }
 ] as const;
 
 const desktopMoreLinks = [
 	{ href: '/gear', label: 'Gear', icon: 'gear' },
+	{ href: '/fuel', label: 'Fuel', icon: 'fuel' },
 	{ href: '/context', label: 'Context', icon: 'context' }
 ] as const;
 

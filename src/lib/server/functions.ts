@@ -23,6 +23,19 @@ import { dateRangeFromSearch, filterRunsByRange, type DateRange, type RangeKind 
 import { DEBRIEF_HABITS_TOKEN, DEBRIEF_WRITEUP_TOKEN } from '$lib/debrief';
 import { dayFromIsoDate, formatDuration, guessSession, localDateTimeToUtcMs, normalizeStartTime, parseDurationSeconds } from '$lib/format';
 import {
+	formatFuelSection,
+	fuelItemNames,
+	normalizeFuelEntry,
+	normalizeFuelLog,
+	renameFuelItemIn,
+	type FuelEntry,
+	type FuelLog,
+	type FuelPhase,
+	type FuelRunRef
+} from '$lib/fuel';
+import { parseFuelReply, parseFuelSuggestions } from '$lib/fuel-schema';
+import { FUEL_TEXT_TOKEN } from '$lib/fuel-prompt';
+import {
 	catalogHasItems,
 	formatGearKm,
 	GEAR_KINDS,
@@ -140,6 +153,7 @@ import {
 	currentPlanWeek,
 	loadActivityHabits,
 	loadGear,
+	loadFuelLog,
 	loadGoalStore,
 	loadLiveLocation,
 	loadPlan,
@@ -147,6 +161,7 @@ import {
 	loadTrainingContext,
 	migrateRaceStrategyToActiveGoal,
 	persistActivityHabits,
+	persistFuelLog,
 	persistGear,
 	readContextFile,
 	rememberGearName,
@@ -2575,6 +2590,123 @@ export const saveGear = createServerFn({ method: 'POST' }).middleware([requireAu
 	.handler(async ({ data }) => {
 		await persistGear(data);
 		return { ok: true };
+	});
+
+function fuelRunRefs(runs: RunRecord[], log: FuelLog): Record<string, FuelRunRef> {
+	const linked = new Set(log.entries.map((e) => e.slug).filter(Boolean));
+	const out: Record<string, FuelRunRef> = {};
+	for (const r of runs) {
+		if (!linked.has(r.slug)) continue;
+		out[r.slug] = { date: r.date, distance_km: r.distance_km, activity_type: r.activity_type };
+	}
+	return out;
+}
+
+function runDatesBySlug(runs: RunRecord[]): Record<string, string> {
+	return Object.fromEntries(runs.map((r) => [r.slug, r.date]));
+}
+
+function fuelItemsPromptLine(log: FuelLog): string {
+	const names = fuelItemNames(log);
+	return names.length ? names.join(', ') : '(none yet)';
+}
+
+function buildFuelPromptTemplate(log: FuelLog, runs: RunRecord[]): string {
+	const recent = [...runs].sort(byDateNewestFirst).slice(0, 10);
+	const recentLines = recent.length
+		? recent
+				.map(
+					(r) =>
+						`- \`${r.slug}\` · ${r.date} · ${activityLabel(r.activity_type)}${
+							r.distance_km != null ? ` · ${r.distance_km} km` : ''
+						}`
+				)
+				.join('\n')
+		: '- (none)';
+	const example = recent[0]?.slug ?? '';
+	return `# The Long Run — log what I ate
+
+Turn what I wrote below into fuel tries for my log: what I ate or drank before, during, or after a run, and how it went.
+
+## What I wrote
+${FUEL_TEXT_TOKEN}
+
+## Items already in my log
+Reuse one of these exact names when it is the same food or drink: ${fuelItemsPromptLine(log)}
+
+## Recent activities
+Link a try to one of these only when I clearly mean it (e.g. "my 18 km on Sunday").
+${recentLines}
+
+## Reply
+Return ONLY one JSON block in exactly this shape — no prose before or after:
+
+\`\`\`json
+{
+  "fuel": [
+    {
+      "phase": "before",
+      "item": "Coffee",
+      "timing": "20 min before",
+      "outcome": "good",
+      "notes": "",
+      "slug": ${JSON.stringify(example)}
+    }
+  ]
+}
+\`\`\`
+
+Rules:
+- One entry per item + phase + timing. If I tried the same thing at two timings, that is two entries.
+- \`phase\` is \`before\`, \`during\` or \`after\` the run.
+- \`timing\` in my own words ("20 min before", "every 5 km", "at the water stations", "night before"). If I did not say, use "not noted".
+- \`outcome\`: \`good\` (fine / no issues), \`mixed\`, or \`bad\` (cramps, stitch, nausea, energy crash). Only from what I said — if I said nothing went wrong, use \`good\`.
+- \`notes\`: short, my words — symptoms, amounts, conditions. Empty if nothing to add.
+- \`slug\`: only from Recent activities, otherwise \`""\`. Do not copy the example slug unless it fits.
+- Never invent food I did not mention.
+`;
+}
+
+export const getFuelData = createServerFn({ method: 'GET' }).handler(async () => {
+	const [log, runs] = await Promise.all([loadFuelLog(), listRuns()]);
+	return {
+		log,
+		runsBySlug: fuelRunRefs(runs, log),
+		promptTemplate: buildFuelPromptTemplate(log, runs)
+	};
+});
+
+export const saveFuelLog = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: FuelLog) => normalizeFuelLog(d))
+	.handler(async ({ data }) => {
+		return persistFuelLog(data);
+	});
+
+export const addFuelEntries = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: FuelEntry[]) =>
+		(Array.isArray(d) ? d : []).map(normalizeFuelEntry).filter((e): e is FuelEntry => e != null)
+	)
+	.handler(async ({ data }) => {
+		const log = await loadFuelLog();
+		const saved = await persistFuelLog({ ...log, entries: [...log.entries, ...data] });
+		return { log: saved, added: data.length };
+	});
+
+export const renameFuelItem = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: { phase: FuelPhase; from: string; to: string }) => d)
+	.handler(async ({ data }) => {
+		const log = await loadFuelLog();
+		return persistFuelLog(renameFuelItemIn(log, data.phase, data.from, data.to));
+	});
+
+/** Describe-what-you-ate reply: validated with zod and saved straight away. */
+export const saveFuelReply = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((jsonText: string) => jsonText)
+	.handler(async ({ data: jsonText }) => {
+		const [log, runs] = await Promise.all([loadFuelLog(), listRuns()]);
+		const entries = parseFuelReply(parseJsonPayload(jsonText), runDatesBySlug(runs));
+		const saved = await persistFuelLog({ ...log, entries: [...log.entries, ...entries] });
+		return { log: saved, addedIds: entries.map((e) => e.id) };
 	});
 
 export const saveActivityHabits = createServerFn({ method: 'POST' }).middleware([requireAuth])

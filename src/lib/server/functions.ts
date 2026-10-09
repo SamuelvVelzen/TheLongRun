@@ -47,6 +47,7 @@ import {
 	type GearContext,
 	type GearKind
 } from '$lib/gear';
+import { formatWardrobeSection, normalizeWardrobe, wardrobeHasItems, type Wardrobe } from '$lib/wardrobe';
 import {
 	activityLooksLikeRace,
 	canPinRaceResult,
@@ -111,6 +112,12 @@ import {
 	withEffectiveHrZones,
 	type RouteAnalytics
 } from '$lib/splits';
+import {
+	feelingsRowToPatch,
+	parseFeelingsReply,
+	parseFeelingsSuggestions,
+	type ParsedFeelingsActivity
+} from '$lib/feelings-schema';
 import { looksLikePlanWeek, parsePlanWeeks } from '$lib/plan-schema';
 import { workoutMarkdown, workoutSummary } from '$lib/run-workout';
 import {
@@ -155,6 +162,7 @@ import {
 	loadGear,
 	loadFuelLog,
 	loadGoalStore,
+	loadWardrobe,
 	loadLiveLocation,
 	loadPlan,
 	loadSettings,
@@ -163,6 +171,7 @@ import {
 	persistActivityHabits,
 	persistFuelLog,
 	persistGear,
+	persistWardrobe,
 	readContextFile,
 	rememberGearName,
 	saveGoalStore,
@@ -231,7 +240,9 @@ import {
 import { inferSurfaceFromTrack } from './surface';
 import {
 	DEFAULT_START_HHMM,
+	fetchDailyForecast,
 	fetchWeatherForDateTime,
+	formatDailyForecast,
 	weatherLocationFromTrack
 } from './weather';
 
@@ -738,9 +749,29 @@ export const getContextData = createServerFn({ method: 'GET' }).handler(async ()
 });
 
 export const getGearData = createServerFn({ method: 'GET' }).handler(async () => {
-	const [gear, runs, habits] = await Promise.all([loadGear(), listRuns(), loadActivityHabits()]);
-	return { gear, gearWear: wearByAllGear(runs), habits };
+	const [gear, runs, habits, wardrobe] = await Promise.all([
+		loadGear(),
+		listRuns(),
+		loadActivityHabits(),
+		loadWardrobe()
+	]);
+	return { gear, gearWear: wearByAllGear(runs), habits, wardrobe };
 });
+
+function forecastSectionForBrief(
+	forecast: { date: string; line: string }[],
+	weekPhrase: string,
+	hasWardrobe: boolean
+): string {
+	if (!forecast.length) return '';
+	const kitRule = hasWardrobe
+		? ' Use it with My clothing to suggest kit per session.'
+		: '';
+	return `## Forecast (${weekPhrase}, home location, auto-fetched)
+Daily range — sessions are usually in the morning, so lean toward the low end.${kitRule} Days past the forecast horizon are missing; do not guess them.
+
+${forecast.map((f) => `- ${f.line}`).join('\n')}`;
+}
 
 export const getCoachBrief = createServerFn({ method: 'GET' })
 	.validator((d: {
@@ -767,7 +798,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		const range = data.range;
 		// Before reading gear.md: the first load moves its fuel section into the fuel log.
 		const fuelLog = await loadFuelLog();
-		const [allRuns, training, gearInventory, profile, injury, gear, settings, habits] =
+		const [allRuns, training, gearInventory, profile, injury, gear, settings, habits, wardrobe] =
 			await Promise.all([
 				listRuns(),
 				loadTrainingContext(),
@@ -776,7 +807,8 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 				readContextFile('injury.md'),
 				readContextFile('gear.md'),
 				loadSettings(),
-				loadActivityHabits()
+				loadActivityHabits(),
+				loadWardrobe()
 			]);
 		const { plan, calendar, activeGoal, medals, store } = training;
 		const defaultSetup = data.defaultSetup ?? weekSetupFromSettings(settings);
@@ -872,6 +904,16 @@ ${formatUnplannedBrief(targetView.unplanned)}
 				: '';
 		const weekStartIso = planWeekStartIso(targetWeek, calendar);
 		const weekEndIso = planWeekEndIso(targetWeek, calendar);
+		const hasWardrobe = wardrobeHasItems(wardrobe);
+		const forecast = (await fetchDailyForecast(weekStartIso, weekEndIso)).map((f) => {
+			const weekday = new Date(`${f.date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long' });
+			return { date: f.date, line: `${weekday} ${f.date}: ${formatDailyForecast(f)}` };
+		});
+		const forecastSection = forecastSectionForBrief(forecast, weekPhrase, hasWardrobe);
+		const wardrobeSection = formatWardrobeSection(wardrobe);
+		const kitReply = hasWardrobe
+			? ` In the prose, give each run, walk, and bike session a one-line **Kit:** from My clothing${forecast.length ? ' for that day’s forecast' : ''} (long or wet runs → long-run-safe bottoms). Keep kit out of the JSON. If the weather calls for something I don’t own, say so once.`
+			: '';
 		const thisWeekLogs = allRuns
 			.filter((r) => r.date >= weekStartIso && r.date <= weekEndIso)
 			.sort((a, b) =>
@@ -1005,8 +1047,8 @@ ${rows}
 ${strengthSection ? `${strengthSection}\n\n` : ''}## Training plan
 ${plan.length ? formatTrainingPlanBrief(plan, targetWeek, calendar) : '(no plan set)'}
 
-${unplannedSection}${unplannedSection ? '\n' : ''}${alreadyLoggedSection}${alreadyLoggedSection ? '\n' : ''}${gearSectionForBrief(gearInventory, allRuns)}
-
+${unplannedSection}${unplannedSection ? '\n' : ''}${alreadyLoggedSection}${alreadyLoggedSection ? '\n' : ''}${forecastSection ? `${forecastSection}\n\n` : ''}${gearSectionForBrief(gearInventory, allRuns)}
+${wardrobeSection ? `\n${wardrobeSection}\n` : ''}
 ## Runner profile
 ${profile.trim() || '(none)'}
 
@@ -1023,7 +1065,7 @@ ${gear.trim() || '(none)'}
 ${mixSection}
 
 ## When you reply
-Give your assessment and ${weekPhrase}'s sessions in prose. Then, so I can save it straight back into my app, also output **${weekPhrase} as one JSON object** in exactly this shape (real values, same keys). ${replyRules}
+Give your assessment and ${weekPhrase}'s sessions in prose.${kitReply} Then, so I can save it straight back into my app, also output **${weekPhrase} as one JSON object** in exactly this shape (real values, same keys). ${replyRules}
 
 \`\`\`json
 ${exampleJson}
@@ -2417,64 +2459,19 @@ async function mergePlanWeeks(incoming: PlanWeek[]): Promise<{ weeks: number; up
 }
 
 async function applyFeelingsRows(
-	rows: Record<string, unknown>[]
+	rows: ParsedFeelingsActivity[]
 ): Promise<{ updated: number; updatedSlugs: string[]; missing: string[] }> {
-	const score = (v: unknown, lo: number, hi: number): number | null => {
-		const n = Number(v);
-		if (!Number.isFinite(n)) return null;
-		return Math.max(lo, Math.min(hi, Math.round(n)));
-	};
 	const updated: string[] = [];
 	const missing: string[] = [];
-	for (const a of rows) {
-		const slug = String(a.slug);
-		const patch: FeelingsPatch = {};
-		if ('effort' in a) patch.effort = score(a.effort, 1, 10);
-		if ('shins' in a) patch.shins = score(a.shins, 0, 10);
-		if ('legs' in a) patch.legs = score(a.legs, 0, 10);
-		if ('energy' in a) patch.energy = score(a.energy, 1, 10);
-		if ('wanted_faster' in a)
-			patch.wanted_faster =
-				a.wanted_faster === true ? true : a.wanted_faster === false ? false : null;
-		if (typeof a.surface === 'string') patch.surface = a.surface.trim();
-		if (typeof a.notes === 'string') patch.notes = a.notes.trim();
-		if (typeof a.session === 'string') patch.session = a.session.trim();
-		if ('cadence' in a) {
-			const n = Number(a.cadence);
-			patch.cadence = Number.isFinite(n) && n > 0 ? Math.round(n) : null;
-		}
-		if (typeof a.gear === 'string') patch.gear = a.gear.trim();
-		const ok = await updateRunFeelings(slug, patch);
-		if (ok && typeof a.gear === 'string') {
-			const run = await getRun(slug);
+	for (const row of rows) {
+		const ok = await updateRunFeelings(row.slug, feelingsRowToPatch(row) as FeelingsPatch);
+		if (ok && row.gear !== undefined) {
+			const run = await getRun(row.slug);
 			if (run) await rememberGearName(run.gear, run.activity_type);
 		}
-		(ok ? updated : missing).push(slug);
+		(ok ? updated : missing).push(row.slug);
 	}
 	return { updated: updated.length, updatedSlugs: updated, missing };
-}
-
-function feelingsRowsFrom(parsed: unknown): Record<string, unknown>[] {
-	if (!parsed || typeof parsed !== 'object') return [];
-	const o = parsed as Record<string, unknown>;
-	const list: unknown[] = Array.isArray(o)
-		? o
-		: Array.isArray(o.activities)
-			? o.activities
-			: Array.isArray(o.feelings)
-				? o.feelings
-				: o.feelings && typeof o.feelings === 'object'
-					? Array.isArray((o.feelings as { activities?: unknown }).activities)
-						? (o.feelings as { activities: unknown[] }).activities
-						: [o.feelings]
-					: [];
-	return list.filter(
-		(a): a is Record<string, unknown> =>
-			Boolean(a) &&
-			typeof a === 'object' &&
-			!Array.isArray(a) &&
-			typeof (a as { slug?: unknown }).slug === 'string'
-	);
 }
 
 /** Merge AI-returned plan week(s) into plan.json (replace by week number, keep the rest). */
@@ -2491,7 +2488,7 @@ export const saveDebrief = createServerFn({ method: 'POST' }).middleware([requir
 	.validator((jsonText: string) => jsonText)
 	.handler(async ({ data: jsonText }) => {
 		const parsed = parseJsonPayload(jsonText);
-		const rows = feelingsRowsFrom(parsed);
+		const rows = parseFeelingsSuggestions(parsed);
 		const obj = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
 		const candidates = planWeekCandidates(looksLikePlanWeek(obj.week) ? obj.week : parsed);
 		const weeks = candidates.length ? parsePlanWeeks(candidates) : [];
@@ -2598,8 +2595,7 @@ ${table}
 export const saveFeelings = createServerFn({ method: 'POST' }).middleware([requireAuth])
 	.validator((jsonText: string) => jsonText)
 	.handler(async ({ data: jsonText }) => {
-		const rows = feelingsRowsFrom(parseJsonPayload(jsonText));
-		if (!rows.length) throw new Error('No activities with a "slug" were found in that JSON.');
+		const rows = parseFeelingsReply(parseJsonPayload(jsonText));
 		return applyFeelingsRows(rows);
 	});
 
@@ -2608,6 +2604,12 @@ export const saveGear = createServerFn({ method: 'POST' }).middleware([requireAu
 	.handler(async ({ data }) => {
 		await persistGear(data);
 		return { ok: true };
+	});
+
+export const saveWardrobe = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: Wardrobe) => normalizeWardrobe(d))
+	.handler(async ({ data }) => {
+		return persistWardrobe(data);
 	});
 
 function fuelRunRefs(runs: RunRecord[], log: FuelLog): Record<string, FuelRunRef> {

@@ -14,6 +14,7 @@ import {
     readDebriefWriteups,
     writeDebriefWriteups
 } from '$lib/debrief-writeups';
+import type { FuelEntry } from '$lib/fuel';
 import type { GearContext, GearKind, GearWear } from '$lib/gear';
 import { formatHorizonShort } from '$lib/goals';
 import {
@@ -49,6 +50,7 @@ import { DebriefActivityTitle } from '../components/DebriefActivityTitle';
 import { DebriefFeelForm } from '../components/DebriefFeelForm';
 import { DebriefRacePanel } from '../components/DebriefRacePanel';
 import { DeferredData } from '../components/DeferredData';
+import { FuelSuggestionsDialog } from '../components/FuelSuggestionsDialog';
 import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
 import { JsonPasteForm } from '../components/JsonPasteForm';
@@ -498,6 +500,7 @@ function CoachPanels({
 		)
 	);
 	const [debriefCopied, setDebriefCopied] = useState(false);
+	const [fuelSuggestions, setFuelSuggestions] = useState<FuelEntry[]>([]);
 
 	const [usual, setUsual] = useState<SlotRow[]>(() => rowsFrom(initialSetup.pattern));
 	const [dayLimits, setDayLimits] = useState<DayLimit[]>(initialSetup.dayLimits);
@@ -839,7 +842,8 @@ function CoachPanels({
 							<span className={cn('text-muted', 'block mt-1')}>
 								{includePlan
 									? 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary, any scores it read from your write-up, and the rest of the week. Distance, time, elevation, and pace per km are already in the prompt — no screenshots.'
-									: 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary and any scores it read from your write-up. The prompt also tells the AI to return an updated week if remaining sessions should change — even with “Include this week’s plan” off. Distance, time, elevation, and pace per km are already in the prompt — no screenshots.'}
+									: 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary and any scores it read from your write-up. The prompt also tells the AI to return an updated week if remaining sessions should change — even with “Include this week’s plan” off. Distance, time, elevation, and pace per km are already in the prompt — no screenshots.'}{' '}
+								If you mention food or drink (coffee before, sweets every 5 km), the AI lists it too.
 							</span>
 							{debrief.error && !debriefPrompt && (
 								<p className={cn('text-muted', 'mt-[0.4rem]')}>{debrief.error}</p>
@@ -884,7 +888,8 @@ function CoachPanels({
 							<span className={cn('text-muted', 'block mt-1')}>
 								{includePlan
 									? 'A short notes summary for this activity plus the updated rest of the week. Days can change. Advice stays in the chat — only the JSON is saved.'
-									: 'A short notes summary for this activity, and an updated week if remaining sessions should change. Advice stays in the chat — only the JSON is saved.'}
+									: 'A short notes summary for this activity, and an updated week if remaining sessions should change. Advice stays in the chat — only the JSON is saved.'}{' '}
+								Food it found is not saved straight away — you'll be asked first.
 							</span>
 							{authed ? (
 								<JsonPasteForm
@@ -917,6 +922,10 @@ function CoachPanels({
 											);
 										}
 										if (res.planUpdated.length) bits.push(`week ${res.planUpdated.join(', ')} updated`);
+										if (res.fuelSuggestions.length) {
+											bits.push('food found — review it');
+											setFuelSuggestions(res.fuelSuggestions);
+										}
 										const miss = res.feelingsMissing.length
 											? ` (${res.feelingsMissing.length} slug(s) not found)`
 											: '';
@@ -931,6 +940,10 @@ function CoachPanels({
 							) : null}
 						</li>
 					</ol>
+					<FuelSuggestionsDialog
+						suggestions={fuelSuggestions}
+						onClose={() => setFuelSuggestions([])}
+					/>
 				</>
 			)}
 

@@ -763,6 +763,8 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 	})
 	.handler(async ({ data }) => {
 		const range = data.range;
+		// Before reading gear.md: the first load moves its fuel section into the fuel log.
+		const fuelLog = await loadFuelLog();
 		const [allRuns, training, gearInventory, profile, injury, gear, settings, habits] =
 			await Promise.all([
 				listRuns(),
@@ -1011,7 +1013,9 @@ ${injury.trim() || '(none)'}
 
 ${formatUsualHabitsSection(habits)}
 
-## Fueling & checklist
+${formatFuelSection(fuelLog, fuelRunRefs(allRuns, fuelLog))}
+
+## Checklist & kit
 ${gear.trim() || '(none)'}
 
 ${mixSection}
@@ -1407,7 +1411,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 	})
 	.handler(async ({ data }) => {
 		const { slug, includePlan } = data;
-		const [allRuns, week, injury, settings, training, gearInventory, allTimeMaxHr, habits] = await Promise.all([
+		const [allRuns, week, injury, settings, training, gearInventory, allTimeMaxHr, habits, fuelLog] = await Promise.all([
 			listRuns(),
 			currentPlanWeek(),
 			readContextFile('injury.md'),
@@ -1415,7 +1419,8 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			loadTrainingContext(),
 			loadGear(),
 			getMaxHrAllTime(),
-			loadActivityHabits()
+			loadActivityHabits(),
+			loadFuelLog()
 		]);
 		const { goals } = training.store;
 		const { calendar } = training;
@@ -1521,6 +1526,11 @@ ${unplannedLines ? `## Unplanned activities this week\nThese logs did not match 
 			'- `session` (runs only): easy / quality / long / race / … — keep mine if already set; infer from What I wrote only when obvious.\n' +
 			'- `cadence` (runs only): average steps per minute — only if I gave a number in What I wrote or Details; never invent.\n' +
 			'- `gear`: shoes or bike name — only if I named it; never invent.';
+		const fuelJson = `,
+  "fuel": [
+    { "slug": ${JSON.stringify(featured[0]?.slug ?? '')}, "phase": "before", "item": "Coffee", "timing": "20 min before", "outcome": "good", "notes": "" }
+  ]`;
+		const fuelRule = `- \`fuel\`: **only** when What I wrote mentions food or drink before, during, or after ${sessionWord} — otherwise omit \`fuel\` entirely. One entry per item + phase + timing; \`phase\` is before / during / after; \`timing\` in my words; \`outcome\` good / mixed / bad from what I said (cramps, stitch, nausea → bad; no complaint → good); \`notes\` short. Reuse an exact name from my known items when it is the same thing: ${fuelItemsPromptLine(fuelLog)}. Never invent food. If you include \`fuel\`, end your prose by asking whether I want these saved to my fuel log (the app asks me before saving).`;
 		const weekJson = includePlan
 			? `,
   "week": {
@@ -1547,13 +1557,14 @@ Lead with coaching advice in prose (how ${sessionWord} went, recovery, and wheth
 
 \`\`\`json
 {
-${formatFeelingsNotesExample(featured)}${weekJson}
+${formatFeelingsNotesExample(featured)}${fuelJson}${weekJson}
 }
 \`\`\`
 
 Rules:
 ${notesRule}
 ${scoresRule}
+${fuelRule}
 ${weekRules}`;
 
 		const usualWeekSection = `${formatWeekSetupDebriefSection(weekSetupFromSettings(settings), {
@@ -1596,6 +1607,8 @@ ${planSections}
 ${injury.trim() || '(none)'}
 
 ${formatUsualHabitsSection(habits)}
+
+${formatFuelSection(fuelLog, fuelRunRefs(allRuns, fuelLog))}
 
 ${reply}`;
 		const runs = featured.map(debriefRunSummary);
@@ -2480,7 +2493,9 @@ export const saveDebrief = createServerFn({ method: 'POST' }).middleware([requir
 		const obj = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
 		const candidates = planWeekCandidates(looksLikePlanWeek(obj.week) ? obj.week : parsed);
 		const weeks = candidates.length ? parsePlanWeeks(candidates) : [];
-		if (!rows.length && !weeks.length) {
+		const fuelSuggestions =
+			obj.fuel != null ? parseFuelSuggestions(obj.fuel, runDatesBySlug(await listRuns())) : [];
+		if (!rows.length && !weeks.length && !fuelSuggestions.length) {
 			throw new Error('Need a "feelings" object and/or a "week" with sessions in that JSON.');
 		}
 		const feelings = rows.length
@@ -2492,7 +2507,8 @@ export const saveDebrief = createServerFn({ method: 'POST' }).middleware([requir
 			feelingsUpdatedSlugs: feelings.updatedSlugs,
 			feelingsMissing: feelings.missing,
 			planWeeks: plan.weeks,
-			planUpdated: plan.updated
+			planUpdated: plan.updated,
+			fuelSuggestions
 		};
 	});
 
@@ -2766,11 +2782,12 @@ export const getGoalBrief = createServerFn({ method: 'GET' })
 	}))
 	.handler(async ({ data }) => {
 		const range = dateRangeFromSearch({ range: '30d' });
-		const [allRuns, training, injury, habits] = await Promise.all([
+		const [allRuns, training, injury, habits, fuelLog] = await Promise.all([
 			listRuns(),
 			loadTrainingContext(),
 			readContextFile('injury.md'),
-			loadActivityHabits()
+			loadActivityHabits(),
+			loadFuelLog()
 		]);
 		const { medals } = training;
 		const windowRuns = filterRunsByRange(allRuns, range).sort(byDateNewestFirst);
@@ -2880,6 +2897,9 @@ ${activityRows}
 ${injury.trim() || '(none)'}
 
 ${formatUsualHabitsSection(habits)}
+
+${formatFuelSection(fuelLog, fuelRunRefs(allRuns, fuelLog))}
+Use this fuel log for any race-day fueling advice in \`notes\` — repeat what worked, avoid what caused trouble.
 
 ## When you reply
 Give a short assessment in prose if you want. Then output **one JSON object** I can paste back, with exactly these keys. If a draft field is empty, leave it \`""\`, \`null\`, or \`[]\` unless a URL or my extra notes make it clear. Do not copy example placeholders. \`primary\` is an array of 3–6 short priorities (one line each). ${replyNotes} Keep any URL I gave.

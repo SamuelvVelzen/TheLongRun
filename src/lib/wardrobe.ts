@@ -231,6 +231,23 @@ Rules:
 export const WARDROBE_PROMPT_RULE =
 	'Pick only from items I own. Temperature ranges are my own comfort notes, not rules. Bottoms marked long-run safe are the ones that do not chafe on long or wet runs — use them for those. Count tells you how many I have (mind laundry on back-to-back days).';
 
+/** One line per item — paste into a chat when asking about kit. */
+export function formatWardrobeCompact(w: Wardrobe): string {
+	const lines: string[] = [];
+	if (w.notes.trim()) lines.push(`dress:${w.notes.trim().replace(/\s+/g, ' ')}`);
+	const grouped = itemsByCategory(w);
+	for (const c of CLOTHING_CATEGORIES) {
+		for (const item of grouped[c]) {
+			const temp = tempRangeLabel(item);
+			const flags = item.flags.length ? `[${item.flags.join(',')}]` : '';
+			const note = item.notes.trim() ? ` !${item.notes.trim().replace(/\s+/g, ' ')}` : '';
+			const range = temp ? `@${temp.replace(/\s+/g, '')}` : '';
+			lines.push(`${c}:${item.name}×${item.count}${range}${flags}${note}`);
+		}
+	}
+	return lines.length ? `clothing\n${lines.join('\n')}` : '';
+}
+
 export function formatWardrobeSection(w: Wardrobe): string {
 	if (!wardrobeHasItems(w) && !w.notes.trim()) return '';
 	const grouped = itemsByCategory(w);

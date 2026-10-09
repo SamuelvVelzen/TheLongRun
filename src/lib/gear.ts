@@ -355,6 +355,24 @@ export function removeGear(ctx: GearCatalog, name: string): GearCatalog {
 	});
 }
 
+/** Compact kit lines for pasting into an AI chat. */
+export function formatGearCompact(gear: GearContext): string {
+	const lines: string[] = [];
+	for (const kind of GEAR_KINDS) {
+		const c = gear[kind];
+		if (!catalogHasItems(c)) continue;
+		const tag = kind === 'shoes' ? 'run' : kind === 'walk_shoes' ? 'walk' : 'bike';
+		const parts: string[] = [];
+		if (c.active) parts.push(`daily=${c.active}`);
+		const rot = c.rotation.filter((n) => gearKey(n) !== gearKey(c.active));
+		if (rot.length) parts.push(`rot=${rot.join('|')}`);
+		if (c.retired.length) parts.push(`ret=${c.retired.join('|')}`);
+		if (c.notes.trim()) parts.push(`note=${c.notes.trim().replace(/\s+/g, ' ')}`);
+		lines.push(`${tag}:${parts.join(';')}`);
+	}
+	return lines.length ? `gear\n${lines.join('\n')}` : '';
+}
+
 export function catalogHasItems(ctx: GearCatalog): boolean {
 	return Boolean(ctx.active || ctx.rotation.length || ctx.retired.length);
 }

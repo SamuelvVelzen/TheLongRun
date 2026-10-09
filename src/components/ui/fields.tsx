@@ -54,6 +54,38 @@ export function TextField({
 	);
 }
 
+/** Numeric input; an empty box is `null`, so optional numbers need no string parsing in the schema. */
+export function NumberField({
+	label,
+	required,
+	hint,
+	className,
+	...input
+}: {
+	label: ReactNode;
+	required?: boolean;
+	hint?: ReactNode;
+	className?: string;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur' | 'type'>) {
+	const field = useFieldContext<number | null>();
+	const value = field.state.value;
+	return (
+		<Field label={label} required={required} hint={hint} error={shownError(field.state.meta)} className={className}>
+			<Input
+				inputMode="decimal"
+				{...input}
+				type="number"
+				value={value == null || Number.isNaN(value) ? '' : value}
+				onChange={(e) => {
+					const raw = e.target.value;
+					field.handleChange(raw === '' ? null : e.target.valueAsNumber);
+				}}
+				onBlur={field.handleBlur}
+			/>
+		</Field>
+	);
+}
+
 export function TextAreaField({
 	label,
 	required,

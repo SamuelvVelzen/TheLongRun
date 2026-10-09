@@ -17,7 +17,7 @@ export {
 } from './Chrome';
 export { ChoiceChips, type ChoiceOption } from './ChoiceChips';
 export { ConfirmDialog, Dialog, dialogPanelMedalClass } from './Dialog';
-export { ChipField, SelectField, TextAreaField, TextField } from './fields';
+export { ChipField, NumberField, SelectField, TextAreaField, TextField } from './fields';
 export { Field, fieldClass, fieldHintClass, reqClass } from './Field';
 export { useAppForm, useFieldContext, useFormContext, withForm } from './form-hook';
 export { FilterSheet, filterSummary } from './FilterSheet';

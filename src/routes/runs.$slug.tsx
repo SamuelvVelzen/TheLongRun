@@ -33,6 +33,7 @@ import { BestEffortBadges } from '../components/BestEffortBadges';
 import { EditButton, TrashIcon } from '../components/DeleteButton';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { GearField } from '../components/GearField';
+import { FuelTryLine } from '../components/FuelParts';
 import { exportActivityGpx, GpsRepair } from '../components/GpsRepair';
 import { ActivityIcon, Icon } from '../components/Icon';
 import { MoreMenu } from '../components/MoreMenu';
@@ -308,7 +309,8 @@ function RunDetail() {
 		calendar,
 		group,
 		groupOptions,
-		habits
+		habits,
+		fuel
 	} = Route.useLoaderData();
 	const router = useRouter();
 	const authed = useAuthed();
@@ -757,6 +759,20 @@ function RunDetail() {
 							hrMaxAllTime={hrMaxAllTime}
 							onSaveHrMax={authed ? onSaveHrMax : undefined}
 						/>
+					)}
+
+					{fuel.length > 0 && (
+						<div className={panelClass('mb-4')}>
+							<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.6rem]">
+								<h3>Fuel</h3>
+								<Link to="/fuel" className={cn('text-muted', 'text-[0.85rem]')}>
+									Fuel log
+								</Link>
+							</div>
+							{fuel.map((entry) => (
+								<FuelTryLine key={entry.id} entry={entry} showItem showPhase />
+							))}
+						</div>
 					)}
 
 					<div className={panelClass('mb-4')}>

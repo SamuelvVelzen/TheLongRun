@@ -433,7 +433,7 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 		const run = await getRun(slug);
 		if (!run) return null;
 		const routeId = routeIdForRun(run);
-		const [geo, routeIds, gear, settings, allTimeMaxHr, allRuns, plannedRoute, training, group, plannedRoutes, habits] =
+		const [geo, routeIds, gear, settings, allTimeMaxHr, allRuns, plannedRoute, training, group, plannedRoutes, habits, fuelLog] =
 			await Promise.all([
 				routeId ? getRouteGeoJson(routeId) : Promise.resolve(null),
 				listRouteIds(),
@@ -445,7 +445,8 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 				loadTrainingContext(),
 				membershipForSlug(slug),
 				listPlannedRoutes(),
-				loadActivityHabits()
+				loadActivityHabits(),
+				loadFuelLog()
 			]);
 		const analytics = geo
 			? analyticsFromProperties(
@@ -522,7 +523,8 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 			calendar: training.calendar,
 			group,
 			groupOptions,
-			habits
+			habits,
+			fuel: fuelLog.entries.filter((e) => e.slug === slug)
 		};
 	});
 

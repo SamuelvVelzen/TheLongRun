@@ -260,6 +260,35 @@ function exampleDistance(type: ActivityType, index: number, total: number): numb
 	return 6;
 }
 
+function exampleRunWorkout(index: number, total: number): Record<string, unknown> {
+	if (total >= 2 && index === total - 1) {
+		return {
+			type: 'long',
+			blocks: [{ kind: 'run', distance_km: 12, pace: '6:40', effort: 'easy' }]
+		};
+	}
+	if (index === 1) {
+		return {
+			type: 'interval',
+			blocks: [
+				{ kind: 'warmup', distance_km: 2, effort: 'easy' },
+				{
+					repeat: 5,
+					steps: [
+						{ kind: 'run', distance_km: 0.8, pace: '4:50', effort: 'interval' },
+						{ kind: 'recovery', mode: 'walk', time: '2:00', effort: 'recovery' }
+					]
+				},
+				{ kind: 'cooldown', distance_km: 1.5, effort: 'easy' }
+			]
+		};
+	}
+	return {
+		type: 'easy',
+		blocks: [{ kind: 'run', distance_km: 6, pace: '6:30', effort: 'easy' }]
+	};
+}
+
 function exampleDetail(s: WeekSlot): string {
 	const notes = s.notes?.trim();
 	const lock =
@@ -271,7 +300,9 @@ function exampleDetail(s: WeekSlot): string {
 	const base =
 		s.activity_type === 'strength'
 			? 'YOU CHOOSE — start with minutes, then RPE/rest/tempo. Put the lift list in `exercises`, not here.'
-			: `YOU CHOOSE — intent; ${lock}`;
+			: s.activity_type === 'run'
+				? `YOU CHOOSE — short intent only; the steps go in \`workout\`; ${lock}`
+				: `YOU CHOOSE — intent; ${lock}`;
 	return notes ? `${base}. Note: ${notes}` : base;
 }
 
@@ -294,6 +325,7 @@ export function exampleSessionsForPattern(pattern: WeekPattern): Record<string, 
 			label: 'YOU CHOOSE',
 			distance_km: exampleDistance(s.activity_type, i, total),
 			detail: exampleDetail(s),
+			...(s.activity_type === 'run' ? { workout: exampleRunWorkout(i, total) } : {}),
 			...(s.activity_type === 'strength'
 				? {
 						exercises: [
@@ -308,6 +340,10 @@ export function exampleSessionsForPattern(pattern: WeekPattern): Record<string, 
 /** How to fill strength rows in the week JSON — duration lives in `detail`, lifts in `exercises`. */
 export const STRENGTH_SESSION_PROMPT =
 	'For every **strength** session: `"distance_km"` is null. `"label"` is the gym kind (Full body, Lower, Upper, Push, Pull, Posterior, Hypertrophy, Strength, Circuit, Core — never a bare "Gym"). `"detail"` is what I read on the board: start with **how long** (`20 min.`), then **how heavy** (RPE and/or kg from Recent strength), then **how fast** (rest, tempo, straight sets vs circuit). Do **not** hide the lift list in `detail`. Upcoming gym work **must** include `"exercises"`: `{"name","sets"}` plus `"reps"` (per set) or `"sec"` (timed hold). Optional `"kg"` only when Recent strength has a number — omit rather than invent. Optional `"note"` for cues (single-leg, slow eccentric). Example: `{"day":"Thursday","activity_type":"strength","label":"Full body","distance_km":null,"detail":"50 min. RPE 6–7, 90s rest, straight sets, controlled tempo.","exercises":[{"name":"Goblet squat","sets":3,"reps":8},{"name":"seated row","sets":3,"reps":10,"kg":45},{"name":"plank","sets":2,"sec":45}]}`';
+
+/** How to fill run rows — one `workout` shape for every run type, built from blocks. */
+export const RUN_SESSION_PROMPT =
+	'For every upcoming **run** session add `"workout"`: `{"type","blocks"}`. One shape for every kind of run — only `type` changes: easy, recovery, long, tempo, interval, fartlek, progression, hills, race. `blocks` is a list where each block is a **step** or a **repeat**. A step is `{"kind","distance_km" | "time","pace" and/or "effort"}`: `kind` is warmup / run / recovery / cooldown; exactly one of `"distance_km"` (number) or `"time"` (`"MM:SS"`); `"pace"` is always min/km as `"M:SS"` or a range `"M:SS-M:SS"` (no unit text); `"effort"` is one of recovery / easy / steady / tempo / threshold / interval / race — give pace, effort, or both. Optional `"mode": "walk"` for a walked recovery or cooldown, optional `"note"` for a cue. A repeat is `{"repeat": N, "steps": [step, …]}` — the steps are done N times in order (e.g. rep + recovery). Leave out any pre-run walk or bike warmup — the workout starts at the first running step. Keep `"detail"` to a short intent line; do not repeat the steps there. `"distance_km"` on the session is the total when every step has a distance. Examples: easy `{"type":"easy","blocks":[{"kind":"run","distance_km":10,"pace":"6:30","effort":"easy"}]}`; intervals `{"type":"interval","blocks":[{"kind":"warmup","distance_km":2,"effort":"easy"},{"repeat":6,"steps":[{"kind":"run","distance_km":0.8,"pace":"4:50","effort":"interval"},{"kind":"recovery","mode":"walk","time":"2:00","effort":"recovery"}]},{"kind":"cooldown","distance_km":1.5,"pace":"6:45","effort":"easy"}]}`; tempo `{"type":"tempo","blocks":[{"kind":"warmup","distance_km":2,"effort":"easy"},{"kind":"run","time":"20:00","pace":"5:15-5:25","effort":"tempo"},{"kind":"cooldown","distance_km":2,"effort":"easy"}]}`. Long runs and races are usually one `run` step (or a few for a progression / race segments).';
 
 export const SLOT_CONSTRAINT_PROMPT =
 	'A slot marked **can\'t change** is a locked life constraint (commute, appointment). Keep the day and sport. Do not skip, move, shorten, or slow it in a way that would break the note — for example a commute that makes me late if I go slower. Still invent `label`, distance, and `detail` that fit (and `exercises` for strength). A slot marked **optional** stays in the JSON; prefer keeping it, and only set `"status": "skipped"` if weather, recovery, or the note make it a bad idea — say why in prose. Writing "skipped" in `detail` does not skip the session. Per-slot notes are ground truth for that session; fold them into `detail` when they affect how it is done.';
@@ -330,10 +366,11 @@ export function formatPatternPromptSection(opts: {
 			? `For **${opts.weekPhrase}** use **those same days and sports**.`
 			: `For **${opts.weekPhrase}** use this skeleton instead:\n${now}`,
 		count
-			? `**Keep these days and sports.** You choose the session kind (\`label\`: Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, Push, Pull, Hypertrophy, Strength, Circuit, Core — never a bare "Gym"), plus distance (null for strength) and intent. There is no duration field — put time, load, and rest in \`detail\`, and the lift list in \`exercises\`. The skeleton has no kinds — do not copy placeholder labels. Do not invent a different weekday pattern (do not move a Tuesday run to Wednesday just because a template prefers other days). Only shift a usual session if recovery, heat, life, or the notes below require it — never shift a **can't change** slot — and if you move a day, say why in prose.`
+			? `**Keep these days and sports.** You choose the session kind (\`label\`: Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, Push, Pull, Hypertrophy, Strength, Circuit, Core — never a bare "Gym"), plus distance (null for strength) and intent. Runs get their warmup / reps / cooldown in \`workout\`. Strength has no duration field — put time, load, and rest in \`detail\`, and the lift list in \`exercises\`. The skeleton has no kinds — do not copy placeholder labels. Do not invent a different weekday pattern (do not move a Tuesday run to Wednesday just because a template prefers other days). Only shift a usual session if recovery, heat, life, or the notes below require it — never shift a **can't change** slot — and if you move a day, say why in prose.`
 			: `I did not pin a usual week — plan whatever the week needs across the sports I do (run, bike, walk, strength). Do not default to a 3-run template.`
 	];
 	lines.push(SLOT_CONSTRAINT_PROMPT);
+	lines.push(RUN_SESSION_PROMPT);
 	lines.push(STRENGTH_SESSION_PROMPT);
 	lines.push(
 		'Logged extras that did not match a plan session appear under **Unplanned activities** when there are any. They are already done — extra load, not slots to tidy into the JSON. Notes below are for extras that have not happened yet (or that I am considering). You may add sessions for those proposed extras if you recommend them — say why. Do not invent bonus days otherwise.'

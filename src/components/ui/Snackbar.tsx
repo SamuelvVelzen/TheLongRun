@@ -165,7 +165,7 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
 						onFocus={() => clearTimer(item.id)}
 						onBlur={() => armTimer(item)}
 					>
-						<p className="flex-1 min-w-0 m-0 text-[0.92rem] leading-[1.35] [overflow-wrap:anywhere]">
+						<p className="flex-1 min-w-0 m-0 text-[0.92rem] leading-[1.35] whitespace-pre-line [overflow-wrap:anywhere]">
 							{item.message}
 						</p>
 						{item.action && (

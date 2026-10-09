@@ -45,7 +45,9 @@ export type IconName =
 	| 'locate'
 	| 'undo'
 	| 'redo'
-	| 'warning';
+	| 'warning'
+	| 'save'
+	| 'spinner';
 
 function Paths({ name }: { name: IconName }) {
 	switch (name) {
@@ -350,6 +352,16 @@ function Paths({ name }: { name: IconName }) {
 					<circle cx="12" cy="16.9" r="0.85" fill="currentColor" stroke="none" />
 				</>
 			);
+		case 'save':
+			return (
+				<>
+					<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+					<path d="M17 21v-8H7v8" />
+					<path d="M7 3v5h8" />
+				</>
+			);
+		case 'spinner':
+			return <path d="M12 3a9 9 0 1 0 9 9" />;
 	}
 }
 

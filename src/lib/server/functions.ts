@@ -121,15 +121,15 @@ import type {
 	SessionRouteRef
 } from '$lib/types';
 import {
-	exampleSessionsForPattern,
-	formatPatternLines,
-	formatPatternPromptSection,
-	normalizeWeekPattern,
-	patternHasSlotMeta,
+	DAY_LIMIT_PROMPT,
+	exampleSessionsForSetup,
+	formatWeekSetupDebriefSection,
+	formatWeekSetupPromptSection,
+	normalizeWeekSetup,
+	PLANNING_GUARDRAILS_PROMPT,
 	RUN_SESSION_PROMPT,
-	SLOT_CONSTRAINT_PROMPT,
 	STRENGTH_SESSION_PROMPT,
-	type WeekPattern
+	type WeekSetup
 } from '$lib/week-mix';
 import { zipStoreBytes } from '$lib/zip';
 import { createServerFn } from '@tanstack/react-start';
@@ -154,7 +154,8 @@ import {
 	saveHrMaxSetting,
 	saveLiveLocation,
 	savePlan,
-	saveWeekPatternSetting,
+	saveWeekSetupSetting,
+	weekSetupFromSettings,
 	writeContextFile
 } from './context';
 import { reverseGeocode, timezoneForCoord } from './geo';
@@ -729,8 +730,8 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		range?: RangeKind;
 		from?: string | null;
 		to?: string | null;
-		pattern?: WeekPattern;
-		defaultPattern?: WeekPattern;
+		setup?: WeekSetup;
+		defaultSetup?: WeekSetup;
 		note?: string;
 	} = {}) => {
 		const range = dateRangeFromSearch({
@@ -740,8 +741,8 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		});
 		return {
 			range,
-			pattern: d?.pattern != null ? normalizeWeekPattern(d.pattern) : undefined,
-			defaultPattern: d?.defaultPattern != null ? normalizeWeekPattern(d.defaultPattern) : undefined,
+			setup: d?.setup != null ? normalizeWeekSetup(d.setup) : undefined,
+			defaultSetup: d?.defaultSetup != null ? normalizeWeekSetup(d.defaultSetup) : undefined,
 			note: typeof d?.note === 'string' ? d.note : ''
 		};
 	})
@@ -759,8 +760,8 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 				loadActivityHabits()
 			]);
 		const { plan, calendar, activeGoal, medals, store } = training;
-		const defaultPattern = data.defaultPattern ?? settings.weekPattern;
-		const thisPattern = data.pattern != null ? data.pattern : defaultPattern;
+		const defaultSetup = data.defaultSetup ?? weekSetupFromSettings(settings);
+		const thisSetup = data.setup ?? defaultSetup;
 		const mixNote = data.note.trim();
 
 		const today = new Date();
@@ -860,15 +861,19 @@ ${formatUnplannedBrief(targetView.unplanned)}
 		const alreadyLoggedSection =
 			!revising && thisWeekLogs.length
 				? `## Already logged this week
-These are already done. If a log matches a skeleton day and sport, that slot is done — keep it in the JSON to match what I did, and plan the remaining days. Logs that are not a skeleton day+sport are extra load; do not add a plan row just to file them.
+These are already done. If a log matches a pinned activity (day + sport), that activity is done — keep it in the JSON to match what I did. A log in a sport you plan counts toward that sport for the week — include it as a row to match what I did, and plan the rest around it. Logs in sports you do not plan are extra load; do not add a plan row just to file them.
 
 ${thisWeekLogs.map(formatRunBriefLine).join('\n')}
 `
 				: '';
-		const mixSection = formatPatternPromptSection({
-			defaultPattern,
-			thisWeek: thisPattern,
+		const recentSports = ACTIVITY_TYPES.filter((t) =>
+			windowRuns.some((r) => normalizeActivityType(r.activity_type) === t)
+		);
+		const mixSection = formatWeekSetupPromptSection({
+			setup: thisSetup,
+			defaultSetup,
 			weekPhrase,
+			recentSports,
 			note: mixNote
 		});
 		const exampleJson = JSON.stringify(
@@ -885,7 +890,7 @@ ${thisWeekLogs.map(formatRunBriefLine).join('\n')}
 						dates: weekRange(targetWeek),
 						phase: 'base | build | peak | taper',
 						focus: 'one-line focus for the week',
-						sessions: exampleSessionsForPattern(thisPattern)
+						sessions: exampleSessionsForSetup(thisSetup)
 					},
 			null,
 			2
@@ -915,11 +920,11 @@ ${thisWeekLogs.map(formatRunBriefLine).join('\n')}
 			? 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering and laddering toward the race. Runs need their warmup / reps / cooldown as blocks in `workout`. Strength sessions need a gym kind in `label`, duration/load/tempo in `detail`, and the lift list in `exercises`.'
 			: 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering. Runs need their warmup / reps / cooldown as blocks in `workout`. Strength sessions need a gym kind in `label`, duration/load/tempo in `detail`, and the lift list in `exercises`. No race to peak for — keep it sustainable.';
 		const briefAsk = revising
-			? `Week ${targetWeek} already has a saved plan (see Training plan). **Revise remaining sessions** given what is already logged, including any unplanned extras. Start from the saved week JSON — do not rebuild from the usual-week skeleton. Keep completed planned sessions in the JSON as they were (a matching Activity log date + sport means done; do not add \`"status": "completed"\` — \`status\` is only for skipped). You may add sessions for extras I propose in the notes — say why. Flag any red flags (injury risk, overtraining, under-recovery).`
-			: `Please assess how my training is going and give me a concrete plan for **${weekPhrase}** covering **every session in my usual-week skeleton** (runs, bikes, walks, strength — whatever I pinned), keeping those days and sports. ${ladderLine} If a log ${weekPhrase} already matches a skeleton day and sport, that slot is done — keep it in the JSON to match what I did, and plan the remaining days. Flag any red flags (injury risk, overtraining, under-recovery).`;
+			? `Week ${targetWeek} already has a saved plan (see Training plan). **Revise remaining sessions** given what is already logged, including any unplanned extras. Start from the saved week JSON. Keep completed planned sessions in the JSON as they were (a matching Activity log date + sport means done; do not add \`"status": "completed"\` — \`status\` is only for skipped). Remaining sessions in the sports you plan may move to any day my day limits allow, or be added or dropped, if that serves the goal — say why. Flag any red flags (injury risk, overtraining, under-recovery).`
+			: `Please assess how my training is going and **build ${weekPhrase} around my pinned activities**: keep every pinned activity, respect my day limits, and plan the sports I listed — you decide how many sessions of each and on which days. ${ladderLine} If a log ${weekPhrase} already covers a pinned activity or a planned sport, keep it in the JSON to match what I did, and plan the rest around it. Flag any red flags (injury risk, overtraining, under-recovery).`;
 		const replyRules = revising
-			? `Start from the saved week JSON — do not replace it with the usual-week skeleton. Keep completed sessions as they were (do not add \`"status": "completed"\`). Revise what's still ahead, same days and sports unless notes or recovery require a shift. Never move or skip a slot marked **can't change**. Optional slots may be skipped with \`"status": "skipped"\`. You may add a session for an extra I declared in the notes. If you drop a session, set \`"status": "skipped"\`. ${SKIP_STATUS_PROMPT} Only move a usual day if you must, and say why in prose. ${RUN_SESSION_PROMPT} ${STRENGTH_SESSION_PROMPT}`
-			: `Keep \`day\` and \`"activity_type"\` from the skeleton — not a reshuffled template. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, …), \`"distance_km"\` (null for strength), \`"detail"\`, and \`"workout"\` for runs. ${RUN_SESSION_PROMPT} ${STRENGTH_SESSION_PROMPT} The example labels and distances below are placeholders, not prescriptions. Never move or skip a slot marked **can't change**. Optional slots may be skipped with \`"status": "skipped"\`. ${SKIP_STATUS_PROMPT} Only move a usual day if recovery, heat, life, or the notes require it — and say why in prose.`;
+			? `Start from the saved week JSON. Keep completed sessions as they were (do not add \`"status": "completed"\`). Revise what's still ahead. Never move or skip a **pinned** activity; **pinned, optional** ones may be skipped with \`"status": "skipped"\`. Other remaining sessions may move to any day my day limits allow — say why. If you drop a session, set \`"status": "skipped"\`. ${SKIP_STATUS_PROMPT} ${DAY_LIMIT_PROMPT} ${RUN_SESSION_PROMPT} ${STRENGTH_SESSION_PROMPT}`
+			: `Include every pinned activity on its day. Add the sessions you plan for the sports I listed — every row needs a real weekday in \`"day"\` and an \`"activity_type"\`. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, …), \`"distance_km"\` (null for strength), \`"detail"\`, and \`"workout"\` for runs. ${RUN_SESSION_PROMPT} ${STRENGTH_SESSION_PROMPT} The example rows, labels, days, and distances below are placeholders, not prescriptions — "YOU CHOOSE — a weekday" means pick a real day, and add or remove rows as the week needs. **Pinned, optional** activities may be skipped with \`"status": "skipped"\`. ${SKIP_STATUS_PROMPT} ${DAY_LIMIT_PROMPT} ${PLANNING_GUARDRAILS_PROMPT}`;
 
 		const goalSection = activeGoal
 			? `## Goal
@@ -952,7 +957,7 @@ ${intentionLines ? `${intentionLines}\n` : ''}`;
 		return `# The Long Run — training context
 
 ## Coaching brief
-You are my coach for the sports I actually do — not a running-only coach. ${toward}. Keep my usual weekdays and sports unless ${weekPhrase}'s notes or recovery require a shift. You choose the session kind (easy / quality / long / tempo / easy spin / …; for gym: full body / lower / upper / …), distance or strength prescription, and intent. Below is my plan, my recent training with how each session felt (effort and energy 1–10, shins and legs 0–10), weekly volume across sports, and my constraints.
+You are my coach for the sports I actually do — not a running-only coach. ${toward}. My pinned activities and day limits are fixed by life; everything else is yours to plan around them. You choose how many sessions of each sport I asked you to plan, which days, the session kind (easy / quality / long / tempo / easy spin / …; for gym: full body / lower / upper / …), distance or strength prescription, and intent. Below is my plan, my recent training with how each session felt (effort and energy 1–10, shins and legs 0–10), weekly volume across sports, and my constraints.
 
 ${briefAsk}
 
@@ -1007,12 +1012,12 @@ ${exampleJson}
 
 export const getWeekPattern = createServerFn({ method: 'GET' }).handler(async () => {
 	const s = await loadSettings();
-	return s.weekPattern;
+	return weekSetupFromSettings(s);
 });
 
 export const saveWeekPattern = createServerFn({ method: 'POST' }).middleware([requireAuth])
-	.validator((pattern: WeekPattern) => normalizeWeekPattern(pattern))
-	.handler(async ({ data }) => saveWeekPatternSetting(data));
+	.validator((setup: WeekSetup) => normalizeWeekSetup(setup))
+	.handler(async ({ data }) => saveWeekSetupSetting(data));
 
 function hasFeel(r: RunRecord): boolean {
 	return (
@@ -1484,7 +1489,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			.join('\n');
 		const compareLine = `Compare what I did against **${plannedHeading}**: did each step hit its target pace or effort (use the km splits and HR in the session block), and did I cut it short or add to it? If it says Unplanned, coach it as extra load. If no plan covers the date, do not call it unplanned.`;
 		const job = includePlan
-			? `Coach from ${sessionWord}: how it went, recovery, and what to watch. ${compareLine} Answer any questions I asked in What I wrote. Then update **this week** only if remaining sessions should change. Keep remaining sessions on their planned days unless recovery requires a shift — and if you move a day, say why. Keep non-run sessions unless recovery says otherwise.`
+			? `Coach from ${sessionWord}: how it went, recovery, and what to watch. ${compareLine} Answer any questions I asked in What I wrote. Then update **this week** only if remaining sessions should change. Remaining sessions may move to any day my day limits allow, or be dropped, if recovery or the goal calls for it — say why. Never move or drop a **pinned** activity.`
 			: `Coach from ${sessionWord}: how it went, recovery, and what to watch. ${compareLine} Answer any questions I asked in What I wrote. This chat already has my week plan — use that, do not repeat it here. If remaining sessions should change, include an updated \`week\` in your JSON reply (see When you reply).`;
 		const planSections = includePlan
 			? `
@@ -1536,13 +1541,9 @@ ${notesRule}
 ${scoresRule}
 ${weekRules}`;
 
-		const usualWeekSection =
-			week != null
-				? ''
-				: `## Usual weekdays
-${formatPatternLines(settings.weekPattern)}${
-						patternHasSlotMeta(settings.weekPattern) ? `\n${SLOT_CONSTRAINT_PROMPT}` : ''
-					}
+		const usualWeekSection = `${formatWeekSetupDebriefSection(weekSetupFromSettings(settings), {
+			includeSlots: week == null
+		})}
 
 `;
 

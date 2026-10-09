@@ -1,5 +1,6 @@
 import {
     ACTIVITY_TYPES,
+    activityCount,
     activityLabel,
     normalizeActivityType,
     type ActivityType
@@ -18,8 +19,11 @@ export const WEEKDAYS = [
 ] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
 
-/** Locked commute-style session vs skip-if-needed. Omitted = coach may adjust as usual. */
-export type WeekSlotConstraint = 'fixed' | 'optional';
+/**
+ * `fixed` = pinned (commute — never moved or dropped), `optional` = pinned but skippable,
+ * `preference` = soft wish the coach may move or drop. Omitted (legacy data) = preference.
+ */
+export type WeekSlotConstraint = 'fixed' | 'optional' | 'preference';
 
 /** Day + sport only. Session kind (Easy / Long / …) is the coach’s job, not stored here. */
 export type WeekSlot = {
@@ -31,6 +35,22 @@ export type WeekSlot = {
 };
 
 export type WeekPattern = WeekSlot[];
+
+/** `off` = no sessions that day; `limited` = sessions only within the note (time window, max duration). */
+export type DayLimitKind = 'off' | 'limited';
+
+export type DayLimit = {
+	day: Weekday;
+	kind: DayLimitKind;
+	notes?: string;
+};
+
+/** Pinned activities, day limits, and which sports the coach schedules around them. */
+export type WeekSetup = {
+	pattern: WeekPattern;
+	dayLimits: DayLimit[];
+	plannedSports: ActivityType[];
+};
 
 const MAX_SLOT_NOTES = 400;
 
@@ -45,21 +65,31 @@ const MAX_SLOTS = 14;
 
 /** Usual week until the user saves their own skeleton. */
 export const DEFAULT_WEEK_PATTERN: WeekPattern = [
-	{ day: 'Tuesday', activity_type: 'run' },
-	{ day: 'Wednesday', activity_type: 'bike' },
-	{ day: 'Thursday', activity_type: 'strength' },
-	{ day: 'Friday', activity_type: 'run' },
-	{ day: 'Sunday', activity_type: 'run' }
+	{ day: 'Tuesday', activity_type: 'run', constraint: 'preference' },
+	{ day: 'Wednesday', activity_type: 'bike', constraint: 'preference' },
+	{ day: 'Thursday', activity_type: 'strength', constraint: 'preference' },
+	{ day: 'Friday', activity_type: 'run', constraint: 'preference' },
+	{ day: 'Sunday', activity_type: 'run', constraint: 'preference' }
 ];
 
+function compactNotes(raw: string | undefined): string | undefined {
+	const notes = raw?.replace(/\s+/g, ' ').trim().slice(0, MAX_SLOT_NOTES);
+	return notes || undefined;
+}
+
 export function compactSlot(slot: WeekSlot): WeekSlot {
-	const notes = slot.notes?.replace(/\s+/g, ' ').trim().slice(0, MAX_SLOT_NOTES);
+	const notes = compactNotes(slot.notes);
 	return {
 		day: slot.day,
 		activity_type: slot.activity_type,
-		...(slot.constraint ? { constraint: slot.constraint } : {}),
+		constraint: slot.constraint ?? 'preference',
 		...(notes ? { notes } : {})
 	};
+}
+
+/** Pinned = fixed or optional; both keep their day in the week JSON. */
+export function isPinnedSlot(slot: WeekSlot): boolean {
+	return slot.constraint === 'fixed' || slot.constraint === 'optional';
 }
 
 export function clonePattern(pattern: WeekPattern): WeekPattern {
@@ -100,7 +130,7 @@ export function patternsEqual(a: WeekPattern, b: WeekPattern): boolean {
 		return (
 			s.day === t.day &&
 			s.activity_type === t.activity_type &&
-			(s.constraint ?? undefined) === (t.constraint ?? undefined) &&
+			(s.constraint ?? 'preference') === (t.constraint ?? 'preference') &&
 			(s.notes ?? '') === (t.notes ?? '')
 		);
 	});
@@ -162,13 +192,13 @@ function normalizeSlot(raw: unknown): WeekSlot | null {
 	});
 }
 
-function normalizeConstraint(o: Record<string, unknown>): WeekSlotConstraint | undefined {
+function normalizeConstraint(o: Record<string, unknown>): WeekSlotConstraint {
 	const raw = o.constraint ?? o.flag;
 	const compact = String(raw ?? '')
 		.trim()
 		.toLowerCase()
 		.replace(/[\s_-]/g, '');
-	if (['fixed', 'locked', 'cantchange', 'cannotchange', 'unchangeable'].includes(compact)) {
+	if (['fixed', 'pinned', 'locked', 'cantchange', 'cannotchange', 'unchangeable'].includes(compact)) {
 		return 'fixed';
 	}
 	if (['optional', 'opt', 'skipok'].includes(compact)) return 'optional';
@@ -176,28 +206,100 @@ function normalizeConstraint(o: Record<string, unknown>): WeekSlotConstraint | u
 	if (o.fixed === true || o.locked === true || o.fixed === 'true' || o.locked === 'true') {
 		return 'fixed';
 	}
-	return undefined;
+	return 'preference';
 }
 
-export function slotConstraintLabel(constraint?: WeekSlotConstraint | null): string | null {
-	if (constraint === 'fixed') return "Can't change";
+export function slotConstraintLabel(constraint?: WeekSlotConstraint | null): string {
+	if (constraint === 'fixed') return 'Pinned';
 	if (constraint === 'optional') return 'Optional';
-	return null;
+	return 'Preference';
 }
 
-function slotConstraintPhrase(constraint?: WeekSlotConstraint | null): string | null {
-	if (constraint === 'fixed') return "can't change";
-	if (constraint === 'optional') return 'optional';
-	return null;
+function slotConstraintPhrase(constraint?: WeekSlotConstraint | null): string {
+	if (constraint === 'fixed') return 'pinned';
+	if (constraint === 'optional') return 'pinned, optional';
+	return 'preference';
 }
 
 function formatSlotFlags(s: WeekSlot): string {
 	const flag = slotConstraintPhrase(s.constraint);
 	const notes = s.notes?.trim();
-	if (flag && notes) return ` — ${flag}: ${notes}`;
-	if (flag) return ` — ${flag}`;
-	if (notes) return ` — ${notes}`;
-	return '';
+	return notes ? ` — ${flag}: ${notes}` : ` — ${flag}`;
+}
+
+function normalizeDayLimitKind(raw: unknown): DayLimitKind | null {
+	const compact = String(raw ?? '')
+		.trim()
+		.toLowerCase()
+		.replace(/[\s_-]/g, '');
+	if (['off', 'unavailable', 'blocked', 'none', 'rest'].includes(compact)) return 'off';
+	if (['limited', 'partial', 'limit'].includes(compact)) return 'limited';
+	return null;
+}
+
+/** One limit per weekday (first wins). A `limited` day without a note says nothing, so it is dropped. */
+export function normalizeDayLimits(raw: unknown): DayLimit[] {
+	if (!Array.isArray(raw)) return [];
+	const seen = new Set<Weekday>();
+	const out: DayLimit[] = [];
+	for (const item of raw) {
+		if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+		const o = item as Record<string, unknown>;
+		const day = normalizeWeekday(o.day);
+		const kind = normalizeDayLimitKind(o.kind);
+		if (!day || !kind || seen.has(day)) continue;
+		const notes = compactNotes(typeof o.notes === 'string' ? o.notes : undefined);
+		if (kind === 'limited' && !notes) continue;
+		seen.add(day);
+		out.push({ day, kind, ...(notes ? { notes } : {}) });
+	}
+	return out.sort((a, b) => weekdayIndex(a.day) - weekdayIndex(b.day));
+}
+
+export function dayLimitsEqual(a: DayLimit[], b: DayLimit[]): boolean {
+	const aa = normalizeDayLimits(a);
+	const bb = normalizeDayLimits(b);
+	if (aa.length !== bb.length) return false;
+	return aa.every((l, i) => {
+		const m = bb[i]!;
+		return l.day === m.day && l.kind === m.kind && (l.notes ?? '') === (m.notes ?? '');
+	});
+}
+
+/** Sports in the pattern plus run, in canonical order — used when nothing was saved yet. */
+export function defaultPlannedSports(pattern: WeekPattern): ActivityType[] {
+	const set = new Set<ActivityType>(['run', ...pattern.map((s) => s.activity_type)]);
+	return ACTIVITY_TYPES.filter((t) => set.has(t));
+}
+
+export function normalizePlannedSports(raw: unknown, fallback: ActivityType[]): ActivityType[] {
+	if (!Array.isArray(raw)) return [...fallback];
+	const set = new Set(
+		raw
+			.filter((v): v is string => typeof v === 'string')
+			.map((v) => v.trim().toLowerCase())
+			.filter((v): v is ActivityType => (ACTIVITY_TYPES as string[]).includes(v))
+	);
+	return ACTIVITY_TYPES.filter((t) => set.has(t));
+}
+
+export function normalizeWeekSetup(raw: unknown): WeekSetup {
+	const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+	const pattern = normalizeWeekPattern(o.pattern);
+	return {
+		pattern,
+		dayLimits: normalizeDayLimits(o.dayLimits),
+		plannedSports: normalizePlannedSports(o.plannedSports, defaultPlannedSports(pattern))
+	};
+}
+
+export function weekSetupsEqual(a: WeekSetup, b: WeekSetup): boolean {
+	return (
+		patternsEqual(a.pattern, b.pattern) &&
+		dayLimitsEqual(a.dayLimits, b.dayLimits) &&
+		a.plannedSports.length === b.plannedSports.length &&
+		a.plannedSports.every((t) => b.plannedSports.includes(t))
+	);
 }
 
 const MAX_COUNT = 10;
@@ -229,22 +331,49 @@ export function normalizeWeekPattern(raw: unknown): WeekPattern {
 	return clonePattern(DEFAULT_WEEK_PATTERN);
 }
 
-export function formatPatternProse(pattern: WeekPattern): string {
-	if (!pattern.length) return 'no pinned sessions';
-	return sortPattern(pattern)
-		.map((s) => {
-			const sport =
-				s.activity_type === 'strength' ? 'gym' : activityLabel(s.activity_type).toLowerCase();
-			const flag = slotConstraintPhrase(s.constraint);
-			return flag ? `${s.day} ${sport} (${flag})` : `${s.day} ${sport}`;
-		})
-		.join(', ');
+function listJoin(items: string[]): string {
+	if (items.length <= 1) return items.join('');
+	return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+function sportWord(t: ActivityType): string {
+	return activityLabel(t).toLowerCase();
+}
+
+/** One-line summary, e.g. "Coach plans run and strength around 2 pinned bikes; Monday off". */
+export function formatWeekSetupProse(setup: WeekSetup): string {
+	const planned = setup.plannedSports.map(sportWord);
+	const head = planned.length ? `Coach plans ${listJoin(planned)}` : 'Coach plans no extra sports';
+	const pinned = setup.pattern.filter(isPinnedSlot);
+	const pinnedBits = ACTIVITY_TYPES.map((t) => {
+		const n = pinned.filter((s) => s.activity_type === t).length;
+		return n ? activityCount(n, t).replace(/^(\d+) /, '$1 pinned ') : '';
+	}).filter(Boolean);
+	const parts = [pinnedBits.length ? `${head} around ${listJoin(pinnedBits)}` : head];
+	const off = setup.dayLimits.filter((l) => l.kind === 'off').map((l) => l.day);
+	const limited = setup.dayLimits.filter((l) => l.kind === 'limited').map((l) => l.day);
+	if (off.length) parts.push(`${listJoin(off)} off`);
+	if (limited.length) parts.push(`${listJoin(limited)} limited`);
+	const prefs = setup.pattern.length - pinned.length;
+	if (prefs) parts.push(`${prefs} preference${prefs === 1 ? '' : 's'}`);
+	return parts.join('; ');
 }
 
 export function formatPatternLines(pattern: WeekPattern): string {
-	if (!pattern.length) return '- (none pinned)';
+	if (!pattern.length) return '- (none)';
 	return sortPattern(pattern)
 		.map((s) => `- ${s.day} — ${activityLabel(s.activity_type)}${formatSlotFlags(s)}`)
+		.join('\n');
+}
+
+export function formatDayLimitLines(limits: DayLimit[]): string {
+	if (!limits.length) return '- (none — every day is available)';
+	return normalizeDayLimits(limits)
+		.map((l) => {
+			const notes = l.notes?.trim();
+			if (l.kind === 'off') return `- ${l.day}: off — no sessions${notes ? ` (${notes})` : ''}`;
+			return `- ${l.day}: limited — ${notes}`;
+		})
 		.join('\n');
 }
 
@@ -289,44 +418,61 @@ function exampleRunWorkout(index: number, total: number): Record<string, unknown
 	};
 }
 
-function exampleDetail(s: WeekSlot): string {
-	const notes = s.notes?.trim();
+function exampleDetail(type: ActivityType, s: WeekSlot | null): string {
+	const notes = s?.notes?.trim();
 	const lock =
-		s.constraint === 'fixed'
-			? 'this slot cannot change — keep day, duration, and effort'
-			: s.constraint === 'optional'
-				? 'optional — include it; skip only if the note or conditions require it'
-				: 'keep this weekday unless you explain a shift';
+		s == null
+			? 'how many sessions and which days are up to you — add or remove rows like this'
+			: s.constraint === 'fixed'
+				? 'pinned — keep this day; fit the session to the note'
+				: s.constraint === 'optional'
+					? 'pinned, optional — keep it; skip only if the note or conditions require it'
+					: 'preference — keep it if it fits; move, swap, or drop it if that serves the goal, and say why';
 	const base =
-		s.activity_type === 'strength'
-			? 'YOU CHOOSE — start with minutes, then RPE/rest/tempo. Put the lift list in `exercises`, not here.'
-			: s.activity_type === 'run'
+		type === 'strength'
+			? `YOU CHOOSE — start with minutes, then RPE/rest/tempo. Put the lift list in \`exercises\`, not here; ${lock}`
+			: type === 'run'
 				? `YOU CHOOSE — short intent only; the steps go in \`workout\`; ${lock}`
 				: `YOU CHOOSE — intent; ${lock}`;
 	return notes ? `${base}. Note: ${notes}` : base;
 }
 
+const PLACEHOLDER_DAY = 'YOU CHOOSE — a weekday';
+
 /**
- * Illustrative JSON: keep the user’s days/sports; `label` / distance / detail are
- * examples of what the model should invent, not values copied from the skeleton.
+ * Illustrative JSON: pinned rows keep their real day; each planned sport gets its preference
+ * rows or placeholder rows, so a commute-only setup does not read as a bikes-only week.
  */
-export function exampleSessionsForPattern(pattern: WeekPattern): Record<string, unknown>[] {
-	const slots = sortPattern(pattern.length ? pattern : DEFAULT_WEEK_PATTERN);
+export function exampleSessionsForSetup(setup: WeekSetup): Record<string, unknown>[] {
+	const rows: { day: string; type: ActivityType; slot: WeekSlot | null }[] = [];
+	for (const s of sortPattern(setup.pattern.filter(isPinnedSlot))) {
+		rows.push({ day: s.day, type: s.activity_type, slot: s });
+	}
+	const prefs = sortPattern(setup.pattern.filter((s) => !isPinnedSlot(s)));
+	for (const t of setup.plannedSports) {
+		const own = prefs.filter((s) => s.activity_type === t);
+		if (own.length) {
+			for (const s of own) rows.push({ day: s.day, type: t, slot: s });
+		} else {
+			const n = t === 'run' ? 2 : 1;
+			for (let i = 0; i < n; i++) rows.push({ day: PLACEHOLDER_DAY, type: t, slot: null });
+		}
+	}
 	const seen: Partial<Record<ActivityType, number>> = {};
 	const totals: Partial<Record<ActivityType, number>> = {};
-	for (const s of slots) totals[s.activity_type] = (totals[s.activity_type] ?? 0) + 1;
-	return slots.map((s) => {
-		const i = seen[s.activity_type] ?? 0;
-		seen[s.activity_type] = i + 1;
-		const total = totals[s.activity_type] ?? 1;
+	for (const r of rows) totals[r.type] = (totals[r.type] ?? 0) + 1;
+	return rows.map(({ day, type, slot }) => {
+		const i = seen[type] ?? 0;
+		seen[type] = i + 1;
+		const total = totals[type] ?? 1;
 		return {
-			day: s.day,
-			activity_type: s.activity_type,
+			day,
+			activity_type: type,
 			label: 'YOU CHOOSE',
-			distance_km: exampleDistance(s.activity_type, i, total),
-			detail: exampleDetail(s),
-			...(s.activity_type === 'run' ? { workout: exampleRunWorkout(i, total) } : {}),
-			...(s.activity_type === 'strength'
+			distance_km: exampleDistance(type, i, total),
+			detail: exampleDetail(type, slot),
+			...(type === 'run' ? { workout: exampleRunWorkout(i, total) } : {}),
+			...(type === 'strength'
 				? {
 						exercises: [
 							{ name: 'YOU CHOOSE — usual lift from Recent strength', sets: 3, reps: 8 }
@@ -346,38 +492,101 @@ export const RUN_SESSION_PROMPT =
 	'For every upcoming **run** session add `"workout"`: `{"type","blocks"}`. One shape for every kind of run — only `type` changes: easy, recovery, long, tempo, interval, fartlek, progression, hills, race. `blocks` is a list where each block is a **step** or a **repeat**. A step is `{"kind","distance_km" | "time","pace" and/or "effort"}`: `kind` is warmup / run / recovery / cooldown; exactly one of `"distance_km"` (number) or `"time"` (`"MM:SS"`); `"pace"` is always min/km as `"M:SS"` or a range `"M:SS-M:SS"` (no unit text); `"effort"` is one of recovery / easy / steady / tempo / threshold / interval / race — give pace, effort, or both. Optional `"mode": "walk"` for a walked recovery or cooldown, optional `"note"` for a cue. A repeat is `{"repeat": N, "steps": [step, …]}` — the steps are done N times in order (e.g. rep + recovery). Leave out any pre-run walk or bike warmup — the workout starts at the first running step. Keep `"detail"` to a short intent line; do not repeat the steps there. `"distance_km"` on the session is the total when every step has a distance. Examples: easy `{"type":"easy","blocks":[{"kind":"run","distance_km":10,"pace":"6:30","effort":"easy"}]}`; intervals `{"type":"interval","blocks":[{"kind":"warmup","distance_km":2,"effort":"easy"},{"repeat":6,"steps":[{"kind":"run","distance_km":0.8,"pace":"4:50","effort":"interval"},{"kind":"recovery","mode":"walk","time":"2:00","effort":"recovery"}]},{"kind":"cooldown","distance_km":1.5,"pace":"6:45","effort":"easy"}]}`; tempo `{"type":"tempo","blocks":[{"kind":"warmup","distance_km":2,"effort":"easy"},{"kind":"run","time":"20:00","pace":"5:15-5:25","effort":"tempo"},{"kind":"cooldown","distance_km":2,"effort":"easy"}]}`. Long runs and races are usually one `run` step (or a few for a progression / race segments).';
 
 export const SLOT_CONSTRAINT_PROMPT =
-	'A slot marked **can\'t change** is a locked life constraint (commute, appointment). Keep the day and sport. Do not skip, move, shorten, or slow it in a way that would break the note — for example a commute that makes me late if I go slower. Still invent `label`, distance, and `detail` that fit (and `exercises` for strength). A slot marked **optional** stays in the JSON; prefer keeping it, and only set `"status": "skipped"` if weather, recovery, or the note make it a bad idea — say why in prose. Writing "skipped" in `detail` does not skip the session. Per-slot notes are ground truth for that session; fold them into `detail` when they affect how it is done.';
+	'A **pinned** activity is a life constraint (commute, appointment). Keep its day and sport. Do not skip, move, shorten, or slow it in a way that would break the note — for example a commute that makes me late if I go slower. Still invent `label`, distance, and `detail` that fit (and `exercises` for strength). A **pinned, optional** activity stays in the JSON; prefer keeping it, and only set `"status": "skipped"` if weather, recovery, or the note make it a bad idea — say why in prose. Writing "skipped" in `detail` does not skip the session. A **preference** is a soft wish: keep it when it fits, but you may move, swap, or drop it if that serves the goal — say why. Per-activity notes are ground truth for that session; fold them into `detail` when they affect how it is done.';
 
-export function formatPatternPromptSection(opts: {
-	defaultPattern: WeekPattern;
-	thisWeek: WeekPattern;
+export const DAY_LIMIT_PROMPT =
+	'**Day limits** are hard: put no sessions on an **off** day (pinned activities are the only exception). On a **limited** day, any session you place must fit the note (time window, max duration). Move a session to another day rather than break a limit.';
+
+export const PLANNING_GUARDRAILS_PROMPT =
+	'Build load gradually: add at most one session per sport compared with my recent weeks, and grow long sessions step by step. Follow the injury rules. No back-to-back hard days. In prose, explain how many sessions of each sport you chose and why, and any change from my preferences.';
+
+function sportLine(t: ActivityType): string {
+	return t === 'strength' ? 'Strength' : activityLabel(t);
+}
+
+/** The "build around my pinned activities" block for the generate prompt. */
+export function formatWeekSetupPromptSection(opts: {
+	setup: WeekSetup;
+	defaultSetup: WeekSetup;
 	weekPhrase: string;
+	/** Sports seen in the history window — the ones I do but did not ask to plan count as load only. */
+	recentSports: ActivityType[];
 	note?: string;
 }): string {
-	const usual = formatPatternLines(opts.defaultPattern);
-	const now = formatPatternLines(opts.thisWeek);
-	const same = patternsEqual(opts.defaultPattern, opts.thisWeek);
-	const count = opts.thisWeek.length;
+	const { setup, weekPhrase } = opts;
+	const pinned = setup.pattern.filter(isPinnedSlot);
+	const prefs = setup.pattern.filter((s) => !isPinnedSlot(s));
+	const planned = setup.plannedSports;
+	const pinnedSports = new Set(pinned.map((s) => s.activity_type));
+	const notPlanned = ACTIVITY_TYPES.filter(
+		(t) => !planned.includes(t) && (opts.recentSports.includes(t) || pinnedSports.has(t))
+	);
+
 	const lines = [
-		`## Usual weekdays for ${opts.weekPhrase}`,
-		'My usual week is **day + sport** (plus can\'t-change / optional / notes when I set them) — not session kinds, not a count of runs to reshuffle:',
-		usual,
-		same
-			? `For **${opts.weekPhrase}** use **those same days and sports**.`
-			: `For **${opts.weekPhrase}** use this skeleton instead:\n${now}`,
-		count
-			? `**Keep these days and sports.** You choose the session kind (\`label\`: Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, Push, Pull, Hypertrophy, Strength, Circuit, Core — never a bare "Gym"), plus distance (null for strength) and intent. Runs get their warmup / reps / cooldown in \`workout\`. Strength has no duration field — put time, load, and rest in \`detail\`, and the lift list in \`exercises\`. The skeleton has no kinds — do not copy placeholder labels. Do not invent a different weekday pattern (do not move a Tuesday run to Wednesday just because a template prefers other days). Only shift a usual session if recovery, heat, life, or the notes below require it — never shift a **can't change** slot — and if you move a day, say why in prose.`
-			: `I did not pin a usual week — plan whatever the week needs across the sports I do (run, bike, walk, strength). Do not default to a 3-run template.`
+		`## Build ${weekPhrase} around my pinned activities`,
+		`Build my week around my pinned activities and day limits. Plan only the sports listed under **Sports to plan**.${
+			weekSetupsEqual(setup, opts.defaultSetup) ? '' : ` (I changed my usual setup for ${weekPhrase}.)`
+		}`,
+		'',
+		'### Pinned activities',
+		formatPatternLines(pinned),
+		'',
+		'### Day limits',
+		formatDayLimitLines(setup.dayLimits),
+		'',
+		'### Sports to plan',
+		planned.length
+			? `${listJoin(planned.map(sportLine))}. You choose **how many** sessions of each, **which days**, the session kind (\`label\`: Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, Push, Pull, Hypertrophy, Strength, Circuit, Core — never a bare "Gym"), distance (null for strength), and intent — from my goal, the training phase, recovery, and how often I actually did each sport in the history below. Do not default to a fixed template. Runs get their warmup / reps / cooldown in \`workout\`. Strength has no duration field — put time, load, and rest in \`detail\`, and the lift list in \`exercises\`.`
+			: '(none) — only fill in my pinned activities; do not add sessions.'
 	];
-	lines.push(SLOT_CONSTRAINT_PROMPT);
-	lines.push(RUN_SESSION_PROMPT);
-	lines.push(STRENGTH_SESSION_PROMPT);
+	if (notPlanned.length) {
+		lines.push(
+			'',
+			'### Not planned — count the load only',
+			...notPlanned.map((t) =>
+				pinnedSports.has(t)
+					? `- ${sportLine(t)}: only my pinned sessions — do not add more. Count any extra ${sportWord(t)} load from the history.`
+					: `- ${sportLine(t)}: I do these on my own. Do not schedule them, but count their load from the history.`
+			)
+		);
+	}
+	if (prefs.length) {
+		lines.push('', '### Preferences', formatPatternLines(prefs));
+	}
 	lines.push(
-		'Logged extras that did not match a plan session appear under **Unplanned activities** when there are any. They are already done — extra load, not slots to tidy into the JSON. Notes below are for extras that have not happened yet (or that I am considering). You may add sessions for those proposed extras if you recommend them — say why. Do not invent bonus days otherwise.'
+		'',
+		'### Rules',
+		SLOT_CONSTRAINT_PROMPT,
+		DAY_LIMIT_PROMPT,
+		PLANNING_GUARDRAILS_PROMPT,
+		RUN_SESSION_PROMPT,
+		STRENGTH_SESSION_PROMPT,
+		'Logged extras that did not match a plan session appear under **Unplanned activities** when there are any. They are already done — extra load, not rows to tidy into the JSON. Notes below are for extras that have not happened yet (or that I am considering). You may add sessions for those proposed extras if you recommend them — say why.'
 	);
 	if (opts.note?.trim()) {
-		lines.push(`Extra for ${opts.weekPhrase}: ${opts.note.trim()}`);
+		lines.push(`Extra for ${weekPhrase}: ${opts.note.trim()}`);
 	}
+	return lines.join('\n');
+}
+
+/** Compact setup block for the debrief prompt — what may and may not move. */
+export function formatWeekSetupDebriefSection(setup: WeekSetup, opts: { includeSlots: boolean }): string {
+	const pinned = setup.pattern.filter(isPinnedSlot);
+	const lines = [
+		'## Pinned activities and day limits',
+		'Pinned:',
+		formatPatternLines(pinned),
+		'Day limits:',
+		formatDayLimitLines(setup.dayLimits)
+	];
+	if (opts.includeSlots) {
+		const prefs = setup.pattern.filter((s) => !isPinnedSlot(s));
+		lines.push(
+			`Sports the coach plans: ${setup.plannedSports.length ? listJoin(setup.plannedSports.map(sportWord)) : '(none)'}.`
+		);
+		if (prefs.length) lines.push('Preferences:', formatPatternLines(prefs));
+	}
+	lines.push(SLOT_CONSTRAINT_PROMPT, DAY_LIMIT_PROMPT);
 	return lines.join('\n');
 }
 
@@ -386,10 +595,6 @@ export function sessionActivityType(session: {
 	label?: string;
 }): ActivityType {
 	return normalizeActivityType(session.activity_type ?? 'run');
-}
-
-export function patternHasSlotMeta(pattern: WeekPattern): boolean {
-	return pattern.some((s) => s.constraint != null || Boolean(s.notes?.trim()));
 }
 
 export const MAX_WEEK_SLOTS = MAX_SLOTS;

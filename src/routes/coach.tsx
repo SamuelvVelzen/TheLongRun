@@ -35,10 +35,12 @@ import {
 } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import { cn } from '$lib/ui';
+import type { ActivityType } from '$lib/activity';
 import {
-    formatPatternProse,
-    patternsEqual,
-    type WeekPattern
+    formatWeekSetupProse,
+    weekSetupsEqual,
+    type DayLimit,
+    type WeekSetup
 } from '$lib/week-mix';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -335,7 +337,7 @@ export const Route = createFileRoute('/coach')({
 				getDebriefPrompt({ data: { slug, includePlan } }),
 				getWeekPattern(),
 				getCoachPlan()
-			]).then(([debrief, weekPattern, planData]) => ({ debrief, weekPattern, planData }))
+			]).then(([debrief, weekSetup, planData]) => ({ debrief, weekSetup, planData }))
 		};
 	},
 	head: () => appHead('Coach'),
@@ -424,14 +426,14 @@ function Coach() {
 				className="max-sm:hidden"
 				kicker="This week"
 				title="Coach"
-				lead="Usual week and the plan. With a race on Goals, the block runs through race week. Without one, generate this week as base training."
+				lead="Pin what life fixes, choose what the coach plans around it. With a race on Goals, the block runs through race week. Without one, generate this week as base training."
 			/>
 
 			<DeferredData promise={page}>
 				{(data) => (
 					<CoachPanels
 						debrief={data.debrief}
-						initialPattern={data.weekPattern}
+						initialSetup={data.weekSetup}
 						planData={data.planData}
 						gear={data.debrief.gear}
 						gearWear={data.debrief.gearWear}
@@ -444,13 +446,13 @@ function Coach() {
 
 function CoachPanels({
 	debrief: initialDebrief,
-	initialPattern,
+	initialSetup,
 	planData,
 	gear,
 	gearWear
 }: {
 	debrief: DebriefPrompt;
-	initialPattern: WeekPattern;
+	initialSetup: WeekSetup;
 	planData: CoachPlanData;
 	gear: GearContext;
 	gearWear: Record<GearKind, Record<string, GearWear>>;
@@ -497,8 +499,10 @@ function CoachPanels({
 	);
 	const [debriefCopied, setDebriefCopied] = useState(false);
 
-	const [usual, setUsual] = useState<SlotRow[]>(() => rowsFrom(initialPattern));
-	const [savedPattern, setSavedPattern] = useState<WeekPattern>(initialPattern);
+	const [usual, setUsual] = useState<SlotRow[]>(() => rowsFrom(initialSetup.pattern));
+	const [dayLimits, setDayLimits] = useState<DayLimit[]>(initialSetup.dayLimits);
+	const [plannedSports, setPlannedSports] = useState<ActivityType[]>(initialSetup.plannedSports);
+	const [savedSetup, setSavedSetup] = useState<WeekSetup>(initialSetup);
 	const [mixBusy, setMixBusy] = useState(false);
 	const mixBusyRef = useRef(false);
 
@@ -596,8 +600,14 @@ function CoachPanels({
 	const weekPhrase = planningNext ? 'next week' : 'this week';
 	const weekPhraseCap = planningNext ? 'Next week' : 'This week';
 	const defaultQ = defaultQuestion(planningNext);
-	const usualPattern = toPattern(usual);
-	const mixDirty = !patternsEqual(usualPattern, savedPattern);
+	const setup: WeekSetup = { pattern: toPattern(usual), dayLimits, plannedSports };
+	const mixDirty = !weekSetupsEqual(setup, savedSetup);
+
+	function applySetup(next: WeekSetup) {
+		setUsual(rowsFrom(next.pattern));
+		setDayLimits(next.dayLimits);
+		setPlannedSports(next.plannedSports);
+	}
 
 	async function generateBrief(mixNote: string, question: string) {
 		try {
@@ -606,8 +616,8 @@ function CoachPanels({
 					range: range.kind,
 					from: range.from,
 					to: range.to,
-					pattern: usualPattern,
-					defaultPattern: savedPattern,
+					setup,
+					defaultSetup: savedSetup,
 					note: mixNote
 				}
 			});
@@ -624,9 +634,9 @@ function CoachPanels({
 		mixBusyRef.current = true;
 		setMixBusy(true);
 		try {
-			const saved = await saveWeekPattern({ data: usualPattern });
-			setSavedPattern(saved);
-			setUsual(rowsFrom(saved));
+			const saved = await saveWeekPattern({ data: setup });
+			setSavedSetup(saved);
+			applySetup(saved);
 			snack.success('Saved as your default week.');
 			router.invalidate();
 		} catch (e) {
@@ -675,37 +685,41 @@ function CoachPanels({
 			{tab === 'training' && (
 				<div className={panelClass(formClass, 'mb-4')}>
 					<div className={fieldClass}>
-						<span>Usual week</span>
+						<span>Week setup</span>
 						{authed ? (
 							<>
 								<span className={cn('text-muted', 'font-normal')}>
-									Day and sport — the AI chooses easy / quality / long / etc. plus distance. Mark a
-									session can't change (commute) or optional, and add notes the coach will see. Change
-									days for this week without saving; Generate will use them. Save only if this should
-									become your default.
+									Pin what life fixes, choose what the coach plans. Pin only what you can't move (a
+									commute); the coach builds the week around it and decides how many sessions of each
+									sport and on which days. Day limits mark days you can't train, or only part of the day.
+									Changes apply to Generate right away; save only if this should become your default.
 								</span>
 								<span className={cn('text-muted', 'font-normal')}>
-									Saved default is {formatPatternProse(savedPattern)}.
+									Saved default: {formatWeekSetupProse(savedSetup)}.
 								</span>
 							</>
 						) : null}
 						<WeekPatternEditor
 							rows={usual}
+							onChange={setUsual}
+							dayLimits={dayLimits}
+							onDayLimitsChange={setDayLimits}
+							plannedSports={plannedSports}
+							onPlannedSportsChange={setPlannedSports}
 							disabled={mixBusy}
 							readOnly={!authed}
-							onChange={setUsual}
 						/>
 					</div>
 					{authed && (mixDirty || mixBusy) && (
 						<>
 							<p className={cn('text-muted', 'm-0')}>
-								Unsaved — Generate will plan this week with these days, not your saved usual week.
+								Unsaved — Generate will use this setup, not your saved default.
 							</p>
 							<div className={actionsClass('mt-[0.35rem]')}>
 								<button
 									className={buttonClass({ variant: 'ghost' })}
 									type="button"
-									onClick={() => setUsual(rowsFrom(savedPattern))}
+									onClick={() => applySetup(savedSetup)}
 									disabled={mixBusy}
 								>
 									Revert to saved
@@ -951,11 +965,13 @@ function CoachPanels({
 						<p className={cn('text-muted', 'mt-2 mb-0')}>
 							{mixDirty ? (
 								<>
-									{weekPhraseCap}: {formatPatternProse(usualPattern)} — not saved as your usual week
-									({formatPatternProse(savedPattern)}).
+									{weekPhraseCap}: {formatWeekSetupProse(setup)} — not saved as your default (
+									{formatWeekSetupProse(savedSetup)}).
 								</>
 							) : (
-								<>{weekPhraseCap} uses your usual days: {formatPatternProse(savedPattern)}.</>
+								<>
+									{weekPhraseCap}: {formatWeekSetupProse(savedSetup)}.
+								</>
 							)}{' '}
 							<Link
 								className="text-accent-fg font-semibold"
@@ -1009,8 +1025,8 @@ function CoachPanels({
 						title={`Save ${weekPhrase}’s plan`}
 						description={
 							<p className={cn('text-muted', 'mt-[0.3rem]')}>
-								Paste the JSON block your AI returned — merged by week number. Keep your usual
-								days unless the reply explained a shift.
+								Paste the JSON block your AI returned — merged by week number. Check that pinned
+								activities kept their day.
 							</p>
 						}
 						placeholder='{ "week": 3, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'

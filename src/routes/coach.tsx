@@ -1,4 +1,3 @@
-import { showsField } from '$lib/activity';
 import { emptyActivityHabits } from '$lib/activity-habits';
 import { useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
@@ -44,17 +43,18 @@ import {
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
+import { DebriefActivityTitle } from '../components/DebriefActivityTitle';
 import { DebriefFeelForm } from '../components/DebriefFeelForm';
 import { DebriefRacePanel } from '../components/DebriefRacePanel';
 import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
-import { ActivityTag, Icon } from '../components/Icon';
+import { Icon } from '../components/Icon';
 import { JsonPasteForm } from '../components/JsonPasteForm';
 import { PageHero } from '../components/PageHero';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { Select } from '../components/Select';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, actionsClass, Button, buttonClass, Field, fieldClass, Form, formClass, panelClass, runTitleClass, tabBarClass, Textarea } from '../components/ui';
+import { Actions, actionsClass, Button, buttonClass, Field, fieldClass, Form, formClass, panelClass, tabBarClass, Textarea } from '../components/ui';
 import {
     rowsFrom,
     toPattern,
@@ -118,26 +118,6 @@ function visibleTab(tab: CoachTab | undefined, authed: boolean): CoachTab {
 
 type DebriefPrompt = Awaited<ReturnType<typeof getDebriefPrompt>>;
 type CoachPlanData = Awaited<ReturnType<typeof getCoachPlan>>;
-type DebriefListedRun = NonNullable<DebriefPrompt['runs']>[number];
-
-/** Timeline-style title: date + sport tag, then day / start / km. */
-function DebriefRunTitle({ run }: { run: DebriefListedRun }) {
-	const rest = [
-		run.day || null,
-		run.start_time || null,
-		showsField(run.activity_type, 'distance') && run.distance_km != null
-			? `${run.distance_km} km`
-			: null
-	].filter(Boolean);
-	return (
-		<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-[0.15rem] align-middle">
-			<span className={runTitleClass}>{run.date}</span>
-			<ActivityTag type={run.activity_type ?? 'run'} />
-			{rest.length ? <span className="text-muted font-normal">{rest.join(' · ')}</span> : null}
-		</span>
-	);
-}
-
 function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 	const search = Route.useSearch();
 	const router = useRouter();
@@ -763,9 +743,7 @@ function CoachPanels({
 									<ul className="list-none m-[0.35rem_0_0] p-0 grid gap-1">
 										{runs.map((r) => (
 											<li key={r.slug}>
-												<Link to="/runs/$slug" params={{ slug: r.slug }}>
-													<DebriefRunTitle run={r} />
-												</Link>
+												<DebriefActivityTitle run={r} link />
 												{r.hasFeel ? '' : ' · no feel yet'}
 											</li>
 										))}
@@ -816,7 +794,7 @@ function CoachPanels({
 									<div key={r.slug}>
 										<DebriefFeelForm
 											run={r}
-											heading={many ? <DebriefRunTitle run={r} /> : undefined}
+											heading={many ? <DebriefActivityTitle run={r} link /> : undefined}
 											writeup={writeups[r.slug] ?? ''}
 											habitDraft={habitDrafts[r.slug] ?? { before: '', after: '' }}
 											gear={gear}

@@ -24,7 +24,7 @@ function Context() {
 				variant="quiet"
 				kicker="Standing notes"
 				title="Context"
-				lead="Profile, injury rules, and fueling. The week lives on Coach. Race day lives on Goals. Kit and usual habits live on Gear."
+				lead="Profile, injury rules, and your checklist. The week lives on Coach. Race day lives on Goals. Kit and usual habits live on Gear. Food and drink live on Fuel."
 			/>
 			<DeferredData promise={page}>{(data) => <ContextBody data={data} />}</DeferredData>
 		</>

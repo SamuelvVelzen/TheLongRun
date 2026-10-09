@@ -558,7 +558,7 @@ export const getWeather = createServerFn({ method: 'GET' })
 const CONTEXT_FILES: { name: string; title: string }[] = [
 	{ name: 'profile.md', title: 'Runner profile' },
 	{ name: 'injury.md', title: 'Injury rules' },
-	{ name: 'gear.md', title: 'Fueling & checklist' }
+	{ name: 'gear.md', title: 'Checklist & kit' }
 ];
 
 export type ContextFile = { name: string; title: string; body: string; html: string };

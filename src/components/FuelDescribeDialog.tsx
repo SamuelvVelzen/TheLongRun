@@ -7,16 +7,20 @@ import { useEffect, useState } from 'react';
 import { Icon } from './Icon';
 import { JsonPasteForm } from './JsonPasteForm';
 import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, Button, Field, formClass, formSectionTitleClass, panelClass, Textarea } from './ui';
+import { Actions, Button, Dialog, dialogPanelMedalClass, Field, Textarea } from './ui';
 
 /** Describe in your own words → copy prompt → paste the AI's JSON → saved (zod-checked) with Undo. */
-export function FuelDescribePanel({
+export function FuelDescribeDialog({
+	open,
 	log,
 	promptTemplate,
+	onClose,
 	onSaved
 }: {
+	open: boolean;
 	log: FuelLog;
 	promptTemplate: string;
+	onClose: () => void;
 	onSaved: (log: FuelLog) => void;
 }) {
 	const router = useRouter();
@@ -25,8 +29,8 @@ export function FuelDescribePanel({
 	const [copied, setCopied] = useState(false);
 
 	useEffect(() => {
-		setText(readFuelDraft());
-	}, []);
+		if (open) setText(readFuelDraft());
+	}, [open]);
 
 	const prompt = injectFuelText(promptTemplate, text);
 
@@ -55,9 +59,13 @@ export function FuelDescribePanel({
 	}
 
 	return (
-		<section className={panelClass(formClass, 'mb-5')}>
-			<h3 className={cn(formSectionTitleClass, 'm-0 mb-0 pb-0 border-b-0')}>Describe what you ate</h3>
-			<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>
+		<Dialog
+			open={open}
+			title="Describe what you ate"
+			onClose={onClose}
+			className={cn(dialogPanelMedalClass, 'sm:max-w-[min(42rem,100%)]!')}
+		>
+			<p className={cn('text-muted', 'm-0')}>
 				Write it down in your own words, copy the prompt into your AI, then paste its JSON back. The
 				reply is checked and saved straight away{log.entries.length ? ' — names you already use are reused' : ''}.
 			</p>
@@ -75,7 +83,7 @@ export function FuelDescribePanel({
 			{text.trim() ? (
 				<>
 					<Field label="Prompt">
-						<Textarea variant="editor" rows={10} value={prompt} readOnly />
+						<Textarea variant="editor" rows={8} value={prompt} readOnly />
 					</Field>
 					<Actions>
 						<Button variant="primary" onClick={() => void copy()}>
@@ -84,7 +92,7 @@ export function FuelDescribePanel({
 						</Button>
 					</Actions>
 					<JsonPasteForm
-						rows={6}
+						rows={5}
 						placeholder='{ "fuel": [ { "phase": "before", "item": "Coffee", "timing": "20 min before", "outcome": "good" } ] }'
 						submitLabel="Save fuel"
 						submitIcon="check"
@@ -98,11 +106,12 @@ export function FuelDescribePanel({
 							snack.success(`Saved ${n} fuel tr${n === 1 ? 'y' : 'ies'}.`, {
 								action: { label: 'Undo', onClick: () => void undo(res.addedIds, res.log) }
 							});
+							onClose();
 							await router.invalidate();
 						}}
 					/>
 				</>
 			) : null}
-		</section>
+		</Dialog>
 	);
 }

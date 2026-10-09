@@ -24,9 +24,10 @@ import { Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { ConfirmDialog } from './Dialog';
-import { FuelDescribePanel } from './FuelDescribePanel';
+import { FuelDescribeDialog } from './FuelDescribeDialog';
 import { FuelTryLine } from './FuelParts';
 import { Icon } from './Icon';
+import { SegmentedToggle } from './SegmentedToggle';
 import { errorMessage, useSnackbar } from './Snackbar';
 import {
 	Actions,
@@ -39,6 +40,7 @@ import {
 	formSectionTitleClass,
 	panelClass,
 	statusPillClass,
+	tabBarClass,
 	useAppForm
 } from './ui';
 
@@ -372,16 +374,26 @@ function GuidanceForm({
 	);
 }
 
+export type FuelTab = FuelPhase | 'guidance';
+
+export function parseFuelTab(v: unknown): FuelTab {
+	return v === 'during' || v === 'after' || v === 'guidance' ? v : 'before';
+}
+
 export function FuelLog({
 	initial,
 	runsBySlug,
 	promptTemplate,
-	authed
+	authed,
+	tab,
+	onTabChange
 }: {
 	initial: FuelLogData;
 	runsBySlug: Record<string, FuelRunRef>;
 	promptTemplate: string;
 	authed: boolean;
+	tab: FuelTab;
+	onTabChange: (tab: FuelTab) => void;
 }) {
 	const router = useRouter();
 	const snack = useSnackbar();
@@ -391,6 +403,7 @@ export function FuelLog({
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [remove, setRemove] = useState<FuelEntry | null>(null);
 	const [rename, setRename] = useState<FuelGroup | null>(null);
+	const [describing, setDescribing] = useState(false);
 
 	useEffect(() => {
 		setLog(initial);
@@ -445,19 +458,37 @@ export function FuelLog({
 	}
 
 	const groups = groupFuelLog(log);
+	const phase = tab === 'guidance' ? null : tab;
 
 	return (
 		<>
-			{authed && (
-				<FuelDescribePanel
-					log={log}
-					promptTemplate={promptTemplate}
-					onSaved={(saved) => setLog(saved)}
+			<div className={tabBarClass()}>
+				<SegmentedToggle
+					fill
+					aria-label="Fuel"
+					value={tab}
+					onChange={onTabChange}
+					options={[
+						...FUEL_PHASES.map((p) => ({
+							value: p as FuelTab,
+							label: groups[p].length ? `${FUEL_PHASE_META[p].label} · ${groups[p].length}` : FUEL_PHASE_META[p].label
+						})),
+						{ value: 'guidance' as FuelTab, label: 'Guidance' }
+					]}
 				/>
+			</div>
+
+			{authed && (
+				<Actions className="mt-0 mb-4">
+					<Button variant="primary" onClick={() => setDescribing(true)}>
+						<Icon name="sparkle" size={16} />
+						Describe what you ate
+					</Button>
+				</Actions>
 			)}
 
-			{FUEL_PHASES.map((phase) => (
-				<section key={phase} className={panelClass(authed && formClass, 'mb-5')}>
+			{phase && (
+				<section className={panelClass(authed && formClass, 'mb-5')}>
 					<div className="flex items-center gap-2">
 						<h3 className={cn(formSectionTitleClass, 'flex-1 m-0 mb-0 pb-0 border-b-0')}>
 							{FUEL_PHASE_META[phase].title}
@@ -501,22 +532,34 @@ export function FuelLog({
 						/>
 					)}
 				</section>
-			))}
+			)}
 
-			<section className={panelClass(authed && formClass, 'mb-5')}>
-				<h3 className={cn(formSectionTitleClass, 'm-0 mb-2 pb-0 border-b-0')}>Guidance</h3>
-				{authed ? (
-					<GuidanceForm
-						guidance={log.guidance}
-						busy={busy}
-						onSave={(guidance) => persist({ ...log, guidance }, 'Saved guidance')}
-					/>
-				) : log.guidance ? (
-					<p className="m-0 whitespace-pre-wrap">{log.guidance}</p>
-				) : (
-					<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>No general guidance yet.</p>
-				)}
-			</section>
+			{tab === 'guidance' && (
+				<section className={panelClass(authed && formClass, 'mb-5')}>
+					<h3 className={cn(formSectionTitleClass, 'm-0 mb-2 pb-0 border-b-0')}>Guidance</h3>
+					{authed ? (
+						<GuidanceForm
+							guidance={log.guidance}
+							busy={busy}
+							onSave={(guidance) => persist({ ...log, guidance }, 'Saved guidance')}
+						/>
+					) : log.guidance ? (
+						<p className="m-0 whitespace-pre-wrap">{log.guidance}</p>
+					) : (
+						<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>No general guidance yet.</p>
+					)}
+				</section>
+			)}
+
+			{authed && (
+				<FuelDescribeDialog
+					open={describing}
+					log={log}
+					promptTemplate={promptTemplate}
+					onClose={() => setDescribing(false)}
+					onSaved={(saved) => setLog(saved)}
+				/>
+			)}
 
 			<ConfirmDialog
 				open={remove != null}

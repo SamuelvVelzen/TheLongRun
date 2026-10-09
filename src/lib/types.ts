@@ -1,4 +1,5 @@
 import type { BestEffort } from '$lib/best-efforts';
+import type { PlanStrengthExercise, RunWorkout } from '$lib/plan-schema';
 
 export type RunDay = string;
 export type SessionType =
@@ -103,15 +104,15 @@ export interface Goal {
 /** Stored on a plan row only when the session is explicitly dropped. */
 export type PlanSessionStatus = 'skipped';
 
-/** Compact lift on a strength plan row — Log as planned expands this into sets. */
-export type PlanStrengthExercise = {
-	name: string;
-	sets: number;
-	reps?: number;
-	kg?: number | null;
-	sec?: number;
-	note?: string;
-};
+export type {
+	PlanStrengthExercise,
+	RunBlock,
+	RunEffort,
+	RunRepeat,
+	RunStep,
+	RunWorkout,
+	RunWorkoutType
+} from '$lib/plan-schema';
 
 export interface PlanSession {
 	day: string;
@@ -122,6 +123,8 @@ export interface PlanSession {
 	detail: string;
 	/** Strength only. Older rows omit this and Log as planned parses `detail`. */
 	exercises?: PlanStrengthExercise[];
+	/** Run only. Structured warmup / reps / cooldown blocks; older rows only have `detail`. */
+	workout?: RunWorkout;
 	/** Explicit skip (`"status": "skipped"`). Done / unlogged are computed from logs. Wording in label/detail is not a skip. */
 	status?: PlanSessionStatus;
 }

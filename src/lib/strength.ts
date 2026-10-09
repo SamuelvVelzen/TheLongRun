@@ -1,4 +1,5 @@
 import { formatDuration } from '$lib/format';
+import { planStrengthExerciseSchema } from '$lib/plan-schema';
 import type { PlanStrengthExercise } from '$lib/types';
 
 export type StrengthKind = 'weighted' | 'reps' | 'time';
@@ -385,46 +386,16 @@ function expandSets(n: number, set: StrengthSet): StrengthExercise['sets'] {
 	return Array.from({ length: count }, () => ({ ...set }));
 }
 
-function finitePositive(n: unknown): number | null {
-	const v = Number(n);
-	return Number.isFinite(v) && v > 0 ? v : null;
-}
-
-function parseCompactSets(raw: unknown): { sets: number; reps?: number; sec?: number } | null {
-	const s = String(raw ?? '').trim();
-	const timed = s.match(/^(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*s(?:ecs?|econds?)?$/i);
-	if (timed) return { sets: Math.min(8, Number(timed[1])), sec: Number(timed[2]) };
-	const reps = s.match(/^(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)$/i);
-	if (reps) return { sets: Math.min(8, Number(reps[1])), reps: Number(reps[2]) };
-	return null;
-}
-
-/** Accept `{sets:3,reps:30}` or a compact `"3x30"` / `"3x90s"` from sloppy model JSON. */
+/**
+ * Saved plan rows: keep the lifts that pass `planStrengthExerciseSchema`, drop the rest.
+ * Pasted JSON is validated strictly in `parsePlanWeeks`; this stays lenient for older rows.
+ */
 export function normalizePlanStrengthExercises(raw: unknown): PlanStrengthExercise[] | undefined {
 	if (!Array.isArray(raw) || !raw.length) return undefined;
 	const out: PlanStrengthExercise[] = [];
 	for (const item of raw) {
-		if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
-		const o = item as Record<string, unknown>;
-		const name = String(o.name ?? '').trim();
-		if (!name) continue;
-		const sec = finitePositive(o.sec ?? o.seconds);
-		const reps = finitePositive(o.reps);
-		const setsNum = finitePositive(o.sets);
-		const compact = setsNum ? null : parseCompactSets(o.sets);
-		const sets = setsNum ? Math.min(8, Math.round(setsNum)) : compact?.sets;
-		const hold = sec ?? compact?.sec;
-		const count = reps ?? compact?.reps;
-		if (!sets || (hold == null && count == null)) continue;
-		const kg = o.kg == null && o.weight == null ? null : finitePositive(o.kg ?? o.weight);
-		const note = typeof o.note === 'string' ? o.note.trim() : '';
-		out.push({
-			name,
-			sets,
-			...(hold != null ? { sec: hold } : { reps: count! }),
-			...(kg != null ? { kg } : {}),
-			...(note ? { note } : {})
-		});
+		const parsed = planStrengthExerciseSchema.safeParse(item);
+		if (parsed.success) out.push(parsed.data);
 	}
 	return out.length ? out : undefined;
 }

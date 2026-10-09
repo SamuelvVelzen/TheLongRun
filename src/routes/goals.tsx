@@ -29,6 +29,7 @@ import { MedalDialog } from '../components/MedalDialog';
 import { PinRaceResult } from '../components/PinRaceResult';
 import { PageHero } from '../components/PageHero';
 import { RouteLine } from '../components/RouteLine';
+import { AiPromptFlow } from '../components/AiPromptFlow';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
 import { Actions, actionsClass, Button, buttonClass, dialogPanelMedalClass, Field, Form, FormGrid, FormSection, panelClass, sectionTitleClass, tabBarClass, Textarea, useAppForm } from '../components/ui';
@@ -859,8 +860,6 @@ function GoalForm({
 	const [briefText, setBriefText] = useState('');
 	const [replyJson, setReplyJson] = useState('');
 	const [briefBusy, setBriefBusy] = useState(false);
-	const [copied, setCopied] = useState(false);
-
 	const form = useAppForm({
 		defaultValues,
 		validators: { onSubmit: goalFormSchema },
@@ -917,16 +916,6 @@ function GoalForm({
 			snack.error(errorMessage(e, 'Could not build the prompt.'));
 		} finally {
 			setBriefBusy(false);
-		}
-	}
-
-	async function copyBrief() {
-		try {
-			await navigator.clipboard.writeText(briefText);
-			setCopied(true);
-			setTimeout(() => setCopied(false), 1800);
-		} catch {
-			snack.error('Could not copy — select and copy the text instead.');
 		}
 	}
 
@@ -1218,24 +1207,14 @@ function GoalForm({
 								{briefBusy ? 'Building…' : briefText ? 'Regenerate prompt' : 'Generate prompt'}
 							</Button>
 						</Actions>
-						{briefText && (
-							<>
-								<Field label="Prompt (editable — tweak before you copy)">
-									<Textarea
-										variant="editor"
-										rows={12}
-										value={briefText}
-										onChange={(e) => setBriefText(e.target.value)}
-									/>
-								</Field>
-								<Actions className="justify-start!">
-									<Button variant="ghost" onClick={() => void copyBrief()}>
-										<Icon name={copied ? 'check' : 'copy'} size={16} />
-										{copied ? 'Copied' : 'Copy prompt'}
-									</Button>
-								</Actions>
-							</>
-						)}
+						{briefText ? (
+							<AiPromptFlow
+								prompt={briefText}
+								promptEditable
+								onPromptChange={setBriefText}
+								promptRows={12}
+							/>
+						) : null}
 						<Field label="Paste the JSON your AI returned">
 							<Textarea
 								variant="editor"

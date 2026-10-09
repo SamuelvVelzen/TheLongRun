@@ -4,10 +4,10 @@ import { saveFuelLog, saveFuelReply } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { Icon } from './Icon';
+import { AiPromptFlow } from './AiPromptFlow';
 import { JsonPasteForm } from './JsonPasteForm';
 import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, Button, Dialog, dialogPanelMedalClass, Field, Textarea } from './ui';
+import { Dialog, dialogPanelMedalClass, Field, Textarea } from './ui';
 
 /** Describe in your own words → copy prompt → paste the AI's JSON → saved (zod-checked) with Undo. */
 export function FuelDescribeDialog({
@@ -26,23 +26,13 @@ export function FuelDescribeDialog({
 	const router = useRouter();
 	const snack = useSnackbar();
 	const [text, setText] = useState('');
-	const [copied, setCopied] = useState(false);
 
 	useEffect(() => {
 		if (open) setText(readFuelDraft());
 	}, [open]);
 
 	const prompt = injectFuelText(promptTemplate, text);
-
-	async function copy() {
-		try {
-			await navigator.clipboard.writeText(prompt);
-			setCopied(true);
-			setTimeout(() => setCopied(false), 1800);
-		} catch {
-			/* ignore */
-		}
-	}
+	const ready = Boolean(text.trim());
 
 	async function undo(addedIds: string[], current: FuelLog) {
 		const drop = new Set(addedIds);
@@ -65,32 +55,17 @@ export function FuelDescribeDialog({
 			onClose={onClose}
 			className={cn(dialogPanelMedalClass, 'sm:max-w-[min(42rem,100%)]!')}
 		>
-			<p className={cn('text-muted', 'm-0')}>
-				Write it down in your own words, copy the prompt into your AI, then paste its JSON back. The
-				reply is checked and saved straight away{log.entries.length ? ' — names you already use are reused' : ''}.
-			</p>
-			<Field label="What did you eat or drink?">
-				<Textarea
-					rows={4}
-					value={text}
-					placeholder="Coffee 20 min before, fine. Lidl pigs sweets every 5 km during my long run — no issues."
-					onChange={(e) => {
-						setText(e.target.value);
-						writeFuelDraft(e.target.value);
-					}}
-				/>
-			</Field>
-			{text.trim() ? (
-				<>
-					<Field label="Prompt">
-						<Textarea variant="editor" rows={8} value={prompt} readOnly />
-					</Field>
-					<Actions>
-						<Button variant="primary" onClick={() => void copy()}>
-							<Icon name={copied ? 'check' : 'copy'} size={16} />
-							{copied ? 'Copied' : 'Copy prompt'}
-						</Button>
-					</Actions>
+			<AiPromptFlow
+				intro={
+					<p className="m-0">
+						Write it down in your own words, copy the prompt into your AI, then paste its JSON back. The
+						reply is checked and saved straight away{log.entries.length ? ' — names you already use are reused' : ''}.
+					</p>
+				}
+				prompt={prompt}
+				promptReady={ready}
+				promptRows={8}
+				result={
 					<JsonPasteForm
 						rows={5}
 						placeholder='{ "fuel": [ { "phase": "before", "item": "Coffee", "timing": "20 min before", "outcome": "good" } ] }'
@@ -110,8 +85,20 @@ export function FuelDescribeDialog({
 							await router.invalidate();
 						}}
 					/>
-				</>
-			) : null}
+				}
+			>
+				<Field label="What did you eat or drink?">
+					<Textarea
+						rows={4}
+						value={text}
+						placeholder="Coffee 20 min before, fine. Lidl pigs sweets every 5 km during my long run — no issues."
+						onChange={(e) => {
+							setText(e.target.value);
+							writeFuelDraft(e.target.value);
+						}}
+					/>
+				</Field>
+			</AiPromptFlow>
 		</Dialog>
 	);
 }

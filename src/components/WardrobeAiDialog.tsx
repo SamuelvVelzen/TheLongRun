@@ -12,9 +12,10 @@ import {
 } from '$lib/wardrobe';
 import { parseClothingReplyText } from '$lib/wardrobe-schema';
 import { useEffect, useMemo, useState } from 'react';
+import { AiPromptFlow } from './AiPromptFlow';
 import { Icon } from './Icon';
 import { JsonPasteForm } from './JsonPasteForm';
-import { Button, Dialog, Field, statusPillClass, Textarea } from './ui';
+import { Button, Dialog, statusPillClass } from './ui';
 
 /** Describe or ask → copy prompt → paste the AI's JSON → pick what to keep. Nothing saves until confirmed. */
 export function WardrobeAiDialog({
@@ -31,7 +32,6 @@ export function WardrobeAiDialog({
 	onSave: (next: Wardrobe, okMessage: string) => Promise<boolean>;
 }) {
 	const [extra, setExtra] = useState('');
-	const [copied, setCopied] = useState(false);
 	const [changes, setChanges] = useState<ClothingChange[]>([]);
 	const [picked, setPicked] = useState<Set<string>>(new Set());
 
@@ -43,16 +43,6 @@ export function WardrobeAiDialog({
 
 	const template = useMemo(() => buildWardrobePrompt(wardrobe, isoDateLocal(new Date())), [wardrobe]);
 	const prompt = injectWardrobeExtra(template, extra);
-
-	async function copy() {
-		try {
-			await navigator.clipboard.writeText(prompt);
-			setCopied(true);
-			setTimeout(() => setCopied(false), 1800);
-		} catch {
-			/* ignore */
-		}
-	}
 
 	async function save() {
 		const chosen = changes.filter((c) => picked.has(c.item.id));
@@ -133,43 +123,34 @@ export function WardrobeAiDialog({
 					</div>
 				</>
 			) : (
-				<>
-					<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>
-						List what you own, or ask what you're missing. Copy the prompt into your AI, then paste its JSON
-						back — you choose what to keep.
-					</p>
-					<Field label="Extra for the prompt">
-						<Textarea
-							rows={3}
-							value={extra}
-							placeholder="I have 4 tees, 2 shorts with short liner, 1 with long liner… What do I need for winter mornings?"
-							onChange={(e) => setExtra(e.target.value)}
+				<AiPromptFlow
+					intro={
+						<p className="m-0">
+							List what you own, or ask what you're missing. Copy the prompt into your AI, then paste its JSON
+							back — you choose what to keep.
+						</p>
+					}
+					extraLabel="Extra for the prompt"
+					extra={extra}
+					onExtraChange={setExtra}
+					extraPlaceholder="I have 4 tees, 2 shorts with short liner, 1 with long liner… What do I need for winter mornings?"
+					prompt={prompt}
+					result={
+						<JsonPasteForm
+							description={<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Paste the AI's reply</p>}
+							rows={5}
+							placeholder='{ "items": [ { "category": "bottom", "name": "Shorts + long liner", "count": 2 } ] }'
+							submitLabel="Check reply"
+							submitIcon="check"
+							errorLabel="Could not read that reply."
+							onSubmit={(text) => {
+								const next = planClothingChanges(wardrobe, parseClothingReplyText(text));
+								setChanges(next);
+								setPicked(new Set(next.map((c) => c.item.id)));
+							}}
 						/>
-					</Field>
-					<details>
-						<summary className="cursor-pointer text-muted text-[0.9rem]">Show prompt</summary>
-						<Textarea variant="editor" rows={10} value={prompt} readOnly className="mt-2" />
-					</details>
-					<div>
-						<Button variant="primary" onClick={() => void copy()}>
-							<Icon name={copied ? 'check' : 'copy'} size={16} />
-							{copied ? 'Copied' : 'Copy prompt'}
-						</Button>
-					</div>
-					<JsonPasteForm
-						description={<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Paste the AI's reply</p>}
-						rows={5}
-						placeholder='{ "items": [ { "category": "bottom", "name": "Shorts + long liner", "count": 2 } ] }'
-						submitLabel="Check reply"
-						submitIcon="check"
-						errorLabel="Could not read that reply."
-						onSubmit={(text) => {
-							const next = planClothingChanges(wardrobe, parseClothingReplyText(text));
-							setChanges(next);
-							setPicked(new Set(next.map((c) => c.item.id)));
-						}}
-					/>
-				</>
+					}
+				/>
 			)}
 		</Dialog>
 	);

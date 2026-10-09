@@ -49,6 +49,7 @@ import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter
 import { DebriefActivityTitle } from '../components/DebriefActivityTitle';
 import { DebriefFeelForm } from '../components/DebriefFeelForm';
 import { DebriefRacePanel } from '../components/DebriefRacePanel';
+import { AiPromptFlow } from '../components/AiPromptFlow';
 import { DeferredData } from '../components/DeferredData';
 import { FuelSuggestionsDialog } from '../components/FuelSuggestionsDialog';
 import { GpxImport } from '../components/GpxImport';
@@ -468,7 +469,6 @@ function CoachPanels({
 	const slug = search.slug ?? '';
 	const includePlan = search.includePlan === true;
 
-	const [copied, setCopied] = useState(false);
 	const [generateDraft, setGenerateDraft] = useState(readGenerateDraft);
 
 	useLayoutEffect(() => {
@@ -499,7 +499,6 @@ function CoachPanels({
 			initialDebrief.habits ?? emptyActivityHabits()
 		)
 	);
-	const [debriefCopied, setDebriefCopied] = useState(false);
 	const [fuelSuggestions, setFuelSuggestions] = useState<FuelEntry[]>([]);
 
 	const [usual, setUsual] = useState<SlotRow[]>(() => rowsFrom(initialSetup.pattern));
@@ -661,26 +660,6 @@ function CoachPanels({
 		a.click();
 		a.remove();
 		URL.revokeObjectURL(url);
-	}
-
-	async function copy() {
-		try {
-			await navigator.clipboard.writeText(generateDraft.brief);
-			setCopied(true);
-			setTimeout(() => setCopied(false), 1800);
-		} catch {
-			/* ignore */
-		}
-	}
-
-	async function copyDebrief() {
-		try {
-			await navigator.clipboard.writeText(debriefPrompt);
-			setDebriefCopied(true);
-			setTimeout(() => setDebriefCopied(false), 1800);
-		} catch {
-			/* ignore */
-		}
 	}
 
 	return (
@@ -866,20 +845,12 @@ function CoachPanels({
 											</span>
 										</span>
 									</label>
-									<Field>
-										<Textarea
-											variant="editor"
-											rows={14}
-											value={debriefPrompt}
-											onChange={(e) => setDebriefPrompt(e.target.value)}
-										/>
-									</Field>
-									<Actions>
-										<Button variant="primary" onClick={() => void copyDebrief()}>
-											<Icon name={debriefCopied ? 'check' : 'copy'} size={16} />
-											{debriefCopied ? 'Copied' : 'Copy prompt'}
-										</Button>
-									</Actions>
+									<AiPromptFlow
+										prompt={debriefPrompt}
+										promptEditable
+										onPromptChange={setDebriefPrompt}
+										promptRows={14}
+									/>
 								</div>
 							)}
 						</li>
@@ -1011,25 +982,23 @@ function CoachPanels({
 
 					{generateDraft.brief && (
 						<div className={panelClass(formClass)}>
-							<h3>Prompt (editable — tweak before you copy)</h3>
-							<Field className="mt-2">
-								<Textarea
-									variant="editor"
-									rows={16}
-									value={generateDraft.brief}
-									onChange={(e) => patchGenerateDraft({ brief: e.target.value })}
-								/>
-							</Field>
-							<Actions>
-								<Button variant="primary" onClick={download}>
-									<Icon name="download" size={16} />
-									Download .md
-								</Button>
-								<Button variant="ghost" onClick={() => void copy()}>
-									<Icon name={copied ? 'check' : 'copy'} size={16} />
-									{copied ? 'Copied' : 'Copy'}
-								</Button>
-							</Actions>
+							<h3>Prompt</h3>
+							<p className={cn('text-muted', 'm-0 mt-1 text-[0.9rem]')}>
+								Tweak before you copy — collapsed by default like Ask AI.
+							</p>
+							<AiPromptFlow
+								className="mt-2"
+								prompt={generateDraft.brief}
+								promptEditable
+								onPromptChange={(brief) => patchGenerateDraft({ brief })}
+								promptRows={16}
+								afterCopy={
+									<Button variant="ghost" onClick={download}>
+										<Icon name="download" size={16} />
+										Download .md
+									</Button>
+								}
+							/>
 						</div>
 					)}
 

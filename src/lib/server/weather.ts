@@ -394,6 +394,83 @@ export async function fetchWeatherForDateTime(
 	return text;
 }
 
+export type DailyForecast = {
+	date: string;
+	minC: number | null;
+	maxC: number | null;
+	feelsMinC: number | null;
+	feelsMaxC: number | null;
+	precipProbability: number | null;
+	windMaxKmh: number | null;
+	condition: string;
+};
+
+/** Open-Meteo only forecasts ~16 days out. */
+const FORECAST_HORIZON_DAYS = 15;
+
+/**
+ * Daily forecast at the home location for each date in [startIso, endIso] that is today or later
+ * and within the forecast horizon. Empty on failure — callers treat the forecast as optional.
+ */
+export async function fetchDailyForecast(startIso: string, endIso: string): Promise<DailyForecast[]> {
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(startIso) || !/^\d{4}-\d{2}-\d{2}$/.test(endIso)) return [];
+	const startOffset = Math.max(0, daysFromToday(startIso));
+	const endOffset = Math.min(FORECAST_HORIZON_DAYS, daysFromToday(endIso));
+	if (endOffset < startOffset) return [];
+	const { lat, lon } = await getDefaultLocation();
+	const daily =
+		'temperature_2m_min,temperature_2m_max,apparent_temperature_min,apparent_temperature_max,precipitation_probability_max,wind_speed_10m_max,weather_code';
+	const url =
+		`${FORECAST_URL}?latitude=${lat}&longitude=${lon}&timezone=auto` +
+		`&forecast_days=${endOffset + 1}&daily=${daily}`;
+	type Daily = { daily?: Record<string, (number | string | null)[] | undefined> };
+	let data: Daily | null = null;
+	try {
+		const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+		if (res.ok) data = (await res.json()) as Daily;
+	} catch {
+		return [];
+	}
+	const d = data?.daily;
+	const times = (d?.time ?? []) as string[];
+	const num = (key: string, i: number): number | null => {
+		const v = d?.[key]?.[i];
+		return v == null || !Number.isFinite(Number(v)) ? null : Math.round(Number(v));
+	};
+	const out: DailyForecast[] = [];
+	for (let i = 0; i < times.length; i++) {
+		const date = times[i]!;
+		if (date < startIso || date > endIso) continue;
+		out.push({
+			date,
+			minC: num('temperature_2m_min', i),
+			maxC: num('temperature_2m_max', i),
+			feelsMinC: num('apparent_temperature_min', i),
+			feelsMaxC: num('apparent_temperature_max', i),
+			precipProbability: num('precipitation_probability_max', i),
+			windMaxKmh: num('wind_speed_10m_max', i),
+			condition: weatherCodeLabel(num('weather_code', i))
+		});
+	}
+	return out;
+}
+
+/** e.g. `8–15°C (feels 5–13°C), showers, rain chance 60%, wind up to 25 km/h`. */
+export function formatDailyForecast(f: DailyForecast): string {
+	const range = (a: number | null, b: number | null) =>
+		a != null && b != null ? `${a}–${b}°C` : a != null ? `${a}°C` : b != null ? `${b}°C` : '';
+	const temp = range(f.minC, f.maxC);
+	const feels = range(f.feelsMinC, f.feelsMaxC);
+	return [
+		temp && feels && feels !== temp ? `${temp} (feels ${feels})` : temp,
+		f.condition,
+		f.precipProbability != null ? `rain chance ${f.precipProbability}%` : '',
+		f.windMaxKmh != null ? `wind up to ${f.windMaxKmh} km/h` : ''
+	]
+		.filter(Boolean)
+		.join(', ');
+}
+
 /** @deprecated Prefer fetchWeatherForDateTime — kept for callers that only have a date. */
 export async function fetchWeatherForDate(
 	date: string,

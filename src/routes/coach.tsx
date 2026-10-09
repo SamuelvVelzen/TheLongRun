@@ -794,7 +794,6 @@ function CoachPanels({
 									<div key={r.slug}>
 										<DebriefFeelForm
 											run={r}
-											heading={many ? <DebriefActivityTitle run={r} link /> : undefined}
 											writeup={writeups[r.slug] ?? ''}
 											habitDraft={habitDrafts[r.slug] ?? { before: '', after: '' }}
 											gear={gear}

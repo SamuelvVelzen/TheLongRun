@@ -2,25 +2,27 @@ import { activityLabel, normalizeActivityType, showsFeel, showsField } from '$li
 import { parseOptionalNumber } from '$lib/activity-form';
 import { HABIT_PLACEHOLDERS, type HabitPair } from '$lib/activity-habits';
 import {
-    gearKindForActivity,
-    gearMetaForActivity,
-    gearPickerOptions,
-    type GearContext,
-    type GearKind,
-    type GearWear
+	gearKindForActivity,
+	gearMetaForActivity,
+	gearPickerOptions,
+	type GearContext,
+	type GearKind,
+	type GearWear
 } from '$lib/gear';
 import { saveActivityFeel } from '$lib/server/functions';
 import { cn } from '$lib/ui';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
+import { DebriefActivityTitle } from './DebriefActivityTitle';
 import { DeleteButton } from './DeleteButton';
 import { FeelChips, WantedFasterChips } from './FeelChips';
 import { GearField } from './GearField';
-import { Icon } from './Icon';
 import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, Field, Form, FormGrid, panelClass, Textarea, useAppForm } from './ui';
+import { Field, formClass, FormGrid, formSectionTitleClass, panelClass, Textarea, useAppForm } from './ui';
 
 const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'race', 'other'];
+const AUTOSAVE_MS = 750;
+const REFRESH_DEBOUNCE_MS = 1200;
 
 const debriefFeelSchema = z.object({
 	session: z.string(),
@@ -34,10 +36,13 @@ const debriefFeelSchema = z.object({
 	surface: z.string()
 });
 
+type FeelFormValues = z.infer<typeof debriefFeelSchema>;
+
 export type DebriefFeelRun = {
 	slug: string;
 	date: string;
 	day?: string | null;
+	start_time?: string | null;
 	distance_km?: number | null;
 	activity_type?: string;
 	session?: string;
@@ -55,9 +60,162 @@ export type DebriefFeelRun = {
 	hasFeel?: boolean;
 };
 
+function feelValuesFromRun(run: DebriefFeelRun): FeelFormValues {
+	const wantedStart: 'Y' | 'N' | '' =
+		run.wanted_faster === true ? 'Y' : run.wanted_faster === false ? 'N' : '';
+	return {
+		session: run.session || 'other',
+		cadence: run.cadence != null ? String(run.cadence) : '',
+		gear: run.gear ?? '',
+		effort: run.effort ?? null,
+		shins: run.shins ?? null,
+		legs: run.legs ?? null,
+		energy: run.energy ?? null,
+		wanted_faster: wantedStart,
+		surface: run.surface ?? ''
+	};
+}
+
+function buildFeelSavePayload({
+	slug,
+	activityType,
+	writeup,
+	habitDraft,
+	value,
+	detailsOpen,
+	scoresOpen
+}: {
+	slug: string;
+	activityType: ReturnType<typeof normalizeActivityType>;
+	writeup: string;
+	habitDraft: HabitPair;
+	value: FeelFormValues;
+	detailsOpen: boolean;
+	scoresOpen: boolean;
+}) {
+	const writeupNotes = writeup.trim();
+	return {
+		slug,
+		before_notes: habitDraft.before,
+		after_notes: habitDraft.after,
+		...(writeupNotes ? { notes: writeupNotes } : {}),
+		...(detailsOpen && activityType === 'run'
+			? {
+					session: value.session,
+					cadence: parseOptionalNumber(value.cadence)
+				}
+			: {}),
+		...(detailsOpen && showsField(activityType, 'gear') ? { gear: value.gear } : {}),
+		...(scoresOpen
+			? {
+					effort: value.effort,
+					shins: value.shins,
+					legs: value.legs,
+					energy: value.energy,
+					wanted_faster:
+						value.wanted_faster === 'Y' ? true : value.wanted_faster === 'N' ? false : null,
+					...(showsField(activityType, 'surface') ? { surface: value.surface } : {})
+				}
+			: {})
+	};
+}
+
+function DebriefFeelAutosave({
+	run,
+	activityType,
+	writeup,
+	habitDraft,
+	formValues,
+	detailsOpen,
+	scoresOpen,
+	onSaved
+}: {
+	run: DebriefFeelRun;
+	activityType: ReturnType<typeof normalizeActivityType>;
+	writeup: string;
+	habitDraft: HabitPair;
+	formValues: FeelFormValues;
+	detailsOpen: boolean;
+	scoresOpen: boolean;
+	onSaved: () => void | Promise<void>;
+}) {
+	const snack = useSnackbar();
+	const onSavedRef = useRef(onSaved);
+	onSavedRef.current = onSaved;
+	const [syncState, setSyncState] = useState<'idle' | 'pending' | 'saving' | 'saved' | 'error'>(
+		'idle'
+	);
+	const hydrated = useRef(false);
+	const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const lastSaved = useRef('');
+
+	useEffect(() => {
+		return () => {
+			if (saveTimer.current) clearTimeout(saveTimer.current);
+			if (refreshTimer.current) clearTimeout(refreshTimer.current);
+		};
+	}, []);
+
+	useEffect(() => {
+		const payload = buildFeelSavePayload({
+			slug: run.slug,
+			activityType,
+			writeup,
+			habitDraft,
+			value: formValues,
+			detailsOpen,
+			scoresOpen
+		});
+		const key = JSON.stringify(payload);
+
+		if (!hydrated.current) {
+			hydrated.current = true;
+			lastSaved.current = key;
+			return;
+		}
+		if (key === lastSaved.current) return;
+
+		setSyncState('pending');
+		if (saveTimer.current) clearTimeout(saveTimer.current);
+		saveTimer.current = setTimeout(() => {
+			void (async () => {
+				setSyncState('saving');
+				try {
+					await saveActivityFeel({ data: payload });
+					lastSaved.current = key;
+					setSyncState('saved');
+					if (refreshTimer.current) clearTimeout(refreshTimer.current);
+					refreshTimer.current = setTimeout(() => {
+						void onSavedRef.current();
+					}, REFRESH_DEBOUNCE_MS);
+				} catch (err) {
+					setSyncState('error');
+					snack.error(errorMessage(err, 'Could not save.'));
+				}
+			})();
+		}, AUTOSAVE_MS);
+	}, [activityType, detailsOpen, formValues, habitDraft, run.slug, scoresOpen, writeup]);
+
+	const syncLabel =
+		syncState === 'pending' || syncState === 'saving'
+			? 'Saving…'
+			: syncState === 'saved'
+				? 'Saved'
+				: syncState === 'error'
+					? 'Not saved'
+					: null;
+
+	if (!syncLabel) return null;
+	return (
+		<p className={cn('text-muted', 'm-0 text-[0.78rem] shrink-0')} aria-live="polite">
+			{syncLabel}
+		</p>
+	);
+}
+
 export function DebriefFeelForm({
 	run,
-	heading,
 	writeup,
 	habitDraft,
 	gear,
@@ -67,7 +225,6 @@ export function DebriefFeelForm({
 	onSaved
 }: {
 	run: DebriefFeelRun;
-	heading?: ReactNode;
 	writeup: string;
 	habitDraft: HabitPair;
 	gear: GearContext;
@@ -76,15 +233,12 @@ export function DebriefFeelForm({
 	onHabitChange: (field: keyof HabitPair, text: string) => void;
 	onSaved: () => void | Promise<void>;
 }) {
-	const snack = useSnackbar();
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	const [scoresOpen, setScoresOpen] = useState(false);
 	const activityType = normalizeActivityType(run.activity_type ?? 'run');
 	const sport = activityLabel(activityType).toLowerCase();
 	const gearKind = gearKindForActivity(activityType);
 	const gearKindMeta = gearMetaForActivity(activityType);
-	const wantedStart: 'Y' | 'N' | '' =
-		run.wanted_faster === true ? 'Y' : run.wanted_faster === false ? 'N' : '';
 	const hasScores =
 		run.effort != null ||
 		run.shins != null ||
@@ -100,69 +254,35 @@ export function DebriefFeelForm({
 		(showsField(activityType, 'gear') && Boolean((run.gear ?? '').trim()));
 
 	const form = useAppForm({
-		defaultValues: {
-			session: run.session || 'other',
-			cadence: run.cadence != null ? String(run.cadence) : '',
-			gear: run.gear ?? '',
-			effort: run.effort ?? null,
-			shins: run.shins ?? null,
-			legs: run.legs ?? null,
-			energy: run.energy ?? null,
-			wanted_faster: wantedStart,
-			surface: run.surface ?? ''
-		},
-		validators: { onSubmit: debriefFeelSchema },
-		onSubmit: async ({ value }) => {
-			try {
-				const writeupNotes = writeup.trim();
-				await saveActivityFeel({
-					data: {
-						slug: run.slug,
-						before_notes: habitDraft.before,
-						after_notes: habitDraft.after,
-						...(writeupNotes ? { notes: writeupNotes } : {}),
-						...(detailsOpen && activityType === 'run'
-							? {
-									session: value.session,
-									cadence: parseOptionalNumber(value.cadence)
-								}
-							: {}),
-						...(detailsOpen && showsField(activityType, 'gear') ? { gear: value.gear } : {}),
-						...(scoresOpen
-							? {
-									effort: value.effort,
-									shins: value.shins,
-									legs: value.legs,
-									energy: value.energy,
-									wanted_faster:
-										value.wanted_faster === 'Y'
-											? true
-											: value.wanted_faster === 'N'
-												? false
-												: null,
-									...(showsField(activityType, 'surface') ? { surface: value.surface } : {})
-								}
-							: {})
-					}
-				});
-				snack.success('Saved.');
-				await onSaved();
-			} catch (err) {
-				snack.error(errorMessage(err, 'Could not save.'));
-			}
-		}
+		defaultValues: feelValuesFromRun(run),
+		validators: { onChange: debriefFeelSchema }
 	});
 
+	useEffect(() => {
+		form.reset(feelValuesFromRun(run));
+	}, [run.slug]);
+
 	return (
-		<Form
-			className={panelClass('mt-3')}
-			onSubmit={(e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				void form.handleSubmit();
-			}}
-		>
-			{heading ? <h3 className="m-0">{heading}</h3> : null}
+		<div className={cn(panelClass('mt-3'), formClass)}>
+			<div className="flex flex-wrap items-end justify-between gap-2 gap-y-1">
+				<h3 className={cn(formSectionTitleClass, 'flex-1 min-w-0 border-0 pb-0 mb-0')}>
+					<DebriefActivityTitle run={run} link />
+				</h3>
+				<form.Subscribe selector={(s) => s.values}>
+					{(formValues) => (
+						<DebriefFeelAutosave
+							run={run}
+							activityType={activityType}
+							writeup={writeup}
+							habitDraft={habitDraft}
+							formValues={formValues}
+							detailsOpen={detailsOpen}
+							scoresOpen={scoresOpen}
+							onSaved={onSaved}
+						/>
+					)}
+				</form.Subscribe>
+			</div>
 			<Field
 				label={
 					<span className="flex items-center justify-between gap-2">
@@ -179,7 +299,8 @@ export function DebriefFeelForm({
 				<span className={cn('text-muted', 'font-normal')}>
 					Write it like you would in chat — as long as you want. Wind, surfaces, after-session
 					checks, questions for this week. GPS numbers are already in the prompt. The AI will read
-					scores from this when you mention them, then summarise it into the activity notes.
+					scores from this when you mention them, then summarise it into the activity notes. Changes
+					save automatically.
 				</span>
 				<Textarea
 					variant="debrief"
@@ -369,15 +490,6 @@ export function DebriefFeelForm({
 					)}
 				</>
 			)}
-
-			<Actions>
-				<form.AppForm>
-					<form.SubmitButton busyLabel="Saving…">
-						<Icon name="check" size={16} />
-						Save
-					</form.SubmitButton>
-				</form.AppForm>
-			</Actions>
-		</Form>
+		</div>
 	);
 }

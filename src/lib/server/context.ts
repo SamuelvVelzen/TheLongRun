@@ -15,6 +15,7 @@ import {
     type GearContext
 } from '$lib/gear';
 import { emptyFuelLog, normalizeFuelLog, type FuelLog } from '$lib/fuel';
+import { emptyWardrobe, normalizeWardrobe, type Wardrobe } from '$lib/wardrobe';
 import { goalIdFrom, pickSoonestOpenGoal, stampGoalsByDate } from '$lib/goals';
 import {
     isLiveLocationFresh,
@@ -462,6 +463,24 @@ export async function loadGear(): Promise<GearContext> {
 export async function persistGear(gear: GearContext): Promise<GearContext> {
 	const next = normalizeGearContext(gear);
 	await writeContextFile(GEAR_FILE, `${JSON.stringify(next, null, 2)}\n`);
+	return next;
+}
+
+const WARDROBE_FILE = 'wardrobe.json';
+
+export async function loadWardrobe(): Promise<Wardrobe> {
+	const raw = await readContextFile(WARDROBE_FILE);
+	if (!raw.trim()) return emptyWardrobe();
+	try {
+		return normalizeWardrobe(JSON.parse(raw));
+	} catch {
+		return emptyWardrobe();
+	}
+}
+
+export async function persistWardrobe(wardrobe: Wardrobe): Promise<Wardrobe> {
+	const next = normalizeWardrobe(wardrobe);
+	await writeContextFile(WARDROBE_FILE, `${JSON.stringify(next, null, 2)}\n`);
 	return next;
 }
 

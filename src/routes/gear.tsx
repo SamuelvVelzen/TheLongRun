@@ -5,6 +5,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { DeferredData } from '../components/DeferredData';
 import { GearInventory } from '../components/GearInventory';
 import { PageHero } from '../components/PageHero';
+import { WardrobePanel } from '../components/WardrobePanel';
 
 export const Route = createFileRoute('/gear')({
 	loader: () => ({ page: getGearData() }),
@@ -25,12 +26,15 @@ function GearPage() {
 			/>
 			<DeferredData promise={page}>
 				{(data) => (
-					<GearInventory
-						initial={data.gear}
-						wear={data.gearWear}
-						habits={data.habits}
-						authed={authed}
-					/>
+					<>
+						<GearInventory
+							initial={data.gear}
+							wear={data.gearWear}
+							habits={data.habits}
+							authed={authed}
+						/>
+						<WardrobePanel initial={data.wardrobe} authed={authed} />
+					</>
 				)}
 			</DeferredData>
 		</>

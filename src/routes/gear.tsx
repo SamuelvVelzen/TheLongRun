@@ -33,7 +33,7 @@ function GearPage() {
 							habits={data.habits}
 							authed={authed}
 						/>
-						<WardrobePanel initial={data.wardrobe} authed={authed} />
+						<WardrobePanel initial={data.wardrobe} gear={data.gear} authed={authed} />
 					</>
 				)}
 			</DeferredData>

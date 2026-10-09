@@ -1,185 +1,27 @@
 import { saveWardrobe } from '$lib/server/functions';
+import { formatGearCompact, type GearContext } from '$lib/gear';
 import { cn } from '$lib/ui';
 import {
 	CLOTHING_CATEGORIES,
 	CLOTHING_CATEGORY_META,
-	CLOTHING_CATEGORY_OPTIONS,
-	CLOTHING_FLAG_META,
-	CLOTHING_FLAGS,
-	clampClothingCount,
 	clothingDetailLabel,
+	formatWardrobeCompact,
 	itemsByCategory,
-	MAX_CLOTHING_COUNT,
-	newClothingId,
 	removeClothing,
 	upsertClothing,
 	wardrobeHasItems,
-	type ClothingCategory,
-	type ClothingFlag,
 	type ClothingItem,
 	type Wardrobe
 } from '$lib/wardrobe';
-import { clothingFormSchema, type ClothingFormValues } from '$lib/wardrobe-schema';
 import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
+import { WardrobeAddDialog } from './WardrobeAddDialog';
 import { WardrobeAiDialog } from './WardrobeAiDialog';
+import { ClothingForm } from './WardrobeClothingForm';
 import { errorMessage, useSnackbar } from './Snackbar';
 import { Actions, buttonClass, Form, formClass, formSectionTitleClass, panelClass, useAppForm } from './ui';
-import { ui } from './ui/tokens';
-
-function valuesFromItem(item: ClothingItem | null, category: ClothingCategory): ClothingFormValues {
-	return {
-		category: item?.category ?? category,
-		name: item?.name ?? '',
-		count: item?.count ?? 1,
-		min_c: item?.min_c ?? null,
-		max_c: item?.max_c ?? null,
-		flags: item?.flags ?? [],
-		notes: item?.notes ?? ''
-	};
-}
-
-function ClothingForm({
-	item,
-	category,
-	busy,
-	submitLabel,
-	onSubmit,
-	onCancel
-}: {
-	item: ClothingItem | null;
-	category: ClothingCategory;
-	busy: boolean;
-	submitLabel: string;
-	onSubmit: (item: ClothingItem) => Promise<boolean>;
-	onCancel?: () => void;
-}) {
-	const form = useAppForm({
-		defaultValues: valuesFromItem(item, category),
-		validators: { onSubmit: clothingFormSchema },
-		onSubmit: async ({ value }) => {
-			const ok = await onSubmit({
-				id: item?.id ?? newClothingId(),
-				category: value.category,
-				name: value.name.trim(),
-				count: clampClothingCount(value.count),
-				min_c: value.min_c,
-				max_c: value.max_c,
-				flags: value.flags,
-				notes: value.notes.trim()
-			});
-			if (ok && !item) form.reset(valuesFromItem(null, value.category));
-		}
-	});
-
-	return (
-		<Form
-			className="mt-3"
-			onSubmit={(e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				void form.handleSubmit();
-			}}
-		>
-			<div className="grid grid-cols-1 sm:grid-cols-[10rem_1fr_5rem] gap-3">
-				<form.AppField
-					name="category"
-					children={(field) => <field.SelectField label="Category" options={CLOTHING_CATEGORY_OPTIONS} />}
-				/>
-				<form.Subscribe selector={(s) => s.values.category}>
-					{(cat) => (
-						<form.AppField
-							name="name"
-							children={(field) => (
-								<field.TextField
-									label="Name"
-									placeholder={CLOTHING_CATEGORY_META[cat].placeholder}
-									disabled={busy}
-								/>
-							)}
-						/>
-					)}
-				</form.Subscribe>
-				<form.AppField
-					name="count"
-					children={(field) => (
-						<field.NumberField
-							label="How many"
-							inputMode="numeric"
-							min={1}
-							max={MAX_CLOTHING_COUNT}
-							step={1}
-							disabled={busy}
-						/>
-					)}
-				/>
-			</div>
-			<div className="grid grid-cols-2 gap-3 mt-3 sm:max-w-80">
-				<form.AppField
-					name="min_c"
-					children={(field) => (
-						<field.NumberField label="From °C" min={-40} max={50} step={1} placeholder="e.g. 8" disabled={busy} />
-					)}
-				/>
-				<form.AppField
-					name="max_c"
-					children={(field) => (
-						<field.NumberField label="Up to °C" min={-40} max={50} step={1} placeholder="e.g. 18" disabled={busy} />
-					)}
-				/>
-			</div>
-			<form.Field
-				name="flags"
-				children={(field) => (
-					<div className={cn(ui.choiceChips, 'mt-3')} role="group" aria-label="Good for">
-						{CLOTHING_FLAGS.map((flag: ClothingFlag) => {
-							const on = field.state.value.includes(flag);
-							return (
-								<button
-									key={flag}
-									type="button"
-									className={ui.choiceChip}
-									aria-pressed={on}
-									disabled={busy}
-									onClick={() =>
-										field.handleChange(
-											on ? field.state.value.filter((f) => f !== flag) : [...field.state.value, flag]
-										)
-									}
-								>
-									{CLOTHING_FLAG_META[flag].label}
-								</button>
-							);
-						})}
-					</div>
-				)}
-			/>
-			<form.AppField
-				name="notes"
-				children={(field) => (
-					<field.TextField
-						label="Note on this item"
-						placeholder="e.g. rides up after 15 km"
-						disabled={busy}
-						className="mt-3"
-					/>
-				)}
-			/>
-			<Actions>
-				<form.AppForm>
-					<form.SubmitButton>{submitLabel}</form.SubmitButton>
-				</form.AppForm>
-				{onCancel && (
-					<button type="button" className={buttonClass({ variant: 'ghost' })} disabled={busy} onClick={onCancel}>
-						Cancel
-					</button>
-				)}
-			</Actions>
-		</Form>
-	);
-}
 
 function ClothingRow({
 	item,
@@ -220,7 +62,7 @@ function ClothingRow({
 					<button
 						type="button"
 						className={buttonClass({ variant: 'ghost', size: 'sm' })}
-						disabled={busy || item.count >= MAX_CLOTHING_COUNT}
+						disabled={busy}
 						aria-label={`One more ${item.name}`}
 						onClick={() => onCount(item.count + 1)}
 					>
@@ -293,7 +135,15 @@ function WardrobeNotesForm({
 	);
 }
 
-export function WardrobePanel({ initial, authed }: { initial: Wardrobe; authed: boolean }) {
+export function WardrobePanel({
+	initial,
+	gear,
+	authed
+}: {
+	initial: Wardrobe;
+	gear: GearContext;
+	authed: boolean;
+}) {
 	const router = useRouter();
 	const snack = useSnackbar();
 	const [wardrobe, setWardrobe] = useState(initial);
@@ -301,6 +151,8 @@ export function WardrobePanel({ initial, authed }: { initial: Wardrobe; authed: 
 	const [editing, setEditing] = useState<string | null>(null);
 	const [remove, setRemove] = useState<ClothingItem | null>(null);
 	const [asking, setAsking] = useState(false);
+	const [adding, setAdding] = useState(false);
+	const [kitCopied, setKitCopied] = useState(false);
 
 	useEffect(() => {
 		setWardrobe(initial);
@@ -322,23 +174,59 @@ export function WardrobePanel({ initial, authed }: { initial: Wardrobe; authed: 
 		}
 	}
 
+	async function copyKitForAi() {
+		const text = [formatGearCompact(gear), formatWardrobeCompact(wardrobe)].filter(Boolean).join('\n\n');
+		if (!text) {
+			snack.info('Nothing to copy yet — add gear or clothing first.');
+			return;
+		}
+		try {
+			await navigator.clipboard.writeText(text);
+			setKitCopied(true);
+			snack.success('Copied kit summary for AI.');
+			window.setTimeout(() => setKitCopied(false), 1800);
+		} catch {
+			snack.error('Could not copy.');
+		}
+	}
+
 	const grouped = itemsByCategory(wardrobe);
 	const empty = !wardrobeHasItems(wardrobe);
 
 	return (
 		<div className={panelClass(authed && formClass, 'mb-5')}>
-			<div className="flex items-center gap-2">
-				<h3 className={cn(formSectionTitleClass, 'm-0 mb-0 pb-0 border-b-0 flex-1')}>Clothing</h3>
+			<div className="flex flex-wrap items-center gap-2">
+				<h3 className={cn(formSectionTitleClass, 'm-0 mb-0 pb-0 border-b-0 flex-1 min-w-[8rem]')}>Clothing</h3>
 				{authed && (
-					<button
-						type="button"
-						className={buttonClass({ variant: 'ghost', size: 'sm' })}
-						disabled={busy}
-						onClick={() => setAsking(true)}
-					>
-						<Icon name="sparkle" size={16} />
-						Ask AI
-					</button>
+					<div className="flex flex-wrap gap-2 justify-end">
+						<button
+							type="button"
+							className={buttonClass({ variant: 'ghost', size: 'sm' })}
+							disabled={busy}
+							onClick={() => setAdding(true)}
+						>
+							<Icon name="plus" size={16} />
+							Add clothing
+						</button>
+						<button
+							type="button"
+							className={buttonClass({ variant: 'ghost', size: 'sm' })}
+							disabled={busy}
+							onClick={() => void copyKitForAi()}
+						>
+							<Icon name={kitCopied ? 'check' : 'copy'} size={16} />
+							Copy kit for AI
+						</button>
+						<button
+							type="button"
+							className={buttonClass({ variant: 'ghost', size: 'sm' })}
+							disabled={busy}
+							onClick={() => setAsking(true)}
+						>
+							<Icon name="sparkle" size={16} />
+							Ask AI
+						</button>
+					</div>
 				)}
 			</div>
 			<p className={cn('text-muted', 'mt-0 mb-0 text-[0.9rem]')}>
@@ -356,6 +244,7 @@ export function WardrobePanel({ initial, authed }: { initial: Wardrobe; authed: 
 						editing === item.id ? (
 							<div key={item.id} className="py-3 border-b border-line">
 								<ClothingForm
+									className="mt-0"
 									item={item}
 									category={item.category}
 									busy={busy}
@@ -386,26 +275,21 @@ export function WardrobePanel({ initial, authed }: { initial: Wardrobe; authed: 
 			))}
 
 			{authed && (
-				<>
-					<p className={cn('text-muted', 'mt-6 mb-0 text-[0.8rem] font-display uppercase tracking-[0.08em]')}>
-						Add clothing
-					</p>
-					<ClothingForm
-						item={null}
-						category="top"
-						busy={busy}
-						submitLabel="Add"
-						onSubmit={(item) => persist(upsertClothing(wardrobe, item), `Added ${item.name}`)}
-					/>
-					<WardrobeNotesForm
-						notes={wardrobe.notes}
-						busy={busy}
-						onSave={(notes) => persist({ ...wardrobe, notes }, 'Saved clothing notes')}
-					/>
-				</>
+				<WardrobeNotesForm
+					notes={wardrobe.notes}
+					busy={busy}
+					onSave={(notes) => persist({ ...wardrobe, notes }, 'Saved clothing notes')}
+				/>
 			)}
 
 			{!authed && wardrobe.notes ? <p className={cn('text-muted', 'mt-3 mb-0')}>{wardrobe.notes}</p> : null}
+
+			<WardrobeAddDialog
+				open={adding}
+				busy={busy}
+				onClose={() => setAdding(false)}
+				onAdd={(item) => persist(upsertClothing(wardrobe, item), `Added ${item.name}`)}
+			/>
 
 			<WardrobeAiDialog
 				open={asking}

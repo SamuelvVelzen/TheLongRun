@@ -4,6 +4,7 @@
 import { activityLabel, normalizeActivityType } from '$lib/activity';
 import { dayFromIsoDate, formatDuration, parseDurationSeconds } from '$lib/format';
 import type { PlanSession, PlanSessionStatus, PlanWeek, RunRecord, SessionRouteRef } from '$lib/types';
+import { workoutSummary } from '$lib/run-workout';
 import { sessionActivityType } from '$lib/week-mix';
 
 /** Monday-start training block. Derived from the active goal, or a 1-week rolling window. */
@@ -520,8 +521,9 @@ export function formatWeekPlanMarkdown(view: WeekView): string {
 			const type = activityLabel(s.activity_type ?? 'run');
 			const measure = sessionMeasureLabel(s);
 			const km = measure ? ` · ${measure}` : '';
+			const steps = s.workout ? `${workoutSummary(s.workout)}. ` : '';
 			lines.push(
-				`- ${s.day}${date}: ${type}${km} · ${s.label} — ${s.detail} [${sessionCopyState(s)}]`
+				`- ${s.day}${date}: ${type}${km} · ${s.label} — ${steps}${s.detail} [${sessionCopyState(s)}]`
 			);
 		}
 		for (const u of g.unplanned) {
@@ -548,6 +550,7 @@ export function weekToPlanJson(week: PlanWeek): unknown {
 			distance_km: s.distance_km,
 			detail: s.detail,
 			...(s.exercises?.length ? { exercises: s.exercises } : {}),
+			...(s.workout ? { workout: s.workout } : {}),
 			...(hasSkipStatus(s) ? { status: 'skipped' as const } : {})
 		}))
 	};

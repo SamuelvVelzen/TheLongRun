@@ -1476,6 +1476,16 @@ ${notesRule}
 ${scoresRule}
 ${weekRules}`;
 
+		const usualWeekSection =
+			week != null
+				? ''
+				: `## Usual weekdays
+${formatPatternLines(settings.weekPattern)}${
+						patternHasSlotMeta(settings.weekPattern) ? `\n${SLOT_CONSTRAINT_PROMPT}` : ''
+					}
+
+`;
+
 		const prompt = `# The Long Run — debrief ${sessionWord}
 
 You are my coach for the sports I train, not a running-only coach. GPS numbers from the import (distance, moving and elapsed time, elevation, pace per km) and how I felt are below.
@@ -1483,12 +1493,7 @@ ${FEEL_SCALE}
 
 ${job}
 
-## Usual weekdays
-${formatPatternLines(settings.weekPattern)}${
-			patternHasSlotMeta(settings.weekPattern) ? `\n${SLOT_CONSTRAINT_PROMPT}` : ''
-		}
-
-## ${sessionHeading}
+${usualWeekSection}## ${sessionHeading}
 ${sessionBlock}
 
 ## How I felt

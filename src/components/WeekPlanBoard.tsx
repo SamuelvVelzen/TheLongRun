@@ -12,6 +12,7 @@ import { cn } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { ActivityIcon, Icon } from './Icon';
+import { PlanSessionBody } from './PlanSessionBody';
 import { PlanSessionMenu } from './PlanSessionMenu';
 import { PlanSessionRoute } from './PlanSessionRoute';
 
@@ -190,9 +191,10 @@ function PlannedSessionRow({
 			<strong className="font-display text-[1.02rem] font-bold tracking-[-0.02em] leading-[1.25] [overflow-wrap:anywhere]">
 				{session.label}
 			</strong>
-			<p className="m-0 text-[0.9rem] leading-[1.45] text-fg/90 [overflow-wrap:anywhere]">
-				{session.detail}
-			</p>
+			<PlanSessionBody
+				session={session}
+				className="text-[0.9rem] leading-[1.45] text-fg/90 [overflow-wrap:anywhere]"
+			/>
 		</>
 	);
 	if (logSlug) {

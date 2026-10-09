@@ -31,6 +31,7 @@ import { FeelBadge } from '../components/FeelBadge';
 import { ActivityIcon, ActivityMark, Icon } from '../components/Icon';
 import { LogPlannedStrengthLink } from '../components/LogPlannedStrength';
 import { PageHero } from '../components/PageHero';
+import { PlanSessionBody } from '../components/PlanSessionBody';
 import { RouteChip } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 import {
@@ -320,7 +321,7 @@ function DashboardBody({
 											<strong className="block font-display text-[1.15rem] tracking-[-0.02em]">
 												{session.label}
 											</strong>
-											<p className="m-0 mt-[0.2rem]">{session.detail}</p>
+											<PlanSessionBody session={session} className="mt-[0.2rem]" />
 										</>
 									);
 									if (logSlug) {

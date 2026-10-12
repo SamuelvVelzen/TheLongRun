@@ -11,7 +11,7 @@ import {
 } from '$lib/gear';
 import { saveActivityFeel } from '$lib/server/functions';
 import { cn } from '$lib/ui';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { z } from 'zod';
 import { DebriefActivityTitle } from './DebriefActivityTitle';
 import { DeleteButton } from './DeleteButton';
@@ -21,7 +21,6 @@ import { errorMessage, useSnackbar } from './Snackbar';
 import { Field, formClass, FormGrid, formSectionTitleClass, panelClass, Textarea, useAppForm } from './ui';
 
 const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'race', 'other'];
-const AUTOSAVE_MS = 750;
 const REFRESH_DEBOUNCE_MS = 1200;
 
 const debriefFeelSchema = z.object({
@@ -128,7 +127,8 @@ function DebriefFeelAutosave({
 	formValues,
 	detailsOpen,
 	scoresOpen,
-	onSaved
+	onSaved,
+	flushRef
 }: {
 	run: DebriefFeelRun;
 	activityType: ReturnType<typeof normalizeActivityType>;
@@ -138,67 +138,75 @@ function DebriefFeelAutosave({
 	detailsOpen: boolean;
 	scoresOpen: boolean;
 	onSaved: () => void | Promise<void>;
+	flushRef: MutableRefObject<(() => void) | null>;
 }) {
 	const snack = useSnackbar();
 	const onSavedRef = useRef(onSaved);
 	onSavedRef.current = onSaved;
-	const [syncState, setSyncState] = useState<'idle' | 'pending' | 'saving' | 'saved' | 'error'>(
-		'idle'
-	);
+	const [syncState, setSyncState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 	const hydrated = useRef(false);
-	const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const lastSaved = useRef('');
+	const saving = useRef(false);
+
+	const payload = buildFeelSavePayload({
+		slug: run.slug,
+		activityType,
+		writeup,
+		habitDraft,
+		value: formValues,
+		detailsOpen,
+		scoresOpen
+	});
+	const payloadRef = useRef(payload);
+	payloadRef.current = payload;
+
+	useEffect(() => {
+		if (!hydrated.current) {
+			hydrated.current = true;
+			lastSaved.current = JSON.stringify(payload);
+		}
+	}, [payload]);
 
 	useEffect(() => {
 		return () => {
-			if (saveTimer.current) clearTimeout(saveTimer.current);
 			if (refreshTimer.current) clearTimeout(refreshTimer.current);
 		};
 	}, []);
 
-	useEffect(() => {
-		const payload = buildFeelSavePayload({
-			slug: run.slug,
-			activityType,
-			writeup,
-			habitDraft,
-			value: formValues,
-			detailsOpen,
-			scoresOpen
-		});
-		const key = JSON.stringify(payload);
-
-		if (!hydrated.current) {
-			hydrated.current = true;
-			lastSaved.current = key;
-			return;
-		}
+	const flushSave = useCallback(() => {
+		if (saving.current) return;
+		const key = JSON.stringify(payloadRef.current);
 		if (key === lastSaved.current) return;
+		saving.current = true;
+		void (async () => {
+			setSyncState('saving');
+			try {
+				await saveActivityFeel({ data: payloadRef.current });
+				lastSaved.current = key;
+				setSyncState('saved');
+				if (refreshTimer.current) clearTimeout(refreshTimer.current);
+				refreshTimer.current = setTimeout(() => {
+					void onSavedRef.current();
+				}, REFRESH_DEBOUNCE_MS);
+			} catch (err) {
+				setSyncState('error');
+				snack.error(errorMessage(err, 'Could not save.'));
+			} finally {
+				saving.current = false;
+			}
+		})();
+	}, [snack]);
 
-		setSyncState('pending');
-		if (saveTimer.current) clearTimeout(saveTimer.current);
-		saveTimer.current = setTimeout(() => {
-			void (async () => {
-				setSyncState('saving');
-				try {
-					await saveActivityFeel({ data: payload });
-					lastSaved.current = key;
-					setSyncState('saved');
-					if (refreshTimer.current) clearTimeout(refreshTimer.current);
-					refreshTimer.current = setTimeout(() => {
-						void onSavedRef.current();
-					}, REFRESH_DEBOUNCE_MS);
-				} catch (err) {
-					setSyncState('error');
-					snack.error(errorMessage(err, 'Could not save.'));
-				}
-			})();
-		}, AUTOSAVE_MS);
-	}, [activityType, detailsOpen, formValues, habitDraft, run.slug, scoresOpen, writeup]);
+	useEffect(() => {
+		flushRef.current = flushSave;
+		return () => {
+			flushRef.current = null;
+		};
+	}, [flushRef, flushSave]);
 
 	const syncLabel =
-		syncState === 'pending' || syncState === 'saving'
+		syncState === 'saving'
 			? 'Saving…'
 			: syncState === 'saved'
 				? 'Saved'
@@ -257,13 +265,27 @@ export function DebriefFeelForm({
 		defaultValues: feelValuesFromRun(run),
 		validators: { onChange: debriefFeelSchema }
 	});
+	const panelRef = useRef<HTMLDivElement>(null);
+	const flushSaveRef = useRef<(() => void) | null>(null);
 
 	useEffect(() => {
 		form.reset(feelValuesFromRun(run));
 	}, [run.slug]);
 
+	useEffect(() => {
+		const panel = panelRef.current;
+		if (!panel) return;
+		function onPanelFocusOut(e: FocusEvent) {
+			const next = e.relatedTarget;
+			if (next instanceof Node && panel.contains(next)) return;
+			flushSaveRef.current?.();
+		}
+		panel.addEventListener('focusout', onPanelFocusOut);
+		return () => panel.removeEventListener('focusout', onPanelFocusOut);
+	}, []);
+
 	return (
-		<div className={cn(panelClass('mt-3'), formClass)}>
+		<div ref={panelRef} className={cn(panelClass('mt-3'), formClass)}>
 			<div className="flex flex-wrap items-end justify-between gap-2 gap-y-1">
 				<h3 className={cn(formSectionTitleClass, 'flex-1 min-w-0 border-0 pb-0 mb-0')}>
 					<DebriefActivityTitle run={run} link />
@@ -279,6 +301,7 @@ export function DebriefFeelForm({
 							detailsOpen={detailsOpen}
 							scoresOpen={scoresOpen}
 							onSaved={onSaved}
+							flushRef={flushSaveRef}
 						/>
 					)}
 				</form.Subscribe>
@@ -299,8 +322,7 @@ export function DebriefFeelForm({
 				<span className={cn('text-muted', 'font-normal')}>
 					Write it like you would in chat — as long as you want. Wind, surfaces, after-session
 					checks, questions for this week. GPS numbers are already in the prompt. The AI will read
-					scores from this when you mention them, then summarise it into the activity notes. Changes
-					save automatically.
+					scores from this when you mention them, then summarise it into the activity notes.
 				</span>
 				<Textarea
 					variant="debrief"

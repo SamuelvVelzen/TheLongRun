@@ -1,22 +1,30 @@
+import { planStrengthLines, planStrengthSummary } from '$lib/plan-strength';
 import { workoutLines, workoutSummary } from '$lib/run-workout';
 import type { PlanSession } from '$lib/types';
 import { cn } from '$lib/ui';
 import { useState, type MouseEvent } from 'react';
 
 /**
- * Plan session text: runs with a `workout` show a generated one-line summary and keep the
- * step list + `detail` behind a closed toggle. Everything else shows `detail` as before.
+ * Plan session text: runs with a `workout` and strength with `exercises` show a generated
+ * one-line summary and keep the step/lift list + `detail` behind a closed toggle. Everything
+ * else shows `detail` as before.
  */
 export function PlanSessionBody({
 	session,
 	className
 }: {
-	session: Pick<PlanSession, 'detail' | 'workout'>;
+	session: Pick<PlanSession, 'detail' | 'workout' | 'exercises'>;
 	className?: string;
 }) {
 	const [open, setOpen] = useState(false);
-	const { workout } = session;
-	if (!workout) {
+	const { workout, exercises } = session;
+	const structured =
+		workout != null
+			? { summary: workoutSummary(workout), lines: workoutLines(workout) }
+			: exercises?.length
+				? { summary: planStrengthSummary(exercises), lines: planStrengthLines(exercises) }
+				: null;
+	if (!structured) {
 		return <p className={cn('m-0', className)}>{session.detail}</p>;
 	}
 
@@ -29,7 +37,7 @@ export function PlanSessionBody({
 
 	return (
 		<div className={cn('flex flex-col gap-1 min-w-0', className)}>
-			<p className="m-0 font-semibold [overflow-wrap:anywhere]">{workoutSummary(workout)}</p>
+			<p className="m-0 font-semibold [overflow-wrap:anywhere]">{structured.summary}</p>
 			<details open={open} className="min-w-0">
 				<summary
 					onClick={toggle}
@@ -44,7 +52,7 @@ export function PlanSessionBody({
 					{open ? 'Hide details' : 'Details'}
 				</summary>
 				<ul className="m-0 mt-1 p-0 list-none flex flex-col gap-0.5 text-[0.86rem]">
-					{workoutLines(workout).map((line, i) => (
+					{structured.lines.map((line, i) => (
 						<li
 							key={i}
 							className={cn(

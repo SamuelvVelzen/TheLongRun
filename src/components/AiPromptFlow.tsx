@@ -1,5 +1,5 @@
 import { cn } from '$lib/ui';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Icon } from './Icon';
 import { Button, Field, Textarea, buttonClass } from './ui';
 
@@ -7,23 +7,86 @@ function formatUpdatedAt(ms: number): string {
 	return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-/** Bumps when `prompt` changes — use for “Updated 14:32” hints. */
-export function usePromptUpdated(prompt: string, enabled = true) {
+function isFlowField(el: EventTarget | null): boolean {
+	return (
+		el instanceof HTMLTextAreaElement ||
+		el instanceof HTMLInputElement ||
+		(el instanceof HTMLElement && el.isContentEditable)
+	);
+}
+
+/** Bumps when `prompt` changes and no field in `root` is focused — “Updated 14:32” hints. */
+export function usePromptUpdated(
+	prompt: string,
+	enabled: boolean,
+	root: RefObject<HTMLElement | null>
+) {
 	const [updatedAt, setUpdatedAt] = useState(() => Date.now());
 	const [flash, setFlash] = useState(false);
-	const skipInitial = useRef(true);
+	const committed = useRef(prompt);
+	const skipFlash = useRef(true);
+	const inputFocused = useRef(false);
+	const promptRef = useRef(prompt);
+	const enabledRef = useRef(enabled);
+	promptRef.current = prompt;
+	enabledRef.current = enabled;
 
-	useEffect(() => {
-		if (!enabled) return;
-		if (skipInitial.current) {
-			skipInitial.current = false;
+	function commitIfNew() {
+		const next = promptRef.current;
+		if (!enabledRef.current) return;
+		if (next === committed.current) return;
+		committed.current = next;
+		setUpdatedAt(Date.now());
+		if (skipFlash.current) {
+			skipFlash.current = false;
 			return;
 		}
-		setUpdatedAt(Date.now());
 		setFlash(true);
+	}
+
+	useEffect(() => {
+		if (!enabled) {
+			committed.current = prompt;
+			skipFlash.current = true;
+			return;
+		}
+		if (!inputFocused.current) commitIfNew();
+	}, [prompt, enabled]);
+
+	useEffect(() => {
+		if (!flash) return;
 		const t = window.setTimeout(() => setFlash(false), 1400);
 		return () => window.clearTimeout(t);
-	}, [prompt, enabled]);
+	}, [flash]);
+
+	useEffect(() => {
+		const el = root.current;
+		if (!el || !enabled) return;
+
+		function focusStillInside() {
+			const active = document.activeElement;
+			return active instanceof Node && el!.contains(active) && isFlowField(active);
+		}
+
+		function onFocusIn(e: FocusEvent) {
+			if (!isFlowField(e.target)) return;
+			inputFocused.current = true;
+		}
+
+		function onFocusOut() {
+			window.requestAnimationFrame(() => {
+				inputFocused.current = focusStillInside();
+				if (!inputFocused.current) commitIfNew();
+			});
+		}
+
+		el.addEventListener('focusin', onFocusIn);
+		el.addEventListener('focusout', onFocusOut);
+		return () => {
+			el.removeEventListener('focusin', onFocusIn);
+			el.removeEventListener('focusout', onFocusOut);
+		};
+	}, [enabled, root]);
 
 	return {
 		updatedAt,
@@ -44,7 +107,7 @@ export function PromptSummary({
 	return (
 		<span
 			className={cn(
-				'inline-flex items-center gap-1.5 text-[0.85rem] transition-colors duration-300',
+				'inline-flex items-center gap-1.5 text-[0.85rem] transition-colors duration-300 shrink-0',
 				flash ? 'text-accent-fg' : 'text-muted',
 				className
 			)}
@@ -60,7 +123,7 @@ export function PromptSummary({
 }
 
 /**
- * Shared “extra → collapsible prompt → copy → AI result” block (Wardrobe Ask AI, Fuel describe, Goals generate, …).
+ * Shared “extra → copy + show prompt + updated → AI result” block (Wardrobe Ask AI, Fuel describe, Goals generate, …).
  */
 export function AiPromptFlow({
 	intro,
@@ -100,7 +163,9 @@ export function AiPromptFlow({
 	children?: ReactNode;
 }) {
 	const [copied, setCopied] = useState(false);
-	const { flash, label } = usePromptUpdated(prompt, promptReady);
+	const [promptOpen, setPromptOpen] = useState(false);
+	const flowRef = useRef<HTMLDivElement>(null);
+	const { flash, label } = usePromptUpdated(prompt, promptReady, flowRef);
 
 	async function copy() {
 		try {
@@ -115,7 +180,7 @@ export function AiPromptFlow({
 	const hasExtraField = extraLabel != null && onExtraChange != null;
 
 	return (
-		<div className={cn('grid gap-3', className)}>
+		<div ref={flowRef} className={cn('grid gap-3', className)}>
 			{intro ? <div className={cn('text-muted', 'm-0 text-[0.9rem]')}>{intro}</div> : null}
 			{hasExtraField && (
 				<Field label={extraLabel}>
@@ -130,66 +195,49 @@ export function AiPromptFlow({
 			{children}
 			{promptReady && (
 				<>
-					<details className="group/prompt">
-						<summary
-							className="flex items-center gap-2 min-h-11 py-1 cursor-pointer list-none [&::-webkit-details-marker]:hidden"
+					<div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-h-11">
+						<Button variant="primary" size="sm" disabled={copyDisabled} onClick={() => void copy()}>
+							<Icon name={copied ? 'check' : 'copy'} size={16} />
+							{copied ? 'Copied' : 'Copy prompt'}
+						</Button>
+						{afterCopy}
+						<button
+							type="button"
+							className="inline-flex items-center gap-1.5 text-[0.9rem] font-semibold text-fg hover:text-accent-fg transition-colors"
+							aria-expanded={promptOpen}
+							onClick={() => setPromptOpen((open) => !open)}
 						>
-							<PromptSummary flash={flash} label={label} className="flex-1 min-w-0" />
+							<span className="text-muted font-normal" aria-hidden>→</span>
+							{promptOpen ? 'Hide prompt' : 'Show prompt'}
 							<span
-								className="inline-flex items-center gap-1.5 shrink-0 text-[0.9rem] font-semibold text-fg group-open/prompt:hidden"
+								className={buttonClass({
+									variant: 'ghost',
+									size: 'icon',
+									className: 'pointer-events-none -mx-0.5'
+								})}
+								aria-hidden
 							>
-								<span className="text-muted font-normal" aria-hidden>→</span>
-								Show prompt
-								<span
-									className={buttonClass({
-										variant: 'ghost',
-										size: 'icon',
-										className: 'pointer-events-none -mr-0.5'
-									})}
-									aria-hidden
-								>
-									<Icon
-										name="arrow"
-										size={16}
-										className="rotate-90 transition-transform duration-150"
-									/>
-								</span>
+								<Icon
+									name="arrow"
+									size={16}
+									className={cn(
+										'transition-transform duration-150',
+										promptOpen ? '-rotate-90' : 'rotate-90'
+									)}
+								/>
 							</span>
-							<span
-								className="hidden group-open/prompt:inline-flex items-center gap-1.5 shrink-0 text-[0.9rem] font-semibold text-muted"
-							>
-								Hide prompt
-								<span
-									className={buttonClass({
-										variant: 'ghost',
-										size: 'icon',
-										className: 'pointer-events-none -mr-0.5'
-									})}
-									aria-hidden
-								>
-									<Icon
-										name="arrow"
-										size={16}
-										className="-rotate-90 transition-transform duration-150"
-									/>
-								</span>
-							</span>
-						</summary>
+						</button>
+						<PromptSummary flash={flash} label={label} className="ml-auto" />
+					</div>
+					<div className={cn(!promptOpen && 'hidden')} aria-hidden={!promptOpen}>
 						<Textarea
 							variant="editor"
 							rows={promptRows}
 							value={prompt}
 							readOnly={!promptEditable}
-							className="mt-2"
+							tabIndex={promptOpen ? undefined : -1}
 							onChange={promptEditable && onPromptChange ? (e) => onPromptChange(e.target.value) : undefined}
 						/>
-					</details>
-					<div className="flex flex-wrap items-center gap-2">
-						<Button variant="primary" disabled={copyDisabled} onClick={() => void copy()}>
-							<Icon name={copied ? 'check' : 'copy'} size={16} />
-							{copied ? 'Copied' : 'Copy prompt'}
-						</Button>
-						{afterCopy}
 					</div>
 					{result}
 				</>

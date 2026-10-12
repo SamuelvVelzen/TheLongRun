@@ -13,9 +13,14 @@ function syncOverlayViewport() {
 let lockCount = 0;
 let prevOverflow = '';
 let listening = false;
+let viewportSyncRaf = 0;
 
 function onViewportChange() {
-	syncOverlayViewport();
+	if (viewportSyncRaf) return;
+	viewportSyncRaf = window.requestAnimationFrame(() => {
+		viewportSyncRaf = 0;
+		syncOverlayViewport();
+	});
 }
 
 function startListening() {

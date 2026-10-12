@@ -38,3 +38,11 @@ export function writeGenerateDraft(next: GenerateDraft) {
 		/* ignore quota / private mode */
 	}
 }
+
+let writeTimer = 0;
+
+/** Debounced persist — avoids main-thread localStorage work on every keystroke (mobile keyboards). */
+export function scheduleWriteGenerateDraft(next: GenerateDraft) {
+	window.clearTimeout(writeTimer);
+	writeTimer = window.setTimeout(() => writeGenerateDraft(next), 350);
+}

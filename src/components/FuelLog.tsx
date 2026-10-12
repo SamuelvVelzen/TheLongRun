@@ -1,15 +1,9 @@
 import {
-	compactFuelText,
-	FUEL_OUTCOME_OPTIONS,
 	FUEL_PHASE_META,
-	FUEL_PHASE_OPTIONS,
 	FUEL_PHASES,
-	FUEL_PLACEHOLDERS,
 	fuelTallyLabel,
 	groupFuelLog,
 	MAX_FUEL_GUIDANCE,
-	MAX_FUEL_ITEM,
-	MAX_FUEL_TIMING,
 	newFuelId,
 	type FuelEntry,
 	type FuelGroup,
@@ -17,14 +11,16 @@ import {
 	type FuelPhase,
 	type FuelRunRef
 } from '$lib/fuel';
-import { fuelFormSchema, type FuelFormValues } from '$lib/fuel-schema';
+import type { FuelFormValues } from '$lib/fuel-schema';
 import { renameFuelItem, saveFuelLog } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { ConfirmDialog } from './Dialog';
+import { FuelAddDialog } from './FuelAddDialog';
 import { FuelDescribeDialog } from './FuelDescribeDialog';
+import { FuelEntryForm } from './FuelEntryForm';
 import { FuelTryLine } from './FuelParts';
 import { Icon } from './Icon';
 import { SegmentedToggle } from './SegmentedToggle';
@@ -36,106 +32,12 @@ import {
 	Dialog,
 	Form,
 	formClass,
-	FormGrid,
 	formSectionTitleClass,
 	panelClass,
 	statusPillClass,
 	tabBarClass,
 	useAppForm
 } from './ui';
-
-function emptyForm(phase: FuelPhase): FuelFormValues {
-	return { phase, item: '', timing: '', outcome: 'good', notes: '' };
-}
-
-function FuelEntryForm({
-	initial,
-	submitLabel,
-	onSave,
-	onCancel
-}: {
-	initial: FuelFormValues;
-	submitLabel: string;
-	onSave: (values: FuelFormValues) => Promise<boolean>;
-	onCancel: () => void;
-}) {
-	const form = useAppForm({
-		defaultValues: initial,
-		validators: { onSubmit: fuelFormSchema },
-		onSubmit: async ({ value }) => {
-			await onSave({
-				...value,
-				item: compactFuelText(value.item, MAX_FUEL_ITEM),
-				timing: compactFuelText(value.timing, MAX_FUEL_TIMING),
-				notes: value.notes.trim()
-			});
-		}
-	});
-
-	return (
-		<Form
-			className="mt-3"
-			onSubmit={(e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				void form.handleSubmit();
-			}}
-		>
-			<form.AppField
-				name="phase"
-				children={(field) => <field.ChipField label="When" options={FUEL_PHASE_OPTIONS} />}
-			/>
-			<form.Subscribe selector={(s) => s.values.phase}>
-				{(phase) => (
-					<FormGrid>
-						<form.AppField
-							name="item"
-							children={(field) => (
-								<field.TextField label="Food or drink" required placeholder={FUEL_PLACEHOLDERS[phase].item} />
-							)}
-						/>
-						<form.AppField
-							name="timing"
-							children={(field) => (
-								<field.TextField
-									label="Timing"
-									required
-									placeholder={FUEL_PLACEHOLDERS[phase].timing}
-									hint="Your words — minutes, km, “at the water stations”, “night before”."
-								/>
-							)}
-						/>
-					</FormGrid>
-				)}
-			</form.Subscribe>
-			<form.AppField
-				name="outcome"
-				children={(field) => <field.ChipField label="How it went" options={FUEL_OUTCOME_OPTIONS} />}
-			/>
-			<form.Subscribe selector={(s) => s.values.phase}>
-				{(phase) => (
-					<form.AppField
-						name="notes"
-						children={(field) => (
-							<field.TextAreaField label="Notes" rows={2} placeholder={FUEL_PLACEHOLDERS[phase].notes} />
-						)}
-					/>
-				)}
-			</form.Subscribe>
-			<Actions>
-				<Button variant="ghost" onClick={onCancel}>
-					Cancel
-				</Button>
-				<form.AppForm>
-					<form.SubmitButton busyLabel="Saving…">
-						<Icon name="check" size={16} />
-						{submitLabel}
-					</form.SubmitButton>
-				</form.AppForm>
-			</Actions>
-		</Form>
-	);
-}
 
 function tryMeta(entry: FuelEntry, runsBySlug: Record<string, FuelRunRef>) {
 	const run = entry.slug ? runsBySlug[entry.slug] : null;
@@ -399,7 +301,7 @@ export function FuelLog({
 	const snack = useSnackbar();
 	const [log, setLog] = useState(initial);
 	const [busy, setBusy] = useState(false);
-	const [adding, setAdding] = useState<FuelPhase | null>(null);
+	const [adding, setAdding] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [remove, setRemove] = useState<FuelEntry | null>(null);
 	const [rename, setRename] = useState<FuelGroup | null>(null);
@@ -428,7 +330,7 @@ export function FuelLog({
 	async function addEntry(values: FuelFormValues): Promise<boolean> {
 		const entry: FuelEntry = { id: newFuelId(), date: '', slug: '', ...values };
 		const ok = await persist({ ...log, entries: [...log.entries, entry] }, `Added ${entry.item}`);
-		if (ok) setAdding(null);
+		if (ok) setAdding(false);
 		return ok;
 	}
 
@@ -479,27 +381,25 @@ export function FuelLog({
 			</div>
 
 			{authed && (
-				<Actions className="mt-0 mb-4">
-					<Button variant="primary" onClick={() => setDescribing(true)}>
+				<div className="flex flex-wrap gap-2 justify-end mb-4">
+					{phase && (
+						<Button variant="ghost" size="sm" disabled={busy} onClick={() => setAdding(true)}>
+							<Icon name="plus" size={16} />
+							Add
+						</Button>
+					)}
+					<Button variant="ghost" size="sm" disabled={busy} onClick={() => setDescribing(true)}>
 						<Icon name="sparkle" size={16} />
 						Describe what you ate
 					</Button>
-				</Actions>
+				</div>
 			)}
 
 			{phase && (
 				<section className={panelClass(authed && formClass, 'mb-5')}>
-					<div className="flex items-center gap-2">
-						<h3 className={cn(formSectionTitleClass, 'flex-1 m-0 mb-0 pb-0 border-b-0')}>
-							{FUEL_PHASE_META[phase].title}
-						</h3>
-						{authed && adding !== phase && (
-							<Button variant="ghost" size="sm" disabled={busy} onClick={() => setAdding(phase)}>
-								<Icon name="plus" size={14} />
-								Add
-							</Button>
-						)}
-					</div>
+					<h3 className={cn(formSectionTitleClass, 'm-0 mb-0 pb-0 border-b-0')}>
+						{FUEL_PHASE_META[phase].title}
+					</h3>
 					{groups[phase].length ? (
 						<div className="mt-2">
 							{groups[phase].map((g) => (
@@ -523,14 +423,6 @@ export function FuelLog({
 							Nothing logged {phase === 'during' ? 'during runs' : `${phase} runs`} yet.
 						</p>
 					)}
-					{adding === phase && (
-						<FuelEntryForm
-							initial={emptyForm(phase)}
-							submitLabel="Add try"
-							onCancel={() => setAdding(null)}
-							onSave={addEntry}
-						/>
-					)}
 				</section>
 			)}
 
@@ -549,6 +441,16 @@ export function FuelLog({
 						<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>No general guidance yet.</p>
 					)}
 				</section>
+			)}
+
+			{authed && phase && (
+				<FuelAddDialog
+					open={adding}
+					phase={phase}
+					busy={busy}
+					onClose={() => setAdding(false)}
+					onAdd={addEntry}
+				/>
 			)}
 
 			{authed && (

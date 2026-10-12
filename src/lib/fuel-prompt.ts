@@ -27,3 +27,11 @@ export function writeFuelDraft(text: string) {
 		/* ignore quota / private mode */
 	}
 }
+
+let draftWriteTimer = 0;
+
+/** Debounced persist — avoids main-thread localStorage work on every keystroke (mobile keyboards). */
+export function scheduleFuelDraftWrite(text: string) {
+	window.clearTimeout(draftWriteTimer);
+	draftWriteTimer = window.setTimeout(() => writeFuelDraft(text), 350);
+}

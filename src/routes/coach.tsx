@@ -2,7 +2,11 @@ import { emptyActivityHabits } from '$lib/activity-habits';
 import { useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
 import { composeDebriefPrompt } from '$lib/debrief';
-import { readGenerateDraft, writeGenerateDraft, type GenerateDraft } from '$lib/generate-draft';
+import {
+	readGenerateDraft,
+	scheduleWriteGenerateDraft,
+	type GenerateDraft
+} from '$lib/generate-draft';
 import {
     clearDebriefHabits,
     readDebriefHabits,
@@ -478,7 +482,7 @@ function CoachPanels({
 	function patchGenerateDraft(partial: Partial<GenerateDraft>) {
 		setGenerateDraft((prev) => {
 			const next = { ...prev, ...partial };
-			writeGenerateDraft(next);
+			scheduleWriteGenerateDraft(next);
 			return next;
 		});
 	}

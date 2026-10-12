@@ -1,5 +1,5 @@
 import type { FuelLog } from '$lib/fuel';
-import { injectFuelText, readFuelDraft, writeFuelDraft } from '$lib/fuel-prompt';
+import { injectFuelText, readFuelDraft, scheduleFuelDraftWrite, writeFuelDraft } from '$lib/fuel-prompt';
 import { saveFuelLog, saveFuelReply } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import { useRouter } from '@tanstack/react-router';
@@ -94,7 +94,7 @@ export function FuelDescribeDialog({
 						placeholder="Coffee 20 min before, fine. Lidl pigs sweets every 5 km during my long run — no issues."
 						onChange={(e) => {
 							setText(e.target.value);
-							writeFuelDraft(e.target.value);
+							scheduleFuelDraftWrite(e.target.value);
 						}}
 					/>
 				</Field>

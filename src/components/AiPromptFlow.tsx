@@ -1,3 +1,4 @@
+import { formatTokenEstimate } from '$lib/prompt';
 import { cn } from '$lib/ui';
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Icon } from './Icon';
@@ -200,6 +201,12 @@ export function AiPromptFlow({
 							<Icon name={copied ? 'check' : 'copy'} size={16} />
 							{copied ? 'Copied' : 'Copy prompt'}
 						</Button>
+						<span
+							className="text-muted text-[0.85rem] tabular-nums"
+							title="Rough size of the prompt (about 4 characters per token)"
+						>
+							{formatTokenEstimate(prompt)}
+						</span>
 						{afterCopy}
 						<button
 							type="button"

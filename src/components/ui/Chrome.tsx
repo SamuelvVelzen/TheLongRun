@@ -50,3 +50,31 @@ export function Grid({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
 export function TabBar({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
 	return <div className={tabBarClass(className)} {...props} />;
 }
+
+export function RunRow({
+	compact,
+	className,
+	...props
+}: { compact?: boolean } & HTMLAttributes<HTMLDivElement>) {
+	return <div className={runRowClass(compact, className)} {...props} />;
+}
+
+export function RunTitle({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+	return <div className={cn(ui.runTitle, className)} {...props} />;
+}
+
+export function MapBadge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+	return <span className={mapBadgeClass(className)} {...props} />;
+}
+
+export function FeelBadgeWrap({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+	return <span className={cn(ui.feelBadge, className)} {...props} />;
+}
+
+export function Dropzone({
+	over,
+	className,
+	...props
+}: { over?: boolean } & HTMLAttributes<HTMLDivElement>) {
+	return <div className={dropzoneClass(over, className)} {...props} />;
+}

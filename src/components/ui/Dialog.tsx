@@ -6,14 +6,13 @@ import { Actions } from './Actions';
 import { Button } from './Button';
 import { ui } from './tokens';
 
-export const dialogPanelMedalClass = ui.dialogPanelMedal;
-
 export function Dialog({
 	open,
 	title,
 	onClose,
 	children,
 	actions,
+	size = 'default',
 	className
 }: {
 	open: boolean;
@@ -21,6 +20,7 @@ export function Dialog({
 	onClose: () => void;
 	children?: ReactNode;
 	actions?: ReactNode;
+	size?: 'default' | 'medal';
 	className?: string;
 }) {
 	const titleId = useId();
@@ -44,7 +44,7 @@ export function Dialog({
 			<div className={ui.dialogRoot} role="dialog" aria-modal="true" aria-labelledby={titleId}>
 				<div className={ui.dialogBackdrop} onClick={onClose} aria-hidden="true" />
 				<div
-					className={cn(ui.dialogPanel, className)}
+					className={cn(ui.dialogPanel, size === 'medal' && ui.dialogPanelMedal, className)}
 					onClick={(e) => e.stopPropagation()}
 					onPointerDown={(e) => e.stopPropagation()}
 				>

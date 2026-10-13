@@ -29,6 +29,8 @@ export function PageHero({
 	actionsClassName?: string;
 	hideActionsOnMobile?: boolean;
 }) {
+	const mobileTitleOnly = variant !== 'home';
+
 	return (
 		<section
 			className={cn(
@@ -40,17 +42,29 @@ export function PageHero({
 			)}
 		>
 			<div className={copyClassName}>
-				{kicker != null ? <p className={cn(ui.muted, kickerClassName)}>{kicker}</p> : null}
+				{kicker != null ? (
+					<p className={cn(ui.muted, mobileTitleOnly && ui.heroMobileHideCopy, kickerClassName)}>
+						{kicker}
+					</p>
+				) : null}
 				<h1 className={titleClassName}>{title}</h1>
 				{lead == null ? null : typeof lead === 'string' || typeof lead === 'number' ? (
-					<p>{lead}</p>
+					<p className={mobileTitleOnly ? ui.heroMobileHideCopy : undefined}>{lead}</p>
 				) : (
-					lead
+					<div className={mobileTitleOnly ? ui.heroMobileHideCopy : undefined}>{lead}</div>
 				)}
-				{children}
+				{children ? (
+					<div className={mobileTitleOnly ? ui.heroMobileHideCopy : undefined}>{children}</div>
+				) : null}
 			</div>
 			{actions ? (
-				<div className={cn(ui.actions, hideActionsOnMobile && 'max-sm:hidden', actionsClassName)}>
+				<div
+					className={cn(
+						ui.actions,
+						(mobileTitleOnly || hideActionsOnMobile) && 'max-sm:hidden',
+						actionsClassName
+					)}
+				>
 					{actions}
 				</div>
 			) : null}

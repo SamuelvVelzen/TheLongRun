@@ -11,7 +11,14 @@ import {
 } from 'react';
 import { ui } from './tokens';
 
-export const snackActionClass = ui.snackAction;
+import type { ButtonHTMLAttributes } from 'react';
+
+export function SnackAction({
+	className,
+	...props
+}: ButtonHTMLAttributes<HTMLButtonElement>) {
+	return <button type="button" className={cn(ui.snackAction, className)} {...props} />;
+}
 
 export type SnackbarVariant = 'success' | 'error' | 'info';
 

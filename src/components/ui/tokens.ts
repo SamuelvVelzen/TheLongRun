@@ -10,7 +10,7 @@ export const ui = {
 	btnPrimary: `${btnBase} border-0 bg-accent text-accent-ink font-semibold`,
 	btnGhost: `${btnBase} bg-transparent border border-solid border-line text-fg`,
 	btnDanger:
-		'text-warn border-[rgba(255,138,91,0.35)] hover:bg-warn/10 hover:border-warn active:bg-warn/10 active:border-warn',
+		'text-warn! font-semibold border-warn/45 bg-warn/8 hover:bg-warn/14 hover:border-warn active:bg-warn/14 active:border-warn',
 	btnIcon:
 		'size-11 min-h-11 min-w-11 p-0! px-0! py-0! rounded-full leading-none shrink-0 self-center box-border max-sm:!flex-none max-sm:!size-11 max-sm:!min-h-11 max-sm:!min-w-11 max-sm:!p-0',
 	btnSm: 'min-h-11 px-[0.85rem] py-2 text-[0.82rem]',
@@ -26,7 +26,8 @@ export const ui = {
 		'flex flex-wrap justify-end gap-3 max-sm:gap-[0.55rem] max-sm:w-full max-sm:[&>a]:flex-1 max-sm:[&>a]:min-w-[min(100%,9rem)] max-sm:[&>button]:flex-1 max-sm:[&>button]:min-w-[min(100%,9rem)]',
 	hero: 'grid gap-5 mb-8 max-sm:gap-[0.95rem] max-sm:mb-[1.35rem] [&_h1]:text-[clamp(2.4rem,6vw,4.2rem)] [&_h1]:max-w-[12ch] max-sm:[&_h1]:text-[clamp(1.55rem,8vw,2.1rem)] max-sm:[&_h1]:max-w-none [&_p]:max-w-[68ch] [&_p]:text-muted [&_p]:text-[1.05rem] max-sm:[&_p]:text-[0.98rem] max-sm:[&_p]:max-w-none',
 	heroHome: 'max-sm:hidden mt-3',
-	heroQuiet: 'mt-3 max-sm:mb-3 max-sm:gap-2 max-sm:[&>div:first-child>p]:hidden',
+	heroQuiet: 'mt-3 max-sm:mb-3 max-sm:gap-2',
+	heroMobileHideCopy: 'max-sm:hidden',
 	heroRoute: '[&_h1]:max-w-none [&_a]:text-accent-fg',
 	snackHost:
 		'snack-host fixed z-[60] inset-x-0 bottom-[calc(1.15rem+var(--safe-bottom))] flex flex-col-reverse items-center gap-[0.45rem] px-4 pointer-events-none max-sm:bottom-(--tab-bar-offset) max-sm:px-3',
@@ -69,6 +70,8 @@ export const ui = {
 	choiceChips: 'flex flex-wrap gap-[0.4rem]',
 	choiceChip:
 		'appearance-none inline-flex items-center justify-center gap-1.5 min-h-11 px-[0.95rem] py-2 rounded-full border border-solid border-line bg-transparent text-muted font-semibold cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:border-accent/35 disabled:opacity-35 disabled:cursor-not-allowed aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent',
+	scoreChip:
+		'min-w-0 min-h-11 inline-flex items-center justify-center p-0 border border-line rounded-inset bg-inset text-muted font-inherit tabular-nums cursor-pointer transition-[border-color,color,background-color] duration-150 ease-out hover:border-accent active:border-accent aria-[pressed=true]:border-accent! aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:font-semibold',
 	dialogRoot: 'overlay-root fixed inset-0 z-[20000] flex items-end justify-center p-0 sm:items-center sm:p-4',
 	dialogBackdrop: 'absolute inset-0 bg-black/55',
 	dialogPanel:

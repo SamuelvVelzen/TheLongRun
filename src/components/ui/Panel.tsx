@@ -6,6 +6,10 @@ export function panelClass(...parts: Array<string | false | null | undefined>) {
 	return cn(ui.panel, ...parts);
 }
 
-export function Panel({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-	return <div className={panelClass(className)} {...props} />;
+export function Panel({
+	form,
+	className,
+	...props
+}: { form?: boolean } & HTMLAttributes<HTMLDivElement>) {
+	return <div className={panelClass(form && ui.form, className)} {...props} />;
 }

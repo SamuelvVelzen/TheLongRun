@@ -2,7 +2,6 @@ import {
 	BODY_NOTE_STATUS_META,
 	BODY_NOTE_STATUSES,
 	capitalize,
-	DEFAULT_PAIN_LABEL,
 	MAX_BODY_AREA,
 	MAX_BODY_TEXT,
 	newBodyNoteId,
@@ -20,7 +19,6 @@ import { Icon } from './Icon';
 import {
 	Actions,
 	Button,
-	Checkbox,
 	ConfirmDialog,
 	Dialog,
 	IconLabelButton,
@@ -41,11 +39,14 @@ const STATUS_OPTIONS = BODY_NOTE_STATUSES.map((value) => ({
 }));
 
 const bodyNoteFormSchema = z.object({
-	area: z.string().trim().min(1, 'Which area — e.g. shins, left knee, lower back.').max(MAX_BODY_AREA),
+	area: z
+		.string()
+		.trim()
+		.min(1, 'Which area — e.g. shins, left knee, lower back.')
+		.max(MAX_BODY_AREA),
 	status: z.enum(BODY_NOTE_STATUSES as [BodyNoteStatus, ...BodyNoteStatus[]]),
 	trigger: z.string().max(MAX_BODY_TEXT),
-	helps: z.string().max(MAX_BODY_TEXT),
-	tracked: z.boolean()
+	helps: z.string().max(MAX_BODY_TEXT)
 });
 
 type BodyNoteFormValues = z.infer<typeof bodyNoteFormSchema>;
@@ -55,8 +56,7 @@ function formValues(note: BodyNote | null): BodyNoteFormValues {
 		area: note?.area ?? '',
 		status: note?.status ?? 'active',
 		trigger: note?.trigger ?? '',
-		helps: note?.helps ?? '',
-		tracked: note?.tracked ?? false
+		helps: note?.helps ?? ''
 	};
 }
 
@@ -96,7 +96,8 @@ function BodyNoteDialog({
 			open={open}
 			title={note ? `Edit · ${capitalize(note.area)}` : 'Add body note'}
 			onClose={busy ? () => {} : onClose}
-			size="medal" className="sm:max-w-[min(38rem,100%)]!"
+			size="medal"
+			className="sm:max-w-[min(38rem,100%)]!"
 		>
 			<Form
 				onSubmit={(e) => {
@@ -108,7 +109,12 @@ function BodyNoteDialog({
 				<form.AppField
 					name="area"
 					children={(field) => (
-						<field.TextField label="Area" required disabled={busy} placeholder="shins, left knee, lower back…" />
+						<field.TextField
+							label="Area"
+							required
+							disabled={busy}
+							placeholder="shins, left knee, lower back…"
+						/>
 					)}
 				/>
 				<form.AppField
@@ -139,18 +145,6 @@ function BodyNoteDialog({
 						)}
 					/>
 				</FormGrid>
-				<form.Field
-					name="tracked"
-					children={(field) => (
-						<Checkbox
-							checked={field.state.value}
-							disabled={busy}
-							onChange={field.handleChange}
-							label="Score this area per activity"
-							hint={`The 0–10 pain score on every activity is labelled with this area (otherwise “${DEFAULT_PAIN_LABEL}”). Only one note can be scored.`}
-						/>
-					)}
-				/>
 				<Actions>
 					<Button variant="ghost" disabled={busy} onClick={onClose}>
 						Cancel
@@ -197,18 +191,13 @@ export function BodyNotesPanel({ initial, authed }: { initial: BodyNotes; authed
 		}
 	}
 
-	function withTracked(notes: BodyNote[], trackedId: string | null): BodyNote[] {
-		if (!trackedId) return notes;
-		return notes.map((n) => (n.id === trackedId ? n : n.tracked ? { ...n, tracked: false } : n));
-	}
-
 	async function save(values: BodyNoteFormValues): Promise<boolean> {
 		if (editing) {
 			const next = body.notes.map((n) => (n.id === editing.id ? { ...n, ...values } : n));
-			return persist(withTracked(next, values.tracked ? editing.id : null), `Saved ${values.area}`);
+			return persist(next, `Saved ${values.area}`);
 		}
 		const note: BodyNote = { id: newBodyNoteId(), updated: '', ...values };
-		return persist(withTracked([...body.notes, note], values.tracked ? note.id : null), `Added ${values.area}`);
+		return persist([...body.notes, note], `Added ${values.area}`);
 	}
 
 	const open = body.notes.filter((n) => n.status !== 'resolved');
@@ -266,19 +255,23 @@ export function BodyNotesPanel({ initial, authed }: { initial: BodyNotes; authed
 				)}
 			</div>
 			<p className={cn('text-muted', 'm-0 mt-1 text-[0.9rem]')}>
-				Niggles and old injuries the coach should plan around. Every prompt includes the open ones with their
-				last-updated date; resolved ones are one line of history.
+				Niggles and old injuries the coach should plan around. Every prompt includes the open ones
+				with their last-updated date; resolved ones are one line of history. Each open note gets its
+				own 0–10 score on every run and walk.
 			</p>
 			{open.length ? <div className="mt-2">{open.map(row)}</div> : null}
 			{resolved.length ? (
 				<details className="mt-3">
-					<summary className="cursor-pointer text-muted text-[0.9rem]">Resolved · {resolved.length}</summary>
+					<summary className="cursor-pointer text-muted text-[0.9rem]">
+						Resolved · {resolved.length}
+					</summary>
 					<div className="mt-1">{resolved.map(row)}</div>
 				</details>
 			) : null}
 			{!body.notes.length && (
 				<p className={cn('text-muted', 'mt-3 mb-0 text-[0.9rem]')}>
-					Nothing noted. Add an area when something starts to bother you — prompts skip this section until then.
+					Nothing noted. Add an area when something starts to bother you — prompts skip this section
+					until then.
 				</p>
 			)}
 

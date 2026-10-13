@@ -1,5 +1,6 @@
 import { ACTIVITY_TYPES, activityCount, normalizeActivityType } from '$lib/activity';
 import { distanceLabel, formatEffortTime, type BestEffortKey } from '$lib/best-efforts';
+import { bodyScoreTracks } from '$lib/body-scores';
 import { parseDurationSeconds } from '$lib/format';
 import { paceFromSeconds } from '$lib/pace-profile';
 import { isoDateLocal, mondayIso } from '$lib/plan';
@@ -58,19 +59,21 @@ function medianPace(runs: RunRecord[]): string | null {
 }
 
 /** One summary line for a month or year: volume, longest run, easy pace, feel averages. */
-function periodLine(label: string, runs: RunRecord[], pain: string): string {
+function periodLine(label: string, runs: RunRecord[]): string {
 	if (!runs.length) return `- ${label}: none`;
 	const runList = runs.filter(isRun);
 	const longest = runList.reduce((m, r) => Math.max(m, r.distance_km ?? 0), 0);
 	const easy = runList.filter((r) => String(r.session).toLowerCase() === 'easy');
 	const easyPace = medianPace(easy.length >= 2 ? easy : runList);
 	const effort = avg(runs.map((r) => r.effort));
-	const painAvg = avg(runList.map((r) => r.shins));
+	const body = bodyScoreTracks(runList)
+		.map((t) => `${t.area.toLowerCase()} ${avg(t.points.map((p) => p.score))}`)
+		.join(', ');
 	const extra = [
 		longest ? `longest ${round1(longest)} km` : '',
 		easyPace ? `${easy.length >= 2 ? 'easy' : 'run'} pace ~${easyPace}` : '',
 		effort != null ? `effort ${effort}` : '',
-		painAvg != null ? `${pain.toLowerCase()} ${painAvg}` : ''
+		body
 	].filter(Boolean);
 	return `- ${label}: ${sportVolume(runs)}${extra.length ? ` · ${extra.join(' · ')}` : ''}`;
 }
@@ -85,7 +88,7 @@ export type HistoryTiers = {
  * Detail shrinks with age so the brief stays the same size however long the history is:
  * weekly lines for the last 20 weeks, monthly lines back to 12 months, then one line per year.
  */
-export function buildHistoryTiers(allRuns: RunRecord[], today: Date, pain: string): HistoryTiers {
+export function buildHistoryTiers(allRuns: RunRecord[], today: Date): HistoryTiers {
 	const todayIso = isoDateLocal(today);
 	const thisMonday = mondayIso(todayIso);
 	const weeklyStart = addDays(thisMonday, -7 * (HISTORY_WEEKS - 1));
@@ -114,7 +117,7 @@ export function buildHistoryTiers(allRuns: RunRecord[], today: Date, pain: strin
 		if (start >= weeklyStart) break;
 		const inMonth = runs.filter((r) => r.date >= start && r.date < stop);
 		const label = `${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}${stop !== endExclusive ? ' (part)' : ''}`;
-		if (inMonth.length || monthLines.length) monthLines.push(periodLine(label, inMonth, pain));
+		if (inMonth.length || monthLines.length) monthLines.push(periodLine(label, inMonth));
 		cursor.setMonth(cursor.getMonth() + 1);
 	}
 
@@ -122,8 +125,10 @@ export function buildHistoryTiers(allRuns: RunRecord[], today: Date, pain: strin
 	const years = [...new Set(older.map((r) => r.date.slice(0, 4)))].sort().reverse();
 	const yearLines = years.map((y) => {
 		const inYear = older.filter((r) => r.date.startsWith(y));
-		const partial = monthlyStartIso.startsWith(y) ? ` (to ${MONTHS[firstMonth.getMonth() - 1] ?? 'Dec'})` : '';
-		return periodLine(`${y}${partial}`, inYear, pain);
+		const partial = monthlyStartIso.startsWith(y)
+			? ` (to ${MONTHS[firstMonth.getMonth() - 1] ?? 'Dec'})`
+			: '';
+		return periodLine(`${y}${partial}`, inYear);
 	});
 
 	return {

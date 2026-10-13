@@ -16,27 +16,37 @@ import {
 import { actionsClass } from '../components/ui/Actions';
 import { buttonClass } from '../components/ui/Button';
 import {
-    activityLabel,
-    activityPlural,
-    activityTally,
-    hasContext,
-    metricText,
-    normalizeActivityType,
-    showsField
+	activityLabel,
+	activityPlural,
+	activityTally,
+	hasContext,
+	metricText,
+	normalizeActivityType,
+	showsField
 } from '$lib/activity';
 import { saveExportedFile, shareOrDownload } from '$lib/activity-export';
-import { AuthGate, useAuthed, usePainLabel } from '$lib/auth';
-import { buildBestEffortBoard, highlightsForActivity, supportsBestEfforts } from '$lib/best-efforts';
+import { AuthGate, useAuthed } from '$lib/auth';
+import {
+	buildBestEffortBoard,
+	highlightsForActivity,
+	supportsBestEfforts
+} from '$lib/best-efforts';
 import { filterRunsByRange, isoDateLocal, parseDateRange, type RangeKind } from '$lib/date-range';
 import {
-    collapseRuns,
-    effortOwnersForBoard,
-    groupedSessionTitle,
-    groupHighlights,
-    groupTypeCaption,
-    type TimelineItem
+	collapseRuns,
+	effortOwnersForBoard,
+	groupedSessionTitle,
+	groupHighlights,
+	groupTypeCaption,
+	type TimelineItem
 } from '$lib/group';
-import { createActivityGroupFn, deleteRun, deleteRunsFn, exportActivitiesFn, getTimelineRuns } from '$lib/server/functions';
+import {
+	createActivityGroupFn,
+	deleteRun,
+	deleteRunsFn,
+	exportActivitiesFn,
+	getTimelineRuns
+} from '$lib/server/functions';
 import { formatTimelineClipboard } from '$lib/timeline-copy';
 import { appHead } from '$lib/title';
 import type { ActivityGroupInfo, RunWithMap } from '$lib/types';
@@ -52,10 +62,10 @@ import { FeelBadge } from '../components/FeelBadge';
 import { ActivityTag, Icon } from '../components/Icon';
 import { MoreMenu } from '../components/MoreMenu';
 import {
-    matchesSportFilter,
-    parseSportSearch,
-    selectedSports,
-    sportIsAll
+	matchesSportFilter,
+	parseSportSearch,
+	selectedSports,
+	sportIsAll
 } from '../components/SportFilter';
 
 type TimelineSearch = RangeSearch & {
@@ -240,7 +250,12 @@ function RunCardBody({
 			</div>
 			<BestEffortBadges compact highlights={highlights} />
 			{run.notes && (
-				<p className={cn('text-muted', 'mt-[0.35rem] line-clamp-1 overflow-hidden max-sm:mt-[0.28rem]')}>
+				<p
+					className={cn(
+						'text-muted',
+						'mt-[0.35rem] line-clamp-1 overflow-hidden max-sm:mt-[0.28rem]'
+					)}
+				>
 					{run.notes}
 				</p>
 			)}
@@ -257,18 +272,11 @@ function Timeline() {
 	);
 }
 
-function TimelineBody({
-	allRuns,
-	groups
-}: {
-	allRuns: RunWithMap[];
-	groups: ActivityGroupInfo[];
-}) {
+function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; groups: ActivityGroupInfo[] }) {
 	const search = Route.useSearch();
 	const router = useRouter();
 	const snack = useSnackbar();
 	const authed = useAuthed();
-	const pain = usePainLabel();
 	const [copied, setCopied] = useState(false);
 	const [pending, setPending] = useState<RunWithMap | null>(null);
 	const [pendingMass, setPendingMass] = useState(false);
@@ -322,8 +330,7 @@ function TimelineBody({
 				formatTimelineClipboard(runs, {
 					summary,
 					sport,
-					todayIso: isoDateLocal(new Date()),
-					pain
+					todayIso: isoDateLocal(new Date())
 				})
 			);
 			setCopied(true);
@@ -483,9 +490,7 @@ function TimelineBody({
 					<BestEffortBoard
 						rows={board}
 						caption={
-							boardSport === 'walk'
-								? 'All-time top 3 among walks'
-								: 'All-time top 3 among runs'
+							boardSport === 'walk' ? 'All-time top 3 among walks' : 'All-time top 3 among runs'
 						}
 					/>
 
@@ -502,84 +507,25 @@ function TimelineBody({
 								{month.items.map((item, i) =>
 									item.kind === 'group' ? (
 										(selectMode === 'delete' || selectMode === 'export') && authed ? (
-										<button
-											key={item.group.id}
-											type="button"
-											className={selectRow}
-											style={{ animationDelay: `${i * 35}ms` }}
-											aria-pressed={item.members.every((m) => picked.includes(m.slug))}
-											aria-label={`Select grouped session ${item.stats.date}`}
-											onClick={() => toggleGroupPick(item.members.map((m) => m.slug))}
-										>
-											<div className={railClass}>
-												<SelectCheck
-													on={item.members.every((m) => picked.includes(m.slug))}
-												/>
-											</div>
-											<div
-												className={cn(
-													'relative p-4 px-[1.1rem] border rounded-[14px] transition-[border-color,background-color,transform] duration-150 max-sm:p-[0.85rem_0.95rem]',
-													item.members.every((m) => picked.includes(m.slug))
-														? 'border-accent bg-accent/10'
-														: 'border-accent/35 bg-accent/4'
-												)}
+											<button
+												key={item.group.id}
+												type="button"
+												className={selectRow}
+												style={{ animationDelay: `${i * 35}ms` }}
+												aria-pressed={item.members.every((m) => picked.includes(m.slug))}
+												aria-label={`Select grouped session ${item.stats.date}`}
+												onClick={() => toggleGroupPick(item.members.map((m) => m.slug))}
 											>
-												<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.35rem]">
-													<RunTitle>
-														{groupedSessionTitle(
-															item.group,
-															item.members.length,
-															item.stats.date
-														)}
-														{item.members.some((m) => m.has_map) && <MapPin />}
-													</RunTitle>
-													{item.stats.types.map((t) => (
-														<ActivityTag key={t} type={t} />
-													))}
+												<div className={railClass}>
+													<SelectCheck on={item.members.every((m) => picked.includes(m.slug))} />
 												</div>
-												<p className={cn('text-muted', 'mt-[0.2rem] text-[0.82rem]')}>
-													{[
-														`${item.members.length} parts`,
-														item.stats.start_time || null,
-														groupTypeCaption(item.stats)
-													]
-														.filter(Boolean)
-														.join(' · ')}
-												</p>
-												<div className="flex flex-wrap gap-x-[0.85rem] gap-y-[0.35rem] mt-[0.4rem] text-muted text-[0.9rem]">
-													{showsField(item.stats.activity_type, 'distance') && (
-														<span>{item.stats.distance_km ?? '—'} km</span>
+												<div
+													className={cn(
+														'relative p-4 px-[1.1rem] border rounded-[14px] transition-[border-color,background-color,transform] duration-150 max-sm:p-[0.85rem_0.95rem]',
+														item.members.every((m) => picked.includes(m.slug))
+															? 'border-accent bg-accent/10'
+															: 'border-accent/35 bg-accent/4'
 													)}
-													<span>{metricText(item.stats)}</span>
-													{item.stats.avg_hr != null ? (
-														<span>
-															HR {item.stats.avg_hr}
-															{item.stats.max_hr != null && `/${item.stats.max_hr}`}
-														</span>
-													) : item.stats.time ? (
-														<span>{item.stats.time}</span>
-													) : null}
-												</div>
-												<BestEffortBadges
-													compact
-													highlights={groupHighlights(item.group, item.stats, boardOwners)}
-												/>
-											</div>
-										</button>
-										) : (
-										<div
-											key={item.group.id}
-											className={idleRow}
-											style={{ animationDelay: `${i * 35}ms` }}
-										>
-											<div className={railClass} aria-hidden="true">
-												<span className="relative z-[1] size-[0.7rem] mt-5 rounded-full bg-accent shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent)_12%,transparent)]"></span>
-											</div>
-											<div className="relative p-4 px-[1.1rem] border border-accent/35 rounded-[14px] bg-accent/4 transition-[border-color,background-color,transform] duration-150 group-hover:border-accent/55 group-hover:-translate-y-px max-sm:p-[0.85rem_0.95rem]">
-												<Link
-													className="block text-inherit"
-													to="/groups/$id"
-													params={{ id: item.group.id }}
 												>
 													<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.35rem]">
 														<RunTitle>
@@ -621,9 +567,66 @@ function TimelineBody({
 														compact
 														highlights={groupHighlights(item.group, item.stats, boardOwners)}
 													/>
-												</Link>
+												</div>
+											</button>
+										) : (
+											<div
+												key={item.group.id}
+												className={idleRow}
+												style={{ animationDelay: `${i * 35}ms` }}
+											>
+												<div className={railClass} aria-hidden="true">
+													<span className="relative z-[1] size-[0.7rem] mt-5 rounded-full bg-accent shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent)_12%,transparent)]"></span>
+												</div>
+												<div className="relative p-4 px-[1.1rem] border border-accent/35 rounded-[14px] bg-accent/4 transition-[border-color,background-color,transform] duration-150 group-hover:border-accent/55 group-hover:-translate-y-px max-sm:p-[0.85rem_0.95rem]">
+													<Link
+														className="block text-inherit"
+														to="/groups/$id"
+														params={{ id: item.group.id }}
+													>
+														<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.35rem]">
+															<RunTitle>
+																{groupedSessionTitle(
+																	item.group,
+																	item.members.length,
+																	item.stats.date
+																)}
+																{item.members.some((m) => m.has_map) && <MapPin />}
+															</RunTitle>
+															{item.stats.types.map((t) => (
+																<ActivityTag key={t} type={t} />
+															))}
+														</div>
+														<p className={cn('text-muted', 'mt-[0.2rem] text-[0.82rem]')}>
+															{[
+																`${item.members.length} parts`,
+																item.stats.start_time || null,
+																groupTypeCaption(item.stats)
+															]
+																.filter(Boolean)
+																.join(' · ')}
+														</p>
+														<div className="flex flex-wrap gap-x-[0.85rem] gap-y-[0.35rem] mt-[0.4rem] text-muted text-[0.9rem]">
+															{showsField(item.stats.activity_type, 'distance') && (
+																<span>{item.stats.distance_km ?? '—'} km</span>
+															)}
+															<span>{metricText(item.stats)}</span>
+															{item.stats.avg_hr != null ? (
+																<span>
+																	HR {item.stats.avg_hr}
+																	{item.stats.max_hr != null && `/${item.stats.max_hr}`}
+																</span>
+															) : item.stats.time ? (
+																<span>{item.stats.time}</span>
+															) : null}
+														</div>
+														<BestEffortBadges
+															compact
+															highlights={groupHighlights(item.group, item.stats, boardOwners)}
+														/>
+													</Link>
+												</div>
 											</div>
-										</div>
 										)
 									) : selecting && authed ? (
 										<button

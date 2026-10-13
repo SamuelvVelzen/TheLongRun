@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS runs (
 	activity_type  TEXT NOT NULL DEFAULT 'run',
 	session        TEXT NOT NULL DEFAULT 'other',
 	effort         INTEGER,
+	-- Legacy single pain score; mirrors the worst entry in body_scores.
 	shins          INTEGER,
 	legs           INTEGER,
 	energy         INTEGER,
@@ -38,7 +39,8 @@ CREATE TABLE IF NOT EXISTS runs (
 	country        TEXT NOT NULL DEFAULT '',
 	province       TEXT NOT NULL DEFAULT '',
 	place          TEXT NOT NULL DEFAULT '',
-	best_efforts   TEXT NOT NULL DEFAULT '[]'
+	best_efforts   TEXT NOT NULL DEFAULT '[]',
+	body_scores    TEXT NOT NULL DEFAULT '[]'
 );
 
 CREATE INDEX IF NOT EXISTS runs_date_idx ON runs (date DESC);

@@ -1,4 +1,5 @@
 import { ACTIVITY_TYPES, normalizeActivityType, type ActivityType } from '$lib/activity';
+import { rowsToBodyScores } from '$lib/body-scores';
 import type { CreateRunInput, UpdateRunInput } from '$lib/server/functions';
 import type { RunRecord } from '$lib/types';
 import { z } from 'zod';
@@ -19,7 +20,9 @@ export const activityFormSchema = z.object({
 	activity_type: z.enum(['run', 'walk', 'bike', 'strength']),
 	session: z.string(),
 	effort: z.number().nullable(),
-	shins: z.number().nullable(),
+	body_scores: z.array(
+		z.object({ note_id: z.string().nullable(), area: z.string(), score: z.number().nullable() })
+	),
 	legs: z.number().nullable(),
 	energy: z.number().nullable(),
 	weather: z.string(),
@@ -61,7 +64,7 @@ export function toCreateRunInput(values: ActivityFormValues): CreateRunInput {
 		activity_type,
 		session: activity_type === 'run' ? values.session || 'easy' : 'other',
 		effort: values.effort,
-		shins: values.shins,
+		body_scores: rowsToBodyScores(values.body_scores),
 		legs: values.legs,
 		energy: values.energy,
 		weather: values.weather,
@@ -100,7 +103,7 @@ export function emptyActivityForm(partial?: Partial<ActivityFormValues>): Activi
 		activity_type,
 		session: partial?.session ?? 'easy',
 		effort: partial?.effort ?? null,
-		shins: partial?.shins ?? null,
+		body_scores: partial?.body_scores ?? [],
 		legs: partial?.legs ?? null,
 		energy: partial?.energy ?? null,
 		weather: partial?.weather ?? '',
@@ -121,38 +124,40 @@ export function emptyActivityForm(partial?: Partial<ActivityFormValues>): Activi
 	};
 }
 
-export function runToActivityForm(run: Pick<
-	RunRecord,
-	| 'date'
-	| 'activity_type'
-	| 'session'
-	| 'effort'
-	| 'shins'
-	| 'legs'
-	| 'energy'
-	| 'weather'
-	| 'surface'
-	| 'wanted_faster'
-	| 'distance_km'
-	| 'start_time'
-	| 'time'
-	| 'avg_pace'
-	| 'avg_hr'
-	| 'max_hr'
-	| 'elev_gain'
-	| 'cadence'
-	| 'gear'
-	| 'notes'
-	| 'before_notes'
-	| 'after_notes'
->): ActivityFormValues {
+export function runToActivityForm(
+	run: Pick<
+		RunRecord,
+		| 'date'
+		| 'activity_type'
+		| 'session'
+		| 'effort'
+		| 'body_scores'
+		| 'legs'
+		| 'energy'
+		| 'weather'
+		| 'surface'
+		| 'wanted_faster'
+		| 'distance_km'
+		| 'start_time'
+		| 'time'
+		| 'avg_pace'
+		| 'avg_hr'
+		| 'max_hr'
+		| 'elev_gain'
+		| 'cadence'
+		| 'gear'
+		| 'notes'
+		| 'before_notes'
+		| 'after_notes'
+	>
+): ActivityFormValues {
 	const activity_type = normalizeActivityType(run.activity_type);
 	return {
 		date: run.date,
 		activity_type,
 		session: run.session || (activity_type === 'run' ? 'easy' : 'other'),
 		effort: run.effort,
-		shins: run.shins,
+		body_scores: run.body_scores ?? [],
 		legs: run.legs,
 		energy: run.energy,
 		weather: run.weather || '',

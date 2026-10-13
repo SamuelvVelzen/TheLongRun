@@ -1,5 +1,20 @@
-import { ACTIVITY_TYPES, activityCount, activityLabel, activityPlural, importActivityType, metricText, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
-import { combinedActivityGpx, combinedActivityTcx, memberActivityGpx, safeFilename } from '$lib/activity-export';
+import {
+	ACTIVITY_TYPES,
+	activityCount,
+	activityLabel,
+	activityPlural,
+	importActivityType,
+	metricText,
+	normalizeActivityType,
+	showsFeel,
+	showsField
+} from '$lib/activity';
+import {
+	combinedActivityGpx,
+	combinedActivityTcx,
+	memberActivityGpx,
+	safeFilename
+} from '$lib/activity-export';
 import {
 	formatUsualHabitsSection,
 	normalizeActivityHabits,
@@ -19,9 +34,21 @@ import {
 	type EffortHighlight
 } from '$lib/best-efforts';
 import { combinedAnalytics, trackFromGeoJson } from '$lib/combine-track';
-import { dateRangeFromSearch, filterRunsByRange, type DateRange, type RangeKind } from '$lib/date-range';
+import {
+	dateRangeFromSearch,
+	filterRunsByRange,
+	type DateRange,
+	type RangeKind
+} from '$lib/date-range';
 import { DEBRIEF_HABITS_TOKEN, DEBRIEF_WRITEUP_TOKEN } from '$lib/debrief';
-import { dayFromIsoDate, formatDuration, guessSession, localDateTimeToUtcMs, normalizeStartTime, parseDurationSeconds } from '$lib/format';
+import {
+	dayFromIsoDate,
+	formatDuration,
+	guessSession,
+	localDateTimeToUtcMs,
+	normalizeStartTime,
+	parseDurationSeconds
+} from '$lib/format';
 import {
 	formatFuelSection,
 	fuelItemNames,
@@ -47,7 +74,12 @@ import {
 	type GearContext,
 	type GearKind
 } from '$lib/gear';
-import { formatWardrobeSection, normalizeWardrobe, wardrobeHasItems, type Wardrobe } from '$lib/wardrobe';
+import {
+	formatWardrobeSection,
+	normalizeWardrobe,
+	wardrobeHasItems,
+	type Wardrobe
+} from '$lib/wardrobe';
 import {
 	activityLooksLikeRace,
 	canPinRaceResult,
@@ -132,10 +164,19 @@ import {
 	formatCoachNotesSection,
 	mergeBodySuggestions,
 	normalizeBodyNotes,
-	painLabel,
 	type BodyNote,
 	type BodyNotes
 } from '$lib/body-notes';
+import {
+	bodyScoreTracks,
+	mergeBodyScores,
+	openBodyAreas,
+	bodyScoreRows,
+	resolveAiBodyScores,
+	validateBodyScores,
+	type BodyArea,
+	type BodyScore
+} from '$lib/body-scores';
 import { buildHistoryTiers, personalBestsLine, sportVolume } from '$lib/history-brief';
 import { buildPaceProfile, formatPaceSection, typicalEasyPace } from '$lib/pace-profile';
 import { feelCell, feelScale, hrCell, joinSections, section, tidyPrompt } from '$lib/prompt';
@@ -260,7 +301,10 @@ import {
 const withMap = (runs: RunRecord[], routeIds: Set<string>): RunWithMap[] =>
 	runs.map((r) => ({ ...r, has_map: runHasMap(r, routeIds) }));
 
-function attachPlanRoutes(weekView: WeekView | null, planRefs: Awaited<ReturnType<typeof listPlanRouteRefs>>): WeekView | null {
+function attachPlanRoutes(
+	weekView: WeekView | null,
+	planRefs: Awaited<ReturnType<typeof listPlanRouteRefs>>
+): WeekView | null {
 	if (!weekView) return null;
 	const bySession = new Map<string, SessionRouteRef>();
 	const legacyByDay = new Map<string, SessionRouteRef>();
@@ -294,8 +338,7 @@ async function hydrateBestEfforts(runs: RunRecord[]): Promise<RunRecord[]> {
 		const id = routeIdForRun(run);
 		const src = id ? sources.get(id) : undefined;
 		if (!src) continue;
-		const fromTrack =
-			src.samples.length >= 2 ? computeBestEffortsFromTrack(src.samples) : [];
+		const fromTrack = src.samples.length >= 2 ? computeBestEffortsFromTrack(src.samples) : [];
 		const fromSplits = src.splits.length ? computeBestEffortsFromSplits(src.splits) : [];
 		const merged = mergeMissingBestEfforts(
 			fromTrack.length ? fromTrack : (run.best_efforts ?? []),
@@ -323,37 +366,41 @@ async function highlightsAfterSave(
 
 // ---------- reads ----------
 
-/** Root-loader data shared by every page: sign-in state + the pain score label. */
+/** Root-loader data shared by every page: sign-in state + the open body notes to score. */
 export const getAuthState = createServerFn({ method: 'GET' }).handler(async () => {
 	const { readAuthSession } = await import('./auth.server');
 	const [auth, body] = await Promise.all([readAuthSession(), loadBodyNotes()]);
-	return { ...auth, painLabel: painLabel(body) };
+	return { ...auth, bodyAreas: openBodyAreas(body) };
 });
 
 export const getLiveLocation = createServerFn({ method: 'GET' }).handler(async () => {
 	return loadLiveLocation();
 });
 
-export const pingLiveLocation = createServerFn({ method: 'POST' }).middleware([requireAuth])
-	.validator((d: { lat: number; lng: number; accuracy?: number | null; heading?: number | null }) => {
-		const lat = Number(d?.lat);
-		const lng = Number(d?.lng);
-		if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error('Invalid location.');
-		if (lat < -90 || lat > 90 || lng < -180 || lng > 180) throw new Error('Invalid location.');
-		const accuracy = d?.accuracy == null ? null : Number(d.accuracy);
-		const heading = d?.heading == null ? null : Number(d.heading);
-		return {
-			lat,
-			lng,
-			accuracy: Number.isFinite(accuracy) ? accuracy : null,
-			heading: Number.isFinite(heading) && heading! >= 0 ? heading : null
-		};
-	})
+export const pingLiveLocation = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
+	.validator(
+		(d: { lat: number; lng: number; accuracy?: number | null; heading?: number | null }) => {
+			const lat = Number(d?.lat);
+			const lng = Number(d?.lng);
+			if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error('Invalid location.');
+			if (lat < -90 || lat > 90 || lng < -180 || lng > 180) throw new Error('Invalid location.');
+			const accuracy = d?.accuracy == null ? null : Number(d.accuracy);
+			const heading = d?.heading == null ? null : Number(d.heading);
+			return {
+				lat,
+				lng,
+				accuracy: Number.isFinite(accuracy) ? accuracy : null,
+				heading: Number.isFinite(heading) && heading! >= 0 ? heading : null
+			};
+		}
+	)
 	.handler(async ({ data }) => {
 		return saveLiveLocation(data);
 	});
 
-export const stopLiveLocation = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const stopLiveLocation = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.handler(async () => {
 		await clearLiveLocation();
 		return { ok: true as const };
@@ -430,13 +477,11 @@ export const getCoachPlan = createServerFn({ method: 'GET' }).handler(async () =
 		calendar,
 		activeGoal,
 		intentions: openIntentions(training.store.goals),
-		routes: plannedRoutes.map(
-			(r): SessionRouteRef => ({
-				slug: r.slug,
-				name: r.name,
-				distance_km: r.distance_km
-			})
-		)
+		routes: plannedRoutes.map((r): SessionRouteRef => ({
+			slug: r.slug,
+			name: r.name,
+			distance_km: r.distance_km
+		}))
 	};
 });
 
@@ -457,21 +502,33 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 		const run = await getRun(slug);
 		if (!run) return null;
 		const routeId = routeIdForRun(run);
-		const [geo, routeIds, gear, settings, allTimeMaxHr, allRuns, plannedRoute, training, group, plannedRoutes, habits, fuelLog] =
-			await Promise.all([
-				routeId ? getRouteGeoJson(routeId) : Promise.resolve(null),
-				listRouteIds(),
-				loadGear(),
-				loadSettings(),
-				getMaxHrAllTime(),
-				listRuns(),
-				getActivityRouteRef(slug),
-				loadTrainingContext(),
-				membershipForSlug(slug),
-				listPlannedRoutes(),
-				loadActivityHabits(),
-				loadFuelLog()
-			]);
+		const [
+			geo,
+			routeIds,
+			gear,
+			settings,
+			allTimeMaxHr,
+			allRuns,
+			plannedRoute,
+			training,
+			group,
+			plannedRoutes,
+			habits,
+			fuelLog
+		] = await Promise.all([
+			routeId ? getRouteGeoJson(routeId) : Promise.resolve(null),
+			listRouteIds(),
+			loadGear(),
+			loadSettings(),
+			getMaxHrAllTime(),
+			listRuns(),
+			getActivityRouteRef(slug),
+			loadTrainingContext(),
+			membershipForSlug(slug),
+			listPlannedRoutes(),
+			loadActivityHabits(),
+			loadFuelLog()
+		]);
 		const analytics = geo
 			? analyticsFromProperties(
 					geo && typeof geo === 'object'
@@ -552,7 +609,8 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 		};
 	});
 
-export const saveHrMax = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const saveHrMax = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((hrMax: number | null) => hrMax)
 	.handler(async ({ data }) => {
 		await saveHrMaxSetting(data);
@@ -568,9 +626,18 @@ export const getLogDefaults = createServerFn({ method: 'GET' }).handler(async ()
 		loadActivityHabits()
 	]);
 	const strengthTops = recentExerciseTops(
-		runs.filter((r) => normalizeActivityType(r.activity_type) === 'strength').sort(byDateNewestFirst)
+		runs
+			.filter((r) => normalizeActivityType(r.activity_type) === 'strength')
+			.sort(byDateNewestFirst)
 	);
-	return { week, gear, gearWear: wearByAllGear(runs), calendar: training.calendar, strengthTops, habits };
+	return {
+		week,
+		gear,
+		gearWear: wearByAllGear(runs),
+		calendar: training.calendar,
+		strengthTops,
+		habits
+	};
 });
 
 export const getRouteGeoJsonFn = createServerFn({ method: 'GET' })
@@ -677,11 +744,7 @@ function notesForBriefRow(r: RunRecord): string {
 		return [strengthCompact(p.exercises), extra].filter(Boolean).join(' — ').replace(/\|/g, '/');
 	}
 	const notesText = isImportNote(r.notes || '') ? '' : r.notes || '';
-	return notesText
-		.replace(/\s+/g, ' ')
-		.replace(/\|/g, '/')
-		.trim()
-		.slice(0, 140);
+	return notesText.replace(/\s+/g, ' ').replace(/\|/g, '/').trim().slice(0, 140);
 }
 
 /** Activity table row; strength shows duration in the metric column and lifts in Notes. */
@@ -718,7 +781,9 @@ function gearSectionForBrief(gear: GearContext, runs: RunRecord[]): string {
 		const notes = catalog.notes.trim();
 		if (!lines.length && !notes) continue;
 		const meta = gearMeta(kind);
-		blocks.push(`### ${meta.section} — ${meta.label}\n${[...lines, notes].filter(Boolean).join('\n')}`);
+		blocks.push(
+			`### ${meta.section} — ${meta.label}\n${[...lines, notes].filter(Boolean).join('\n')}`
+		);
 	}
 	if (!blocks.length) return '';
 	return `## Gear
@@ -742,8 +807,8 @@ const DEFAULT_BRIEF_RANGE: RangeKind = '30d';
 
 const HOW_TO_READ = `Goal and Timing come from the booked race and calendar I set. Look-aheads are not races — they constrain the horizon, they do not set race day. Every section with numbers (summary, paces, weekly/monthly volume, activity log, lift tops) is auto-computed from my logs and is **current**. Body notes and Notes from me are hand-written by me. ${BODY_SAFETY_RULE}`;
 
-/** All-time facts computed from every activity; the pain trend line only when scores exist. */
-function allTimeSummarySection(allRuns: RunRecord[], pain: string): string {
+/** All-time facts computed from every activity; body trend lines only when scores exist. */
+function allTimeSummarySection(allRuns: RunRecord[]): string {
 	if (!allRuns.length) return '';
 	const runsAll = allRuns.filter((r) => normalizeActivityType(r.activity_type) === 'run');
 	const firstDate = allRuns.reduce((min, r) => (r.date < min ? r.date : min), allRuns[0]!.date);
@@ -752,11 +817,14 @@ function allTimeSummarySection(allRuns: RunRecord[], pain: string): string {
 		(best, r) => ((r.distance_km ?? 0) > (best?.distance_km ?? 0) ? r : best),
 		null
 	);
-	const scored = runsAll.filter((r) => r.shins != null).sort(byDateNewestFirst);
 	const avg = (arr: number[]) =>
 		arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : null;
-	const recent = avg(scored.slice(0, 4).map((r) => r.shins!));
-	const prior = avg(scored.slice(4, 8).map((r) => r.shins!));
+	const bodyLines = bodyScoreTracks(runsAll).map((t) => {
+		const scores = t.points.map((p) => p.score).reverse();
+		const recent = avg(scores.slice(0, 4));
+		const prior = avg(scores.slice(4, 8));
+		return `- ${t.area} trend (0–10, lower = better): last 4 runs avg ${recent}${prior != null ? ` vs prior 4 ${prior}` : ''}.`;
+	});
 	const lines = [
 		`- Logged since ${firstDate}: ${sportVolume(allRuns)}.`,
 		longest?.distance_km
@@ -764,9 +832,7 @@ function allTimeSummarySection(allRuns: RunRecord[], pain: string): string {
 			: '',
 		runsAll.length ? `- Running total: ${totalRunKm} km.` : '',
 		personalBestsLine(allRuns),
-		recent != null
-			? `- ${pain} trend (0–10, lower = better): last 4 runs avg ${recent}${prior != null ? ` vs prior 4 ${prior}` : ''}.`
-			: ''
+		...bodyLines
 	].filter(Boolean);
 	return `## All-time summary\n${lines.join('\n')}`;
 }
@@ -804,26 +870,30 @@ ${forecast.map((f) => `- ${f.line}`).join('\n')}`;
 }
 
 export const getCoachBrief = createServerFn({ method: 'GET' })
-	.validator((d: {
-		range?: RangeKind;
-		from?: string | null;
-		to?: string | null;
-		setup?: WeekSetup;
-		defaultSetup?: WeekSetup;
-		note?: string;
-	} = {}) => {
-		const range = dateRangeFromSearch({
-			range: d?.range ?? (d?.from || d?.to ? undefined : DEFAULT_BRIEF_RANGE),
-			from: d?.from ?? undefined,
-			to: d?.to ?? undefined
-		});
-		return {
-			range,
-			setup: d?.setup != null ? normalizeWeekSetup(d.setup) : undefined,
-			defaultSetup: d?.defaultSetup != null ? normalizeWeekSetup(d.defaultSetup) : undefined,
-			note: typeof d?.note === 'string' ? d.note : ''
-		};
-	})
+	.validator(
+		(
+			d: {
+				range?: RangeKind;
+				from?: string | null;
+				to?: string | null;
+				setup?: WeekSetup;
+				defaultSetup?: WeekSetup;
+				note?: string;
+			} = {}
+		) => {
+			const range = dateRangeFromSearch({
+				range: d?.range ?? (d?.from || d?.to ? undefined : DEFAULT_BRIEF_RANGE),
+				from: d?.from ?? undefined,
+				to: d?.to ?? undefined
+			});
+			return {
+				range,
+				setup: d?.setup != null ? normalizeWeekSetup(d.setup) : undefined,
+				defaultSetup: d?.defaultSetup != null ? normalizeWeekSetup(d.defaultSetup) : undefined,
+				note: typeof d?.note === 'string' ? d.note : ''
+			};
+		}
+	)
 	.handler(async ({ data }) => {
 		const range = data.range;
 		// Before reading gear.md: the first load moves its fuel section into the fuel log.
@@ -839,7 +909,6 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 				loadProfile()
 			]);
 		const { plan, calendar, activeGoal, medals, store } = training;
-		const pain = painLabel(profile.body);
 		const defaultSetup = data.defaultSetup ?? weekSetupFromSettings(settings);
 		const thisSetup = data.setup ?? defaultSetup;
 		const mixNote = data.note.trim();
@@ -858,11 +927,11 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 
 		const paces = buildPaceProfile(allRuns, medals, todayIso);
 		const easyPace = typicalEasyPace(paces) ?? 'M:SS';
-		const history = buildHistoryTiers(allRuns, today, pain);
+		const history = buildHistoryTiers(allRuns, today);
 		const windowPhrase = historyWindowPhrase(range);
 		const rows = windowRuns.map(briefTableRow).join('\n');
 		const activitySection = rows
-			? `## Activity log (${windowPhrase}, newest first)\n${feelScale(pain)}\n\n${BRIEF_TABLE_HEAD}\n${rows}`
+			? `## Activity log (${windowPhrase}, newest first)\n${feelScale()}\n\n${BRIEF_TABLE_HEAD}\n${rows}`
 			: '';
 		const strengthLogs = allRuns
 			.filter((r) => normalizeActivityType(r.activity_type) === 'strength')
@@ -872,17 +941,18 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		const savedTarget = plan.find((w) => w.week === targetWeek);
 		const revising = weekHasSessions(savedTarget);
 		const targetView = savedTarget ? buildWeekView(savedTarget, allRuns, calendar, today) : null;
-		const unplannedSection =
-			targetView?.unplanned.length
-				? `## Unplanned activities (${weekPhrase})
+		const unplannedSection = targetView?.unplanned.length
+			? `## Unplanned activities (${weekPhrase})
 These logs fall in week ${targetWeek} but did not match a planned session (extra session, rest/empty day, or different sport). They are **already done extra load** — do not add a plan row just to file them. Account for that load when ${revising ? 'revising remaining sessions' : 'planning the week'}.
 ${formatUnplannedBrief(targetView.unplanned)}`
-				: '';
+			: '';
 		const weekStartIso = planWeekStartIso(targetWeek, calendar);
 		const weekEndIso = planWeekEndIso(targetWeek, calendar);
 		const hasWardrobe = wardrobeHasItems(wardrobe);
 		const forecast = (await fetchDailyForecast(weekStartIso, weekEndIso)).map((f) => {
-			const weekday = new Date(`${f.date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long' });
+			const weekday = new Date(`${f.date}T12:00:00`).toLocaleDateString('en-GB', {
+				weekday: 'long'
+			});
 			return { date: f.date, line: `${weekday} ${f.date}: ${formatDailyForecast(f)}` };
 		});
 		const forecastSection = forecastSectionForBrief(
@@ -947,7 +1017,9 @@ ${thisWeekLogs.map(formatRunBriefLine).join('\n')}`
 			intentions.length === 0
 				? ''
 				: ` Look-ahead (not booked): ${intentions
-						.map((g) => `**${g.name}** (${g.distance_km} km) in **${formatHorizonLabel(g.horizon)}**`)
+						.map(
+							(g) => `**${g.name}** (${g.distance_km} km) in **${formatHorizonLabel(g.horizon)}**`
+						)
 						.join('; ')}.`;
 		const toward = activeGoal
 			? `I'm training toward **${activeGoal.name}** (${activeGoal.distance_km} km) on **${activeGoal.date}**${
@@ -1006,7 +1078,7 @@ ${briefAsk}`,
 ${HOW_TO_READ}`,
 				goalSection,
 				timingSection,
-				allTimeSummarySection(allRuns, pain),
+				allTimeSummarySection(allRuns),
 				formatPaceSection(paces),
 				history.weekly,
 				history.monthly,
@@ -1042,14 +1114,15 @@ export const getWeekPattern = createServerFn({ method: 'GET' }).handler(async ()
 	return weekSetupFromSettings(s);
 });
 
-export const saveWeekPattern = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const saveWeekPattern = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((setup: WeekSetup) => normalizeWeekSetup(setup))
 	.handler(async ({ data }) => saveWeekSetupSetting(data));
 
 function hasFeel(r: RunRecord): boolean {
 	return (
 		r.effort != null ||
-		r.shins != null ||
+		r.body_scores.length > 0 ||
 		r.legs != null ||
 		r.energy != null ||
 		r.wanted_faster != null ||
@@ -1064,7 +1137,7 @@ function hasFeel(r: RunRecord): boolean {
 function stillNeedsDebrief(r: RunRecord): boolean {
 	if (
 		r.effort != null ||
-		r.shins != null ||
+		r.body_scores.length > 0 ||
 		r.legs != null ||
 		r.energy != null ||
 		r.wanted_faster != null ||
@@ -1081,14 +1154,10 @@ function stillNeedsDebrief(r: RunRecord): boolean {
 }
 
 function formatRunBriefLine(r: RunRecord): string {
-	const feel = [r.effort, r.shins, r.legs, r.energy]
-		.map((v) => (v == null ? '–' : v))
-		.join('/');
+	const feel = feelCell(r);
 	const notes = notesForBriefRow(r);
 	const km =
-		normalizeActivityType(r.activity_type) === 'strength'
-			? ''
-			: ` ${r.distance_km ?? '–'} km`;
+		normalizeActivityType(r.activity_type) === 'strength' ? '' : ` ${r.distance_km ?? '–'} km`;
 	return `- ${r.date} (${r.day || '—'}) ${activityLabel(r.activity_type)}${km} · ${metricText(r)} · HR ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} · feel ${feel}${notes ? ` · ${notes}` : ''} · slug \`${r.slug}\``;
 }
 
@@ -1131,7 +1200,9 @@ function formatHrZonesLine(analytics: RouteAnalytics | null): string {
 				? 'all-time max'
 				: "this activity's max";
 	const head = `HR zones (HRmax ${zones.hrMax}, ${source})`;
-	const bits = (zones.distribution ?? []).filter((z) => z.pct > 0).map((z) => `Z${z.zone} ${z.pct}%`);
+	const bits = (zones.distribution ?? [])
+		.filter((z) => z.pct > 0)
+		.map((z) => `Z${z.zone} ${z.pct}%`);
 	if (bits.length) return `${head}: ${bits.join(' · ')}`;
 	if (zones.avgZone != null && zones.avgHr != null) {
 		return `${head}: avg ${zones.avgHr} → Z${zones.avgZone}`;
@@ -1184,7 +1255,14 @@ function formatDebriefFeatured(r: RunRecord, analytics: RouteAnalytics | null): 
 }
 
 function parseDebriefSlugs(raw: string): string[] {
-	return [...new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))];
+	return [
+		...new Set(
+			raw
+				.split(',')
+				.map((s) => s.trim())
+				.filter(Boolean)
+		)
+	];
 }
 
 function compareDebriefRuns(a: RunRecord, b: RunRecord) {
@@ -1212,10 +1290,7 @@ function expandDebriefFeatured(
 	for (const r of pool) {
 		const sameDay = dates.has(r.date);
 		const pendingThisWeek =
-			Boolean(weekStart) &&
-			r.date >= weekStart &&
-			r.date <= weekEnd &&
-			stillNeedsDebrief(r);
+			Boolean(weekStart) && r.date >= weekStart && r.date <= weekEnd && stillNeedsDebrief(r);
 		if (sameDay || pendingThisWeek) bySlug.set(r.slug, r);
 	}
 	// URL slugs are a hint, not a lock — once feel is saved, drop them unless still pending.
@@ -1238,7 +1313,10 @@ export type DebriefRaceHint =
 	  }
 	| { kind: 'race_no_goal' };
 
-function debriefRaceHint(run: RunRecord, goals: import('$lib/types').Goal[]): DebriefRaceHint | null {
+function debriefRaceHint(
+	run: RunRecord,
+	goals: import('$lib/types').Goal[]
+): DebriefRaceHint | null {
 	const open = goals.find(
 		(g) => g.status !== 'done' && activityLooksLikeRace(g, run) && canPinRaceResult(g)
 	);
@@ -1256,8 +1334,7 @@ function debriefRaceHint(run: RunRecord, goals: import('$lib/types').Goal[]): De
 	}
 	const done = goals.find((g) => g.status === 'done' && g.result?.activity_slug === run.slug);
 	if (done) {
-		const missing =
-			!done.bib_number.trim() || !done.result_url.trim() || !done.medal_notes.trim();
+		const missing = !done.bib_number.trim() || !done.result_url.trim() || !done.medal_notes.trim();
 		return {
 			kind: 'match',
 			goalId: done.id,
@@ -1287,7 +1364,7 @@ function debriefRunSummary(r: RunRecord) {
 		cadence: r.cadence,
 		gear: r.gear,
 		effort: r.effort,
-		shins: r.shins,
+		body_scores: r.body_scores,
 		legs: r.legs,
 		energy: r.energy,
 		wanted_faster: r.wanted_faster,
@@ -1299,9 +1376,7 @@ function debriefRunSummary(r: RunRecord) {
 }
 
 type PlannedMatch =
-	| { kind: 'planned'; session: WeekSessionView }
-	| { kind: 'unplanned' }
-	| { kind: 'missing' };
+	{ kind: 'planned'; session: WeekSessionView } | { kind: 'unplanned' } | { kind: 'missing' };
 
 /** The plan session this activity filled, or why there is none. */
 function plannedSessionForActivity(
@@ -1339,7 +1414,10 @@ function formatPlannedForActivity(run: RunRecord, match: PlannedMatch): string {
 	if (s.exercises?.length) {
 		lines.push(
 			`  Lifts: ${s.exercises
-				.map((e) => `${e.name} ${e.sets}×${e.sec != null ? `${e.sec}s` : e.reps}${e.kg != null ? ` @ ${e.kg}kg` : ''}`)
+				.map(
+					(e) =>
+						`${e.name} ${e.sets}×${e.sec != null ? `${e.sec}s` : e.reps}${e.kg != null ? ` @ ${e.kg}kg` : ''}`
+				)
 				.join('; ')}`
 		);
 	}
@@ -1347,10 +1425,13 @@ function formatPlannedForActivity(run: RunRecord, match: PlannedMatch): string {
 	return lines.join('\n');
 }
 
-function formatFeelLogged(r: RunRecord, pain: string): string {
+function formatFeelLogged(r: RunRecord, areas: BodyArea[]): string {
+	const body = showsFeel(r.activity_type, 'body')
+		? bodyScoreRows(r.body_scores, areas).map((row) => `${row.area} ${row.score ?? '–'}`)
+		: [];
 	const scores = [
 		`effort ${r.effort ?? '–'}`,
-		`${pain.toLowerCase()} ${r.shins ?? '–'}`,
+		...body,
 		`legs ${r.legs ?? '–'}`,
 		`energy ${r.energy ?? '–'}`
 	];
@@ -1374,13 +1455,20 @@ function formatFeelLogged(r: RunRecord, pain: string): string {
 	return `- \`${r.slug}\`: ${scores.join(' · ')}${surface ? ` · surface ${surface}` : ''}${manualBit}`;
 }
 
+/** `{ "Shins": 2, "Left knee": 1 }` for the open body notes, or null when there are none. */
+function bodyScoresExample(areas: BodyArea[]): Record<string, number> | null {
+	if (!areas.length) return null;
+	return Object.fromEntries(areas.map((a, i) => [a.area, i === 0 ? 2 : 1]));
+}
+
 /** One `feelings` row per featured activity — only the keys that apply to its sport. */
-function feelingsExample(runs: RunRecord[]): unknown {
+function feelingsExample(runs: RunRecord[], areas: BodyArea[]): unknown {
+	const body = bodyScoresExample(areas);
 	const row = (r: RunRecord) => ({
 		slug: r.slug,
 		...(normalizeActivityType(r.activity_type) === 'run' ? { session: 'easy' } : {}),
 		effort: 6,
-		...(showsFeel(r.activity_type, 'shins') ? { shins: 2 } : {}),
+		...(showsFeel(r.activity_type, 'body') && body ? { body_scores: body } : {}),
 		legs: 4,
 		energy: 7,
 		...(showsFeel(r.activity_type, 'wanted_faster') ? { wanted_faster: false } : {}),
@@ -1402,7 +1490,17 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 	})
 	.handler(async ({ data }) => {
 		const { slug, includePlan } = data;
-		const [allRuns, week, profile, settings, training, gearInventory, allTimeMaxHr, habits, fuelLog] = await Promise.all([
+		const [
+			allRuns,
+			week,
+			profile,
+			settings,
+			training,
+			gearInventory,
+			allTimeMaxHr,
+			habits,
+			fuelLog
+		] = await Promise.all([
 			listRuns(),
 			currentPlanWeek(),
 			loadProfile(),
@@ -1459,9 +1557,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		);
 
 		const weekRuns = weekStart
-			? allRuns
-					.filter((r) => r.date >= weekStart && r.date <= weekEnd)
-					.sort(byDateNewestFirst)
+			? allRuns.filter((r) => r.date >= weekStart && r.date <= weekEnd).sort(byDateNewestFirst)
 			: [];
 		const featuredSlugs = new Set(featured.map((r) => r.slug));
 		const otherThisWeek = weekRuns.filter((r) => !featuredSlugs.has(r.slug));
@@ -1485,16 +1581,17 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			? formatUnplannedBrief(weekView.unplanned)
 			: '';
 
-		const pain = painLabel(profile.body);
+		const scoreAreas = openBodyAreas(profile.body);
 		const easyPace =
-			typicalEasyPace(buildPaceProfile(allRuns, training.medals, isoDateLocal(new Date()))) ?? 'M:SS';
+			typicalEasyPace(buildPaceProfile(allRuns, training.medals, isoDateLocal(new Date()))) ??
+			'M:SS';
 		const many = featured.length > 1;
 		const sessionWord = many ? 'these sessions' : 'this session';
 		const sessionHeading = many ? 'These sessions' : 'This session';
 		const sessionBlock = featured
 			.map((r, i) => formatDebriefFeatured(r, featuredAnalytics[i] ?? null))
 			.join('\n');
-		const feelBlock = featured.map((r) => formatFeelLogged(r, pain)).join('\n');
+		const feelBlock = featured.map((r) => formatFeelLogged(r, scoreAreas)).join('\n');
 		const plannedHeading = many ? 'Planned for these sessions' : 'Planned for this session';
 		const plannedBlock = featured
 			.map((r) =>
@@ -1518,7 +1615,10 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const rules = [
 			'- `feelings.notes` is a **short** first-person summary of What I wrote (about 2–5 sentences) for the activity log. Keep my voice and the useful specifics (body, shoes, questions you answered). Do **not** paste the whole write-up. Omit `notes` if I wrote nothing. For strength, notes are extra commentary only — never rewrite the lift list.',
 			"- Before/after in **This session's habits** are what I actually did — ground truth. Do not copy those rituals into `feelings.notes` or into week `detail`.",
-			`- Scores marked – were not tapped in the app. Infer effort / \`shins\` (my ${pain.toLowerCase()} score, 0–10) / legs / energy (and wanted_faster / surface) from What I wrote when the text is clear enough for a number; otherwise omit the field. Do not invent from GPS. If How I felt already has a number, omit that field. Do not copy example numbers. Only include keys shown in the example for that activity.`,
+			`- Scores marked – were not tapped in the app. Infer effort / legs / energy${scoreAreas.length ? ' / body scores' : ''} (and wanted_faster / surface) from What I wrote when the text is clear enough for a number; otherwise omit the field. Do not invent from GPS. If How I felt already has a number, omit that field. Do not copy example numbers. Only include keys shown in the example for that activity.`,
+			scoreAreas.length
+				? `- \`body_scores\` (runs/walks): one 0–10 score per body area (higher = worse), keyed by the exact area name: ${scoreAreas.map((a) => a.area).join(', ')}. Only include areas I mentioned; omit the key if none.`
+				: '',
 			'- `session` (runs only): easy / quality / long / race / … — keep mine if already set; infer only when obvious. `cadence` (runs only, steps per minute) and `gear` (shoe or bike name): only if I gave them; never invent.',
 			`- \`fuel\`: **only** when What I wrote mentions food or drink before, during, or after ${sessionWord} — otherwise omit it. One entry per item + phase + timing; \`phase\` before / during / after; \`timing\` in my words; \`outcome\` good / mixed / bad from what I said (cramps, stitch, nausea → bad; no complaint → good); \`notes\` short. Never invent food.${fuelNames.length ? ` Reuse an exact name from my known items when it is the same thing: ${fuelNames.join(', ')}.` : ''} If you include \`fuel\`, end your prose by asking whether I want these saved (the app asks me before saving).`,
 			`- \`body\`: **only** when What I wrote mentions new or changed pain, or something that has cleared up — otherwise omit it. One entry per area; \`status\` active / monitoring / resolved; \`trigger\` and \`helps\` short, in my words.${bodyAreas.length ? ` Reuse an exact area name when it is the same place: ${bodyAreas.join(', ')}.` : ''} The app asks me before saving.`,
@@ -1529,11 +1629,20 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			includePlan ? `- ${STRENGTH_SESSION_PROMPT}` : ''
 		].filter(Boolean);
 		const exampleReply = JSON.stringify({
-			feelings: feelingsExample(featured),
+			feelings: feelingsExample(featured, scoreAreas),
 			fuel: [
-				{ slug: featured[0]?.slug ?? '', phase: 'before', item: 'Coffee', timing: '20 min before', outcome: 'good', notes: '' }
+				{
+					slug: featured[0]?.slug ?? '',
+					phase: 'before',
+					item: 'Coffee',
+					timing: '20 min before',
+					outcome: 'good',
+					notes: ''
+				}
 			],
-			body: [{ area: bodyAreas[0] ?? 'knee', status: 'monitoring', trigger: 'downhills', helps: '' }],
+			body: [
+				{ area: bodyAreas[0] ?? 'knee', status: 'monitoring', trigger: 'downhills', helps: '' }
+			],
 			week: {
 				week: week?.week ?? 0,
 				dates: week ? planWeekDateRange(week.week, calendar) : '',
@@ -1546,7 +1655,10 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 						label: 'Easy',
 						distance_km: 7,
 						detail: 'every day of the week, not just this placeholder row',
-						workout: { type: 'easy', blocks: [{ kind: 'run', distance_km: 7, pace: easyPace, effort: 'easy' }] }
+						workout: {
+							type: 'easy',
+							blocks: [{ kind: 'run', distance_km: 7, pace: easyPace, effort: 'easy' }]
+						}
 					}
 				]
 			}
@@ -1562,20 +1674,25 @@ Rules:
 ${rules.join('\n')}`;
 
 		const usualWeekSection = includePlan
-			? formatWeekSetupDebriefSection(weekSetupFromSettings(settings), { includeSlots: week == null })
+			? formatWeekSetupDebriefSection(weekSetupFromSettings(settings), {
+					includeSlots: week == null
+				})
 			: '';
 
 		const prompt = tidyPrompt(
 			joinSections(
 				`# The Long Run — debrief ${sessionWord}`,
-				`You are my coach for the sports I train, not a running-only coach. GPS numbers from the import (distance, moving and elapsed time, elevation, pace per km) and how I felt are below.${includePlan ? `\n${feelScale(pain)}` : ''}\n\n${job}`,
+				`You are my coach for the sports I train, not a running-only coach. GPS numbers from the import (distance, moving and elapsed time, elevation, pace per km) and how I felt are below.${includePlan ? `\n${feelScale()}` : ''}\n\n${job}`,
 				usualWeekSection,
 				`## ${sessionHeading}\n${sessionBlock}`,
 				`## ${plannedHeading}\n${plannedBlock}`,
 				`## How I felt\n– means I did not tap a number. Infer those from What I wrote when the text is clear; keep any number already here.\n${feelBlock}`,
 				`## What I wrote\nThis is my own account of ${sessionWord} — as long as I needed, including questions I want answered. Treat it as ground truth. GPS is the device record; if they disagree, mention it but trust how I said it felt.\n\n${DEBRIEF_WRITEUP_TOKEN}`,
 				`## This session's habits\nBefore/after as I did them this time — may differ from Usual habits. Treat overrides as ground truth.\n\n${DEBRIEF_HABITS_TOKEN}`,
-				section('Other activities already logged this week', otherThisWeek.map(formatRunBriefLine).join('\n')),
+				section(
+					'Other activities already logged this week',
+					otherThisWeek.map(formatRunBriefLine).join('\n')
+				),
 				planSections,
 				includePlan ? formatBodyNotesSection(profile.body) : '',
 				includePlan ? formatCoachNotesSection(profile.coachNotes) : '',
@@ -1604,7 +1721,7 @@ ${rules.join('\n')}`;
 export type ActivityFeelInput = {
 	slug: string;
 	effort?: number | null;
-	shins?: number | null;
+	body_scores?: BodyScore[];
 	legs?: number | null;
 	energy?: number | null;
 	wanted_faster?: boolean | null;
@@ -1617,12 +1734,13 @@ export type ActivityFeelInput = {
 	after_notes?: string;
 };
 
-export const saveActivityFeel = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const saveActivityFeel = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: ActivityFeelInput) => d)
 	.handler(async ({ data }) => {
 		const patch: FeelingsPatch = {};
 		if (data.effort !== undefined) patch.effort = data.effort;
-		if (data.shins !== undefined) patch.shins = data.shins;
+		if (data.body_scores !== undefined) patch.body_scores = validateBodyScores(data.body_scores);
 		if (data.legs !== undefined) patch.legs = data.legs;
 		if (data.energy !== undefined) patch.energy = data.energy;
 		if (data.wanted_faster !== undefined) patch.wanted_faster = data.wanted_faster;
@@ -1649,7 +1767,7 @@ export type CreateRunInput = {
 	activity_type: string;
 	session: string;
 	effort: number | null;
-	shins: number | null;
+	body_scores: BodyScore[];
 	legs: number | null;
 	energy: number | null;
 	weather: string;
@@ -1669,7 +1787,8 @@ export type CreateRunInput = {
 	after_notes?: string;
 };
 
-export const createRun = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const createRun = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: CreateRunInput) => d)
 	.handler(async ({ data }) => {
 		const date = data.date.trim();
@@ -1704,7 +1823,7 @@ export const createRun = createServerFn({ method: 'POST' }).middleware([requireA
 			activity_type,
 			session,
 			effort: data.effort,
-			shins: data.shins,
+			body_scores: validateBodyScores(data.body_scores),
 			legs: data.legs,
 			energy: data.energy,
 			weather,
@@ -1730,7 +1849,8 @@ export const createRun = createServerFn({ method: 'POST' }).middleware([requireA
 		return { slug: run.slug };
 	});
 
-export const importGpx = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const importGpx = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: { xml: string; activityType?: string }) => d)
 	.handler(async ({ data }) => {
 		const parsed = parseActivityFile(data.xml);
@@ -1793,9 +1913,7 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 				geometry: {
 					type: 'LineString',
 					coordinates: parsed.points.map((p) =>
-						p.elev != null && Number.isFinite(p.elev)
-							? [p.lng, p.lat, p.elev]
-							: [p.lng, p.lat]
+						p.elev != null && Number.isFinite(p.elev) ? [p.lng, p.lat, p.elev] : [p.lng, p.lat]
 					)
 				}
 			};
@@ -1839,11 +1957,7 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 
 		const trackPoints =
 			showsField(activity_type, 'surface') && parsed.points.length >= 2 ? parsed.points : [];
-		const weatherLoc = weatherLocationFromTrack(
-			parsed.points,
-			parsed.startLat,
-			parsed.startLng
-		);
+		const weatherLoc = weatherLocationFromTrack(parsed.points, parsed.startLat, parsed.startLng);
 		const [weather, geo, surface] = await Promise.all([
 			fetchWeatherForDateTime(
 				parsed.date,
@@ -1855,9 +1969,7 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 			parsed.startLat != null && parsed.startLng != null
 				? reverseGeocode(parsed.startLat, parsed.startLng)
 				: Promise.resolve({ country: '', province: '', place: '' }),
-			trackPoints.length >= 2
-				? inferSurfaceFromTrack(trackPoints)
-				: Promise.resolve('')
+			trackPoints.length >= 2 ? inferSurfaceFromTrack(trackPoints) : Promise.resolve('')
 		]);
 
 		const kind = gearKindForActivity(activity_type);
@@ -1871,7 +1983,7 @@ export const importGpx = createServerFn({ method: 'POST' }).middleware([requireA
 			activity_type,
 			session,
 			effort: null,
-			shins: null,
+			body_scores: [],
 			legs: null,
 			energy: null,
 			weather,
@@ -1928,7 +2040,8 @@ function activityStartMs(
 	return localDateTimeToUtcMs(run.date, run.start_time || DEFAULT_START_HHMM, tz);
 }
 
-export const repairRunGps = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const repairRunGps = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator(
 		(d: {
 			slug: string;
@@ -1958,10 +2071,17 @@ export const repairRunGps = createServerFn({ method: 'POST' }).middleware([requi
 			routeId ? getRouteGeoJson(routeId) : Promise.resolve(null),
 			plannedSlug && pins.length < 2 ? getPlannedRoute(plannedSlug) : Promise.resolve(null)
 		]);
-		if (plannedSlug && pins.length < 2 && !planned) throw new Error('That planned route was not found.');
+		if (plannedSlug && pins.length < 2 && !planned)
+			throw new Error('That planned route was not found.');
 
-		let out = pins.length >= 2 ? densifyWaypoints(pins) : planned ? samplesFromGeoJson(planned.geojson) : [];
-		let source: 'waypoints' | 'waypoints-network' | 'planned' = pins.length >= 2 ? 'waypoints' : 'planned';
+		let out =
+			pins.length >= 2
+				? densifyWaypoints(pins)
+				: planned
+					? samplesFromGeoJson(planned.geojson)
+					: [];
+		let source: 'waypoints' | 'waypoints-network' | 'planned' =
+			pins.length >= 2 ? 'waypoints' : 'planned';
 
 		const previewed = normalizeTrackPoints(data.network_coords);
 		if (pins.length >= 2 && data.follow_network) {
@@ -1974,7 +2094,9 @@ export const repairRunGps = createServerFn({ method: 'POST' }).middleware([requi
 					out = routed;
 					source = 'waypoints-network';
 				} else {
-					throw new Error('Could not follow roads between those pins. Uncheck Follow roads to save the straight line.');
+					throw new Error(
+						'Could not follow roads between those pins. Uncheck Follow roads to save the straight line.'
+					);
 				}
 			}
 		}
@@ -1983,8 +2105,7 @@ export const repairRunGps = createServerFn({ method: 'POST' }).middleware([requi
 			throw new Error('Drop at least two waypoints on the map, or pick a saved route.');
 		}
 
-		const durationSec =
-			parseDurationSeconds(run.elapsed_time) ?? parseDurationSeconds(run.time);
+		const durationSec = parseDurationSeconds(run.elapsed_time) ?? parseDurationSeconds(run.time);
 		const startMs = activityStartMs(run, out);
 		const durationMs = durationSec != null && durationSec > 0 ? durationSec * 1000 : null;
 		if (startMs != null && durationMs != null) {
@@ -2038,7 +2159,8 @@ export const repairRunGps = createServerFn({ method: 'POST' }).middleware([requi
 		};
 	});
 
-export const previewGpsNetwork = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const previewGpsNetwork = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: { waypoints: { lat: number; lng: number }[] }) => d)
 	.handler(async ({ data }) => {
 		const pins = normalizeWaypoints(data.waypoints);
@@ -2059,7 +2181,7 @@ export type UpdateRunInput = {
 	activity_type: string;
 	session: string;
 	effort: number | null;
-	shins: number | null;
+	body_scores: BodyScore[];
 	legs: number | null;
 	energy: number | null;
 	weather: string;
@@ -2079,7 +2201,8 @@ export type UpdateRunInput = {
 	after_notes?: string;
 };
 
-export const updateRun = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const updateRun = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: UpdateRunInput) => d)
 	.handler(async ({ data }) => {
 		const date = data.date.trim();
@@ -2095,7 +2218,7 @@ export const updateRun = createServerFn({ method: 'POST' }).middleware([requireA
 			activity_type: normalizeActivityType(data.activity_type),
 			session,
 			effort: data.effort,
-			shins: data.shins,
+			body_scores: validateBodyScores(data.body_scores),
 			legs: data.legs,
 			energy: data.energy,
 			weather: data.weather.trim(),
@@ -2119,13 +2242,15 @@ export const updateRun = createServerFn({ method: 'POST' }).middleware([requireA
 		return { slug: run.slug };
 	});
 
-export const deleteRun = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const deleteRun = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((slug: string) => slug)
 	.handler(async ({ data: slug }) => {
 		return dbDeleteRun(slug);
 	});
 
-export const deleteRunsFn = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const deleteRunsFn = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: { slugs: string[] }) => d)
 	.handler(async ({ data }) => {
 		const unique = [...new Set(data.slugs.map((s) => s.trim()).filter(Boolean))];
@@ -2191,28 +2316,32 @@ export const getGroupDetail = createServerFn({ method: 'GET' })
 		};
 	});
 
-export const createActivityGroupFn = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const createActivityGroupFn = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: { slugs: string[]; name?: string }) => d)
 	.handler(async ({ data }) => {
 		const group = await createActivityGroup(data.slugs, data.name ?? '');
 		return { id: group.id };
 	});
 
-export const addToActivityGroupFn = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const addToActivityGroupFn = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: { groupId: string; slug: string }) => d)
 	.handler(async ({ data }) => {
 		await addActivityToGroup(data.groupId, data.slug);
 		return { ok: true };
 	});
 
-export const removeFromActivityGroupFn = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const removeFromActivityGroupFn = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: { groupId: string; slug: string }) => d)
 	.handler(async ({ data }) => {
 		await removeActivityFromGroup(data.groupId, data.slug);
 		return { ok: true };
 	});
 
-export const ungroupActivitiesFn = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const ungroupActivitiesFn = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((id: string) => id)
 	.handler(async ({ data: id }) => {
 		await ungroupActivities(id);
@@ -2239,7 +2368,9 @@ export const exportGroupedActivity = createServerFn({ method: 'GET' })
 		const withTrack = segments.filter((s) => s.points.length >= 2);
 		if (!withTrack.length) throw new Error('No GPS tracks to export.');
 		const title = groupedSessionTitle(groupRaw, members.length, stats.date);
-		const fileBase = safeFilename(`combined-${stats.mixed ? 'mix' : stats.activity_type}-${stats.date}`);
+		const fileBase = safeFilename(
+			`combined-${stats.mixed ? 'mix' : stats.activity_type}-${stats.date}`
+		);
 
 		if (data.kind === 'zip' || stats.mixed) {
 			if (data.kind !== 'zip' && stats.mixed) {
@@ -2269,8 +2400,7 @@ export const exportGroupedActivity = createServerFn({ method: 'GET' })
 						segments: withTrack
 					});
 		const ext = data.kind === 'tcx' ? 'tcx' : 'gpx';
-		const mime =
-			data.kind === 'tcx' ? 'application/vnd.garmin.tcx+xml' : 'application/gpx+xml';
+		const mime = data.kind === 'tcx' ? 'application/vnd.garmin.tcx+xml' : 'application/gpx+xml';
 		return { filename: `${fileBase}.${ext}`, mime, encoding: 'utf8' as const, body: xml };
 	});
 
@@ -2293,7 +2423,9 @@ export const exportActivitiesFn = createServerFn({ method: 'GET' })
 		if (!unique.length) throw new Error('Pick at least one activity to export.');
 		const all = await listRuns();
 		const runs = sortGroupMembers(
-			unique.map((slug) => all.find((r) => r.slug === slug)).filter((r): r is RunRecord => r != null)
+			unique
+				.map((slug) => all.find((r) => r.slug === slug))
+				.filter((r): r is RunRecord => r != null)
 		);
 		if (!runs.length) throw new Error('Activity not found.');
 		const parts = await tracksForMembers(runs);
@@ -2393,8 +2525,17 @@ async function applyFeelingsRows(
 ): Promise<{ updated: number; updatedSlugs: string[]; missing: string[] }> {
 	const updated: string[] = [];
 	const missing: string[] = [];
+	const body = rows.some((r) => r.body_scores?.length || r.shins != null)
+		? await loadBodyNotes()
+		: null;
 	for (const row of rows) {
-		const ok = await updateRunFeelings(row.slug, feelingsRowToPatch(row) as FeelingsPatch);
+		const patch = feelingsRowToPatch(row) as FeelingsPatch;
+		const scores = body ? resolveAiBodyScores(row.body_scores, row.shins, body) : undefined;
+		if (scores) {
+			const current = await getRun(row.slug);
+			if (current) patch.body_scores = mergeBodyScores(current.body_scores, scores);
+		}
+		const ok = await updateRunFeelings(row.slug, patch);
 		if (ok && row.gear !== undefined) {
 			const run = await getRun(row.slug);
 			if (run) await rememberGearName(run.gear, run.activity_type);
@@ -2405,7 +2546,8 @@ async function applyFeelingsRows(
 }
 
 /** Merge AI-returned plan week(s) into plan.json (replace by week number, keep the rest). */
-export const savePlanWeeks = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const savePlanWeeks = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((jsonText: string) => jsonText)
 	.handler(async ({ data: jsonText }) => {
 		const candidates = planWeekCandidates(parseJsonPayload(jsonText));
@@ -2414,7 +2556,8 @@ export const savePlanWeeks = createServerFn({ method: 'POST' }).middleware([requ
 	});
 
 /** Save a debrief reply: feelings for this run + an updated week plan. */
-export const saveDebrief = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const saveDebrief = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((jsonText: string) => jsonText)
 	.handler(async ({ data: jsonText }) => {
 		const parsed = parseJsonPayload(jsonText);
@@ -2450,16 +2593,19 @@ export const getProfileData = createServerFn({ method: 'GET' }).handler(async ()
 	return loadProfile();
 });
 
-export const saveBodyNotes = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const saveBodyNotes = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: BodyNotes) => normalizeBodyNotes(d))
 	.handler(async ({ data }) => persistBodyNotes(data));
 
-export const saveCoachNotes = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const saveCoachNotes = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: { text: string }) => ({ text: typeof d?.text === 'string' ? d.text : '' }))
 	.handler(async ({ data }) => ({ coachNotes: await persistCoachNotes(data.text) }));
 
 /** Upsert picked debrief suggestions into the body notes (same area → same note). */
-export const applyBodySuggestions = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const applyBodySuggestions = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: BodyNote[]) => (Array.isArray(d) ? d : []))
 	.handler(async ({ data }) => {
 		const { body } = await loadProfile();
@@ -2485,7 +2631,8 @@ export const getFeelingsPrompt = createServerFn({ method: 'GET' })
 	}))
 	.handler(async ({ data }) => {
 		const [runs, profile] = await Promise.all([listRuns(), loadProfile()]);
-		const pain = painLabel(profile.body);
+		const scoreAreas = openBodyAreas(profile.body);
+		const bodyExample = bodyScoresExample(scoreAreas);
 		const all = runs.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 		let targets: RunRecord[];
 		let rangeLabel: string;
@@ -2520,7 +2667,7 @@ export const getFeelingsPrompt = createServerFn({ method: 'GET' })
 				{
 					slug: exampleSlug,
 					effort: 6,
-					shins: 3,
+					...(bodyExample ? { body_scores: bodyExample } : {}),
 					legs: 7,
 					energy: 7,
 					wanted_faster: true,
@@ -2531,7 +2678,7 @@ export const getFeelingsPrompt = createServerFn({ method: 'GET' })
 		});
 		const prompt = tidyPrompt(`# The Long Run — capture how each activity felt
 
-From our conversation, summarise how I felt for each activity below (${rangeLabel}): terrain, ${pain.toLowerCase()}, energy, legs, and whether I wanted to go more or faster.
+From our conversation, summarise how I felt for each activity below (${rangeLabel}): terrain, ${scoreAreas.length ? `${scoreAreas.map((a) => a.area.toLowerCase()).join(', ')}, ` : ''}energy, legs, and whether I wanted to go more or faster.
 
 Return ONLY a JSON block in exactly this shape — no prose before or after:
 
@@ -2541,7 +2688,7 @@ ${example}
 
 Rules:
 - Copy \`slug\` from the table — do not use the example slug if it is not in the table. Do not copy example numbers.
-- ${feelScale(pain)} \`shins\` holds the ${pain.toLowerCase()} score. \`wanted_faster\` is true/false.
+- ${feelScale()}${scoreAreas.length ? ` \`body_scores\` holds one 0–10 score per body area (runs/walks), keyed by the exact area name: ${scoreAreas.map((a) => a.area).join(', ')}.` : ''} \`wanted_faster\` is true/false.
 - Omit any field you have no information for; omit an activity entirely if I said nothing about it.
 - Keep \`notes\` short and in my voice (first person).
 
@@ -2553,21 +2700,24 @@ ${table}`);
 	});
 
 /** Save AI-summarised feelings back onto activities by slug (subjective fields only). */
-export const saveFeelings = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const saveFeelings = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((jsonText: string) => jsonText)
 	.handler(async ({ data: jsonText }) => {
 		const rows = parseFeelingsReply(parseJsonPayload(jsonText));
 		return applyFeelingsRows(rows);
 	});
 
-export const saveGear = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const saveGear = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: GearContext) => d)
 	.handler(async ({ data }) => {
 		await persistGear(data);
 		return { ok: true };
 	});
 
-export const saveWardrobe = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const saveWardrobe = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: Wardrobe) => normalizeWardrobe(d))
 	.handler(async ({ data }) => {
 		return persistWardrobe(data);
@@ -2647,13 +2797,15 @@ export const getFuelData = createServerFn({ method: 'GET' }).handler(async () =>
 	};
 });
 
-export const saveFuelLog = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const saveFuelLog = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: FuelLog) => normalizeFuelLog(d))
 	.handler(async ({ data }) => {
 		return persistFuelLog(data);
 	});
 
-export const addFuelEntries = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const addFuelEntries = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: FuelEntry[]) =>
 		(Array.isArray(d) ? d : []).map(normalizeFuelEntry).filter((e): e is FuelEntry => e != null)
 	)
@@ -2663,7 +2815,8 @@ export const addFuelEntries = createServerFn({ method: 'POST' }).middleware([req
 		return { log: saved, added: data.length };
 	});
 
-export const renameFuelItem = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const renameFuelItem = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: { phase: FuelPhase; from: string; to: string }) => d)
 	.handler(async ({ data }) => {
 		const log = await loadFuelLog();
@@ -2671,7 +2824,8 @@ export const renameFuelItem = createServerFn({ method: 'POST' }).middleware([req
 	});
 
 /** Describe-what-you-ate reply: validated with zod and saved straight away. */
-export const saveFuelReply = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const saveFuelReply = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((jsonText: string) => jsonText)
 	.handler(async ({ data: jsonText }) => {
 		const [log, runs] = await Promise.all([loadFuelLog(), listRuns()]);
@@ -2680,7 +2834,8 @@ export const saveFuelReply = createServerFn({ method: 'POST' }).middleware([requ
 		return { log: saved, addedIds: entries.map((e) => e.id) };
 	});
 
-export const saveActivityHabits = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const saveActivityHabits = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: ActivityHabits) => normalizeActivityHabits(d))
 	.handler(async ({ data }) => {
 		return persistActivityHabits(data);
@@ -2732,7 +2887,6 @@ export const getGoalBrief = createServerFn({ method: 'GET' })
 		const { medals } = training;
 		const windowRuns = filterRunsByRange(allRuns, range).sort(byDateNewestFirst);
 		const todayIso = isoDateLocal(new Date());
-		const pain = painLabel(profile.body);
 		const sport = normalizeActivityType(data.sport || 'run');
 		const distance = Number(data.distance_km);
 		const distanceKm = Number.isFinite(distance) && distance > 0 ? distance : null;
@@ -2825,10 +2979,10 @@ export const getGoalBrief = createServerFn({ method: 'GET' })
 				identity,
 				[`Today is ${todayIso}.`, lastMedalLine].filter(Boolean).join('\n'),
 				section('Extra from me', extra),
-				allTimeSummarySection(allRuns, pain),
+				allTimeSummarySection(allRuns),
 				formatPaceSection(buildPaceProfile(allRuns, medals, todayIso)),
 				activityRows
-					? `## Recent training (${range.label.toLowerCase()}, newest first)\n${feelScale(pain)} Use this to keep priorities honest (volume, ${pain.toLowerCase()}, what is already working).\n\n${BRIEF_TABLE_HEAD}\n${activityRows}`
+					? `## Recent training (${range.label.toLowerCase()}, newest first)\n${feelScale()} Use this to keep priorities honest (volume, body scores, what is already working).\n\n${BRIEF_TABLE_HEAD}\n${activityRows}`
 					: '',
 				formatBodyNotesSection(profile.body),
 				formatCoachNotesSection(profile.coachNotes),
@@ -2933,7 +3087,8 @@ export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () =
 	};
 });
 
-export const saveMedalDetails = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const saveMedalDetails = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: MedalDetailsInput) => d)
 	.handler(async ({ data }) => {
 		const store = await loadGoalStore();
@@ -2952,12 +3107,15 @@ export const saveMedalDetails = createServerFn({ method: 'POST' }).middleware([r
 		return { id: next.id };
 	});
 
-export const saveActiveGoal = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const saveActiveGoal = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: GoalInput) => d)
 	.handler(async ({ data }) => {
 		const name = data.name.trim();
 		const date = data.date.trim();
-		const horizon = String(data.horizon ?? '').trim().slice(0, 7);
+		const horizon = String(data.horizon ?? '')
+			.trim()
+			.slice(0, 7);
 		if (!name) throw new Error('Give it a name.');
 		const booked = ISO_DATE_RE.test(date);
 		if (!booked && !ISO_HORIZON_RE.test(horizon)) {
@@ -2992,13 +3150,15 @@ export const saveActiveGoal = createServerFn({ method: 'POST' }).middleware([req
 		};
 	});
 
-export const repinGoalResult = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const repinGoalResult = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: { goalId: string; activitySlug: string }) => d)
 	.handler(async ({ data }) => {
 		const store = await loadGoalStore();
 		const target = store.goals.find((g) => g.id === data.goalId);
 		if (!target) throw new Error('That race was not found.');
-		if (target.status !== 'done') throw new Error('Only finished races on the medal wall can be re-linked.');
+		if (target.status !== 'done')
+			throw new Error('Only finished races on the medal wall can be re-linked.');
 		const run = await getRun(data.activitySlug);
 		if (!run) throw new Error('That activity was not found.');
 		const done: Goal = {
@@ -3011,7 +3171,8 @@ export const repinGoalResult = createServerFn({ method: 'POST' }).middleware([re
 		return { id: done.id };
 	});
 
-export const completeGoal = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const completeGoal = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: { goalId: string; activitySlug: string }) => d)
 	.handler(async ({ data }) => {
 		const store = await loadGoalStore();
@@ -3037,7 +3198,8 @@ export const completeGoal = createServerFn({ method: 'POST' }).middleware([requi
 		return { id: done.id };
 	});
 
-export const clearGoal = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const clearGoal = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((id: string) => id)
 	.handler(async ({ data: id }) => {
 		const store = await loadGoalStore();
@@ -3180,7 +3342,8 @@ export const getPlannedRouteDetail = createServerFn({ method: 'GET' })
 		return { ...route, planLinks, activityLinks, planOptions, activityOptions };
 	});
 
-export const importPlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const importPlannedRoute = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: { text: string; filename: string }) => d)
 	.handler(async ({ data }) => {
 		const route = await savePlannedFromFile(data);
@@ -3226,7 +3389,8 @@ function startFinishWaypoints(pins: { lat: number; lng: number }[]) {
 	}));
 }
 
-export const createPlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const createPlannedRoute = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator(
 		(d: {
 			name: string;
@@ -3252,7 +3416,8 @@ export const createPlannedRoute = createServerFn({ method: 'POST' }).middleware(
 		};
 	});
 
-export const updatePlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const updatePlannedRoute = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator(
 		(d: {
 			slug: string;
@@ -3284,7 +3449,8 @@ export const updatePlannedRoute = createServerFn({ method: 'POST' }).middleware(
 		return { slug: route.slug };
 	});
 
-export const deletePlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const deletePlannedRoute = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((slug: string) => slug)
 	.handler(async ({ data: slug }) => {
 		return dbDeletePlannedRoute(slug);
@@ -3316,23 +3482,26 @@ function matchingPlanSession(
 	return { weekRow, index, session: weekRow.sessions[index]! };
 }
 
-export const setPlanSessionSkipped = createServerFn({ method: 'POST' }).middleware([requireAuth])
-	.validator((d: {
-		week: number;
-		day: string;
-		label: string;
-		activity_type?: string;
-		session_index?: number;
-		skipped: boolean;
-	}) => ({
-		week: d.week,
-		day: String(d.day ?? '').trim(),
-		label: String(d.label ?? '').trim(),
-		activity_type: normalizeActivityType(d.activity_type ?? 'run'),
-		session_index:
-			d.session_index != null && Number.isInteger(d.session_index) ? d.session_index : undefined,
-		skipped: Boolean(d.skipped)
-	}))
+export const setPlanSessionSkipped = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
+	.validator(
+		(d: {
+			week: number;
+			day: string;
+			label: string;
+			activity_type?: string;
+			session_index?: number;
+			skipped: boolean;
+		}) => ({
+			week: d.week,
+			day: String(d.day ?? '').trim(),
+			label: String(d.label ?? '').trim(),
+			activity_type: normalizeActivityType(d.activity_type ?? 'run'),
+			session_index:
+				d.session_index != null && Number.isInteger(d.session_index) ? d.session_index : undefined,
+			skipped: Boolean(d.skipped)
+		})
+	)
 	.handler(async ({ data }) => {
 		if (!Number.isInteger(data.week) || data.week < 1) {
 			throw new Error('That plan week is out of range.');
@@ -3362,7 +3531,8 @@ export const setPlanSessionSkipped = createServerFn({ method: 'POST' }).middlewa
 		return { ok: true as const, skipped: data.skipped };
 	});
 
-export const attachPlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const attachPlannedRoute = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator(
 		(d: {
 			slug: string;
@@ -3415,7 +3585,8 @@ export const attachPlannedRoute = createServerFn({ method: 'POST' }).middleware(
 		return { ok: true as const };
 	});
 
-export const detachPlannedRoute = createServerFn({ method: 'POST' }).middleware([requireAuth])
+export const detachPlannedRoute = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
 	.validator((d: { slug: string; id: number }) => d)
 	.handler(async ({ data }) => {
 		const ok = await dbDetachRouteLink(data.id, data.slug);

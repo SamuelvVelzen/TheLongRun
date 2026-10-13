@@ -16,8 +16,6 @@ export type BodyNote = {
 	trigger: string;
 	/** What helps (warm-up, routes, shoes, …). */
 	helps: string;
-	/** Labels the per-activity pain score. At most one note is tracked. */
-	tracked: boolean;
 	/** `YYYY-MM-DD`, stamped on every edit. */
 	updated: string;
 };
@@ -27,8 +25,6 @@ export type BodyNotes = { notes: BodyNote[] };
 export const MAX_BODY_AREA = 40;
 export const MAX_BODY_TEXT = 300;
 export const MAX_COACH_NOTES = 2000;
-
-export const DEFAULT_PAIN_LABEL = 'Pain';
 
 export const BODY_SAFETY_RULE =
 	'Not a diagnosis — for sharp pain, limping, focal bone tenderness, or pain at rest, tell me to stop and get it checked.';
@@ -70,22 +66,18 @@ export function normalizeBodyNote(raw: unknown): BodyNote | null {
 		status,
 		trigger: clean(o.trigger, MAX_BODY_TEXT),
 		helps: clean(o.helps, MAX_BODY_TEXT),
-		tracked: o.tracked === true,
 		updated
 	};
 }
 
+/** Older saves carry a `tracked` flag per note; it is ignored now that every open note is scored. */
 export function normalizeBodyNotes(raw: unknown): BodyNotes {
 	const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
 	const list = Array.isArray(o.notes) ? o.notes : [];
 	const notes: BodyNote[] = [];
-	let tracked = false;
 	for (const item of list) {
 		const n = normalizeBodyNote(item);
-		if (!n) continue;
-		if (n.tracked && tracked) n.tracked = false;
-		if (n.tracked) tracked = true;
-		notes.push(n);
+		if (n) notes.push(n);
 	}
 	return { notes };
 }
@@ -101,8 +93,7 @@ export function stampBodyNotes(prev: BodyNotes, next: BodyNotes, today = isoToda
 				old.area === n.area &&
 				old.status === n.status &&
 				old.trigger === n.trigger &&
-				old.helps === n.helps &&
-				old.tracked === n.tracked;
+				old.helps === n.helps;
 			return same ? { ...n, updated: old.updated } : { ...n, updated: today };
 		})
 	};
@@ -143,8 +134,13 @@ export function mergeBodySuggestions(current: BodyNotes, input: unknown): BodySu
 	const out: BodySuggestion[] = [];
 	for (const raw of list) {
 		const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-		const status = STATUS_ALIASES[String(o.status ?? '').toLowerCase().replace(/[^a-z]/g, '')];
-		const n = normalizeBodyNote({ ...o, id: '', tracked: false, updated: '', status });
+		const status =
+			STATUS_ALIASES[
+				String(o.status ?? '')
+					.toLowerCase()
+					.replace(/[^a-z]/g, '')
+			];
+		const n = normalizeBodyNote({ ...o, id: '', updated: '', status });
 		if (!n) continue;
 		const key = n.area.toLowerCase();
 		if (out.some((x) => x.note.area.toLowerCase() === key)) continue;
@@ -170,12 +166,6 @@ export function capitalize(text: string): string {
 	return text ? text[0]!.toUpperCase() + text.slice(1) : text;
 }
 
-/** Label for the per-activity pain score: the tracked area (e.g. "Shins"), else "Pain". */
-export function painLabel(body: BodyNotes): string {
-	const tracked = body.notes.find((n) => n.tracked && n.status !== 'resolved');
-	return tracked ? capitalize(tracked.area) : DEFAULT_PAIN_LABEL;
-}
-
 function monthLabel(iso: string): string {
 	const d = new Date(`${iso}T12:00:00`);
 	if (Number.isNaN(d.getTime())) return iso;
@@ -192,15 +182,17 @@ export function formatBodyNotesSection(body: BodyNotes): string {
 			n.trigger ? `trigger: ${n.trigger}` : '',
 			n.helps ? `helps: ${n.helps}` : ''
 		].filter(Boolean);
-		const score = n.tracked ? ' · scored per activity as the pain number' : '';
-		return `- ${capitalize(n.area)} (${n.status}, updated ${n.updated}${score})${bits.length ? `: ${bits.join('; ')}` : ''}`;
+		return `- ${capitalize(n.area)} (${n.status}, updated ${n.updated})${bits.length ? `: ${bits.join('; ')}` : ''}`;
 	});
 	if (resolved.length) {
 		lines.push(
 			`- Resolved: ${resolved.map((n) => `${n.area} (${monthLabel(n.updated)})`).join(', ')}`
 		);
 	}
-	return `## Body notes\n${lines.join('\n')}`;
+	const scored = open.length
+		? 'Each open area is scored 0–10 per run/walk (higher = worse).\n'
+		: '';
+	return `## Body notes\n${scored}${lines.join('\n')}`;
 }
 
 export function compactCoachNotes(text: string | null | undefined): string {

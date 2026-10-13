@@ -2,6 +2,7 @@
  * zod schemas for AI-returned activity feelings — weekly capture, debrief `feelings`, bare arrays.
  */
 import { z } from 'zod';
+import { MAX_BODY_AREA } from '$lib/body-notes';
 
 const MAX_NOTES = 8000;
 const MAX_SURFACE = 200;
@@ -28,10 +29,7 @@ function clampInt(v: unknown, lo: number, hi: number): unknown {
 
 function scoreField(lo: number, hi: number) {
 	return opt(
-		z.preprocess(
-			(v) => clampInt(v, lo, hi),
-			z.union([z.number().int().min(lo).max(hi), z.null()])
-		)
+		z.preprocess((v) => clampInt(v, lo, hi), z.union([z.number().int().min(lo).max(hi), z.null()]))
 	);
 }
 
@@ -55,27 +53,50 @@ function toCadence(v: unknown): unknown {
 	return Math.round(n);
 }
 
+/** `{ "Shins": 3 }` or `[{ "area": "Shins", "score": 3 }]` → entry list; blank scores are dropped. */
+function toBodyScoreEntries(v: unknown): unknown {
+	if (v == null) return undefined;
+	const pairs: [unknown, unknown][] = Array.isArray(v)
+		? v.map((e) => {
+				const o = e && typeof e === 'object' ? (e as Record<string, unknown>) : {};
+				return [o.area, o.score];
+			})
+		: typeof v === 'object'
+			? Object.entries(v as Record<string, unknown>)
+			: [];
+	return pairs
+		.filter(
+			([area, score]) =>
+				typeof area === 'string' &&
+				area.trim() !== '' &&
+				score != null &&
+				score !== '' &&
+				Number.isFinite(Number(score))
+		)
+		.map(([area, score]) => ({
+			area: String(area).trim().slice(0, MAX_BODY_AREA),
+			score: clampInt(score, 0, 10)
+		}));
+}
+
+const aiBodyScoreSchema = z.object({
+	area: z.string().trim().min(1, 'needs an "area"').max(MAX_BODY_AREA),
+	score: z.number().int().min(0).max(10)
+});
+
 export const feelingsActivitySchema = z.object({
 	slug: z.string().trim().min(1, 'needs a "slug"'),
 	effort: scoreField(1, 10),
+	body_scores: z.preprocess(toBodyScoreEntries, z.array(aiBodyScoreSchema).optional()),
+	/** Legacy single pain score — the server maps it onto the first open body note. */
 	shins: scoreField(0, 10),
 	legs: scoreField(0, 10),
 	energy: scoreField(1, 10),
-	wanted_faster: opt(
-		z.preprocess(
-			toWantedFaster,
-			z.union([z.boolean(), z.null()])
-		)
-	),
+	wanted_faster: opt(z.preprocess(toWantedFaster, z.union([z.boolean(), z.null()]))),
 	surface: opt(z.string().trim().max(MAX_SURFACE)),
 	notes: opt(z.string().trim().max(MAX_NOTES)),
 	session: opt(z.string().trim().max(MAX_SESSION)),
-	cadence: opt(
-		z.preprocess(
-			toCadence,
-			z.union([z.number().int().positive(), z.null()])
-		)
-	),
+	cadence: opt(z.preprocess(toCadence, z.union([z.number().int().positive(), z.null()]))),
 	gear: opt(z.string().trim().max(MAX_GEAR))
 });
 
@@ -141,9 +162,12 @@ export function parseFeelingsSuggestions(input: unknown): ParsedFeelingsActivity
 	return out;
 }
 
-/** Fields to pass to `updateRunFeelings` — only keys present on the parsed row. */
+/**
+ * Fields to pass to `updateRunFeelings` — only keys present on the parsed row. Body scores need
+ * the profile's notes to resolve, so the caller maps `body_scores` / `shins` itself.
+ */
 export function feelingsRowToPatch(row: ParsedFeelingsActivity): Record<string, unknown> {
-	const { slug: _slug, ...rest } = row;
+	const { slug: _slug, body_scores: _body, shins: _shins, ...rest } = row;
 	const patch: Record<string, unknown> = {};
 	for (const [k, v] of Object.entries(rest)) {
 		if (v !== undefined) patch[k] = v;

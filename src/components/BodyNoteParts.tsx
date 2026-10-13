@@ -1,7 +1,29 @@
-import { BODY_NOTE_STATUS_META, capitalize, type BodyNote, type BodyNoteStatus } from '$lib/body-notes';
+import {
+	BODY_NOTE_STATUS_META,
+	capitalize,
+	type BodyNote,
+	type BodyNoteStatus
+} from '$lib/body-notes';
 import { cn } from '$lib/ui';
+import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { StatusPill } from './ui';
+
+export function ManageBodyNotesLink() {
+	return (
+		<Link className="font-semibold text-accent-fg" to="/profile">
+			Manage body notes
+		</Link>
+	);
+}
+
+export function NoBodyNotesHint() {
+	return (
+		<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>
+			No open body notes. Add one in Profile to score it here.
+		</p>
+	);
+}
 
 const STATUS_TONE: Record<BodyNoteStatus, string> = {
 	active: 'bg-warn/10 text-warn',
@@ -10,7 +32,9 @@ const STATUS_TONE: Record<BodyNoteStatus, string> = {
 };
 
 export function BodyStatusPill({ status }: { status: BodyNoteStatus }) {
-	return <StatusPill className={STATUS_TONE[status]}>{BODY_NOTE_STATUS_META[status].label}</StatusPill>;
+	return (
+		<StatusPill className={STATUS_TONE[status]}>{BODY_NOTE_STATUS_META[status].label}</StatusPill>
+	);
 }
 
 export function BodyNoteLine({
@@ -27,11 +51,10 @@ export function BodyNoteLine({
 	return (
 		<div className="py-2">
 			<div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-				<strong className="font-display text-[1.02rem] tracking-[-0.02em]">{capitalize(note.area)}</strong>
+				<strong className="font-display text-[1.02rem] tracking-[-0.02em]">
+					{capitalize(note.area)}
+				</strong>
 				<BodyStatusPill status={note.status} />
-				{note.tracked ? (
-					<StatusPill className="text-muted border border-line">Scored</StatusPill>
-				) : null}
 				{tag}
 			</div>
 			{note.trigger || note.helps ? (

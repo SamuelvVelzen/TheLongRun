@@ -61,13 +61,13 @@ function bodyNoteFromBullet(line: string, today: string): BodyNote | null {
 		status: resolved ? 'resolved' : 'monitoring',
 		trigger: trigger.trim(),
 		helps: helps.trim(),
-		tracked: false,
 		updated: today
 	};
 }
 
 // Coaching knowledge any model already has — not worth carrying into the prompt.
-const GENERIC_SECTION_RE = /traffic|return[- ]to[- ]run|^status$|weekly rhythm|^paces|recent markers|core gear/i;
+const GENERIC_SECTION_RE =
+	/traffic|return[- ]to[- ]run|^status$|weekly rhythm|^paces|recent markers|core gear/i;
 const GENERIC_RULE_RE =
 	/conversational|one major stressor|only one .*stressor|reduce\/stop if pain|stop if pain changes stride/i;
 
@@ -122,9 +122,6 @@ async function migrateLegacyContext(): Promise<{ body: BodyNotes; coachNotes: st
 		}
 		coach.push(`${s.heading}:\n${s.body}`);
 	}
-
-	const shin = notes.find((n) => /shin/i.test(n.area) && n.status !== 'resolved');
-	if (shin) shin.tracked = true;
 
 	const coachNotes = compactCoachNotes(coach.join('\n\n'));
 	if (coachNotes) await writeContextFile(COACH_NOTES_FILE, `${coachNotes}\n`);

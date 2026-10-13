@@ -1,4 +1,5 @@
 import type { BestEffort } from '$lib/best-efforts';
+import type { BodyScore } from '$lib/body-scores';
 import type { PlanStrengthExercise, RunWorkout } from '$lib/plan-schema';
 
 export type RunDay = string;
@@ -13,7 +14,8 @@ export interface RunRecord {
 	activity_type: string;
 	session: SessionType | string;
 	effort: number | null;
-	shins: number | null;
+	/** One 0–10 score per body note (stored as `runs.body_scores` JSON). */
+	body_scores: BodyScore[];
 	legs: number | null;
 	energy: number | null;
 	weather: string;

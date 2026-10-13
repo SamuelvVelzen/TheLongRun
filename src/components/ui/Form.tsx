@@ -15,16 +15,25 @@ export function FormGrid({ className, ...props }: HTMLAttributes<HTMLDivElement>
 
 export function FormSection({
 	title,
+	action,
 	className,
 	children
 }: {
 	title?: ReactNode;
+	action?: ReactNode;
 	className?: string;
 	children: ReactNode;
 }) {
 	return (
 		<div className={cn(ui.formSection, className)}>
-			{title != null ? <h3 className={ui.formSectionTitle}>{title}</h3> : null}
+			{title != null && action != null ? (
+				<div className={cn(ui.formSectionTitle, 'flex items-baseline justify-between gap-2')}>
+					<h3 className="m-0 text-[inherit] font-[inherit]">{title}</h3>
+					<span className="font-sans text-[0.85rem] normal-case tracking-normal">{action}</span>
+				</div>
+			) : title != null ? (
+				<h3 className={ui.formSectionTitle}>{title}</h3>
+			) : null}
 			{children}
 		</div>
 	);

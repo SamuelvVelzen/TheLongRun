@@ -7,11 +7,7 @@ import {
 	showsField,
 	type ActivityType
 } from '$lib/activity';
-import {
-	ACTIVITY_SESSIONS,
-	activityFormSchema,
-	type ActivityFormValues
-} from '$lib/activity-form';
+import { ACTIVITY_SESSIONS, activityFormSchema, type ActivityFormValues } from '$lib/activity-form';
 import {
 	HABIT_PLACEHOLDERS,
 	emptyActivityHabits,
@@ -19,7 +15,8 @@ import {
 	isReplaceableHabitField,
 	type ActivityHabits
 } from '$lib/activity-habits';
-import { usePainLabel } from '$lib/auth';
+import { useBodyAreas } from '$lib/auth';
+import { bodyScoreRows, rowsToBodyScores } from '$lib/body-scores';
 import { dayFromIsoDate } from '$lib/format';
 import {
 	gearKindForActivity,
@@ -32,19 +29,12 @@ import {
 import { weekNumberForDate, type PlanCalendar } from '$lib/plan';
 import { cn } from '$lib/ui';
 import type { ReactNode } from 'react';
+import { ManageBodyNotesLink, NoBodyNotesHint } from './BodyNoteParts';
 import { FeelChips, WantedFasterChips } from './FeelChips';
 import { GearField } from './GearField';
 import { sportChipLabel } from './Icon';
 import { StrengthEditor } from './StrengthEditor';
-import {
-	Actions,
-	Field,
-	Form,
-	FormGrid,
-	FormSection,
-	Panel,
-	useAppForm
-} from './ui';
+import { Actions, Field, Form, FormGrid, FormSection, Panel, useAppForm } from './ui';
 import { WeatherField } from './WeatherField';
 
 export function ActivityForm({
@@ -72,9 +62,12 @@ export function ActivityForm({
 	cancel: ReactNode;
 	onSubmit: (values: ActivityFormValues) => void | Promise<void>;
 }) {
-	const pain = usePainLabel();
+	const bodyAreas = useBodyAreas();
 	const form = useAppForm({
-		defaultValues,
+		defaultValues: {
+			...defaultValues,
+			body_scores: bodyScoreRows(rowsToBodyScores(defaultValues.body_scores), bodyAreas)
+		},
 		validators: { onSubmit: activityFormSchema },
 		onSubmit: async ({ value }) => {
 			await onSubmit(value);
@@ -130,10 +123,24 @@ export function ActivityForm({
 									if (kind) form.setFieldValue('gear', gear[kind].active ?? '');
 									if (next !== 'run') form.setFieldValue('session', 'other');
 									const pair = habitPairFor(habits, next);
-									if (isReplaceableHabitField(form.getFieldValue('before_notes'), 'before', next, habits)) {
+									if (
+										isReplaceableHabitField(
+											form.getFieldValue('before_notes'),
+											'before',
+											next,
+											habits
+										)
+									) {
 										form.setFieldValue('before_notes', pair.before);
 									}
-									if (isReplaceableHabitField(form.getFieldValue('after_notes'), 'after', next, habits)) {
+									if (
+										isReplaceableHabitField(
+											form.getFieldValue('after_notes'),
+											'after',
+											next,
+											habits
+										)
+									) {
 										form.setFieldValue('after_notes', pair.after);
 									}
 								}
@@ -266,22 +273,6 @@ export function ActivityForm({
 											)}
 										/>
 									)}
-									{showsFeel(activityType, 'shins') && (
-										<form.AppField
-											name="shins"
-											children={(field) => (
-												<FeelChips
-													label={`${pain} (0–10)`}
-													min={0}
-													max={10}
-													low="none"
-													high="severe"
-													value={field.state.value}
-													onChange={field.handleChange}
-												/>
-											)}
-										/>
-									)}
 									{showsFeel(activityType, 'legs') && (
 										<form.AppField
 											name="legs"
@@ -331,6 +322,38 @@ export function ActivityForm({
 									)}
 								</FormGrid>
 							</FormSection>
+
+							{showsFeel(activityType, 'body') && (
+								<FormSection title="Body" action={<ManageBodyNotesLink />}>
+									<form.Subscribe selector={(s) => s.values.body_scores}>
+										{(rows) =>
+											rows.length ? (
+												<FormGrid>
+													{rows.map((row, i) => (
+														<form.AppField
+															key={row.note_id ?? row.area}
+															name={`body_scores[${i}].score`}
+															children={(field) => (
+																<FeelChips
+																	label={`${row.area} (0–10)`}
+																	min={0}
+																	max={10}
+																	low="none"
+																	high="severe"
+																	value={field.state.value}
+																	onChange={field.handleChange}
+																/>
+															)}
+														/>
+													))}
+												</FormGrid>
+											) : (
+												<NoBodyNotesHint />
+											)
+										}
+									</form.Subscribe>
+								</FormSection>
+							)}
 
 							<FormSection title="Details">
 								<form.Subscribe

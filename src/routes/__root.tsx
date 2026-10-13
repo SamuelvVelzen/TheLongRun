@@ -113,7 +113,7 @@ function closeDetails(e: MouseEvent<HTMLElement>) {
 function RootComponent() {
 	const auth = Route.useLoaderData();
 	return (
-		<AuthProvider authed={auth.authed} painLabel={auth.painLabel}>
+		<AuthProvider authed={auth.authed} bodyAreas={auth.bodyAreas}>
 			<RootShell />
 		</AuthProvider>
 	);
@@ -129,8 +129,8 @@ function RootShell() {
 	return (
 		<RootDocument>
 			<SnackbarProvider>
-			<LiveLocationShare />
-			<ScrollRestore />
+				<LiveLocationShare />
+				<ScrollRestore />
 				<ScrollToTop />
 				<div data-app-shell className={appShell}>
 					<header data-app-header className={cn(stickyChrome, appHeader)}>
@@ -140,7 +140,10 @@ function RootShell() {
 						>
 							The Long <span>Run</span>
 						</Link>
-						<nav className="flex flex-1 flex-wrap items-center justify-end gap-[0.35rem] max-sm:hidden" aria-label="Primary">
+						<nav
+							className="flex flex-1 flex-wrap items-center justify-end gap-[0.35rem] max-sm:hidden"
+							aria-label="Primary"
+						>
 							{headerLinks.map((l) => (
 								<Link
 									key={l.href}
@@ -174,11 +177,7 @@ function RootShell() {
 					<main data-app-scroll className={appScroll}>
 						<Outlet />
 					</main>
-					<nav
-						data-tab-bar
-						className={tabBar}
-						aria-label="Primary"
-					>
+					<nav data-tab-bar className={tabBar} aria-label="Primary">
 						{tabs.map((tab) => (
 							<Link
 								key={tab.href}
@@ -190,7 +189,7 @@ function RootShell() {
 									className={cn(
 										'flex items-center justify-center size-6 leading-[0]',
 										tab.primary &&
-										'size-11 -mt-[1.15rem] rounded-full bg-accent text-accent-ink shadow-[0_8px_18px_rgba(0,0,0,0.35)] group-data-[status=active]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_22%,transparent),0_8px_18px_rgba(0,0,0,0.35)]'
+											'size-11 -mt-[1.15rem] rounded-full bg-accent text-accent-ink shadow-[0_8px_18px_rgba(0,0,0,0.35)] group-data-[status=active]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_22%,transparent),0_8px_18px_rgba(0,0,0,0.35)]'
 									)}
 								>
 									<Icon name={tab.icon} size={22} />
@@ -201,7 +200,12 @@ function RootShell() {
 							</Link>
 						))}
 						<details className="relative flex-1 min-w-0 group">
-							<summary className={cn(tabItem, 'list-none w-full [&::-webkit-details-marker]:hidden group-has-[a[data-status=active]]:text-accent-fg')}>
+							<summary
+								className={cn(
+									tabItem,
+									'list-none w-full [&::-webkit-details-marker]:hidden group-has-[a[data-status=active]]:text-accent-fg'
+								)}
+							>
 								<span className="flex items-center justify-center size-6 leading-[0]">
 									<Icon name="more" size={22} />
 								</span>
@@ -238,14 +242,14 @@ function RootShell() {
 										Plan route
 									</Link>
 								) : null}
-							<PwaInstall className={tabMoreLink} />
-							{authed ? (
-								<>
-									<LiveLocationMenuItem className={tabMoreLink} onClick={closeDetails} />
-									<div className="my-[0.15rem] border-t border-line" />
-									<SignOutLink className={destructiveNavLinkClass()} onClick={closeDetails} />
-								</>
-							) : null}
+								<PwaInstall className={tabMoreLink} />
+								{authed ? (
+									<>
+										<LiveLocationMenuItem className={tabMoreLink} onClick={closeDetails} />
+										<div className="my-[0.15rem] border-t border-line" />
+										<SignOutLink className={destructiveNavLinkClass()} onClick={closeDetails} />
+									</>
+								) : null}
 							</div>
 						</details>
 					</nav>
@@ -270,7 +274,11 @@ function DesktopMore() {
 				<Icon name="more" size={15} />
 				More
 			</summary>
-			<div className="fixed inset-0 z-40 cursor-pointer" onClick={closeDetails} aria-hidden="true" />
+			<div
+				className="fixed inset-0 z-40 cursor-pointer"
+				onClick={closeDetails}
+				aria-hidden="true"
+			/>
 			<div className="absolute right-0 top-[calc(100%+0.35rem)] z-[41] grid min-w-[13rem] gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">
 				{desktopMoreLinks.map((l) => (
 					<Link
@@ -285,12 +293,7 @@ function DesktopMore() {
 					</Link>
 				))}
 				{authed ? (
-					<Link
-						to="/routes"
-						search={{ draw: true }}
-						className={tabMoreLink}
-						onClick={closeDetails}
-					>
+					<Link to="/routes" search={{ draw: true }} className={tabMoreLink} onClick={closeDetails}>
 						<Icon name="map" size={18} />
 						Plan route
 					</Link>

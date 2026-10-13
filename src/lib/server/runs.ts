@@ -1,5 +1,6 @@
 import { normalizeActivityType } from '$lib/activity';
 import { parseBestEfforts, type BestEffort } from '$lib/best-efforts';
+import { parseBodyScores, worstBodyScore, type BodyScore } from '$lib/body-scores';
 import { normalizeStartTime } from '$lib/format';
 import { formatStrengthNotes, parseStrengthNotes } from '$lib/strength';
 import type { RunRecord } from '$lib/types';
@@ -16,8 +17,10 @@ function toStr(value: unknown): string {
 }
 
 function toBoolOrNull(value: unknown): boolean | null {
-	if (value === true || value === 1 || value === 'true' || value === 't' || value === '1') return true;
-	if (value === false || value === 0 || value === 'false' || value === 'f' || value === '0') return false;
+	if (value === true || value === 1 || value === 'true' || value === 't' || value === '1')
+		return true;
+	if (value === false || value === 0 || value === 'false' || value === 'f' || value === '0')
+		return false;
 	return null;
 }
 
@@ -31,7 +34,7 @@ function rowToRun(row: Record<string, unknown>): RunRecord {
 		activity_type: toStr(row.activity_type) || 'run',
 		session: toStr(row.session) || 'other',
 		effort: toNum(row.effort),
-		shins: toNum(row.shins),
+		body_scores: parseBodyScores(row.body_scores),
 		legs: toNum(row.legs),
 		energy: toNum(row.energy),
 		weather: toStr(row.weather),
@@ -71,23 +74,30 @@ function effortsJson(efforts: BestEffort[] | undefined | null): string {
 	return JSON.stringify(efforts ?? []);
 }
 
+function bodyScoresJson(scores: BodyScore[] | undefined | null): string {
+	return JSON.stringify(parseBodyScores(scores ?? []));
+}
+
 async function upsertRun(r: RunColumns): Promise<RunRecord> {
 	const sql = getSql();
 	const efforts = effortsJson(r.best_efforts);
+	const bodyScores = bodyScoresJson(r.body_scores);
+	const shins = worstBodyScore(r.body_scores ?? []);
 	const rows = (await sql`
 		INSERT INTO runs (
 			slug, date, week, day, activity_type, session, effort, shins, legs, energy, weather, surface,
 			wanted_faster, distance_km, start_time, "time", elapsed_time, avg_pace, avg_hr, max_hr,
 			elev_gain, calories, kilojoules, max_speed, cadence, shoes, summary_image, splits_image,
-			strava_id, route, notes, before_notes, after_notes, country, province, place, best_efforts
+			strava_id, route, notes, before_notes, after_notes, country, province, place, best_efforts,
+			body_scores
 		) VALUES (
-			${r.slug}, ${r.date}, ${r.week}, ${r.day}, ${r.activity_type}, ${r.session}, ${r.effort}, ${r.shins},
+			${r.slug}, ${r.date}, ${r.week}, ${r.day}, ${r.activity_type}, ${r.session}, ${r.effort}, ${shins},
 			${r.legs}, ${r.energy}, ${r.weather}, ${r.surface}, ${r.wanted_faster}, ${r.distance_km},
 			${r.start_time}, ${r.time}, ${r.elapsed_time}, ${r.avg_pace}, ${r.avg_hr}, ${r.max_hr},
 			${r.elev_gain}, ${r.calories}, ${r.kilojoules}, ${r.max_speed}, ${r.cadence}, ${r.gear},
 			${r.summary_image}, ${r.splits_image}, ${r.strava_id}, ${r.route}, ${r.notes},
 			${r.before_notes}, ${r.after_notes}, ${r.country},
-			${r.province}, ${r.place}, ${efforts}
+			${r.province}, ${r.place}, ${efforts}, ${bodyScores}
 		)
 		ON CONFLICT (slug) DO UPDATE SET
 			date = EXCLUDED.date, week = EXCLUDED.week, day = EXCLUDED.day,
@@ -102,7 +112,7 @@ async function upsertRun(r: RunColumns): Promise<RunRecord> {
 			strava_id = EXCLUDED.strava_id, route = EXCLUDED.route, notes = EXCLUDED.notes,
 			before_notes = EXCLUDED.before_notes, after_notes = EXCLUDED.after_notes,
 			country = EXCLUDED.country, province = EXCLUDED.province, place = EXCLUDED.place,
-			best_efforts = EXCLUDED.best_efforts
+			best_efforts = EXCLUDED.best_efforts, body_scores = EXCLUDED.body_scores
 		RETURNING *
 	`) as Record<string, unknown>[];
 	return rowToRun(rows[0]!);
@@ -146,7 +156,7 @@ export interface SaveRunInput {
 	activity_type?: string;
 	session: string;
 	effort: number | null;
-	shins: number | null;
+	body_scores: BodyScore[];
 	legs: number | null;
 	energy: number | null;
 	weather: string;
@@ -230,7 +240,8 @@ export async function setRunImportMetrics(
 
 export type FeelingsPatch = {
 	effort?: number | null;
-	shins?: number | null;
+	/** Replaces the whole list. */
+	body_scores?: BodyScore[];
 	legs?: number | null;
 	energy?: number | null;
 	wanted_faster?: boolean | null;
@@ -260,7 +271,7 @@ export async function updateRunFeelings(slug: string, p: FeelingsPatch): Promise
 	}
 	const merged = {
 		effort: pick(p.effort, run.effort),
-		shins: pick(p.shins, run.shins),
+		body_scores: parseBodyScores(pick(p.body_scores, run.body_scores)),
 		legs: pick(p.legs, run.legs),
 		energy: pick(p.energy, run.energy),
 		wanted_faster: pick(p.wanted_faster, run.wanted_faster),
@@ -276,7 +287,8 @@ export async function updateRunFeelings(slug: string, p: FeelingsPatch): Promise
 	await sql`
 		UPDATE runs SET
 			effort = ${merged.effort},
-			shins = ${merged.shins},
+			shins = ${worstBodyScore(merged.body_scores)},
+			body_scores = ${JSON.stringify(merged.body_scores)},
 			legs = ${merged.legs},
 			energy = ${merged.energy},
 			wanted_faster = ${merged.wanted_faster},
@@ -338,7 +350,7 @@ export async function saveRun(input: SaveRunInput): Promise<RunRecord> {
 		activity_type: input.activity_type || 'run',
 		session: input.session,
 		effort: input.effort,
-		shins: input.shins,
+		body_scores: input.body_scores,
 		legs: input.legs,
 		energy: input.energy,
 		weather: input.weather,
@@ -414,7 +426,7 @@ export async function writeRun(run: RunRecord): Promise<RunRecord> {
 		activity_type: run.activity_type || 'run',
 		session: run.session,
 		effort: run.effort,
-		shins: run.shins,
+		body_scores: run.body_scores ?? [],
 		legs: run.legs,
 		energy: run.energy,
 		weather: run.weather,
@@ -455,7 +467,7 @@ export type UpdateRunFields = {
 	activity_type: string;
 	session: string;
 	effort: number | null;
-	shins: number | null;
+	body_scores: BodyScore[];
 	legs: number | null;
 	energy: number | null;
 	weather: string;
@@ -501,7 +513,7 @@ export async function updateRun(slug: string, fields: UpdateRunFields): Promise<
 		activity_type: fields.activity_type || 'run',
 		session,
 		effort: fields.effort,
-		shins: fields.shins,
+		body_scores: fields.body_scores,
 		legs: fields.legs,
 		energy: fields.energy,
 		weather: fields.weather,

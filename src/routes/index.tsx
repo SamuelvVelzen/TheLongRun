@@ -1,58 +1,77 @@
 import {
-    activityLabel,
-    activityListHeading,
-    activityPlural,
-    activitySub,
-    hasContext,
-    metricText,
-    normalizeActivityType,
-    showsField
+	activityLabel,
+	activityListHeading,
+	activityPlural,
+	activitySub,
+	hasContext,
+	metricText,
+	normalizeActivityType,
+	showsField
 } from '$lib/activity';
-import { SignInLink, useAuthed, usePainLabel } from '$lib/auth';
+import { SignInLink, useAuthed } from '$lib/auth';
 import {
-    filterRunsByRange,
-    parseDateRange,
-    routeIdsForRuns,
-    type RangeKind
+	filterRunsByRange,
+	parseDateRange,
+	routeIdsForRuns,
+	type RangeKind
 } from '$lib/date-range';
 import { formatHorizonShort } from '$lib/goals';
 import { collapseRuns, groupedSessionTitle } from '$lib/group';
-import { buildDashboardStats, daysUntil, sessionMeasureLabel, weekToPlan, weekViewIsClosed, type DashboardStats } from '$lib/plan';
+import {
+	buildDashboardStats,
+	daysUntil,
+	sessionMeasureLabel,
+	weekToPlan,
+	weekViewIsClosed,
+	type DashboardStats
+} from '$lib/plan';
 import { getDashboardData } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import { buildTrainingTrends } from '$lib/trends';
 import { cn } from '$lib/ui';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import { ActivityFilters } from '../components/ActivityFilters';
 import { rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
 import { FeelBadge } from '../components/FeelBadge';
 import { ActivityIcon, ActivityMark, Icon } from '../components/Icon';
 import { LogPlannedStrengthLink } from '../components/LogPlannedStrength';
-import { PageHero, Actions, EmptyState, Grid, IconLabelLink, MapBadge, Panel, RunTitle, SectionTitle  } from '../components/ui';
+import {
+	PageHero,
+	Actions,
+	EmptyState,
+	Grid,
+	IconLabelLink,
+	MapBadge,
+	Panel,
+	RunTitle,
+	SectionTitle
+} from '../components/ui';
 import { PlanSessionBody } from '../components/PlanSessionBody';
 import { RouteChip } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 import {
-    matchesSportFilter,
-    parseSportSearch,
-    selectedSports,
-    sportIsAll
+	matchesSportFilter,
+	parseSportSearch,
+	selectedSports,
+	sportIsAll
 } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
 
 import { buttonClass } from '../components/ui/Button';
 import { runRowClass } from '../components/ui/Chrome';
 
-type DashSearch = RangeSearch & { sport?: string; country?: string; province?: string; place?: string };
+type DashSearch = RangeSearch & {
+	sport?: string;
+	country?: string;
+	province?: string;
+	place?: string;
+};
 
 const nextUpBase =
 	'mt-5 p-[1rem_1.1rem_1.05rem] border border-line rounded-xl max-sm:mt-0 max-sm:p-[0.85rem_0.9rem_0.9rem] [&_h2]:text-[1.45rem] [&_h2]:font-[750] [&_h2]:tracking-[-0.03em] [&_h2]:m-0 [&_h2]:mb-[0.35rem] [&_h2]:[overflow-wrap:anywhere] [&_p]:m-0 [&_p]:leading-[1.45] max-sm:[&_h2]:text-[1.2rem]';
-const nextUp = cn(
-	nextUpBase,
-	'bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))]'
-);
+const nextUp = cn(nextUpBase, 'bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))]');
 const nextUpDone = cn(nextUpBase, 'bg-panel');
 const nextUpKicker = 'text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent-fg m-0 mb-1';
 const statsItem =
@@ -82,12 +101,12 @@ function fmt(n: number | null, digits = 1) {
 	return n.toFixed(digits);
 }
 
-function shinLabel(s: DashboardStats) {
-	if (s.shinRecent == null) return '—';
-	if (s.shinDelta == null) return fmt(s.shinRecent);
-	if (s.shinDelta === 0) return `${fmt(s.shinRecent)} →`;
-	const arrow = s.shinDelta < 0 ? '↓' : '↑';
-	return `${fmt(s.shinRecent)} ${arrow}${Math.abs(s.shinDelta)}`;
+function bodyTrendLabel(t: DashboardStats['bodyTrends'][number]) {
+	if (t.recent == null) return `${t.area} —`;
+	if (t.delta == null) return `${t.area} ${fmt(t.recent)}`;
+	if (t.delta === 0) return `${t.area} ${fmt(t.recent)} →`;
+	const arrow = t.delta < 0 ? '↓' : '↑';
+	return `${t.area} ${fmt(t.recent)} ${arrow}${Math.abs(t.delta)}`;
 }
 
 function Dashboard() {
@@ -108,7 +127,6 @@ function DashboardBody({
 	authed: boolean;
 }) {
 	const search = Route.useSearch();
-	const pain = usePainLabel();
 
 	const sp = new URLSearchParams();
 	if (search.range) sp.set('range', search.range);
@@ -183,7 +201,6 @@ function DashboardBody({
 		streak: data.streak
 	});
 	const trends = buildTrainingTrends(runs, {
-		painLabel: pain,
 		endDate: range.to,
 		fromDate: range.from,
 		calendar: data.calendar
@@ -199,8 +216,7 @@ function DashboardBody({
 			? [data.weekView.next]
 			: [];
 	const highlightHead = highlightSessions[0];
-	const laterWeek =
-		data.weekView != null && data.weekView.week.week > weekToPlan(data.calendar);
+	const laterWeek = data.weekView != null && data.weekView.week.week > weekToPlan(data.calendar);
 	const currentWeekNum = weekToPlan(data.calendar);
 	const nextWeekNum = currentWeekNum + 1;
 	const canPlanNext =
@@ -280,7 +296,10 @@ function DashboardBody({
 			{highlightHead && data.weekView && (
 				<section className={nextUp} aria-labelledby="next-up-heading">
 					<p className={cn(nextUpKicker, 'inline-flex items-center gap-1.5')}>
-						<Icon name={highlightHead.isToday ? 'sun' : laterWeek ? 'calendar' : 'arrow'} size={13} />
+						<Icon
+							name={highlightHead.isToday ? 'sun' : laterWeek ? 'calendar' : 'arrow'}
+							size={13}
+						/>
 						{highlightHead.isToday ? 'Today' : laterWeek ? 'Next week' : 'Next up'}
 					</p>
 					{highlightSessions.length === 1 ? (
@@ -353,10 +372,7 @@ function DashboardBody({
 										);
 									}
 									return (
-										<div
-											key={`${session.day}-${session.label}-${i}`}
-											className={className}
-										>
+										<div key={`${session.day}-${session.label}-${i}`} className={className}>
 											{body}
 											{session.route && !session.done && (
 												<RouteChip
@@ -411,7 +427,11 @@ function DashboardBody({
 							: ''}
 						.{' '}
 						{canPlanNext ? (
-							<Link className="text-accent-fg font-semibold" to="/coach" search={coachNextWeekSearch}>
+							<Link
+								className="text-accent-fg font-semibold"
+								to="/coach"
+								search={coachNextWeekSearch}
+							>
 								Plan week {nextWeekNum} in Coach
 							</Link>
 						) : (
@@ -452,7 +472,9 @@ function DashboardBody({
 											? data.lastMedal.name
 											: 'Next race'}
 							</span>
-							<strong className={cn(statsValue, 'text-accent-fg text-[2.1rem] max-sm:text-[1.7rem]')}>
+							<strong
+								className={cn(statsValue, 'text-accent-fg text-[2.1rem] max-sm:text-[1.7rem]')}
+							>
 								{data.activeGoal ? (
 									raceDays == null ? (
 										'—'
@@ -509,9 +531,7 @@ function DashboardBody({
 									<span className={cn(statsLabel, 'text-muted')}>This month</span>
 									<strong className={cn(statsValue, 'text-[1.35rem] max-sm:text-[1.2rem]')}>
 										{stats.monthRuns}
-										{stats.monthKm > 0 && (
-											<span className={statsUnit}> · {stats.monthKm} km</span>
-										)}
+										{stats.monthKm > 0 && <span className={statsUnit}> · {stats.monthKm} km</span>}
 									</strong>
 								</div>
 								<div className={statsItem}>
@@ -526,12 +546,13 @@ function DashboardBody({
 					</section>
 					<p className={cn('mb-7 text-[0.88rem]', 'text-muted')}>
 						{(sportIsAll(sport) ||
-							selectedSports(sport).some((s) => s === 'run' || s === 'walk')) && (
-							<>
-								{pain} {shinLabel(stats)}
-								<span aria-hidden="true"> · </span>
-							</>
-						)}
+							selectedSports(sport).some((s) => s === 'run' || s === 'walk')) &&
+							stats.bodyTrends.map((t) => (
+								<Fragment key={t.area}>
+									{bodyTrendLabel(t)}
+									<span aria-hidden="true"> · </span>
+								</Fragment>
+							))}
 						Session streak {stats.streak || '—'}
 						<span aria-hidden="true"> · </span>
 						{stats.mappedRuns}/{stats.runCount} mapped
@@ -541,9 +562,7 @@ function DashboardBody({
 						<TrendsSection
 							trends={trends}
 							caption={
-								rangeActive
-									? `Within ${range.label.toLowerCase()}`
-									: 'Progress over recent weeks'
+								rangeActive ? `Within ${range.label.toLowerCase()}` : 'Progress over recent weeks'
 							}
 						/>
 					)}
@@ -630,7 +649,12 @@ function DashboardBody({
 													? `${item.stats.distance_km ?? '—'} km · ${metricText(item.stats)}`
 													: metricText(item.stats)}
 											</span>
-											<span className={cn('text-muted', 'text-[0.8rem] col-span-full max-sm:text-[0.76rem]')}>
+											<span
+												className={cn(
+													'text-muted',
+													'text-[0.8rem] col-span-full max-sm:text-[0.76rem]'
+												)}
+											>
 												{`${item.members.length} parts · ${item.stats.types.map((t) => activityLabel(t)).join(' + ')}`}
 											</span>
 										</span>
@@ -664,7 +688,12 @@ function DashboardBody({
 													? `${item.run.distance_km ?? '—'} km · ${metricText(item.run)}`
 													: metricText(item.run)}
 											</span>
-											<span className={cn('text-muted', 'text-[0.8rem] col-span-full max-sm:text-[0.76rem]')}>
+											<span
+												className={cn(
+													'text-muted',
+													'text-[0.8rem] col-span-full max-sm:text-[0.76rem]'
+												)}
+											>
 												{activitySub(item.run)}
 											</span>
 										</span>

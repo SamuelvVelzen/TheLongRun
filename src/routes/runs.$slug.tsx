@@ -1,28 +1,29 @@
 import {
-    activityLabel,
-    headlineMetric,
-    normalizeActivityType,
-    showsFeel,
-    showsField
+	activityLabel,
+	headlineMetric,
+	normalizeActivityType,
+	showsFeel,
+	showsField
 } from '$lib/activity';
 import { runToActivityForm, toUpdateRunInput } from '$lib/activity-form';
 import { HABIT_PLACEHOLDERS, withHabitDefaults } from '$lib/activity-habits';
-import { useAuthed, usePainLabel } from '$lib/auth';
+import { useAuthed, useBodyAreas } from '$lib/auth';
+import { bodyScoreRows, rowsToBodyScores } from '$lib/body-scores';
 import { gearKindForActivity, gearMetaForActivity, gearPickerOptions } from '$lib/gear';
 import {
-    createActivityGroupFn,
-    deleteRun,
-    getRunDetail,
-    saveHrMax,
-    updateRun,
-    type UpdateRunInput
+	createActivityGroupFn,
+	deleteRun,
+	getRunDetail,
+	saveHrMax,
+	updateRun,
+	type UpdateRunInput
 } from '$lib/server/functions';
 import {
-    exerciseTotalLabel,
-    formatSetDisplay,
-    formatSetTop,
-    parseStrengthNotes,
-    topSet
+	exerciseTotalLabel,
+	formatSetDisplay,
+	formatSetTop,
+	parseStrengthNotes,
+	topSet
 } from '$lib/strength';
 import { activityTitlePart, appHead } from '$lib/title';
 import { cn } from '$lib/ui';
@@ -73,10 +74,7 @@ export const Route = createFileRoute('/runs/$slug')({
 });
 
 function routeIdFrom(route: string, stravaId: string): string {
-	const fromRoute = route
-		.trim()
-		.split(/[\\/]/)
-		.pop();
+	const fromRoute = route.trim().split(/[\\/]/).pop();
 	const id = (fromRoute ?? '').replace(/\?.*$/, '').replace(/\.json$/i, '');
 	return id || stravaId || '';
 }
@@ -326,7 +324,7 @@ function RunDetail() {
 	} = Route.useLoaderData();
 	const router = useRouter();
 	const authed = useAuthed();
-	const pain = usePainLabel();
+	const bodyAreas = useBodyAreas();
 	const snack = useSnackbar();
 	const { edit: editFromSearch } = Route.useSearch();
 	const editing = authed && Boolean(editFromSearch);
@@ -363,6 +361,8 @@ function RunDetail() {
 		after: r.after_notes
 	});
 
+	const bodyRows = bodyScoreRows(r.body_scores, bodyAreas);
+
 	const hrFill =
 		r.avg_hr != null && r.max_hr != null && r.max_hr > 0
 			? Math.min(100, Math.round((r.avg_hr / r.max_hr) * 100))
@@ -372,11 +372,7 @@ function RunDetail() {
 		normalizeActivityType(r.activity_type) === 'strength' ? parseStrengthNotes(r.notes) : null;
 	const metric = headlineMetric(r);
 	const metricSub =
-		metric.unit === ''
-			? 'duration'
-			: metric.unit === 'km/h'
-				? 'avg km/h'
-				: 'pace /km';
+		metric.unit === '' ? 'duration' : metric.unit === 'km/h' ? 'avg km/h' : 'pace /km';
 
 	function startEditing() {
 		void router.navigate({
@@ -422,7 +418,7 @@ function RunDetail() {
 			activity_type: r.activity_type || 'run',
 			session: r.session || 'other',
 			effort: r.effort,
-			shins: r.shins,
+			body_scores: r.body_scores,
 			legs: r.legs,
 			energy: r.energy,
 			weather: r.weather || '',
@@ -622,11 +618,16 @@ function RunDetail() {
 								<div className="flex items-baseline gap-1">
 									<b>{r.avg_hr ?? '—'}</b>
 									<span className="text-muted text-[0.95rem]">/</span>
-									<strong className="font-display text-[1.05rem] text-warn">{r.max_hr ?? '—'}</strong>
+									<strong className="font-display text-[1.05rem] text-warn">
+										{r.max_hr ?? '—'}
+									</strong>
 								</div>
 								<span>HR avg / max</span>
 								{hrFill != null && (
-									<div className="mt-[0.45rem] h-1 rounded-full bg-white/8 overflow-hidden" aria-hidden="true">
+									<div
+										className="mt-[0.45rem] h-1 rounded-full bg-white/8 overflow-hidden"
+										aria-hidden="true"
+									>
 										<div
 											className="h-full rounded-[inherit] bg-[linear-gradient(90deg,var(--color-accent),var(--color-warn))]"
 											style={{ width: `${hrFill}%` }}
@@ -674,16 +675,52 @@ function RunDetail() {
 
 					<Metrics className="mb-5">
 						{showsFeel(r.activity_type, 'effort') && (
-							<FeelTile editable={authed} label="effort" value={r.effort} min={1} max={10} onSave={(v) => patchRun({ effort: v })} />
+							<FeelTile
+								editable={authed}
+								label="effort"
+								value={r.effort}
+								min={1}
+								max={10}
+								onSave={(v) => patchRun({ effort: v })}
+							/>
 						)}
 						{showsFeel(r.activity_type, 'energy') && (
-							<FeelTile editable={authed} label="energy" value={r.energy} min={1} max={10} onSave={(v) => patchRun({ energy: v })} />
+							<FeelTile
+								editable={authed}
+								label="energy"
+								value={r.energy}
+								min={1}
+								max={10}
+								onSave={(v) => patchRun({ energy: v })}
+							/>
 						)}
-						{showsFeel(r.activity_type, 'shins') && (
-							<FeelTile editable={authed} label={pain.toLowerCase()} value={r.shins} min={0} max={10} onSave={(v) => patchRun({ shins: v })} />
-						)}
+						{showsFeel(r.activity_type, 'body') &&
+							bodyRows.map((row, i) => (
+								<FeelTile
+									key={row.note_id ?? row.area}
+									editable={authed}
+									label={row.area.toLowerCase()}
+									value={row.score}
+									min={0}
+									max={10}
+									onSave={(v) =>
+										patchRun({
+											body_scores: rowsToBodyScores(
+												bodyRows.map((x, j) => (j === i ? { ...x, score: v } : x))
+											)
+										})
+									}
+								/>
+							))}
 						{showsFeel(r.activity_type, 'legs') && (
-							<FeelTile editable={authed} label="legs" value={r.legs} min={0} max={10} onSave={(v) => patchRun({ legs: v })} />
+							<FeelTile
+								editable={authed}
+								label="legs"
+								value={r.legs}
+								min={0}
+								max={10}
+								onSave={(v) => patchRun({ legs: v })}
+							/>
 						)}
 					</Metrics>
 
@@ -759,7 +796,9 @@ function RunDetail() {
 						<Panel className="mb-4">
 							<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
 								<PanelTitle>Best efforts</PanelTitle>
-								<p className={cn('text-muted', 'text-[0.85rem]')}>Top 3 all-time for this distance</p>
+								<p className={cn('text-muted', 'text-[0.85rem]')}>
+									Top 3 all-time for this distance
+								</p>
 							</div>
 							<BestEffortBadges highlights={bestEfforts} />
 						</Panel>
@@ -843,7 +882,11 @@ function RunDetail() {
 								<div className="flex flex-col gap-[0.28rem] min-w-0">
 									<span className={fieldLabel}>Wanted faster</span>
 									{authed ? (
-										<div className="flex w-full gap-[0.3rem]" role="group" aria-label="Wanted faster">
+										<div
+											className="flex w-full gap-[0.3rem]"
+											role="group"
+											aria-label="Wanted faster"
+										>
 											{(['Y', 'N', ''] as const).map((opt) => {
 												const active =
 													(opt === 'Y' && r.wanted_faster === true) ||
@@ -872,11 +915,7 @@ function RunDetail() {
 										</div>
 									) : (
 										<span className="text-[0.9rem] text-muted">
-											{r.wanted_faster === true
-												? 'Yes'
-												: r.wanted_faster === false
-													? 'No'
-													: '—'}
+											{r.wanted_faster === true ? 'Yes' : r.wanted_faster === false ? 'No' : '—'}
 										</span>
 									)}
 								</div>
@@ -922,7 +961,11 @@ function RunDetail() {
 				onClose={() => setGroupOpen(false)}
 				actions={
 					<>
-						<button type="button" className={buttonClass({ variant: 'ghost' })} onClick={() => setGroupOpen(false)}>
+						<button
+							type="button"
+							className={buttonClass({ variant: 'ghost' })}
+							onClick={() => setGroupOpen(false)}
+						>
 							Cancel
 						</button>
 						<button
@@ -972,7 +1015,9 @@ function RunDetail() {
 									aria-pressed={on}
 									onClick={() =>
 										setGroupPick((prev) =>
-											prev.includes(opt.slug) ? prev.filter((s) => s !== opt.slug) : [...prev, opt.slug]
+											prev.includes(opt.slug)
+												? prev.filter((s) => s !== opt.slug)
+												: [...prev, opt.slug]
 										)
 									}
 								>

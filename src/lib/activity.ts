@@ -44,9 +44,16 @@ export function normalizeActivityType(v: string | null | undefined): ActivityTyp
 	if (['bike', 'biking', 'cycling', 'bicycle', 'cycle', 'ebikeride', 'riding', 'ride'].includes(t))
 		return 'bike';
 	if (
-		['strength', 'strengthtraining', 'weighttraining', 'weights', 'weightlifting', 'gym', 'workout', 'crossfit'].includes(
-			t
-		)
+		[
+			'strength',
+			'strengthtraining',
+			'weighttraining',
+			'weights',
+			'weightlifting',
+			'gym',
+			'workout',
+			'crossfit'
+		].includes(t)
 	)
 		return 'strength';
 	return 'run';
@@ -97,11 +104,7 @@ export function activityCount(n: number, sport: string | null | undefined): stri
 }
 
 /** Group caption: "21 activities · 192.5 km" (km omitted when 0 or strength-only). */
-export function activityTally(
-	n: number,
-	sport: string | null | undefined,
-	km?: number
-): string {
+export function activityTally(n: number, sport: string | null | undefined, km?: number): string {
 	const head = activityCount(n, sport);
 	if (sport === 'strength' || km == null || km <= 0) return head;
 	return `${head} · ${km} km`;
@@ -118,16 +121,9 @@ export function activityListHeading(
 }
 
 export type ActivityField =
-	| 'distance'
-	| 'pace'
-	| 'hr'
-	| 'elevation'
-	| 'cadence'
-	| 'gear'
-	| 'surface'
-	| 'weather';
+	'distance' | 'pace' | 'hr' | 'elevation' | 'cadence' | 'gear' | 'surface' | 'weather';
 
-export type FeelField = 'effort' | 'shins' | 'legs' | 'energy' | 'wanted_faster';
+export type FeelField = 'effort' | 'body' | 'legs' | 'energy' | 'wanted_faster';
 
 /** Which numeric / gear / weather fields make sense to show/edit for a type. */
 export function showsField(activity: string | null | undefined, field: ActivityField): boolean {
@@ -152,7 +148,7 @@ export function showsField(activity: string | null | undefined, field: ActivityF
 	}
 }
 
-/** Subjective feel chips — shins is run/walk, wanted-faster is run-only. */
+/** Subjective feel chips — body scores are run/walk, wanted-faster is run-only. */
 export function showsFeel(activity: string | null | undefined, field: FeelField): boolean {
 	const t = normalizeActivityType(activity);
 	switch (field) {
@@ -160,7 +156,7 @@ export function showsFeel(activity: string | null | undefined, field: FeelField)
 		case 'energy':
 		case 'legs':
 			return true;
-		case 'shins':
+		case 'body':
 			return t === 'run' || t === 'walk';
 		case 'wanted_faster':
 			return t === 'run';
@@ -280,11 +276,11 @@ export function metricText(run: HeadlineRun): string {
  * is not "how it felt" and would flag almost everything.
  */
 export function hasContext(
-	run: Pick<RunRecord, 'effort' | 'shins' | 'legs' | 'energy' | 'wanted_faster' | 'surface'>
+	run: Pick<RunRecord, 'effort' | 'body_scores' | 'legs' | 'energy' | 'wanted_faster' | 'surface'>
 ): boolean {
 	return (
 		run.effort != null ||
-		run.shins != null ||
+		(run.body_scores?.length ?? 0) > 0 ||
 		run.legs != null ||
 		run.energy != null ||
 		run.wanted_faster != null ||

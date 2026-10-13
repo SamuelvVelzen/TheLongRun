@@ -163,7 +163,7 @@ function calendarKm(buckets: Map<string, WeekBucket>, endMonday: string, count: 
 
 export function formatTimelineClipboard(
 	runs: RunRecord[],
-	opts: { summary: string; sport: string; todayIso: string; pain: string }
+	opts: { summary: string; sport: string; todayIso: string }
 ): string {
 	const ordered = [...runs].filter((r) => Boolean(r.date)).sort(newestFirst);
 	const noun = activityPlural(opts.sport);
@@ -201,7 +201,8 @@ export function formatTimelineClipboard(
 				`- Longest: ${longest.distance_km} km on ${longest.date} (${activityLabel(longest.activity_type).toLowerCase()})`
 			);
 		}
-		if (avgWeekly != null) snapshot.push(`- Average ${avgWeekly} km / week over ${spanned} calendar weeks`);
+		if (avgWeekly != null)
+			snapshot.push(`- Average ${avgWeekly} km / week over ${spanned} calendar weeks`);
 		if (endMonday && (last4 > 0 || prior4 > 0)) {
 			const load =
 				prior4 > 0
@@ -214,7 +215,9 @@ export function formatTimelineClipboard(
 		snapshot.push(`- By type: ${sportBreakdown(ordered)}`);
 	}
 
-	const weekLines = weeksNewest.map(([wk, e]) => `- Week of ${wk}: ${formatWeekBits(e)}`).join('\n');
+	const weekLines = weeksNewest
+		.map(([wk, e]) => `- Week of ${wk}: ${formatWeekBits(e)}`)
+		.join('\n');
 
 	const rows = ordered
 		.map((r) => {
@@ -228,7 +231,7 @@ Today: ${opts.todayIso}.
 On screen: ${opts.summary} · ${countLabel}.
 These are logged activities, not a week-by-week plan. Snapshot and weekly volume are this filtered view (not all-time, not necessarily ending today). Use them for high-level questions: race readiness, training load, what to change, when to plan a race. Do not invent sessions I did not log.
 
-${feelScale(opts.pain)} I'll ask a question after this log.
+${feelScale()} I'll ask a question after this log.
 
 ## Snapshot
 ${snapshot.join('\n')}

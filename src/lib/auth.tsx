@@ -1,23 +1,24 @@
 import { Actions, Button, Panel } from '../components/ui';
 import { createContext, useContext, type MouseEventHandler, type ReactNode } from 'react';
 import { useRouterState } from '@tanstack/react-router';
+import type { BodyArea } from './body-scores';
 import { cn } from './ui';
 
 const AuthContext = createContext(false);
-const PainLabelContext = createContext('Pain');
+const BodyAreasContext = createContext<BodyArea[]>([]);
 
 export function AuthProvider({
 	authed,
-	painLabel,
+	bodyAreas,
 	children
 }: {
 	authed: boolean;
-	painLabel: string;
+	bodyAreas: BodyArea[];
 	children: ReactNode;
 }) {
 	return (
 		<AuthContext.Provider value={authed}>
-			<PainLabelContext.Provider value={painLabel}>{children}</PainLabelContext.Provider>
+			<BodyAreasContext.Provider value={bodyAreas}>{children}</BodyAreasContext.Provider>
 		</AuthContext.Provider>
 	);
 }
@@ -26,9 +27,9 @@ export function useAuthed(): boolean {
 	return useContext(AuthContext);
 }
 
-/** Label for the per-activity pain score — the tracked body note's area, else "Pain". */
-export function usePainLabel(): string {
-	return useContext(PainLabelContext);
+/** Open body notes from Profile — each gets a 0–10 score per activity. */
+export function useBodyAreas(): BodyArea[] {
+	return useContext(BodyAreasContext);
 }
 
 export function loginHref(next?: string): string {
@@ -94,13 +95,7 @@ export function AuthGate({
 	return useAuthed() ? children : fallback;
 }
 
-export function SignInPanel({
-	title,
-	body
-}: {
-	title: string;
-	body?: string;
-}) {
+export function SignInPanel({ title, body }: { title: string; body?: string }) {
 	const here = useRouterState({
 		select: (s) => `${s.location.pathname}${s.location.searchStr}`
 	});
@@ -113,7 +108,9 @@ export function SignInPanel({
 				{body ?? 'Sign in to add, edit, or delete.'}
 			</p>
 			<Actions>
-				<Button type="button" onClick={() => window.location.assign(href)}>Sign in</Button>
+				<Button type="button" onClick={() => window.location.assign(href)}>
+					Sign in
+				</Button>
 			</Actions>
 		</Panel>
 	);

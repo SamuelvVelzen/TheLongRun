@@ -2,8 +2,15 @@
  * Training plan helpers + dashboard stats.
  */
 import { activityLabel, normalizeActivityType } from '$lib/activity';
+import { bodyScoreTracks } from '$lib/body-scores';
 import { dayFromIsoDate, formatDuration, parseDurationSeconds } from '$lib/format';
-import type { PlanSession, PlanSessionStatus, PlanWeek, RunRecord, SessionRouteRef } from '$lib/types';
+import type {
+	PlanSession,
+	PlanSessionStatus,
+	PlanWeek,
+	RunRecord,
+	SessionRouteRef
+} from '$lib/types';
 import { workoutSummary } from '$lib/run-workout';
 import { sessionActivityType } from '$lib/week-mix';
 
@@ -234,7 +241,9 @@ export function sessionMeasureLabel(
 ): string {
 	if (session.distance_km != null) return `${session.distance_km} km`;
 	if (sessionActivityType(session) !== 'strength') return '';
-	const m = String(session.detail ?? '').trim().match(LEADING_MIN);
+	const m = String(session.detail ?? '')
+		.trim()
+		.match(LEADING_MIN);
 	return m ? `${m[1]} min` : '';
 }
 
@@ -373,9 +382,8 @@ function clearNext(view: WeekView): WeekView {
  * Keep that badge only on the soonest remaining session across the plan.
  */
 export function keepSoonestNext(views: WeekView[]): WeekView[] {
-	const soonestWeek = [...views]
-		.sort((a, b) => a.week.week - b.week.week)
-		.find((v) => v.next)?.week.week;
+	const soonestWeek = [...views].sort((a, b) => a.week.week - b.week.week).find((v) => v.next)
+		?.week.week;
 	return views.map((v) => (soonestWeek != null && v.week.week === soonestWeek ? v : clearNext(v)));
 }
 
@@ -507,9 +515,7 @@ function sessionCopyState(s: WeekSessionView): string {
 
 export function formatWeekPlanMarkdown(view: WeekView): string {
 	const w = view.week;
-	const lines = [
-		`## Week ${w.week} — ${[w.dates, w.phase, w.focus].filter(Boolean).join(' · ')}`
-	];
+	const lines = [`## Week ${w.week} — ${[w.dates, w.phase, w.focus].filter(Boolean).join(' · ')}`];
 	const groups = weekDayGroups(view);
 	if (!groups.length) {
 		lines.push('- (no sessions)');
@@ -556,8 +562,7 @@ export function weekToPlanJson(week: PlanWeek): unknown {
 	};
 }
 
-const COPY_STATUS_HINT =
-	`Session states: done / skipped / unlogged / next / upcoming / today / unplanned. ${SKIP_STATUS_PROMPT} Unplanned logs are extra load, already done — do not add a plan row just to file them. The JSON is the saved plan (computed states live in the list only). If I ask you to revise remaining sessions, keep completed ones and return one JSON object I can paste back.`;
+const COPY_STATUS_HINT = `Session states: done / skipped / unlogged / next / upcoming / today / unplanned. ${SKIP_STATUS_PROMPT} Unplanned logs are extra load, already done — do not add a plan row just to file them. The JSON is the saved plan (computed states live in the list only). If I ask you to revise remaining sessions, keep completed ones and return one JSON object I can paste back.`;
 
 export function formatWeekPlanClipboard(view: WeekView, todayIso: string): string {
 	return `# The Long Run — week ${view.week.week} snapshot
@@ -608,11 +613,7 @@ export function withSessionRoutes(
 
 		const dayKey = s.day.trim().toLowerCase();
 		const legacy = legacyByDay.get(dayKey);
-		if (
-			legacy &&
-			sessionActivityType(s) !== 'strength' &&
-			!legacyUsed.has(dayKey)
-		) {
+		if (legacy && sessionActivityType(s) !== 'strength' && !legacyUsed.has(dayKey)) {
 			legacyUsed.add(dayKey);
 			return { ...s, route: legacy };
 		}
@@ -709,12 +710,18 @@ export function sessionStreak(
 	return streak;
 }
 
+export type BodyTrend = {
+	area: string;
+	recent: number | null;
+	prior: number | null;
+	delta: number | null;
+};
+
 export type DashboardStats = {
 	daysToRace: number | null;
 	totalKm: number;
 	runCount: number;
 	avgEffort: number | null;
-	avgShins: number | null;
 	avgHr: number | null;
 	elevGain: number;
 	monthRuns: number;
@@ -722,9 +729,8 @@ export type DashboardStats = {
 	weekKm: number;
 	longestKm: number | null;
 	avgPace: string | null;
-	shinRecent: number | null;
-	shinPrior: number | null;
-	shinDelta: number | null;
+	/** Per body area: last 4 scores avg vs the 4 before. */
+	bodyTrends: BodyTrend[];
 	mappedRuns: number;
 	streak: number;
 };
@@ -755,18 +761,23 @@ export function buildDashboardStats(
 	const avgPaceSecs = avg(paceSecs);
 	const avgPace = avgPaceSecs != null ? formatDuration(avgPaceSecs) : null;
 
-	const withShins = runs.filter((r) => r.shins != null);
-	const shinRecent = avg(withShins.slice(0, 4).map((r) => r.shins));
-	const shinPrior = avg(withShins.slice(4, 8).map((r) => r.shins));
-	const shinDelta =
-		shinRecent != null && shinPrior != null ? round1(shinRecent - shinPrior) : null;
+	const bodyTrends = bodyScoreTracks(runs).map((t): BodyTrend => {
+		const scores = t.points.map((p) => p.score).reverse();
+		const recent = avg(scores.slice(0, 4));
+		const prior = avg(scores.slice(4, 8));
+		return {
+			area: t.area,
+			recent: recent != null ? round1(recent) : null,
+			prior: prior != null ? round1(prior) : null,
+			delta: recent != null && prior != null ? round1(recent - prior) : null
+		};
+	});
 
 	return {
 		daysToRace: opts.daysToRace,
 		totalKm: round1(sumDistance(runs)),
 		runCount: runs.length,
 		avgEffort: avg(runs.map((r) => r.effort)),
-		avgShins: avg(runs.map((r) => r.shins)),
 		avgHr: avg(runs.map((r) => r.avg_hr)),
 		elevGain: Math.round(runs.reduce((a, r) => a + (r.elev_gain ?? 0), 0)),
 		monthRuns: monthRunsList.length,
@@ -774,9 +785,7 @@ export function buildDashboardStats(
 		weekKm: round1(sumDistance(weekRuns)),
 		longestKm: longestKm != null ? round1(longestKm) : null,
 		avgPace,
-		shinRecent: shinRecent != null ? round1(shinRecent) : null,
-		shinPrior: shinPrior != null ? round1(shinPrior) : null,
-		shinDelta,
+		bodyTrends,
 		mappedRuns: opts.mappedRuns,
 		streak: opts.streak ?? 0
 	};

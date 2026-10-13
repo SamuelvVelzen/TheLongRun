@@ -9,7 +9,7 @@ import {
     showsField
 } from '$lib/activity';
 import { saveExportedFile, shareOrDownload } from '$lib/activity-export';
-import { AuthGate, useAuthed } from '$lib/auth';
+import { AuthGate, useAuthed, usePainLabel } from '$lib/auth';
 import { buildBestEffortBoard, highlightsForActivity, supportsBestEfforts } from '$lib/best-efforts';
 import { filterRunsByRange, isoDateLocal, parseDateRange, type RangeKind } from '$lib/date-range';
 import {
@@ -256,6 +256,7 @@ function TimelineBody({
 	const router = useRouter();
 	const snack = useSnackbar();
 	const authed = useAuthed();
+	const pain = usePainLabel();
 	const [copied, setCopied] = useState(false);
 	const [pending, setPending] = useState<RunWithMap | null>(null);
 	const [pendingMass, setPendingMass] = useState(false);
@@ -309,7 +310,8 @@ function TimelineBody({
 				formatTimelineClipboard(runs, {
 					summary,
 					sport,
-					todayIso: isoDateLocal(new Date())
+					todayIso: isoDateLocal(new Date()),
+					pain
 				})
 			);
 			setCopied(true);

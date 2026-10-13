@@ -1,6 +1,7 @@
 import { activityLabel, normalizeActivityType, showsFeel, showsField } from '$lib/activity';
 import { parseOptionalNumber } from '$lib/activity-form';
 import { HABIT_PLACEHOLDERS, type HabitPair } from '$lib/activity-habits';
+import { usePainLabel } from '$lib/auth';
 import {
 	gearKindForActivity,
 	gearMetaForActivity,
@@ -241,6 +242,7 @@ export function DebriefFeelForm({
 	onHabitChange: (field: keyof HabitPair, text: string) => void;
 	onSaved: () => void | Promise<void>;
 }) {
+	const pain = usePainLabel();
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	const [scoresOpen, setScoresOpen] = useState(false);
 	const activityType = normalizeActivityType(run.activity_type ?? 'run');
@@ -443,7 +445,7 @@ export function DebriefFeelForm({
 								name="shins"
 								children={(field) => (
 									<FeelChips
-										label="Shins (0–10)"
+										label={`${pain} (0–10)`}
 										min={0}
 										max={10}
 										low="none"

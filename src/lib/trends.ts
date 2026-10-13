@@ -350,7 +350,13 @@ function buildDistanceSeries(
 /** Build the coherent trend set used on Dashboard. */
 export function buildTrainingTrends(
 	runs: RunRecord[],
-	opts?: { endDate?: string | null; fromDate?: string | null; calendar?: PlanCalendar }
+	opts?: {
+		endDate?: string | null;
+		fromDate?: string | null;
+		calendar?: PlanCalendar;
+		/** Label for the pain score series (the tracked body note). */
+		painLabel?: string;
+	}
 ): TrainingTrends {
 	const series: TrendSeries[] = [];
 	const distance = buildDistanceSeries(runs, opts);
@@ -377,7 +383,7 @@ export function buildTrainingTrends(
 
 	const shins = buildScoreSeries(runs, {
 		id: 'shins',
-		title: 'Shins',
+		title: opts?.painLabel ?? 'Pain',
 		field: 'shins',
 		lowerIsBetter: true
 	});

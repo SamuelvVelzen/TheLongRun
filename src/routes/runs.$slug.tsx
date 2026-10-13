@@ -7,7 +7,7 @@ import {
 } from '$lib/activity';
 import { runToActivityForm, toUpdateRunInput } from '$lib/activity-form';
 import { HABIT_PLACEHOLDERS, withHabitDefaults } from '$lib/activity-habits';
-import { useAuthed } from '$lib/auth';
+import { useAuthed, usePainLabel } from '$lib/auth';
 import { gearKindForActivity, gearMetaForActivity, gearPickerOptions } from '$lib/gear';
 import {
     createActivityGroupFn,
@@ -314,6 +314,7 @@ function RunDetail() {
 	} = Route.useLoaderData();
 	const router = useRouter();
 	const authed = useAuthed();
+	const pain = usePainLabel();
 	const snack = useSnackbar();
 	const { edit: editFromSearch } = Route.useSearch();
 	const editing = authed && Boolean(editFromSearch);
@@ -667,7 +668,7 @@ function RunDetail() {
 							<FeelTile editable={authed} label="energy" value={r.energy} min={1} max={10} onSave={(v) => patchRun({ energy: v })} />
 						)}
 						{showsFeel(r.activity_type, 'shins') && (
-							<FeelTile editable={authed} label="shins" value={r.shins} min={0} max={10} onSave={(v) => patchRun({ shins: v })} />
+							<FeelTile editable={authed} label={pain.toLowerCase()} value={r.shins} min={0} max={10} onSave={(v) => patchRun({ shins: v })} />
 						)}
 						{showsFeel(r.activity_type, 'legs') && (
 							<FeelTile editable={authed} label="legs" value={r.legs} min={0} max={10} onSave={(v) => patchRun({ legs: v })} />
@@ -867,7 +868,7 @@ function RunDetail() {
 								label="Notes & mid-run context"
 								value={r.notes || ''}
 								multiline
-								placeholder="Shins flared at 4 km, backed off. Legs opened up after the turnaround…"
+								placeholder="Felt a twinge at 4 km, backed off. Legs opened up after the turnaround…"
 								editable={authed}
 								onSave={(v) => patchRun({ notes: v })}
 							/>

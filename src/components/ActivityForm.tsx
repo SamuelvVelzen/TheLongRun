@@ -19,6 +19,7 @@ import {
 	isReplaceableHabitField,
 	type ActivityHabits
 } from '$lib/activity-habits';
+import { usePainLabel } from '$lib/auth';
 import { dayFromIsoDate } from '$lib/format';
 import {
 	gearKindForActivity,
@@ -71,6 +72,7 @@ export function ActivityForm({
 	cancel: ReactNode;
 	onSubmit: (values: ActivityFormValues) => void | Promise<void>;
 }) {
+	const pain = usePainLabel();
 	const form = useAppForm({
 		defaultValues,
 		validators: { onSubmit: activityFormSchema },
@@ -269,7 +271,7 @@ export function ActivityForm({
 											name="shins"
 											children={(field) => (
 												<FeelChips
-													label="Shins (0–10)"
+													label={`${pain} (0–10)`}
 													min={0}
 													max={10}
 													low="none"

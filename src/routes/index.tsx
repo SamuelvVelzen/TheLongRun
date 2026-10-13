@@ -8,7 +8,7 @@ import {
     normalizeActivityType,
     showsField
 } from '$lib/activity';
-import { SignInLink, useAuthed } from '$lib/auth';
+import { SignInLink, useAuthed, usePainLabel } from '$lib/auth';
 import {
     filterRunsByRange,
     parseDateRange,
@@ -106,6 +106,7 @@ function DashboardBody({
 	authed: boolean;
 }) {
 	const search = Route.useSearch();
+	const pain = usePainLabel();
 
 	const sp = new URLSearchParams();
 	if (search.range) sp.set('range', search.range);
@@ -180,6 +181,7 @@ function DashboardBody({
 		streak: data.streak
 	});
 	const trends = buildTrainingTrends(runs, {
+		painLabel: pain,
 		endDate: range.to,
 		fromDate: range.from,
 		calendar: data.calendar
@@ -511,7 +513,7 @@ function DashboardBody({
 						{(sportIsAll(sport) ||
 							selectedSports(sport).some((s) => s === 'run' || s === 'walk')) && (
 							<>
-								Shins {shinLabel(stats)}
+								{pain} {shinLabel(stats)}
 								<span aria-hidden="true"> · </span>
 							</>
 						)}

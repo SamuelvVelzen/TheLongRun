@@ -4,13 +4,31 @@ import { useRouterState } from '@tanstack/react-router';
 import { cn } from './ui';
 
 const AuthContext = createContext(false);
+const PainLabelContext = createContext('Pain');
 
-export function AuthProvider({ authed, children }: { authed: boolean; children: ReactNode }) {
-	return <AuthContext.Provider value={authed}>{children}</AuthContext.Provider>;
+export function AuthProvider({
+	authed,
+	painLabel,
+	children
+}: {
+	authed: boolean;
+	painLabel: string;
+	children: ReactNode;
+}) {
+	return (
+		<AuthContext.Provider value={authed}>
+			<PainLabelContext.Provider value={painLabel}>{children}</PainLabelContext.Provider>
+		</AuthContext.Provider>
+	);
 }
 
 export function useAuthed(): boolean {
 	return useContext(AuthContext);
+}
+
+/** Label for the per-activity pain score — the tracked body note's area, else "Pain". */
+export function usePainLabel(): string {
+	return useContext(PainLabelContext);
 }
 
 export function loginHref(next?: string): string {

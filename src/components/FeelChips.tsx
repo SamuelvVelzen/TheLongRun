@@ -36,11 +36,7 @@ export function FeelChips({
 	const [uncontrolled, setUncontrolled] = useState(
 		defaultValue != null && Number.isFinite(defaultValue) ? String(defaultValue) : ''
 	);
-	const selected = isControlled
-		? valueProp
-		: uncontrolled === ''
-			? null
-			: Number(uncontrolled);
+	const selected = isControlled ? valueProp : uncontrolled === '' ? null : Number(uncontrolled);
 
 	function set(next: number | null) {
 		if (!isControlled) setUncontrolled(next == null ? '' : String(next));
@@ -48,7 +44,7 @@ export function FeelChips({
 	}
 
 	return (
-		<Field label={label} className="col-span-full">
+		<Field as="div" label={label} className="col-span-full">
 			{name != null ? <input type="hidden" name={name} value={selected ?? ''} /> : null}
 			<div
 				className="grid gap-[0.25rem]"
@@ -112,13 +108,9 @@ export function WantedFasterChips({
 	}
 
 	return (
-		<Field label="Wanted to go faster?" className="col-span-full">
+		<Field as="div" label="Wanted to go faster?" className="col-span-full">
 			{name != null ? <input type="hidden" name={name} value={value} /> : null}
-			<div
-				className="grid grid-cols-3 gap-[0.3rem]"
-				role="group"
-				aria-label="Wanted to go faster?"
-			>
+			<div className="grid grid-cols-3 gap-[0.3rem]" role="group" aria-label="Wanted to go faster?">
 				{opts.map((opt) => {
 					const active = value === opt.v;
 					return (

@@ -70,13 +70,13 @@ const moreLinks = [
 	{ href: '/import', label: 'Add activity', icon: 'plus' },
 	{ href: '/gear', label: 'Gear', icon: 'gear' },
 	{ href: '/fuel', label: 'Fuel', icon: 'fuel' },
-	{ href: '/context', label: 'Context', icon: 'context' }
+	{ href: '/profile', label: 'Profile', icon: 'profile' }
 ] as const;
 
 const desktopMoreLinks = [
 	{ href: '/gear', label: 'Gear', icon: 'gear' },
 	{ href: '/fuel', label: 'Fuel', icon: 'fuel' },
-	{ href: '/context', label: 'Context', icon: 'context' }
+	{ href: '/profile', label: 'Profile', icon: 'profile' }
 ] as const;
 
 const tabs = [
@@ -112,7 +112,7 @@ function closeDetails(e: MouseEvent<HTMLElement>) {
 function RootComponent() {
 	const auth = Route.useLoaderData();
 	return (
-		<AuthProvider authed={auth.authed}>
+		<AuthProvider authed={auth.authed} painLabel={auth.painLabel}>
 			<RootShell />
 		</AuthProvider>
 	);

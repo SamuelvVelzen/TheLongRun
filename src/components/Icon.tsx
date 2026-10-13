@@ -11,7 +11,7 @@ export type IconName =
 	| 'more'
 	| 'plus'
 	| 'upload'
-	| 'context'
+	| 'profile'
 	| 'gear'
 	| 'fuel'
 	| 'map'
@@ -101,11 +101,11 @@ function Paths({ name }: { name: IconName }) {
 					<path d="M5 19h14" />
 				</>
 			);
-		case 'context':
+		case 'profile':
 			return (
 				<>
-					<path d="M7 4h8l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
-					<path d="M15 4v5h5M9 13h6M9 17h4" />
+					<circle cx="12" cy="8" r="3.5" />
+					<path d="M5 20c.6-3.6 3.4-6 7-6s6.4 2.4 7 6" />
 				</>
 			);
 		case 'gear':

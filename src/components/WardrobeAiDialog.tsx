@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AiPromptFlow } from './AiPromptFlow';
 import { Icon } from './Icon';
 import { JsonPasteForm } from './JsonPasteForm';
-import { Button, Dialog, statusPillClass } from './ui';
+import { Button, Checkbox, Dialog, statusPillClass } from './ui';
 
 /** Describe or ask → copy prompt → paste the AI's JSON → pick what to keep. Nothing saves until confirmed. */
 export function WardrobeAiDialog({
@@ -86,22 +86,21 @@ export function WardrobeAiDialog({
 						{changes.map((c) => {
 							const detail = clothingDetailLabel(c.item);
 							return (
-								<label key={c.item.id} className="flex items-start gap-3 py-2 cursor-pointer select-none">
-									<input
-										className="mt-1 size-5 shrink-0 accent-[var(--accent,#c8f25a)]"
-										type="checkbox"
-										checked={picked.has(c.item.id)}
-										disabled={busy}
-										onChange={(e) =>
-											setPicked((prev) => {
-												const next = new Set(prev);
-												if (e.target.checked) next.add(c.item.id);
-												else next.delete(c.item.id);
-												return next;
-											})
-										}
-									/>
-									<div className="flex-1 min-w-0">
+								<Checkbox
+									key={c.item.id}
+									className="py-2"
+									checked={picked.has(c.item.id)}
+									disabled={busy}
+									onChange={(on) =>
+										setPicked((prev) => {
+											const next = new Set(prev);
+											if (on) next.add(c.item.id);
+											else next.delete(c.item.id);
+											return next;
+										})
+									}
+									label={
+									<>
 										<div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
 											<strong className="font-display">{c.item.name}</strong>
 											<span className="text-muted text-[0.9rem] tabular-nums">×{c.item.count}</span>
@@ -116,8 +115,9 @@ export function WardrobeAiDialog({
 										<p className={cn('text-muted', 'm-0 mt-1 text-[0.82rem]')}>
 											{[CLOTHING_CATEGORY_META[c.item.category].label, detail].filter(Boolean).join(' · ')}
 										</p>
-									</div>
-								</label>
+									</>
+									}
+								/>
 							);
 						})}
 					</div>

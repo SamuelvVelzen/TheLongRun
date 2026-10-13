@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { FuelTryLine } from './FuelParts';
 import { Icon } from './Icon';
 import { errorMessage, useSnackbar } from './Snackbar';
-import { Button, Dialog } from './ui';
+import { Button, Checkbox, Dialog } from './ui';
 
 /** Food the coach spotted in the write-up — nothing is saved until confirmed here. */
 export function FuelSuggestionsDialog({
@@ -64,25 +64,21 @@ export function FuelSuggestionsDialog({
 			</p>
 			<div className="grid">
 				{suggestions.map((s) => (
-					<label key={s.id} className="flex items-start gap-3 cursor-pointer select-none">
-						<input
-							className="mt-4 size-5 shrink-0 accent-[var(--accent,#c8f25a)]"
-							type="checkbox"
-							checked={picked.has(s.id)}
-							disabled={busy}
-							onChange={(e) =>
-								setPicked((prev) => {
-									const next = new Set(prev);
-									if (e.target.checked) next.add(s.id);
-									else next.delete(s.id);
-									return next;
-								})
-							}
-						/>
-						<div className="flex-1 min-w-0">
-							<FuelTryLine entry={s} showItem showPhase />
-						</div>
-					</label>
+					<Checkbox
+						key={s.id}
+						boxClassName="mt-4"
+						checked={picked.has(s.id)}
+						disabled={busy}
+						onChange={(on) =>
+							setPicked((prev) => {
+								const next = new Set(prev);
+								if (on) next.add(s.id);
+								else next.delete(s.id);
+								return next;
+							})
+						}
+						label={<FuelTryLine entry={s} showItem showPhase />}
+					/>
 				))}
 			</div>
 		</Dialog>

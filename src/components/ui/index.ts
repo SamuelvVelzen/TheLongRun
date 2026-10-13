@@ -15,6 +15,7 @@ export {
 	tabBarClass,
 	TabBar
 } from './Chrome';
+export { Checkbox } from './Checkbox';
 export { ChoiceChips, type ChoiceOption } from './ChoiceChips';
 export { ConfirmDialog, Dialog, dialogPanelMedalClass } from './Dialog';
 export { ChipField, NumberField, SelectField, TextAreaField, TextField } from './fields';

@@ -1,4 +1,4 @@
-import { buttonClass } from './ui';
+import { buttonClass, Checkbox } from './ui';
 import type { GpsContextTrack, GpsPoint, GpsWaypoint } from '$lib/gps-repair';
 import { previewGpsNetwork } from '$lib/server/functions';
 import { cn } from '$lib/ui';
@@ -172,16 +172,15 @@ export function WaypointEditor({
 				>
 					Clear
 				</button>
-				<label className="ml-auto flex items-center gap-2.5 text-[0.88rem] text-muted m-0 cursor-pointer select-none">
-					<span className="text-right leading-snug">Follow roads</span>
-					<input
-						className="size-4 shrink-0 accent-[var(--accent,#c8f25a)]"
-						type="checkbox"
-						checked={followNetwork}
-						disabled={busy}
-						onChange={(e) => setFollowNetwork(e.target.checked)}
-					/>
-				</label>
+				<Checkbox
+					size="sm"
+					boxPosition="end"
+					className="ml-auto text-[0.88rem] text-muted"
+					checked={followNetwork}
+					disabled={busy}
+					onChange={setFollowNetwork}
+					label={<span className="block text-right leading-snug">Follow roads</span>}
+				/>
 			</div>
 			<p className={cn('text-muted', 'm-0 text-[0.78rem] text-right')}>
 				BRouter bike/hike network — not trains. Uncheck to keep the line you drew.

@@ -627,13 +627,16 @@ function ActiveGoalCard({
 					<button className={buttonClass({ variant: 'danger' })} type="button" onClick={onClear}>
 						Clear
 					</button>
-					<IconLabelLink
-						label="Plan"
-						size="default"
+					<Link
+						className={buttonClass({ variant: 'ghost', size: 'default' })}
 						to="/coach"
 						search={{ tab: 'plan' }}
-						icon={<Icon name="board" size={16} />}
-					/>
+						aria-label="Plan"
+						title="Plan"
+					>
+						<Icon name="board" size={16} />
+						<span className="max-sm:hidden">Plan</span>
+					</Link>
 				</Actions>
 			)}
 			{authed && canPinRaceResult(goal) && (

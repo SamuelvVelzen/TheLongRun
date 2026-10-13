@@ -68,6 +68,7 @@ export function CoachNotesAiDialog({
 						className="py-2"
 						checked
 						disabled
+						onChange={() => {}}
 						label={
 							<p className="m-0 whitespace-pre-wrap text-[0.9rem] leading-relaxed max-h-[14rem] overflow-y-auto">
 								{preview}

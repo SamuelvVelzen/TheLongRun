@@ -266,7 +266,10 @@ export function groupHighlights(
 }
 
 export function combinedHeadline(
-	stats: Pick<CombinedRunStats, 'activity_type' | 'avg_pace' | 'distance_km' | 'time'>
+	stats: Pick<
+		CombinedRunStats,
+		'activity_type' | 'avg_pace' | 'distance_km' | 'time' | 'elapsed_time'
+	>
 ) {
 	return headlineMetric(stats);
 }

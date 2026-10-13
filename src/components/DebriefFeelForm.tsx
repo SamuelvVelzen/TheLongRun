@@ -276,13 +276,14 @@ export function DebriefFeelForm({
 	useEffect(() => {
 		const panel = panelRef.current;
 		if (!panel) return;
+		const el = panel;
 		function onPanelFocusOut(e: FocusEvent) {
 			const next = e.relatedTarget;
-			if (next instanceof Node && panel.contains(next)) return;
+			if (next instanceof Node && el.contains(next)) return;
 			flushSaveRef.current?.();
 		}
-		panel.addEventListener('focusout', onPanelFocusOut);
-		return () => panel.removeEventListener('focusout', onPanelFocusOut);
+		el.addEventListener('focusout', onPanelFocusOut);
+		return () => el.removeEventListener('focusout', onPanelFocusOut);
 	}, []);
 
 	return (

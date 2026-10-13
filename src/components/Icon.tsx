@@ -1,4 +1,4 @@
-import { tagClass } from './ui/Tag';
+import { Tag, tagClass } from './ui/Tag';
 import { activityLabel, normalizeActivityType, type ActivityType } from '$lib/activity';
 import { cn } from '$lib/ui';
 import type { ReactNode } from 'react';

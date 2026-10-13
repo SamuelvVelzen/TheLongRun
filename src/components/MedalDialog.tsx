@@ -1,5 +1,6 @@
 import { PinRaceResult, type PinRaceCandidate } from './PinRaceResult';
 import { Actions, Dialog, IconLabelButton, Metric, Metrics, Panel, Tag } from './ui';
+import { tagClass } from './ui/Tag';
 import { buttonClass } from './ui/Button';
 import { activityLabel, showsField } from '$lib/activity';
 import { formatDuration, parseDurationSeconds } from '$lib/format';

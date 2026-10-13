@@ -19,6 +19,7 @@ import {
 	useSnackbar
 } from './ui';
 import { buttonClass } from './ui/Button';
+import { dropzoneClass } from './ui/Chrome';
 
 export type GpxImportResult = {
 	name: string;

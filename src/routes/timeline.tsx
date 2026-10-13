@@ -13,6 +13,7 @@ import {
 	filterSummary,
 	useSnackbar
 } from '../components/ui';
+import { actionsClass } from '../components/ui/Actions';
 import { buttonClass } from '../components/ui/Button';
 import {
     activityLabel,

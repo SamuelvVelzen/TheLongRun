@@ -1,6 +1,6 @@
 import { ConfirmDialog, Dialog, Field, IconLabelButton } from './ui';
 import { buttonClass } from './ui/Button';
-import { fieldHintClass } from './ui/Field';
+import { fieldClass, fieldHintClass } from './ui/Field';
 import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
 import { cn } from '$lib/ui';
 import {

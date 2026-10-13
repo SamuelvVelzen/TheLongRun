@@ -41,6 +41,7 @@ import {
 	useSnackbar
 } from '../components/ui';
 import { buttonClass } from '../components/ui/Button';
+import { runTitleClass } from '../components/ui/Chrome';
 import { WaypointEditor, type WaypointEditorHandle } from '../components/WaypointEditor';
 
 export const Route = createFileRoute('/routes/$slug')({

@@ -193,9 +193,9 @@ function LiveLocationBroadcaster() {
 						<p className="m-0 flex-1 text-[0.88rem] leading-[1.35]">
 							Location is being shared on the map.
 						</p>
-						<button className={snackActionClass} type="button" onClick={() => void stop()}>
+						<SnackAction type="button" onClick={() => void stop()}>
 							Stop
-						</button>
+						</SnackAction>
 					</div>
 				</div>
 			) : null}
@@ -289,9 +289,9 @@ function LiveLocationWatch() {
 					>
 						<span className="size-2 shrink-0 rounded-full bg-live" aria-hidden="true" />
 						<p className="m-0 flex-1 text-[0.88rem] leading-[1.35]">Live location is on the map.</p>
-						<button className={snackActionClass} type="button" onClick={() => setWatching(true)}>
+						<SnackAction type="button" onClick={() => setWatching(true)}>
 							Watch
-						</button>
+						</SnackAction>
 					</div>
 				</div>
 			) : null}

@@ -1,10 +1,10 @@
 import {
 	BODY_NOTE_STATUS_META,
 	BODY_NOTE_STATUSES,
+	capitalize,
 	DEFAULT_PAIN_LABEL,
 	MAX_BODY_AREA,
 	MAX_BODY_TEXT,
-	capitalize,
 	newBodyNoteId,
 	type BodyNote,
 	type BodyNotes,
@@ -17,22 +17,23 @@ import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { BodyNoteLine } from './BodyNoteParts';
 import { Icon } from './Icon';
-import { errorMessage, useSnackbar } from './Snackbar';
 import {
 	Actions,
 	Button,
-	buttonClass,
 	Checkbox,
 	ConfirmDialog,
 	Dialog,
-	dialogPanelMedalClass,
+	IconLabelButton,
+	errorMessage,
 	Form,
 	FormGrid,
-	formClass,
-	formSectionTitleClass,
-	panelClass,
-	useAppForm
+	Panel,
+	PanelTitle,
+	useAppForm,
+	useSnackbar
 } from './ui';
+import { BodyNotesAiDialog } from './BodyNotesAiDialog';
+import { buttonClass } from './ui/Button';
 
 const STATUS_OPTIONS = BODY_NOTE_STATUSES.map((value) => ({
 	value,
@@ -95,7 +96,7 @@ function BodyNoteDialog({
 			open={open}
 			title={note ? `Edit · ${capitalize(note.area)}` : 'Add body note'}
 			onClose={busy ? () => {} : onClose}
-			className={cn(dialogPanelMedalClass, 'sm:max-w-[min(38rem,100%)]!')}
+			size="medal" className="sm:max-w-[min(38rem,100%)]!"
 		>
 			<Form
 				onSubmit={(e) => {
@@ -174,6 +175,7 @@ export function BodyNotesPanel({ initial, authed }: { initial: BodyNotes; authed
 	const [editing, setEditing] = useState<BodyNote | null>(null);
 	const [adding, setAdding] = useState(false);
 	const [remove, setRemove] = useState<BodyNote | null>(null);
+	const [importAi, setImportAi] = useState(false);
 
 	useEffect(() => {
 		setBody(initial);
@@ -243,14 +245,24 @@ export function BodyNotesPanel({ initial, authed }: { initial: BodyNotes; authed
 	);
 
 	return (
-		<section className={panelClass(authed && formClass, 'mb-5')}>
+		<Panel form={authed} className="mb-5">
 			<div className="flex flex-wrap items-center justify-between gap-2">
-				<h3 className={cn(formSectionTitleClass, 'm-0 mb-0 pb-0 border-b-0')}>Body notes</h3>
+				<PanelTitle className="m-0 mb-0 pb-0 border-b-0">Body notes</PanelTitle>
 				{authed && (
-					<Button variant="ghost" size="sm" disabled={busy} onClick={() => setAdding(true)}>
-						<Icon name="plus" size={16} />
-						Add
-					</Button>
+					<div className="flex flex-wrap gap-2 justify-end">
+						<IconLabelButton
+							label="Import with AI"
+							disabled={busy}
+							icon={<Icon name="sparkle" size={16} />}
+							onClick={() => setImportAi(true)}
+						/>
+						<IconLabelButton
+							label="Add"
+							disabled={busy}
+							icon={<Icon name="plus" size={16} />}
+							onClick={() => setAdding(true)}
+						/>
+					</div>
 				)}
 			</div>
 			<p className={cn('text-muted', 'm-0 mt-1 text-[0.9rem]')}>
@@ -270,6 +282,15 @@ export function BodyNotesPanel({ initial, authed }: { initial: BodyNotes; authed
 				</p>
 			)}
 
+			{authed && (
+				<BodyNotesAiDialog
+					open={importAi}
+					body={body}
+					busy={busy}
+					onClose={() => setImportAi(false)}
+					onSave={(next, okMessage) => persist(next.notes, okMessage)}
+				/>
+			)}
 			{authed && (
 				<BodyNoteDialog
 					open={adding || editing != null}
@@ -302,6 +323,6 @@ export function BodyNotesPanel({ initial, authed }: { initial: BodyNotes; authed
 					setRemove(null);
 				}}
 			/>
-		</section>
+		</Panel>
 	);
 }

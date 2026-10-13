@@ -129,6 +129,15 @@ export type BodySuggestion = { note: BodyNote; existing: boolean };
  * Debrief `body` entries as full notes, ready to confirm: an entry for a known area keeps that
  * note's id (and its trigger/helps when the AI left them blank). Broken entries are dropped.
  */
+/** Merge picked import / debrief suggestions into saved body notes. */
+export function applyBodyImport(body: BodyNotes, chosen: BodySuggestion[]): BodyNotes {
+	const picked = chosen.map((c) => c.note);
+	const byId = new Map(picked.map((n) => [n.id, n]));
+	const kept = body.notes.map((n) => byId.get(n.id) ?? n);
+	const added = picked.filter((n) => !body.notes.some((o) => o.id === n.id));
+	return normalizeBodyNotes({ notes: [...kept, ...added] });
+}
+
 export function mergeBodySuggestions(current: BodyNotes, input: unknown): BodySuggestion[] {
 	const list = Array.isArray(input) ? input : input && typeof input === 'object' ? [input] : [];
 	const out: BodySuggestion[] = [];

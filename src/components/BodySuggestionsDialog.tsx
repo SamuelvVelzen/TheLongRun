@@ -1,12 +1,22 @@
 import type { BodySuggestion } from '$lib/body-notes';
+import type { ReactNode } from 'react';
+
+function bodySuggestionTag({ note, existing }: BodySuggestion): ReactNode {
+	if (!existing) {
+		return <span className="inline-flex px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] font-bold uppercase tracking-wide bg-accent/15 text-accent-fg">New</span>;
+	}
+	if (note.status === 'resolved') {
+		return <span className="inline-flex px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] font-bold uppercase tracking-wide text-muted border border-line">Resolved</span>;
+	}
+	return <span className="inline-flex px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] font-bold uppercase tracking-wide text-muted border border-line">Changed</span>;
+}
 import { applyBodySuggestions } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { BodyNoteLine } from './BodyNoteParts';
 import { Icon } from './Icon';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { Button, Checkbox, Dialog, statusPillClass } from './ui';
+import { Button, Checkbox, Dialog, StatusPill, errorMessage, useSnackbar } from './ui';
 
 /** Body notes the coach read from the write-up — nothing is saved until confirmed here. */
 export function BodySuggestionsDialog({
@@ -60,7 +70,7 @@ export function BodySuggestionsDialog({
 			}
 		>
 			<p className={cn('text-muted', 'm-0')}>
-				Your write-up mentions something new, changed, or cleared up. Untick anything you don't want to keep.
+				From your debrief JSON — new areas, status changes, or niggles marked resolved. Nothing is written to Profile until you save here.
 			</p>
 			<div className="grid">
 				{suggestions.map(({ note, existing }) => (
@@ -81,15 +91,7 @@ export function BodySuggestionsDialog({
 							<BodyNoteLine
 								note={note}
 								hideUpdated
-								tag={
-									<span
-										className={statusPillClass(
-											existing ? 'text-muted border border-line' : 'bg-accent/15 text-accent-fg'
-										)}
-									>
-										{existing ? 'Update' : 'New'}
-									</span>
-								}
+								tag={bodySuggestionTag({ note, existing })}
 							/>
 						}
 					/>

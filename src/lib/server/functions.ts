@@ -2689,7 +2689,7 @@ export const saveActivityHabits = createServerFn({ method: 'POST' }).middleware(
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ISO_HORIZON_RE = /^\d{4}-\d{2}$/;
 
-type GoalBriefDraft = {
+export type GoalBriefDraft = {
 	name: string;
 	date: string;
 	horizon: string;

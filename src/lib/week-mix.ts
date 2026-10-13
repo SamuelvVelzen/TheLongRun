@@ -360,14 +360,12 @@ export function formatWeekSetupProse(setup: WeekSetup): string {
 }
 
 export function formatPatternLines(pattern: WeekPattern): string {
-	if (!pattern.length) return '- (none)';
 	return sortPattern(pattern)
 		.map((s) => `- ${s.day} — ${activityLabel(s.activity_type)}${formatSlotFlags(s)}`)
 		.join('\n');
 }
 
 export function formatDayLimitLines(limits: DayLimit[]): string {
-	if (!limits.length) return '- (none — every day is available)';
 	return normalizeDayLimits(limits)
 		.map((l) => {
 			const notes = l.notes?.trim();
@@ -389,11 +387,11 @@ function exampleDistance(type: ActivityType, index: number, total: number): numb
 	return 6;
 }
 
-function exampleRunWorkout(index: number, total: number): Record<string, unknown> {
+function exampleRunWorkout(index: number, total: number, easyPace: string): Record<string, unknown> {
 	if (total >= 2 && index === total - 1) {
 		return {
 			type: 'long',
-			blocks: [{ kind: 'run', distance_km: 12, pace: '6:40', effort: 'easy' }]
+			blocks: [{ kind: 'run', distance_km: 12, pace: easyPace, effort: 'easy' }]
 		};
 	}
 	if (index === 1) {
@@ -404,7 +402,7 @@ function exampleRunWorkout(index: number, total: number): Record<string, unknown
 				{
 					repeat: 5,
 					steps: [
-						{ kind: 'run', distance_km: 0.8, pace: '4:50', effort: 'interval' },
+						{ kind: 'run', distance_km: 0.8, effort: 'interval' },
 						{ kind: 'recovery', mode: 'walk', time: '2:00', effort: 'recovery' }
 					]
 				},
@@ -414,7 +412,7 @@ function exampleRunWorkout(index: number, total: number): Record<string, unknown
 	}
 	return {
 		type: 'easy',
-		blocks: [{ kind: 'run', distance_km: 6, pace: '6:30', effort: 'easy' }]
+		blocks: [{ kind: 'run', distance_km: 6, pace: easyPace, effort: 'easy' }]
 	};
 }
 
@@ -443,7 +441,10 @@ const PLACEHOLDER_DAY = 'YOU CHOOSE — a weekday';
  * Illustrative JSON: pinned rows keep their real day; each planned sport gets its preference
  * rows or placeholder rows, so a commute-only setup does not read as a bikes-only week.
  */
-export function exampleSessionsForSetup(setup: WeekSetup): Record<string, unknown>[] {
+export function exampleSessionsForSetup(
+	setup: WeekSetup,
+	easyPace = 'M:SS'
+): Record<string, unknown>[] {
 	const rows: { day: string; type: ActivityType; slot: WeekSlot | null }[] = [];
 	for (const s of sortPattern(setup.pattern.filter(isPinnedSlot))) {
 		rows.push({ day: s.day, type: s.activity_type, slot: s });
@@ -471,12 +472,10 @@ export function exampleSessionsForSetup(setup: WeekSetup): Record<string, unknow
 			label: 'YOU CHOOSE',
 			distance_km: exampleDistance(type, i, total),
 			detail: exampleDetail(type, slot),
-			...(type === 'run' ? { workout: exampleRunWorkout(i, total) } : {}),
+			...(type === 'run' ? { workout: exampleRunWorkout(i, total, easyPace) } : {}),
 			...(type === 'strength'
 				? {
-						exercises: [
-							{ name: 'YOU CHOOSE — usual lift from Recent strength', sets: 3, reps: 8 }
-						]
+						exercises: [{ name: 'YOU CHOOSE — usual lift from Lift tops', sets: 3, reps: 8 }]
 					}
 				: {})
 		};
@@ -485,11 +484,12 @@ export function exampleSessionsForSetup(setup: WeekSetup): Record<string, unknow
 
 /** How to fill strength rows in the week JSON — duration lives in `detail`, lifts in `exercises`. */
 export const STRENGTH_SESSION_PROMPT =
-	'For every **strength** session: `"distance_km"` is null. `"label"` is the gym kind (Full body, Lower, Upper, Push, Pull, Posterior, Hypertrophy, Strength, Circuit, Core — never a bare "Gym"). `"detail"` is what I read on the board: start with **how long** (`20 min.`), then **how heavy** (RPE and/or kg from Recent strength), then **how fast** (rest, tempo, straight sets vs circuit). Do **not** hide the lift list in `detail`. Upcoming gym work **must** include `"exercises"`: `{"name","sets"}` plus `"reps"` (per set) or `"sec"` (timed hold). Optional `"kg"` only when Recent strength has a number — omit rather than invent. Optional `"note"` for cues (single-leg, slow eccentric). Example: `{"day":"Thursday","activity_type":"strength","label":"Full body","distance_km":null,"detail":"50 min. RPE 6–7, 90s rest, straight sets, controlled tempo.","exercises":[{"name":"Goblet squat","sets":3,"reps":8},{"name":"seated row","sets":3,"reps":10,"kg":45},{"name":"plank","sets":2,"sec":45}]}`';
+	'For every **strength** session: `"distance_km"` is null. `"label"` is the gym kind (Full body, Lower, Upper, Push, Pull, Posterior, Hypertrophy, Strength, Circuit, Core — never a bare "Gym"). `"detail"` starts with **how long** (`50 min.`), then **how heavy** (RPE and/or kg), then **how fast** (rest, tempo, straight sets vs circuit) — never the lift list. Upcoming gym work **must** include `"exercises"`: `{"name","sets"}` plus `"reps"` (per set) or `"sec"` (timed hold); optional `"kg"` only when Lift tops has a number, optional `"note"` for cues. Example: `{"label":"Full body","distance_km":null,"detail":"50 min. RPE 6–7, 90s rest, straight sets.","exercises":[{"name":"Goblet squat","sets":3,"reps":8},{"name":"Plank","sets":2,"sec":45}]}`';
 
 /** How to fill run rows — one `workout` shape for every run type, built from blocks. */
-export const RUN_SESSION_PROMPT =
-	'For every upcoming **run** session add `"workout"`: `{"type","blocks"}`. One shape for every kind of run — only `type` changes: easy, recovery, long, tempo, interval, fartlek, progression, hills, race. `blocks` is a list where each block is a **step** or a **repeat**. A step is `{"kind","distance_km" | "time","pace" and/or "effort"}`: `kind` is warmup / run / recovery / cooldown; exactly one of `"distance_km"` (number) or `"time"` (`"MM:SS"`); `"pace"` is always min/km as `"M:SS"` or a range `"M:SS-M:SS"` (no unit text); `"effort"` is one of recovery / easy / steady / tempo / threshold / interval / race — give pace, effort, or both. Optional `"mode": "walk"` for a walked recovery or cooldown, optional `"note"` for a cue. A repeat is `{"repeat": N, "steps": [step, …]}` — the steps are done N times in order (e.g. rep + recovery). Leave out any pre-run walk or bike warmup — the workout starts at the first running step. Keep `"detail"` to a short intent line; do not repeat the steps there. `"distance_km"` on the session is the total when every step has a distance. Examples: easy `{"type":"easy","blocks":[{"kind":"run","distance_km":10,"pace":"6:30","effort":"easy"}]}`; intervals `{"type":"interval","blocks":[{"kind":"warmup","distance_km":2,"effort":"easy"},{"repeat":6,"steps":[{"kind":"run","distance_km":0.8,"pace":"4:50","effort":"interval"},{"kind":"recovery","mode":"walk","time":"2:00","effort":"recovery"}]},{"kind":"cooldown","distance_km":1.5,"pace":"6:45","effort":"easy"}]}`; tempo `{"type":"tempo","blocks":[{"kind":"warmup","distance_km":2,"effort":"easy"},{"kind":"run","time":"20:00","pace":"5:15-5:25","effort":"tempo"},{"kind":"cooldown","distance_km":2,"effort":"easy"}]}`. Long runs and races are usually one `run` step (or a few for a progression / race segments).';
+export function runSessionPrompt(easyPace = 'M:SS'): string {
+	return `For every upcoming **run** session add \`"workout"\`: \`{"type","blocks"}\`. \`type\`: easy, recovery, long, tempo, interval, fartlek, progression, hills, race. Each block is a **step** \`{"kind","distance_km" | "time","pace" and/or "effort"}\` or a **repeat** \`{"repeat": N, "steps": [step, …]}\` (steps done N times in order). \`kind\`: warmup / run / recovery / cooldown; exactly one of \`"distance_km"\` (number) or \`"time"\` (\`"MM:SS"\`); \`"pace"\` min/km as \`"M:SS"\` or \`"M:SS-M:SS"\` (no units); \`"effort"\`: recovery / easy / steady / tempo / threshold / interval / race — give pace, effort, or both. Optional \`"mode": "walk"\` (walked recovery or cooldown) and \`"note"\`. The workout starts at the first running step (no pre-run walk or bike). Keep \`"detail"\` to a short intent line. Session \`"distance_km"\` is the total when every step has a distance. Long runs and races are usually one \`run\` step. Example: \`{"type":"interval","blocks":[{"kind":"warmup","distance_km":2,"effort":"easy"},{"repeat":6,"steps":[{"kind":"run","distance_km":0.8,"effort":"interval"},{"kind":"recovery","mode":"walk","time":"2:00","effort":"recovery"}]},{"kind":"cooldown","distance_km":1.5,"pace":"${easyPace}","effort":"easy"}]}\``;
+}
 
 export const SLOT_CONSTRAINT_PROMPT =
 	'A **pinned** activity is a life constraint (commute, appointment). Keep its day and sport. Do not skip, move, shorten, or slow it in a way that would break the note — for example a commute that makes me late if I go slower. Still invent `label`, distance, and `detail` that fit (and `exercises` for strength). A **pinned, optional** activity stays in the JSON; prefer keeping it, and only set `"status": "skipped"` if weather, recovery, or the note make it a bad idea — say why in prose. Writing "skipped" in `detail` does not skip the session. A **preference** is a soft wish: keep it when it fits, but you may move, swap, or drop it if that serves the goal — say why. Per-activity notes are ground truth for that session; fold them into `detail` when they affect how it is done.';
@@ -498,7 +498,7 @@ export const DAY_LIMIT_PROMPT =
 	'**Day limits** are hard: put no sessions on an **off** day (pinned activities are the only exception). On a **limited** day, any session you place must fit the note (time window, max duration). Move a session to another day rather than break a limit.';
 
 export const PLANNING_GUARDRAILS_PROMPT =
-	'Build load gradually: add at most one session per sport compared with my recent weeks, and grow long sessions step by step. Follow the injury rules. No back-to-back hard days. In prose, explain how many sessions of each sport you chose and why, and any change from my preferences.';
+	'Build load gradually: add at most one session per sport compared with my recent weeks, and grow long sessions step by step. Respect my body notes. No back-to-back hard days. In prose, explain how many sessions of each sport you chose and why, and any change from my preferences.';
 
 function sportLine(t: ActivityType): string {
 	return t === 'strength' ? 'Strength' : activityLabel(t);
@@ -522,23 +522,23 @@ export function formatWeekSetupPromptSection(opts: {
 		(t) => !planned.includes(t) && (opts.recentSports.includes(t) || pinnedSports.has(t))
 	);
 
+	const limits = normalizeDayLimits(setup.dayLimits);
 	const lines = [
 		`## Build ${weekPhrase} around my pinned activities`,
 		`Build my week around my pinned activities and day limits. Plan only the sports listed under **Sports to plan**.${
 			weekSetupsEqual(setup, opts.defaultSetup) ? '' : ` (I changed my usual setup for ${weekPhrase}.)`
-		}`,
-		'',
-		'### Pinned activities',
-		formatPatternLines(pinned),
-		'',
-		'### Day limits',
-		formatDayLimitLines(setup.dayLimits),
+		}`
+	];
+	if (pinned.length) lines.push('', '### Pinned activities', formatPatternLines(pinned));
+	if (limits.length) lines.push('', '### Day limits', formatDayLimitLines(limits));
+	if (!pinned.length && !limits.length) lines.push('No pinned activities or day limits — every day is available.');
+	lines.push(
 		'',
 		'### Sports to plan',
 		planned.length
-			? `${listJoin(planned.map(sportLine))}. You choose **how many** sessions of each, **which days**, the session kind (\`label\`: Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, Push, Pull, Hypertrophy, Strength, Circuit, Core — never a bare "Gym"), distance (null for strength), and intent — from my goal, the training phase, recovery, and how often I actually did each sport in the history below. Do not default to a fixed template. Runs get their warmup / reps / cooldown in \`workout\`. Strength has no duration field — put time, load, and rest in \`detail\`, and the lift list in \`exercises\`.`
-			: '(none) — only fill in my pinned activities; do not add sessions.'
-	];
+			? `${listJoin(planned.map(sportLine))}. You choose **how many** sessions of each, **which days**, the session kind (\`label\`: Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, Push, Pull, Hypertrophy, Strength, Circuit, Core — never a bare "Gym"), distance (null for strength), and intent — from my goal, the training phase, recovery, and how often I actually did each sport in the history below. Do not default to a fixed template.`
+			: 'None — only fill in my pinned activities; do not add sessions.'
+	);
 	if (notPlanned.length) {
 		lines.push(
 			'',
@@ -556,11 +556,9 @@ export function formatWeekSetupPromptSection(opts: {
 	lines.push(
 		'',
 		'### Rules',
-		SLOT_CONSTRAINT_PROMPT,
-		DAY_LIMIT_PROMPT,
+		...(pinned.length || prefs.length ? [SLOT_CONSTRAINT_PROMPT] : []),
+		...(limits.length ? [DAY_LIMIT_PROMPT] : []),
 		PLANNING_GUARDRAILS_PROMPT,
-		RUN_SESSION_PROMPT,
-		STRENGTH_SESSION_PROMPT,
 		'Logged extras that did not match a plan session appear under **Unplanned activities** when there are any. They are already done — extra load, not rows to tidy into the JSON. Notes below are for extras that have not happened yet (or that I am considering). You may add sessions for those proposed extras if you recommend them — say why.'
 	);
 	if (opts.note?.trim()) {
@@ -569,25 +567,22 @@ export function formatWeekSetupPromptSection(opts: {
 	return lines.join('\n');
 }
 
-/** Compact setup block for the debrief prompt — what may and may not move. */
+/** Compact setup block for the debrief prompt — what may and may not move; '' when nothing is fixed. */
 export function formatWeekSetupDebriefSection(setup: WeekSetup, opts: { includeSlots: boolean }): string {
 	const pinned = setup.pattern.filter(isPinnedSlot);
-	const lines = [
-		'## Pinned activities and day limits',
-		'Pinned:',
-		formatPatternLines(pinned),
-		'Day limits:',
-		formatDayLimitLines(setup.dayLimits)
-	];
-	if (opts.includeSlots) {
-		const prefs = setup.pattern.filter((s) => !isPinnedSlot(s));
-		lines.push(
-			`Sports the coach plans: ${setup.plannedSports.length ? listJoin(setup.plannedSports.map(sportWord)) : '(none)'}.`
-		);
-		if (prefs.length) lines.push('Preferences:', formatPatternLines(prefs));
+	const prefs = opts.includeSlots ? setup.pattern.filter((s) => !isPinnedSlot(s)) : [];
+	const limits = normalizeDayLimits(setup.dayLimits);
+	const lines: string[] = [];
+	if (pinned.length) lines.push('Pinned:', formatPatternLines(pinned));
+	if (limits.length) lines.push('Day limits:', formatDayLimitLines(limits));
+	if (opts.includeSlots && setup.plannedSports.length) {
+		lines.push(`Sports the coach plans: ${listJoin(setup.plannedSports.map(sportWord))}.`);
 	}
-	lines.push(SLOT_CONSTRAINT_PROMPT, DAY_LIMIT_PROMPT);
-	return lines.join('\n');
+	if (prefs.length) lines.push('Preferences:', formatPatternLines(prefs));
+	if (!lines.length) return '';
+	if (pinned.length || prefs.length) lines.push(SLOT_CONSTRAINT_PROMPT);
+	if (limits.length) lines.push(DAY_LIMIT_PROMPT);
+	return `## Pinned activities and day limits\n${lines.join('\n')}`;
 }
 
 export function sessionActivityType(session: {

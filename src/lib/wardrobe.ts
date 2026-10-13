@@ -1,3 +1,5 @@
+import { tidyPrompt } from '$lib/prompt';
+
 export const CLOTHING_CATEGORIES = ['top', 'bottom', 'layer', 'accessory'] as const;
 export type ClothingCategory = (typeof CLOTHING_CATEGORIES)[number];
 
@@ -179,21 +181,20 @@ export function injectWardrobeExtra(template: string, extra: string): string {
 }
 
 export function buildWardrobePrompt(w: Wardrobe, todayIso: string): string {
-	const owned = wardrobeHasItems(w)
-		? w.items
-				.map((i) => {
-					const detail = clothingDetailLabel(i);
-					return `- [${i.category}] ${i.name} ×${i.count}${detail ? ` — ${detail}` : ''}`;
-				})
-				.join('\n')
-		: '- (nothing yet)';
-	return `# The Long Run — my running clothes
+	const owned = wardrobeHasItems(w) ? wardrobeCategoryLines(w).join('\n') : 'Nothing yet.';
+	const example = JSON.stringify({
+		items: [
+			{ category: 'bottom', name: 'Shorts + long liner', count: 2, min_c: 10, max_c: null, flags: ['long_run'], notes: '' }
+		]
+	});
+	return tidyPrompt(`# The Long Run — my running clothes
 
 Help me keep a list of the running clothes I own. Today is ${todayIso}.
 
 ## What I own now
 ${owned}
-${w.notes.trim() ? `\nHow I dress: ${w.notes.trim()}\n` : ''}
+${w.notes.trim() ? `How I dress: ${w.notes.trim()}` : ''}
+
 ## What I wrote
 If this lists clothes I own, turn them into items. If it asks for advice (what I'm missing for the season, a race, rain, dark mornings), suggest items to buy and say so in a short note.
 
@@ -203,19 +204,7 @@ ${WARDROBE_EXTRA_TOKEN}
 A few sentences of advice are fine, then ONE JSON block in exactly this shape:
 
 \`\`\`json
-{
-  "items": [
-    {
-      "category": "bottom",
-      "name": "Shorts + long liner",
-      "count": 2,
-      "min_c": 10,
-      "max_c": null,
-      "flags": ["long_run"],
-      "notes": ""
-    }
-  ]
-}
+${example}
 \`\`\`
 
 Rules:
@@ -225,42 +214,45 @@ Rules:
 - \`min_c\` / \`max_c\`: whole °C I'd be comfortable running in, or \`null\` if unknown. Don't guess precise ranges for things I listed without comment — a rough range is fine, \`null\` is better than made up.
 - \`flags\`: any of \`long_run\` (does not chafe on long or wet runs), \`rain\`, \`reflective\`. Empty array if none.
 - Only include items that are new or changed. Never repeat my whole list unchanged.
-`;
+`);
 }
 
 export const WARDROBE_PROMPT_RULE =
 	'Pick only from items I own. Temperature ranges are my own comfort notes, not rules. Bottoms marked long-run safe are the ones that do not chafe on long or wet runs — use them for those. Count tells you how many I have (mind laundry on back-to-back days).';
 
-/** One line per item — paste into a chat when asking about kit. */
-export function formatWardrobeCompact(w: Wardrobe): string {
-	const lines: string[] = [];
-	if (w.notes.trim()) lines.push(`dress:${w.notes.trim().replace(/\s+/g, ' ')}`);
+function compactItem(item: ClothingItem): string {
+	const detail = [
+		tempRangeLabel(item),
+		...item.flags.map((f) => CLOTHING_FLAG_META[f].label.toLowerCase()),
+		item.notes.trim()
+	].filter(Boolean);
+	return `${item.name} ×${item.count}${detail.length ? ` (${detail.join(', ')})` : ''}`;
+}
+
+/** One line per category: `Tops: Tee ×3 (12–25°C); Long sleeve ×1 (5–12°C, reflective)`. */
+export function wardrobeCategoryLines(w: Wardrobe): string[] {
 	const grouped = itemsByCategory(w);
-	for (const c of CLOTHING_CATEGORIES) {
-		for (const item of grouped[c]) {
-			const temp = tempRangeLabel(item);
-			const flags = item.flags.length ? `[${item.flags.join(',')}]` : '';
-			const note = item.notes.trim() ? ` !${item.notes.trim().replace(/\s+/g, ' ')}` : '';
-			const range = temp ? `@${temp.replace(/\s+/g, '')}` : '';
-			lines.push(`${c}:${item.name}×${item.count}${range}${flags}${note}`);
-		}
-	}
-	return lines.length ? `clothing\n${lines.join('\n')}` : '';
+	return CLOTHING_CATEGORIES.filter((c) => grouped[c].length).map(
+		(c) => `${CLOTHING_CATEGORY_META[c].title}: ${grouped[c].map(compactItem).join('; ')}`
+	);
+}
+
+/** Paste into a chat when asking about kit. */
+export function formatWardrobeCompact(w: Wardrobe): string {
+	const lines = wardrobeCategoryLines(w);
+	if (w.notes.trim()) lines.push(`How I dress: ${w.notes.trim().replace(/\s+/g, ' ')}`);
+	return lines.length ? `Clothing\n${lines.join('\n')}` : '';
 }
 
 export function formatWardrobeSection(w: Wardrobe): string {
 	if (!wardrobeHasItems(w) && !w.notes.trim()) return '';
-	const grouped = itemsByCategory(w);
-	const blocks = CLOTHING_CATEGORIES.filter((c) => grouped[c].length).map((c) => {
-		const lines = grouped[c].map((item) => {
-			const detail = clothingDetailLabel(item);
-			return `- ${item.name} ×${item.count}${detail ? ` — ${detail}` : ''}`;
-		});
-		return `### ${CLOTHING_CATEGORY_META[c].title}\n${lines.join('\n')}`;
-	});
 	const notes = w.notes.trim();
-	return `## My clothing
-${WARDROBE_PROMPT_RULE}
-
-${blocks.join('\n\n')}${notes ? `\n\n${notes}` : ''}`;
+	return [
+		'## My clothing',
+		WARDROBE_PROMPT_RULE,
+		...wardrobeCategoryLines(w),
+		notes ? `How I dress: ${notes.replace(/\s+/g, ' ')}` : ''
+	]
+		.filter(Boolean)
+		.join('\n');
 }

@@ -366,8 +366,8 @@ export function formatGearCompact(gear: GearContext): string {
 		if (c.active) parts.push(`daily=${c.active}`);
 		const rot = c.rotation.filter((n) => gearKey(n) !== gearKey(c.active));
 		if (rot.length) parts.push(`rot=${rot.join('|')}`);
-		if (c.retired.length) parts.push(`ret=${c.retired.join('|')}`);
 		if (c.notes.trim()) parts.push(`note=${c.notes.trim().replace(/\s+/g, ' ')}`);
+		if (!parts.length) continue;
 		lines.push(`${tag}:${parts.join(';')}`);
 	}
 	return lines.length ? `gear\n${lines.join('\n')}` : '';

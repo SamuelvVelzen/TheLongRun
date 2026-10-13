@@ -183,40 +183,44 @@ function exerciseKey(name: string): string {
 	return name.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+function compactSet(s: StrengthSet, kind: StrengthKind): string {
+	if (kind === 'time') return `${s.sec ?? 0}s`;
+	if (kind === 'weighted' && s.kg != null) return `${s.reps}@${s.kg}`;
+	return String(s.reps);
+}
+
+/** `Squat 3×8@60; Row 10@40,8@45; Plank 2×45s` — identical sets collapse to `N×set`. */
+export function strengthCompact(exercises: StrengthExercise[], max = 120): string {
+	const text = exercises
+		.map((e) => {
+			const kind = inferExerciseKind(e);
+			const tokens = e.sets.map((s) => compactSet(s, kind));
+			const sets = tokens.every((t) => t === tokens[0])
+				? `${tokens.length > 1 ? `${tokens.length}×` : ''}${tokens[0] ?? ''}`
+				: tokens.join(',');
+			return `${e.name.trim()} ${sets}`.trim();
+		})
+		.join('; ');
+	return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
+const LIFT_TOPS_DAYS = 84;
+
 /**
- * Lift book for the generate-plan brief: recent sessions plus the newest top of each lift.
- * `logs` should already be strength-only, newest first.
+ * Newest top set of each lift done in the last 12 weeks, so old programmes drop out.
+ * `logs` should be strength-only, newest first.
  */
-export function formatStrengthHistoryBrief(
-	logs: StrengthLogLike[],
-	opts: { maxSessions?: number; maxTopsFrom?: number } = {}
-): string {
-	const maxSessions = opts.maxSessions ?? 8;
-	const maxTopsFrom = opts.maxTopsFrom ?? 20;
-	if (!logs.length) return '';
-
-	const lines = [
-		'## Recent strength',
-		'Use **these lifts and loads** when you prescribe gym sessions. Match the program I actually do — do not invent a different split or machine list. Progress or back off from the tops below given recovery and the rest of the week.'
-	];
-	for (const r of logs.slice(0, maxSessions)) {
-		const parsed = parseStrengthNotes(r.notes);
-		const extra = parsed.extra.replace(/\s+/g, ' ').trim().slice(0, 180);
-		const body = [strengthSummary(parsed.exercises), extra].filter(Boolean).join(' — ');
-		const dur = r.time?.trim() ? ` (${r.time.trim()})` : '';
-		lines.push(`- ${r.date}${dur}: ${body || '(no lifts logged)'}`);
-	}
-
-	const tops = recentExerciseTops(logs, maxTopsFrom);
-	if (tops.length) {
-		lines.push('', 'Recent tops (newest log of each lift):');
-		for (const t of tops) {
-			lines.push(
-				`- ${t.name}: ${formatSetTop({ reps: t.reps, kg: t.kg, sec: t.sec }, t.kind)} (${t.date})`
-			);
-		}
-	}
-	return lines.join('\n');
+export function formatLiftTopsBrief(logs: StrengthLogLike[], todayIso: string): string {
+	const cutoff = new Date(`${todayIso}T12:00:00`);
+	cutoff.setDate(cutoff.getDate() - LIFT_TOPS_DAYS);
+	const cutoffIso = cutoff.toISOString().slice(0, 10);
+	const recent = logs.filter((r) => r.date >= cutoffIso);
+	const tops = recentExerciseTops(recent, recent.length);
+	if (!tops.length) return '';
+	const bits = tops.map(
+		(t) => `${t.name} ${formatSetTop({ reps: t.reps, kg: t.kg, sec: t.sec }, t.kind)} (${t.date.slice(5)})`
+	);
+	return `## Lift tops (last 12 weeks, newest log of each lift)\nPrescribe gym work from these lifts and loads — match the programme I actually do; progress or back off given recovery.\n${bits.join('; ')}`;
 }
 
 export type RecentLiftTop = {

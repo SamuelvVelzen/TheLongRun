@@ -566,7 +566,7 @@ Today: ${todayIso}. Use this as the current week if we are switching chats. ${CO
 ${formatWeekPlanMarkdown(view)}
 
 \`\`\`json
-${JSON.stringify(weekToPlanJson(view.week), null, 2)}
+${JSON.stringify(weekToPlanJson(view.week))}
 \`\`\`
 `;
 }
@@ -581,7 +581,7 @@ Today: ${todayIso}. Weeks below already have sessions. ${COPY_STATUS_HINT}
 ${markdown || '- (no planned weeks yet)'}
 
 \`\`\`json
-${JSON.stringify(json, null, 2)}
+${JSON.stringify(json)}
 \`\`\`
 `;
 }

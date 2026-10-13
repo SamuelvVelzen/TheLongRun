@@ -103,11 +103,11 @@ export function formatUsualHabitsSection(habits: ActivityHabits): string {
 		if (pair.after) lines.push(`- After: ${pair.after}`);
 		return lines.join('\n');
 	}).filter(Boolean);
-	const body = blocks.length ? blocks.join('\n\n') : '(none set)';
+	if (!blocks.length) return '';
 	return `## Usual habits
 ${HABITS_PROMPT_RULE}
 
-${body}`;
+${blocks.join('\n\n')}`;
 }
 
 export function formatSessionHabitsBlock(

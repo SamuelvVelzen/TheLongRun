@@ -13,7 +13,8 @@ import {
 } from '$lib/activity';
 import { formatDuration, parseDurationSeconds } from '$lib/format';
 import { mondayIso, sumDistance } from '$lib/plan';
-import { parseStrengthNotes, strengthSummary } from '$lib/strength';
+import { feelCell, feelScale, hrCell, tidyPrompt } from '$lib/prompt';
+import { parseStrengthNotes, strengthCompact } from '$lib/strength';
 import type { RunRecord } from '$lib/types';
 
 function round1(n: number): number {
@@ -30,18 +31,14 @@ function notesForRow(r: RunRecord): string {
 	if (isImportNote(notesText)) notesText = '';
 	else if (isStrength) {
 		const p = parseStrengthNotes(r.notes);
-		notesText = [strengthSummary(p.exercises), p.extra].filter(Boolean).join(' — ');
+		notesText = [strengthCompact(p.exercises, 200), p.extra].filter(Boolean).join(' — ');
 		if (isImportNote(notesText)) notesText = '';
 	}
 	return notesText
 		.replace(/\s+/g, ' ')
 		.replace(/\|/g, '/')
 		.trim()
-		.slice(0, isStrength ? 400 : 140);
-}
-
-function feelCell(r: RunRecord): string {
-	return [r.effort, r.shins, r.legs, r.energy].map((v) => (v == null ? '–' : v)).join('/');
+		.slice(0, isStrength ? 260 : 140);
 }
 
 function sessionCell(r: RunRecord): string {
@@ -166,7 +163,7 @@ function calendarKm(buckets: Map<string, WeekBucket>, endMonday: string, count: 
 
 export function formatTimelineClipboard(
 	runs: RunRecord[],
-	opts: { summary: string; sport: string; todayIso: string }
+	opts: { summary: string; sport: string; todayIso: string; pain: string }
 ): string {
 	const ordered = [...runs].filter((r) => Boolean(r.date)).sort(newestFirst);
 	const noun = activityPlural(opts.sport);
@@ -217,34 +214,33 @@ export function formatTimelineClipboard(
 		snapshot.push(`- By type: ${sportBreakdown(ordered)}`);
 	}
 
-	const weekLines =
-		weeksNewest.map(([wk, e]) => `- Week of ${wk}: ${formatWeekBits(e)}`).join('\n') ||
-		'- (no weeks in this view)';
+	const weekLines = weeksNewest.map(([wk, e]) => `- Week of ${wk}: ${formatWeekBits(e)}`).join('\n');
 
-	const rows =
-		ordered
-			.map((r) => {
-				return `| ${r.date} | ${activityLabel(r.activity_type)} | ${kmCell(r)} | ${metricText(r)} | ${r.time || '–'} | ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} | ${feelCell(r)} | ${sessionCell(r)} | ${notesForRow(r)} |`;
-			})
-			.join('\n') || '| – | – | – | – | – | – | – | – | – |';
+	const rows = ordered
+		.map((r) => {
+			return `| ${r.date} | ${activityLabel(r.activity_type)} | ${kmCell(r)} | ${metricText(r)} | ${r.time || '–'} | ${hrCell(r)} | ${feelCell(r)} | ${sessionCell(r)} | ${notesForRow(r)} |`;
+		})
+		.join('\n');
 
-	return `# The Long Run — activity log
+	return tidyPrompt(`# The Long Run — activity log
 
 Today: ${opts.todayIso}.
 On screen: ${opts.summary} · ${countLabel}.
 These are logged activities, not a week-by-week plan. Snapshot and weekly volume are this filtered view (not all-time, not necessarily ending today). Use them for high-level questions: race readiness, training load, what to change, when to plan a race. Do not invent sessions I did not log.
 
-Feel = effort/shins/legs/energy. Effort and energy 1–10 (effort higher = harder, energy higher = better). Shins and legs 0–10 (higher = worse). – = not recorded. I'll ask a question after this log.
+${feelScale(opts.pain)} I'll ask a question after this log.
 
 ## Snapshot
 ${snapshot.join('\n')}
 
-## Weekly volume (Monday weeks, newest first)
-${weekLines}
+${weekLines ? `## Weekly volume (Monday weeks, newest first)\n${weekLines}` : ''}
 
-## Activities (newest first)
+${
+	rows
+		? `## Activities (newest first)
 | Date | Type | km | pace/speed | time | HR avg/max | Feel | Session | Notes |
 |------|------|----|-----------|------|-----------|------|---------|-------|
-${rows}
-`;
+${rows}`
+		: ''
+}`);
 }

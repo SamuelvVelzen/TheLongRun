@@ -255,14 +255,12 @@ export function formatFuelSection(log: FuelLog, runsBySlug: Record<string, FuelR
 		if (rest > 0) lines.push(`- +${rest} more item${rest === 1 ? '' : 's'}`);
 	}
 	const guidance = log.guidance.trim();
-	if (!lines.length && !guidance) {
-		return '## Fuel log\n(nothing logged yet)';
-	}
+	if (!lines.length && !guidance) return '';
 	return [
 		'## Fuel log — what I eat/drink before, during, after',
-		FUEL_PROMPT_RULE,
+		lines.length ? FUEL_PROMPT_RULE : null,
 		guidance ? `Guidance:\n${guidance}` : null,
-		lines.length ? lines.join('\n') : '(no tries logged yet)'
+		lines.length ? lines.join('\n') : null
 	]
 		.filter(Boolean)
 		.join('\n');

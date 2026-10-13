@@ -4,15 +4,12 @@ import { getProfileData, saveCoachNotes } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import { cn } from '$lib/ui';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { BodyNotesPanel } from '../components/BodyNotesPanel';
-import { CoachNotesAiDialog } from '../components/CoachNotesAiDialog';
 import { DeferredData } from '../components/DeferredData';
-import { Icon } from '../components/Icon';
 import {
 	Actions,
 	Form,
-	IconLabelButton,
 	PageHero,
 	Panel,
 	PanelTitle,
@@ -49,8 +46,6 @@ function ProfilePage() {
 function CoachNotesPanel({ initial, authed }: { initial: string; authed: boolean }) {
 	const router = useRouter();
 	const snack = useSnackbar();
-	const [importAi, setImportAi] = useState(false);
-	const [busy, setBusy] = useState(false);
 	const form = useAppForm({
 		defaultValues: { text: initial },
 		onSubmit: async ({ value }) => {
@@ -69,38 +64,12 @@ function CoachNotesPanel({ initial, authed }: { initial: string; authed: boolean
 		form.reset({ text: initial });
 	}, [initial]);
 
-	async function saveCoachText(text: string, okMessage: string): Promise<boolean> {
-		setBusy(true);
-		try {
-			const res = await saveCoachNotes({ data: { text } });
-			form.reset({ text: res.coachNotes });
-			snack.success(okMessage);
-			await router.invalidate();
-			return true;
-		} catch (err) {
-			snack.error(errorMessage(err, 'Save failed'));
-			return false;
-		} finally {
-			setBusy(false);
-		}
-	}
-
 	return (
 		<Panel form={authed} className="mb-5">
-			<div className="flex flex-wrap items-center justify-between gap-2">
-				<PanelTitle className="m-0 mb-0 pb-0 border-b-0">Notes for my coach</PanelTitle>
-				{authed && (
-					<IconLabelButton
-						label="Import with AI"
-						disabled={busy || form.state.isSubmitting}
-						icon={<Icon name="sparkle" size={16} />}
-						onClick={() => setImportAi(true)}
-					/>
-				)}
-			</div>
+			<PanelTitle className="m-0 mb-0 pb-0 border-b-0">Notes for my coach</PanelTitle>
 			<p className={cn('text-muted', 'm-0 mt-1 text-[0.9rem]')}>
-				Optional. Personal rules and context that apply to every plan — not generic training advice, the AI
-				already knows that.
+				Optional. Personal rules and context that apply to every plan — not generic training advice,
+				the AI already knows that.
 			</p>
 			{authed ? (
 				<Form
@@ -137,15 +106,6 @@ function CoachNotesPanel({ initial, authed }: { initial: string; authed: boolean
 				<p className="m-0 mt-2 whitespace-pre-wrap">{initial}</p>
 			) : (
 				<p className={cn('text-muted', 'm-0 mt-2 text-[0.9rem]')}>No notes yet.</p>
-			)}
-			{authed && (
-				<CoachNotesAiDialog
-					open={importAi}
-					coachNotes={form.state.values.text}
-					busy={busy}
-					onClose={() => setImportAi(false)}
-					onSave={saveCoachText}
-				/>
 			)}
 		</Panel>
 	);

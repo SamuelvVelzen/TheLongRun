@@ -1,29 +1,29 @@
 import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
 import {
-    compactHabitText,
-    habitsHaveText,
-    type ActivityHabits,
-    type HabitPair
+	compactHabitText,
+	habitsHaveText,
+	type ActivityHabits,
+	type HabitPair
 } from '$lib/activity-habits';
 import {
-    addGear,
-    catalogHasItems,
-    formatGearCompact,
-    formatGearKm,
-    GEAR_KINDS,
-    gearKey,
-    gearKindForActivity,
-    gearMeta,
-    gearWearLabel,
-    removeGear,
-    restoreGear,
-    retireGear,
-    setActiveGear,
-    unknownLoggedGear,
-    type GearCatalog,
-    type GearContext,
-    type GearKind,
-    type GearWear
+	addGear,
+	catalogHasItems,
+	formatGearCompact,
+	formatGearKm,
+	GEAR_KINDS,
+	gearKey,
+	gearKindForActivity,
+	gearMeta,
+	gearWearLabel,
+	removeGear,
+	restoreGear,
+	retireGear,
+	setActiveGear,
+	unknownLoggedGear,
+	type GearCatalog,
+	type GearContext,
+	type GearKind,
+	type GearWear
 } from '$lib/gear';
 import { saveActivityHabits, saveGear } from '$lib/server/functions';
 import { cn } from '$lib/ui';
@@ -130,16 +130,31 @@ function ItemRow({
 			{authed && (
 				<div className="flex flex-wrap gap-2">
 					{role !== 'active' && (
-						<button type="button" className={buttonClass({ variant: 'ghost', size: 'sm' })} disabled={busy} onClick={onSetActive}>
+						<button
+							type="button"
+							className={buttonClass({ variant: 'ghost', size: 'sm' })}
+							disabled={busy}
+							onClick={onSetActive}
+						>
 							{setActiveLabel}
 						</button>
 					)}
 					{role !== 'retired' ? (
-						<button type="button" className={buttonClass({ variant: 'ghost', size: 'sm' })} disabled={busy} onClick={onRetire}>
+						<button
+							type="button"
+							className={buttonClass({ variant: 'ghost', size: 'sm' })}
+							disabled={busy}
+							onClick={onRetire}
+						>
 							Retire
 						</button>
 					) : (
-						<button type="button" className={buttonClass({ variant: 'ghost', size: 'sm' })} disabled={busy} onClick={onRestore}>
+						<button
+							type="button"
+							className={buttonClass({ variant: 'ghost', size: 'sm' })}
+							disabled={busy}
+							onClick={onRestore}
+						>
 							Restore
 						</button>
 					)}
@@ -180,7 +195,12 @@ function KindSection({
 
 	return (
 		<div>
-			<p className={cn('text-muted', 'm-0 mb-2 text-[0.8rem] font-display uppercase tracking-[0.08em]')}>
+			<p
+				className={cn(
+					'text-muted',
+					'm-0 mb-2 text-[0.8rem] font-display uppercase tracking-[0.08em]'
+				)}
+			>
 				{meta.label}
 			</p>
 
@@ -217,7 +237,10 @@ function KindSection({
 						activeLabel={meta.activeLabel}
 						setActiveLabel={meta.setActiveLabel}
 						onSetActive={() =>
-							void onPersist(setActiveGear(catalog, n), `${n} is now ${meta.activeLabel.toLowerCase()}`)
+							void onPersist(
+								setActiveGear(catalog, n),
+								`${n} is now ${meta.activeLabel.toLowerCase()}`
+							)
 						}
 						onRetire={() => void onPersist(retireGear(catalog, n), `Retired ${n}`)}
 						onRestore={() => {}}
@@ -236,7 +259,10 @@ function KindSection({
 						activeLabel={meta.activeLabel}
 						setActiveLabel={meta.setActiveLabel}
 						onSetActive={() =>
-							void onPersist(setActiveGear(catalog, n), `${n} is now ${meta.activeLabel.toLowerCase()}`)
+							void onPersist(
+								setActiveGear(catalog, n),
+								`${n} is now ${meta.activeLabel.toLowerCase()}`
+							)
 						}
 						onRetire={() => {}}
 						onRestore={() => void onPersist(restoreGear(catalog, n), `Restored ${n}`)}
@@ -257,7 +283,9 @@ function KindSection({
 						>
 							<div className="flex-1 min-w-40">
 								<strong className="font-display text-[1.02rem]">{w.name}</strong>
-								<p className={cn('text-muted', 'm-0 mt-1 text-[0.82rem]')}>{gearWearLabel(w, kind)}</p>
+								<p className={cn('text-muted', 'm-0 mt-1 text-[0.82rem]')}>
+									{gearWearLabel(w, kind)}
+								</p>
 							</div>
 							<button
 								type="button"
@@ -284,7 +312,9 @@ function KindSection({
 						notes={catalog.notes}
 						placeholder={meta.notesPlaceholder}
 						busy={busy}
-						onSave={(next) => onPersist({ ...catalog, notes: next }, `Saved ${meta.label.toLowerCase()} notes`)}
+						onSave={(next) =>
+							onPersist({ ...catalog, notes: next }, `Saved ${meta.label.toLowerCase()} notes`)
+						}
 					/>
 				</>
 			)}
@@ -437,9 +467,7 @@ export function GearInventory({
 									wear={wear[kind]}
 									authed={authed}
 									busy={busy}
-									onPersist={(catalog, message) =>
-										persist({ ...gear, [kind]: catalog }, message)
-									}
+									onPersist={(catalog, message) => persist({ ...gear, [kind]: catalog }, message)}
 									onRemove={(name) => setRemove({ kind, name })}
 								/>
 							) : null}
@@ -529,7 +557,9 @@ function AddGearForm({
 				)}
 			/>
 			<form.AppForm>
-				<form.SubmitButton className={buttonClass({ size: 'sm', className: 'mb-[0.05rem]' })}>Add</form.SubmitButton>
+				<form.SubmitButton className={buttonClass({ size: 'sm', className: 'mb-[0.05rem]' })}>
+					Add
+				</form.SubmitButton>
 			</form.AppForm>
 		</form>
 	);
@@ -577,9 +607,7 @@ function GearNotesForm({
 					value !== notes ? (
 						<Actions>
 							<form.AppForm>
-								<form.SubmitButton variant="ghost">
-									Save notes
-								</form.SubmitButton>
+								<form.SubmitButton variant="ghost">Save notes</form.SubmitButton>
 							</form.AppForm>
 						</Actions>
 					) : null

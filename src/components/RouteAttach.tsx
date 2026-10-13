@@ -4,10 +4,10 @@ import { activityLabel, normalizeActivityType } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
 import { attachPlannedRoute, detachPlannedRoute } from '$lib/server/functions';
 import type {
-    ActivityAttachOption,
-    PlanAttachOption,
-    PlannedRouteActivityLink,
-    PlannedRoutePlanLink
+	ActivityAttachOption,
+	PlanAttachOption,
+	PlannedRouteActivityLink,
+	PlannedRoutePlanLink
 } from '$lib/types';
 import { cn } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
@@ -74,8 +74,8 @@ export function RouteAttach({
 		<Panel className="mb-4 [&_>h3]:m-0">
 			<h3>Use this route</h3>
 			<p className={cn('text-muted', 'mt-[0.3rem] m-0')}>
-				Attach it to upcoming plan days — the same loop can cover Monday and later weeks — or
-				link it to a logged activity.
+				Attach it to upcoming plan days — the same loop can cover Monday and later weeks — or link
+				it to a logged activity.
 			</p>
 
 			<div className="grid gap-5 mt-4">
@@ -101,26 +101,31 @@ export function RouteAttach({
 										</div>
 									</div>
 									{authed && (
-									<button
-										className={buttonClass({ variant: 'danger', className: 'shrink-0 min-h-9 px-[0.8rem] py-1.5' })}
-										type="button"
-										disabled={busy}
-										onClick={() =>
-											setPending({
-												kind: 'plan',
-												id: link.id,
-												label: `Week ${link.week} · ${link.day}`
-											})
-										}
-									>
-										Remove
-									</button>
+										<button
+											className={buttonClass({
+												variant: 'danger',
+												className: 'shrink-0 min-h-9 px-[0.8rem] py-1.5'
+											})}
+											type="button"
+											disabled={busy}
+											onClick={() =>
+												setPending({
+													kind: 'plan',
+													id: link.id,
+													label: `Week ${link.week} · ${link.day}`
+												})
+											}
+										>
+											Remove
+										</button>
 									)}
 								</div>
 							))}
 						</div>
 					) : (
-						<p className={cn('text-muted', 'm-0 mb-[0.65rem] text-[0.92rem]')}>Not on a plan day yet.</p>
+						<p className={cn('text-muted', 'm-0 mb-[0.65rem] text-[0.92rem]')}>
+							Not on a plan day yet.
+						</p>
 					)}
 					{authed && planOptions.length > 0 && (
 						<Field as="label">
@@ -183,20 +188,23 @@ export function RouteAttach({
 										</div>
 									</Link>
 									{authed && (
-									<button
-										className={buttonClass({ variant: 'danger', className: 'shrink-0 min-h-9 px-[0.8rem] py-1.5' })}
-										type="button"
-										disabled={busy}
-										onClick={() =>
-											setPending({
-												kind: 'activity',
-												id: link.id,
-												label: `${link.date} · ${link.day || activityLabel(link.activity_type)}`
-											})
-										}
-									>
-										Remove
-									</button>
+										<button
+											className={buttonClass({
+												variant: 'danger',
+												className: 'shrink-0 min-h-9 px-[0.8rem] py-1.5'
+											})}
+											type="button"
+											disabled={busy}
+											onClick={() =>
+												setPending({
+													kind: 'activity',
+													id: link.id,
+													label: `${link.date} · ${link.day || activityLabel(link.activity_type)}`
+												})
+											}
+										>
+											Remove
+										</button>
 									)}
 								</div>
 							))}

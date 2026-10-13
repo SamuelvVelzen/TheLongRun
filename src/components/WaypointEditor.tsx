@@ -189,7 +189,12 @@ export function WaypointEditor({
 			{embedded ? null : (
 				<div className="flex flex-wrap justify-end gap-2">
 					{onClose ? (
-						<button className={buttonClass({ variant: 'ghost', size: 'sm' })} type="button" disabled={busy} onClick={onClose}>
+						<button
+							className={buttonClass({ variant: 'ghost', size: 'sm' })}
+							type="button"
+							disabled={busy}
+							onClick={onClose}
+						>
 							Close
 						</button>
 					) : null}
@@ -205,7 +210,7 @@ export function WaypointEditor({
 							})
 						}
 					>
-						{busy ? 'Saving…' : saveLabel ?? 'Save'}
+						{busy ? 'Saving…' : (saveLabel ?? 'Save')}
 					</button>
 				</div>
 			)}

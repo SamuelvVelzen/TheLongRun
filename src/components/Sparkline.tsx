@@ -65,7 +65,8 @@ export function Sparkline({
 	}
 
 	function onPointerDown(e: React.PointerEvent) {
-		lastPointer.current = e.pointerType === 'touch' || e.pointerType === 'pen' ? e.pointerType : 'mouse';
+		lastPointer.current =
+			e.pointerType === 'touch' || e.pointerType === 'pen' ? e.pointerType : 'mouse';
 	}
 
 	function onPointerMove(e: React.PointerEvent) {
@@ -144,7 +145,9 @@ export function Sparkline({
 				onPointerUp={onPointerUp}
 				onClick={onClick}
 			>
-				{geometry.area && <path className="opacity-[0.14] pointer-events-none" d={geometry.area} fill={color} />}
+				{geometry.area && (
+					<path className="opacity-[0.14] pointer-events-none" d={geometry.area} fill={color} />
+				)}
 				{geometry.path && (
 					<>
 						<path

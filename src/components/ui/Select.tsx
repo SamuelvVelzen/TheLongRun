@@ -297,7 +297,8 @@ export function Select({
 			if (e.metaKey || e.ctrlKey || e.altKey) return;
 			if (e.key.length === 1 && e.key !== ' ') {
 				const now = Date.now();
-				const nextBuf = now - typeRef.current.at > TYPEAHEAD_MS ? e.key : typeRef.current.buf + e.key;
+				const nextBuf =
+					now - typeRef.current.at > TYPEAHEAD_MS ? e.key : typeRef.current.buf + e.key;
 				typeRef.current = { buf: nextBuf, at: now };
 				const match = matchTypeahead(options, nextBuf, activeIndex);
 				if (match >= 0) setActiveIndex(match);
@@ -373,7 +374,9 @@ export function Select({
 	);
 
 	return (
-		<div className={cn(size === 'compact' ? 'w-full min-w-0 sm:w-auto' : 'w-full min-w-0', className)}>
+		<div
+			className={cn(size === 'compact' ? 'w-full min-w-0 sm:w-auto' : 'w-full min-w-0', className)}
+		>
 			{ariaLabel && !ariaLabelledBy ? (
 				<span id={fieldLabelId} className="sr-only">
 					{ariaLabel}
@@ -432,12 +435,7 @@ export function Select({
 			) : null}
 			{open && mobile ? (
 				<OverlayPortal>
-					<div
-						className={ui.dialogRoot}
-						role="dialog"
-						aria-modal="true"
-						aria-labelledby={titleId}
-					>
+					<div className={ui.dialogRoot} role="dialog" aria-modal="true" aria-labelledby={titleId}>
 						<div className={ui.dialogBackdrop} onClick={close} aria-hidden="true" />
 						<div className={cn(ui.dialogPanel, 'overflow-hidden')}>
 							<div
@@ -445,10 +443,7 @@ export function Select({
 								aria-hidden="true"
 							/>
 							<div className="flex items-center justify-between gap-3">
-								<strong
-									id={titleId}
-									className="font-display text-[1.15rem] tracking-[-0.03em]"
-								>
+								<strong id={titleId} className="font-display text-[1.15rem] tracking-[-0.03em]">
 									{dialogTitle}
 								</strong>
 								<button

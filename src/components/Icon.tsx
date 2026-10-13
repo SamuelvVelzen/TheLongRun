@@ -400,13 +400,7 @@ const ACTIVITY_ICON: Record<ActivityType | 'all', IconName> = {
 	strength: 'strength'
 };
 
-export function ActivityIcon({
-	type,
-	size = 14
-}: {
-	type: string;
-	size?: number;
-}) {
+export function ActivityIcon({ type, size = 14 }: { type: string; size?: number }) {
 	const key = type === 'all' ? 'all' : normalizeActivityType(type);
 	return <Icon name={ACTIVITY_ICON[key]} size={size} />;
 }

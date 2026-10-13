@@ -97,7 +97,11 @@ export function DebriefRacePanel({
 				successMessage="Saved medal details."
 				onSaved={onSaved}
 				extraActions={
-					<Link className={buttonClass({ variant: 'ghost' })} to="/goals" search={{ tab: 'medals' }}>
+					<Link
+						className={buttonClass({ variant: 'ghost' })}
+						to="/goals"
+						search={{ tab: 'medals' }}
+					>
 						Open medal wall
 					</Link>
 				}

@@ -38,11 +38,4 @@ export { SubmitButton } from './SubmitButton';
 export { StatusPill } from './StatusPill';
 export { Tag } from './Tag';
 export { Textarea, type TextareaVariant } from './Textarea';
-export {
-	ExplainTip,
-	finePointerHover,
-	TipBubble,
-	TipCaption,
-	TipValue,
-	usePinnedTip
-} from './Tip';
+export { ExplainTip, finePointerHover, TipBubble, TipCaption, TipValue, usePinnedTip } from './Tip';

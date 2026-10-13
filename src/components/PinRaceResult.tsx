@@ -54,7 +54,9 @@ export function PinRaceResult({
 					await router.invalidate();
 				}
 			} catch (e) {
-				snack.error(errorMessage(e, repin ? 'Could not update that link.' : 'Could not pin that result.'));
+				snack.error(
+					errorMessage(e, repin ? 'Could not update that link.' : 'Could not pin that result.')
+				);
 			}
 		}
 	});

@@ -10,7 +10,9 @@ const OUTCOME_TONE: Record<FuelOutcome, string> = {
 };
 
 export function FuelOutcomePill({ outcome }: { outcome: FuelOutcome }) {
-	return <StatusPill className={OUTCOME_TONE[outcome]}>{FUEL_OUTCOME_META[outcome].label}</StatusPill>;
+	return (
+		<StatusPill className={OUTCOME_TONE[outcome]}>{FUEL_OUTCOME_META[outcome].label}</StatusPill>
+	);
 }
 
 /** One try: item (optional) · phase (optional) · timing, outcome pill, note underneath. */

@@ -17,7 +17,13 @@ export function PageTabs<T extends string>({
 }) {
 	return (
 		<TabBar className={className}>
-			<SegmentedToggle fill aria-label={ariaLabel} value={value} onChange={onChange} options={options} />
+			<SegmentedToggle
+				fill
+				aria-label={ariaLabel}
+				value={value}
+				onChange={onChange}
+				options={options}
+			/>
 		</TabBar>
 	);
 }

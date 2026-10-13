@@ -88,7 +88,10 @@ export function PlanSessionRoute({
 					{authed && linked.link_id != null && (
 						<button
 							type="button"
-							className={buttonClass({ variant: 'danger', className: 'shrink-0 min-h-9 px-[0.8rem] py-1.5 text-[0.82rem]' })}
+							className={buttonClass({
+								variant: 'danger',
+								className: 'shrink-0 min-h-9 px-[0.8rem] py-1.5 text-[0.82rem]'
+							})}
 							disabled={busy}
 							onClick={() => setConfirmUnlink(true)}
 						>

@@ -59,7 +59,10 @@ function recentRuns(runs: RunRecord[], todayIso: string): { runs: RunRecord[]; l
 	const cutoff = daysBefore(todayIso, OBSERVED_DAYS);
 	const windowed = all.filter((r) => r.date >= cutoff);
 	if (windowed.length >= MIN_GROUP * 2) return { runs: windowed, label: 'last 6 weeks' };
-	return { runs: all.slice(0, FALLBACK_RUNS), label: `last ${Math.min(all.length, FALLBACK_RUNS)} runs` };
+	return {
+		runs: all.slice(0, FALLBACK_RUNS),
+		label: `last ${Math.min(all.length, FALLBACK_RUNS)} runs`
+	};
 }
 
 // Daniels / Gilbert: VO2 cost of running at v (m/min) and the share of VO2max held for t minutes.
@@ -89,7 +92,8 @@ function fitnessSource(
 	todayIso: string
 ): { meters: number; seconds: number; source: string; date: string } | null {
 	const cutoff = daysBefore(todayIso, FITNESS_DAYS);
-	let best: { meters: number; seconds: number; source: string; date: string; vdot: number } | null = null;
+	let best: { meters: number; seconds: number; source: string; date: string; vdot: number } | null =
+		null;
 	const consider = (meters: number, seconds: number, source: string, date: string) => {
 		if (!(meters > 0 && seconds > 0)) return;
 		const vdot = vdotFrom(meters, seconds);
@@ -98,10 +102,12 @@ function fitnessSource(
 	};
 	// Only race efforts: a best 10k inside an easy long run would put every zone far too slow.
 	for (const r of runs) {
-		if (normalizeActivityType(r.activity_type) !== 'run' || r.date < cutoff || r.date > todayIso) continue;
+		if (normalizeActivityType(r.activity_type) !== 'run' || r.date < cutoff || r.date > todayIso)
+			continue;
 		if (String(r.session ?? '').toLowerCase() !== 'race') continue;
 		for (const e of r.best_efforts ?? []) {
-			if (FITNESS_KEYS.includes(e.key)) consider(e.meters, e.seconds, `best ${EFFORT_LABEL[e.key]}`, r.date);
+			if (FITNESS_KEYS.includes(e.key))
+				consider(e.meters, e.seconds, `best ${EFFORT_LABEL[e.key]}`, r.date);
 		}
 	}
 	for (const m of medals) {

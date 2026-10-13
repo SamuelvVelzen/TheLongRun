@@ -1,9 +1,9 @@
 import { segItemClass, segToggleClass } from './ui/SegmentedToggle';
 import {
-    ACTIVITY_TYPES,
-    activityLabel,
-    normalizeActivityType,
-    type ActivityType
+	ACTIVITY_TYPES,
+	activityLabel,
+	normalizeActivityType,
+	type ActivityType
 } from '$lib/activity';
 import { cn } from '$lib/ui';
 import { useNavigate } from '@tanstack/react-router';
@@ -96,9 +96,7 @@ export function SportFilter({
 }) {
 	const navigate = useNavigate();
 	const options = OPTIONS.filter((o) => o.value === 'all' || !available || available.has(o.value));
-	const availableTypes = options
-		.map((o) => o.value)
-		.filter((v): v is ActivityType => v !== 'all');
+	const availableTypes = options.map((o) => o.value).filter((v): v is ActivityType => v !== 'all');
 	const selected = selectedSports(sport);
 	const allSelected = sportIsAll(sport);
 

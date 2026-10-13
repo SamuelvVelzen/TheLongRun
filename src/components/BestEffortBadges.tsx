@@ -56,15 +56,7 @@ export function BestEffortBadges({
 	);
 }
 
-function EffortDate({
-	iso,
-	pace,
-	showYear
-}: {
-	iso: string;
-	pace?: string;
-	showYear: boolean;
-}) {
+function EffortDate({ iso, pace, showYear }: { iso: string; pace?: string; showYear: boolean }) {
 	const dayMonth = formatEffortDayMonth(iso);
 	const year = showYear ? formatEffortYear2(iso) : '';
 	return (

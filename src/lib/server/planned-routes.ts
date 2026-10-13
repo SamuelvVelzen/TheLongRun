@@ -262,9 +262,7 @@ export async function savePlannedFromTrack(input: {
 }): Promise<PlannedRoute> {
 	const name = input.name.trim();
 	if (!name) throw new Error('Name this route.');
-	const points = input.points.filter(
-		(p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
-	);
+	const points = input.points.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
 	if (points.length < 2) throw new Error('Need a path with at least two points.');
 	const stats = plannedTrackStats(points);
 	return insertPlannedRoute(

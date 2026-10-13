@@ -50,8 +50,7 @@ function AddActivity() {
 	const search = Route.useSearch();
 	const { mode = 'gpx' } = search;
 	const authed = useAuthed();
-	const prefillType: ActivityType | undefined =
-		search.type === 'strength' ? 'strength' : undefined;
+	const prefillType: ActivityType | undefined = search.type === 'strength' ? 'strength' : undefined;
 
 	return (
 		<>
@@ -70,28 +69,28 @@ function AddActivity() {
 						aria-label="How to add"
 						value={mode}
 						options={[
-								{
-									value: 'gpx',
-									label: (
-										<>
-											<Icon name="upload" size={15} />
-											GPX file
-										</>
-									),
-									to: '/import',
-									search: { mode: 'gpx' }
-								},
-								{
-									value: 'manual',
-									label: (
-										<>
-											<Icon name="pencil" size={15} />
-											Log manually
-										</>
-									),
-									to: '/import',
-									search: { mode: 'manual' }
-								}
+							{
+								value: 'gpx',
+								label: (
+									<>
+										<Icon name="upload" size={15} />
+										GPX file
+									</>
+								),
+								to: '/import',
+								search: { mode: 'gpx' }
+							},
+							{
+								value: 'manual',
+								label: (
+									<>
+										<Icon name="pencil" size={15} />
+										Log manually
+									</>
+								),
+								to: '/import',
+								search: { mode: 'manual' }
+							}
 						]}
 					/>
 

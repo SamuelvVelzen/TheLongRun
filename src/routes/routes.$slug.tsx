@@ -2,17 +2,17 @@ import { useAuthed } from '$lib/auth';
 import { formatStraightLineGap } from '$lib/format';
 import { samplesFromGeoJson } from '$lib/gps-repair';
 import {
-    downloadPlannedRouteGpx,
-    editablePinsFromPlannedRoute,
-    openPlannedRouteInBrouter,
-    plannedRouteAppleMapsStartUrl,
-    preferredMapsApp,
-    type MapsPref
+	downloadPlannedRouteGpx,
+	editablePinsFromPlannedRoute,
+	openPlannedRouteInBrouter,
+	plannedRouteAppleMapsStartUrl,
+	preferredMapsApp,
+	type MapsPref
 } from '$lib/planned-route-export';
 import {
-    deletePlannedRoute,
-    getPlannedRouteDetail,
-    updatePlannedRoute
+	deletePlannedRoute,
+	getPlannedRouteDetail,
+	updatePlannedRoute
 } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import { cn } from '$lib/ui';
@@ -277,8 +277,7 @@ function PlannedRouteDetail() {
 								<p>{route.notes || 'Planned route.'}</p>
 								{openGap != null && (
 									<p className="text-warn! font-semibold">
-										Start and finish are {formatStraightLineGap(openGap)} apart from each
-										other.
+										Start and finish are {formatStraightLineGap(openGap)} apart from each other.
 									</p>
 								)}
 							</>
@@ -331,7 +330,9 @@ function PlannedRouteDetail() {
 									</>
 								)}
 								{appleMapsUrl && (
-									<p className={cn('text-muted', 'mt-3 mb-0 max-w-[36ch] text-[0.92rem] basis-full')}>
+									<p
+										className={cn('text-muted', 'mt-3 mb-0 max-w-[36ch] text-[0.92rem] basis-full')}
+									>
 										Opens a pin at the start. Tap it, then Create a Custom Route, and tap along the
 										trail.
 									</p>
@@ -343,7 +344,9 @@ function PlannedRouteDetail() {
 					<Panel className="mb-4 p-0 overflow-hidden max-sm:order-1">
 						<div className="hidden sm:block p-[1.1rem_1.2rem_0.65rem]">
 							<PanelTitle>Route</PanelTitle>
-							<p className={cn('text-muted', 'mt-1')}>Kilometres and available GPX waypoints are marked</p>
+							<p className={cn('text-muted', 'mt-1')}>
+								Kilometres and available GPX waypoints are marked
+							</p>
 						</div>
 						<PlannedRouteMap
 							geojson={route.geojson}

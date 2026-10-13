@@ -23,11 +23,11 @@ import {
 	sortGroupMembers
 } from '$lib/group';
 import {
-    addToActivityGroupFn,
-    exportGroupedActivity,
-    getGroupDetail,
-    removeFromActivityGroupFn,
-    ungroupActivitiesFn
+	addToActivityGroupFn,
+	exportGroupedActivity,
+	getGroupDetail,
+	removeFromActivityGroupFn,
+	ungroupActivitiesFn
 } from '$lib/server/functions';
 import { activityTitlePart, appHead } from '$lib/title';
 import { cn } from '$lib/ui';
@@ -78,11 +78,7 @@ function GroupDetail() {
 	const title = groupedSessionTitle(group, members.length, stats.date);
 	const metric = headlineMetric(stats);
 	const metricSub =
-		metric.unit === ''
-			? 'duration'
-			: metric.unit === 'km/h'
-				? 'avg km/h'
-				: 'pace /km';
+		metric.unit === '' ? 'duration' : metric.unit === 'km/h' ? 'avg km/h' : 'pace /km';
 	const boardOwners = useMemo(
 		() => effortOwnersForBoard(allRuns, groups, new Map(allRuns.map((r) => [r.slug, r]))),
 		[allRuns, groups]
@@ -177,7 +173,9 @@ function GroupDetail() {
 						<div className="flex items-baseline gap-1">
 							<b>{stats.avg_hr ?? '—'}</b>
 							<span className="text-muted text-[0.95rem]">/</span>
-							<strong className="font-display text-[1.05rem] text-warn">{stats.max_hr ?? '—'}</strong>
+							<strong className="font-display text-[1.05rem] text-warn">
+								{stats.max_hr ?? '—'}
+							</strong>
 						</div>
 						<span>HR avg / max</span>
 					</Metric>
@@ -264,7 +262,9 @@ function GroupDetail() {
 			<Panel className="mb-4">
 				<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
 					<PanelTitle>Export</PanelTitle>
-					<p className={cn('text-muted', 'text-[0.85rem]')}>one file for Strava; Apple Health is a hop</p>
+					<p className={cn('text-muted', 'text-[0.85rem]')}>
+						one file for Strava; Apple Health is a hop
+					</p>
 				</div>
 				<Actions className="justify-start!">
 					{canCombinedExport && (
@@ -314,7 +314,11 @@ function GroupDetail() {
 				onClose={() => setAddOpen(false)}
 				actions={
 					<>
-						<button type="button" className={buttonClass({ variant: 'ghost' })} onClick={() => setAddOpen(false)}>
+						<button
+							type="button"
+							className={buttonClass({ variant: 'ghost' })}
+							onClick={() => setAddOpen(false)}
+						>
 							Cancel
 						</button>
 						<button

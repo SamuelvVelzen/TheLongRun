@@ -3,13 +3,13 @@ import { mapPillTop, mapRoutePane, mapWrap } from '$lib/map-layout';
 import { loadLeaflet } from '$lib/leaflet';
 import { cn } from '$lib/ui';
 import {
-    addBasemap,
-    addRouteEndpoints,
-    addRoutePolyline,
-    attachMapChrome,
-    kmMarkerIcon,
-    leafletMapOptions,
-    type MapChromeHandle
+	addBasemap,
+	addRouteEndpoints,
+	addRoutePolyline,
+	attachMapChrome,
+	kmMarkerIcon,
+	leafletMapOptions,
+	type MapChromeHandle
 } from '$lib/map-chrome';
 import type { KmMarker } from '$lib/splits';
 import type { PlannedWaypoint } from '$lib/types';

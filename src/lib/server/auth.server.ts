@@ -1,12 +1,12 @@
 import {
-    getCookie,
-    getRequestHeader,
-    getRequestHost,
-    getRequestProtocol,
-    getResponse,
-    setResponseStatus,
-    useSession,
-    type SessionConfig
+	getCookie,
+	getRequestHeader,
+	getRequestHost,
+	getRequestProtocol,
+	getResponse,
+	setResponseStatus,
+	useSession,
+	type SessionConfig
 } from '@tanstack/react-start/server';
 import { env } from 'cloudflare:workers';
 import { createRemoteJWKSet, decodeJwt, jwtVerify } from 'jose';
@@ -164,7 +164,8 @@ export async function completeAccessLogin(): Promise<{ ok: true } | { ok: false;
 	if (!token) {
 		return {
 			ok: false,
-			error: 'Cloudflare Access did not sign this request. Put Access only on /login, then try Sign in again.'
+			error:
+				'Cloudflare Access did not sign this request. Put Access only on /login, then try Sign in again.'
 		};
 	}
 	try {

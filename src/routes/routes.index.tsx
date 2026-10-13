@@ -20,10 +20,10 @@ import { dropzoneClass, runRowClass, runTitleClass } from '../components/ui/Chro
 import { reqClass } from '../components/ui/Field';
 import { AuthGate, useAuthed } from '$lib/auth';
 import {
-    createPlannedRoute,
-    deletePlannedRoute,
-    getPlannedRoutesData,
-    importPlannedRoute
+	createPlannedRoute,
+	deletePlannedRoute,
+	getPlannedRoutesData,
+	importPlannedRoute
 } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import type { PlannedRoute } from '$lib/types';
@@ -137,7 +137,9 @@ function PlannedRoutes() {
 		const fail = out.filter((r) => r.status === 'error');
 		if (ok.length && !fail.length) {
 			snack.success(
-				ok.length === 1 ? `Saved ${ok[0]!.name}` : `Saved ${ok.length} routes — compare them on the map below`
+				ok.length === 1
+					? `Saved ${ok[0]!.name}`
+					: `Saved ${ok.length} routes — compare them on the map below`
 			);
 		} else if (ok.length) {
 			snack.info(`Saved ${ok.length} of ${out.length} routes`);
@@ -203,164 +205,165 @@ function PlannedRoutes() {
 			/>
 
 			{authed ? (
-			<div className="mb-5 grid gap-3">
-				{drawing ? (
-					<Panel>
-						<WaypointEditor
-							emptyHint="Tap to drop pins along the loop"
-							hint="Place pins in order. Tap a pin to remove it, or tap the line to add one between. Drag to adjust."
-							saveLabel="Save route"
-							busy={busy}
-							onClose={closeDraw}
-							onSave={saveDrawn}
-						>
-							<Field as="label">
-								<span className={reqClass}>Name</span>
-								<input
-									value={routeName}
-									required
-									autoComplete="off"
-									placeholder="Saturday loop"
-									disabled={busy}
-									onChange={(event) => setRouteName(event.target.value)}
-								/>
-							</Field>
-						</WaypointEditor>
-					</Panel>
-				) : (
-					<IconLabelButton
-						label="Draw a route"
-						variant="primary"
-						size="default"
-						className="justify-self-start"
-						icon={<Icon name="map" size={16} />}
-						onClick={() => setDrawing(true)}
-					/>
-				)}
-				{drawing ? null : (
-					<label
-						className={dropzoneClass(dragOver && true)}
-						onDragOver={(event) => {
-							event.preventDefault();
-							setDragOver(true);
-						}}
-						onDragLeave={() => setDragOver(false)}
-						onDrop={(event) => {
-							event.preventDefault();
-							setDragOver(false);
-							addFiles(event.dataTransfer.files);
-						}}
-					>
-						<input
-							type="file"
-							accept=".gpx,.geojson,.json,application/gpx+xml,application/geo+json"
-							multiple
-							hidden
-							disabled={busy}
-							onChange={(event) => {
-								addFiles(event.target.files);
-								event.target.value = '';
-							}}
-						/>
-						<Icon name="upload" size={34} />
-						<strong>{busy ? progress || 'Saving routes…' : 'Choose GPX or GeoJSON'}</strong>
-						<span className={'text-muted'}>
-							Multiple BRouter exports OK — import them together, then compare overlap on the map
-						</span>
-						<span className={cn('text-muted', 'hidden [@media(hover:hover)_and_(pointer:fine)]:block')}>
-							You can also drop files here
-						</span>
-					</label>
-				)}
-				{files.length > 0 && !drawing ? (
-					<>
-						<ul className="list-none m-0 p-0 grid gap-1.5">
-							{files.map((f) => (
-								<li
-									key={f.name}
-									className="flex items-center gap-[0.6rem] p-[0.5rem_0.7rem] border border-line rounded-inset bg-inset text-[0.9rem]"
-								>
-									<code className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-										{f.name}
-									</code>
-									<span className={'text-muted'}>{(f.size / 1024).toFixed(0)} KB</span>
-									<DeleteButton
-										label={`Remove ${f.name}`}
-										disabled={busy}
-										onClick={() => setPendingFile(f.name)}
-									/>
-								</li>
-							))}
-						</ul>
-						<Actions>
-							<Button
-								type="button"
-								variant="primary"
-								disabled={busy || files.length === 0}
-								onClick={() => void runImport()}
+				<div className="mb-5 grid gap-3">
+					{drawing ? (
+						<Panel>
+							<WaypointEditor
+								emptyHint="Tap to drop pins along the loop"
+								hint="Place pins in order. Tap a pin to remove it, or tap the line to add one between. Drag to adjust."
+								saveLabel="Save route"
+								busy={busy}
+								onClose={closeDraw}
+								onSave={saveDrawn}
 							>
-								<Icon name="upload" size={16} />
-								{busy
-									? progress || 'Saving…'
-									: `Import ${files.length} ${files.length === 1 ? 'route' : 'routes'}`}
-							</Button>
-						</Actions>
-					</>
-				) : null}
-				{results.length > 0 ? (
-					<div className="mt-1">
-						<h3 className="m-0 text-[1rem]">
-							Saved {results.filter((r) => r.status === 'ok').length} / {results.length}
-						</h3>
-						<ul className="list-none m-[0.85rem_0_0] p-0 grid gap-2 text-[0.92rem]">
-							{results.map((r) => (
-								<li
-									key={r.name}
-									className="flex flex-wrap items-center gap-[0.45rem] py-2 border-b border-line last:border-b-0"
+								<Field as="label">
+									<span className={reqClass}>Name</span>
+									<input
+										value={routeName}
+										required
+										autoComplete="off"
+										placeholder="Saturday loop"
+										disabled={busy}
+										onChange={(event) => setRouteName(event.target.value)}
+									/>
+								</Field>
+							</WaypointEditor>
+						</Panel>
+					) : (
+						<IconLabelButton
+							label="Draw a route"
+							variant="primary"
+							size="default"
+							className="justify-self-start"
+							icon={<Icon name="map" size={16} />}
+							onClick={() => setDrawing(true)}
+						/>
+					)}
+					{drawing ? null : (
+						<label
+							className={dropzoneClass(dragOver && true)}
+							onDragOver={(event) => {
+								event.preventDefault();
+								setDragOver(true);
+							}}
+							onDragLeave={() => setDragOver(false)}
+							onDrop={(event) => {
+								event.preventDefault();
+								setDragOver(false);
+								addFiles(event.dataTransfer.files);
+							}}
+						>
+							<input
+								type="file"
+								accept=".gpx,.geojson,.json,application/gpx+xml,application/geo+json"
+								multiple
+								hidden
+								disabled={busy}
+								onChange={(event) => {
+									addFiles(event.target.files);
+									event.target.value = '';
+								}}
+							/>
+							<Icon name="upload" size={34} />
+							<strong>{busy ? progress || 'Saving routes…' : 'Choose GPX or GeoJSON'}</strong>
+							<span className={'text-muted'}>
+								Multiple BRouter exports OK — import them together, then compare overlap on the map
+							</span>
+							<span
+								className={cn(
+									'text-muted',
+									'hidden [@media(hover:hover)_and_(pointer:fine)]:block'
+								)}
+							>
+								You can also drop files here
+							</span>
+						</label>
+					)}
+					{files.length > 0 && !drawing ? (
+						<>
+							<ul className="list-none m-0 p-0 grid gap-1.5">
+								{files.map((f) => (
+									<li
+										key={f.name}
+										className="flex items-center gap-[0.6rem] p-[0.5rem_0.7rem] border border-line rounded-inset bg-inset text-[0.9rem]"
+									>
+										<code className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+											{f.name}
+										</code>
+										<span className={'text-muted'}>{(f.size / 1024).toFixed(0)} KB</span>
+										<DeleteButton
+											label={`Remove ${f.name}`}
+											disabled={busy}
+											onClick={() => setPendingFile(f.name)}
+										/>
+									</li>
+								))}
+							</ul>
+							<Actions>
+								<Button
+									type="button"
+									variant="primary"
+									disabled={busy || files.length === 0}
+									onClick={() => void runImport()}
 								>
-									<Tag accent>
-										<Icon name={r.status === 'ok' ? 'check' : 'close'} size={12} />
-										{r.status}
-									</Tag>
-									<code>{r.name}</code>
-									{r.slug ? (
-										<>
-											{' → '}
-											<Link to="/routes/$slug" params={{ slug: r.slug }}>
-												Open
-											</Link>
-										</>
-									) : null}
-									{r.message ? <span className={'text-muted'}>— {r.message}</span> : null}
-								</li>
-							))}
-						</ul>
-					</div>
-				) : null}
-				<ConfirmDialog
-					open={pendingFile != null}
-					title="Remove this file?"
-					description={pendingFile ? `“${pendingFile}” will be dropped from the import list.` : null}
-					confirmLabel="Remove"
-					onClose={() => setPendingFile(null)}
-					onConfirm={() => {
-						if (pendingFile) removeFile(pendingFile);
-					}}
-				/>
-			</div>
+									<Icon name="upload" size={16} />
+									{busy
+										? progress || 'Saving…'
+										: `Import ${files.length} ${files.length === 1 ? 'route' : 'routes'}`}
+								</Button>
+							</Actions>
+						</>
+					) : null}
+					{results.length > 0 ? (
+						<div className="mt-1">
+							<h3 className="m-0 text-[1rem]">
+								Saved {results.filter((r) => r.status === 'ok').length} / {results.length}
+							</h3>
+							<ul className="list-none m-[0.85rem_0_0] p-0 grid gap-2 text-[0.92rem]">
+								{results.map((r) => (
+									<li
+										key={r.name}
+										className="flex flex-wrap items-center gap-[0.45rem] py-2 border-b border-line last:border-b-0"
+									>
+										<Tag accent>
+											<Icon name={r.status === 'ok' ? 'check' : 'close'} size={12} />
+											{r.status}
+										</Tag>
+										<code>{r.name}</code>
+										{r.slug ? (
+											<>
+												{' → '}
+												<Link to="/routes/$slug" params={{ slug: r.slug }}>
+													Open
+												</Link>
+											</>
+										) : null}
+										{r.message ? <span className={'text-muted'}>— {r.message}</span> : null}
+									</li>
+								))}
+							</ul>
+						</div>
+					) : null}
+					<ConfirmDialog
+						open={pendingFile != null}
+						title="Remove this file?"
+						description={
+							pendingFile ? `“${pendingFile}” will be dropped from the import list.` : null
+						}
+						confirmLabel="Remove"
+						onClose={() => setPendingFile(null)}
+						onConfirm={() => {
+							if (pendingFile) removeFile(pendingFile);
+						}}
+					/>
+				</div>
 			) : null}
-			<DeferredData promise={page}>
-				{(data) => <PlannedRoutesList data={data} />}
-			</DeferredData>
+			<DeferredData promise={page}>{(data) => <PlannedRoutesList data={data} />}</DeferredData>
 		</>
 	);
 }
 
-function PlannedRoutesList({
-	data
-}: {
-	data: Awaited<ReturnType<typeof getPlannedRoutesData>>;
-}) {
+function PlannedRoutesList({ data }: { data: Awaited<ReturnType<typeof getPlannedRoutesData>> }) {
 	const meta = useMemo<RouteMeta>(() => {
 		const out: RouteMeta = {};
 		for (const route of data.routes) {
@@ -417,13 +420,7 @@ function PlannedRoutesList({
 	);
 }
 
-function LinkedFlag({
-	count,
-	kind
-}: {
-	count: number;
-	kind: 'plan' | 'activity';
-}) {
+function LinkedFlag({ count, kind }: { count: number; kind: 'plan' | 'activity' }) {
 	if (count <= 0) return null;
 	const noun =
 		kind === 'activity'
@@ -442,7 +439,8 @@ function LinkedFlag({
 }
 
 function linkSummary(route: PlannedRoute) {
-	const location = [route.place, route.country].filter(Boolean).join(', ') || `Saved ${route.saved_on}`;
+	const location =
+		[route.place, route.country].filter(Boolean).join(', ') || `Saved ${route.saved_on}`;
 	return (
 		<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
 			<span>{location}</span>
@@ -452,11 +450,7 @@ function linkSummary(route: PlannedRoute) {
 	);
 }
 
-function PlannedRouteRow({
-	route
-}: {
-	route: PlannedRoute;
-}) {
+function PlannedRouteRow({ route }: { route: PlannedRoute }) {
 	const router = useRouter();
 	const snack = useSnackbar();
 	const [pendingDelete, setPendingDelete] = useState(false);
@@ -512,11 +506,11 @@ function PlannedRouteRow({
 				) : null}
 			</div>
 			<AuthGate>
-			<DeleteButton
-				className="absolute top-0 bottom-0 right-[0.55rem] z-[2] my-auto opacity-100 sm:opacity-55 group-hover:opacity-100"
-				label={`Delete route ${route.name}`}
-				onClick={(event) => void onDeleteRoute(event)}
-			/>
+				<DeleteButton
+					className="absolute top-0 bottom-0 right-[0.55rem] z-[2] my-auto opacity-100 sm:opacity-55 group-hover:opacity-100"
+					label={`Delete route ${route.name}`}
+					onClick={(event) => void onDeleteRoute(event)}
+				/>
 			</AuthGate>
 			<ConfirmDialog
 				open={pendingDelete}

@@ -18,7 +18,11 @@ export type GpsRepairRouteOption = {
 	distance_km: number | null;
 };
 
-function writeMemberGpx(date: string, activityType: string, samples: { lat: number; lng: number }[]) {
+function writeMemberGpx(
+	date: string,
+	activityType: string,
+	samples: { lat: number; lng: number }[]
+) {
 	downloadTextFile(
 		`${date} ${activityType}.gpx`,
 		memberActivityGpx({
@@ -67,7 +71,9 @@ export function GpsRepair({
 	const [showPlanned, setShowPlanned] = useState(false);
 	const plannedForm = useAppForm({
 		defaultValues: { plannedSlug: plannedRoute?.slug ?? '' },
-		validators: { onSubmit: z.object({ plannedSlug: z.string().min(1, 'Pick a saved route first.') }) },
+		validators: {
+			onSubmit: z.object({ plannedSlug: z.string().min(1, 'Pick a saved route first.') })
+		},
 		onSubmit: async ({ value }) => {
 			if (busy) return;
 			setBusy(true);
@@ -144,10 +150,15 @@ export function GpsRepair({
 			{groupedSessionId && (
 				<p className={cn('text-muted', 'm-0 mt-3 text-[0.92rem]')}>
 					This is one part of a{' '}
-					<Link className="text-accent-fg font-semibold" to="/groups/$id" params={{ id: groupedSessionId }}>
+					<Link
+						className="text-accent-fg font-semibold"
+						to="/groups/$id"
+						params={{ id: groupedSessionId }}
+					>
 						grouped session
 					</Link>
-					. GPS is saved on this part only — a combined export keeps separate segments (a pause between files).
+					. GPS is saved on this part only — a combined export keeps separate segments (a pause
+					between files).
 					{contextTracks.length > 0
 						? ' Other parts with GPS are shown on the map so you can join onto them.'
 						: ''}
@@ -199,12 +210,7 @@ export function GpsRepair({
 											/>
 										)}
 									/>
-									<Button
-										variant="ghost"
-										size="sm"
-										type="submit"
-										disabled={busy}
-									>
+									<Button variant="ghost" size="sm" type="submit" disabled={busy}>
 										Build track from route
 									</Button>
 								</form>

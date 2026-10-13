@@ -70,7 +70,13 @@ export function NumberField({
 	const field = useFieldContext<number | null>();
 	const value = field.state.value;
 	return (
-		<Field label={label} required={required} hint={hint} error={shownError(field.state.meta)} className={className}>
+		<Field
+			label={label}
+			required={required}
+			hint={hint}
+			error={shownError(field.state.meta)}
+			className={className}
+		>
 			<Input
 				inputMode="decimal"
 				{...input}
@@ -102,7 +108,13 @@ export function TextAreaField({
 } & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'value' | 'onChange' | 'onBlur'>) {
 	const field = useFieldContext<string>();
 	return (
-		<Field label={label} required={required} hint={hint} error={shownError(field.state.meta)} className={className}>
+		<Field
+			label={label}
+			required={required}
+			hint={hint}
+			error={shownError(field.state.meta)}
+			className={className}
+		>
 			<Textarea
 				{...input}
 				variant={variant}
@@ -131,7 +143,13 @@ export function SelectField({
 }) {
 	const field = useFieldContext<string>();
 	return (
-		<Field label={label} required={required} hint={hint} error={shownError(field.state.meta)} className={className}>
+		<Field
+			label={label}
+			required={required}
+			hint={hint}
+			error={shownError(field.state.meta)}
+			className={className}
+		>
 			<Select
 				value={field.state.value ?? ''}
 				onChange={(next) => field.handleChange(next)}

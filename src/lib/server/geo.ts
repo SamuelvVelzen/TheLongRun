@@ -30,8 +30,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<GeoPlace
 		return {
 			country: a.country ?? '',
 			province: a.state ?? a.province ?? a.region ?? '',
-			place:
-				a.city ?? a.town ?? a.village ?? a.municipality ?? a.suburb ?? a.county ?? ''
+			place: a.city ?? a.town ?? a.village ?? a.municipality ?? a.suburb ?? a.county ?? ''
 		};
 	} catch {
 		return EMPTY_PLACE;

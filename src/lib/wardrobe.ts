@@ -121,7 +121,10 @@ export function wardrobeHasItems(w: Wardrobe): boolean {
 }
 
 export function itemsByCategory(w: Wardrobe): Record<ClothingCategory, ClothingItem[]> {
-	const out = { top: [], bottom: [], layer: [], accessory: [] } as Record<ClothingCategory, ClothingItem[]>;
+	const out = { top: [], bottom: [], layer: [], accessory: [] } as Record<
+		ClothingCategory,
+		ClothingItem[]
+	>;
 	for (const item of w.items) out[item.category].push(item);
 	return out;
 }
@@ -184,7 +187,15 @@ export function buildWardrobePrompt(w: Wardrobe, todayIso: string): string {
 	const owned = wardrobeHasItems(w) ? wardrobeCategoryLines(w).join('\n') : 'Nothing yet.';
 	const example = JSON.stringify({
 		items: [
-			{ category: 'bottom', name: 'Shorts + long liner', count: 2, min_c: 10, max_c: null, flags: ['long_run'], notes: '' }
+			{
+				category: 'bottom',
+				name: 'Shorts + long liner',
+				count: 2,
+				min_c: 10,
+				max_c: null,
+				flags: ['long_run'],
+				notes: ''
+			}
 		]
 	});
 	return tidyPrompt(`# The Long Run — my running clothes

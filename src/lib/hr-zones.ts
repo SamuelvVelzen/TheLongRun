@@ -57,8 +57,10 @@ export function resolveHrMax(
 	hrMaxManual: number | null | undefined,
 	hrMaxAllTime: number | null | undefined
 ): { hrMax: number; source: Exclude<HrZoneSource, 'activity'> } | null {
-	if (hrMaxManual != null && hrMaxManual > 0) return { hrMax: Math.round(hrMaxManual), source: 'profile' };
-	if (hrMaxAllTime != null && hrMaxAllTime > 0) return { hrMax: Math.round(hrMaxAllTime), source: 'alltime' };
+	if (hrMaxManual != null && hrMaxManual > 0)
+		return { hrMax: Math.round(hrMaxManual), source: 'profile' };
+	if (hrMaxAllTime != null && hrMaxAllTime > 0)
+		return { hrMax: Math.round(hrMaxAllTime), source: 'alltime' };
 	return null;
 }
 

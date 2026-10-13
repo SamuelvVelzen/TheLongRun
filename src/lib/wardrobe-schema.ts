@@ -84,7 +84,9 @@ function toCount(v: unknown): unknown {
 function toTemp(v: unknown): unknown {
 	if (v == null || (typeof v === 'string' && !v.trim())) return null;
 	if (typeof v === 'number') return Math.round(v);
-	const m = String(v).replace(',', '.').match(/-?\d+(\.\d+)?/);
+	const m = String(v)
+		.replace(',', '.')
+		.match(/-?\d+(\.\d+)?/);
 	return m ? Math.round(Number(m[0])) : v;
 }
 
@@ -136,10 +138,16 @@ export const clothingReplySchema = z
 		min_c: z.preprocess(toTemp, tempField).optional().default(null),
 		max_c: z.preprocess(toTemp, tempField).optional().default(null),
 		flags: z
-			.preprocess(toFlags, z.array(z.enum(CLOTHING_FLAGS, { message: 'use long_run, rain or reflective' })))
+			.preprocess(
+				toFlags,
+				z.array(z.enum(CLOTHING_FLAGS, { message: 'use long_run, rain or reflective' }))
+			)
 			.optional()
 			.default([]),
-		notes: z.preprocess((v) => compact(v, MAX_CLOTHING_NOTES), z.string()).optional().default('')
+		notes: z
+			.preprocess((v) => compact(v, MAX_CLOTHING_NOTES), z.string())
+			.optional()
+			.default('')
 	})
 	.refine(rangeOrdered, { message: 'min_c is above max_c', path: ['min_c'] });
 

@@ -50,8 +50,7 @@ export function GearField({
 	immediate?: boolean;
 }) {
 	const catalog = useMemo<GearChipOption[]>(
-		() =>
-			options.map((o) => (typeof o === 'string' ? { name: o, role: 'rotation' as const } : o)),
+		() => options.map((o) => (typeof o === 'string' ? { name: o, role: 'rotation' as const } : o)),
 		[options]
 	);
 	const isControlled = valueProp !== undefined;

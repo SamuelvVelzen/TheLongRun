@@ -245,8 +245,11 @@ export function effortOwnersForBoard(
 		}
 		out.push({
 			slug: groupOwnerSlug(g.id),
-			date: members.slice().sort((a, b) => a.date.localeCompare(b.date) || a.slug.localeCompare(b.slug))[0]
-				?.date ?? '',
+			date:
+				members
+					.slice()
+					.sort((a, b) => a.date.localeCompare(b.date) || a.slug.localeCompare(b.slug))[0]?.date ??
+				'',
 			activity_type: types[0]!,
 			best_efforts: g.best_efforts
 		});

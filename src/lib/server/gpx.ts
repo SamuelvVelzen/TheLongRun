@@ -1,10 +1,10 @@
 import { computeBestEffortsFromTrack, type BestEffort } from '$lib/best-efforts';
 import { formatDuration, formatPace } from '$lib/format';
 import {
-    computeRouteAnalytics,
-    haversineMeters,
-    type RouteAnalytics,
-    type TrackSample
+	computeRouteAnalytics,
+	haversineMeters,
+	type RouteAnalytics,
+	type TrackSample
 } from '$lib/splits';
 import { timezoneForCoord } from './geo';
 
@@ -114,13 +114,17 @@ export function parseGpx(xml: string): ParsedGpx {
 	}
 
 	const rollup = rollupTrack(track);
-	return finishParsed(track, {
-		date,
-		startClock,
-		detectedType,
-		firstPoint,
-		headlineDistanceMeters: rollup.distanceMeters
-	}, rollup);
+	return finishParsed(
+		track,
+		{
+			date,
+			startClock,
+			detectedType,
+			firstPoint,
+			headlineDistanceMeters: rollup.distanceMeters
+		},
+		rollup
+	);
 }
 
 type TrackRollup = {
@@ -214,8 +218,7 @@ function finishParsed(
 		distanceKm,
 		movingSeconds: moving,
 		time: moving != null ? formatDuration(moving) : '',
-		elapsedTime:
-			rollup.elapsedSeconds != null ? formatDuration(rollup.elapsedSeconds) : '',
+		elapsedTime: rollup.elapsedSeconds != null ? formatDuration(rollup.elapsedSeconds) : '',
 		avgPace: headlineMeters && moving ? formatPace(headlineMeters, moving) : '',
 		avgHr,
 		maxHr,

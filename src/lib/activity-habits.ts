@@ -1,4 +1,9 @@
-import { ACTIVITY_TYPES, activityLabel, normalizeActivityType, type ActivityType } from '$lib/activity';
+import {
+	ACTIVITY_TYPES,
+	activityLabel,
+	normalizeActivityType,
+	type ActivityType
+} from '$lib/activity';
 
 export type HabitPair = { before: string; after: string };
 export type ActivityHabits = Record<ActivityType, HabitPair>;
@@ -129,10 +134,9 @@ export function formatSessionHabitsBlock(
 		if (!before && !after) {
 			return many ? `- \`${r.slug}\`: (no before/after this time)` : '(no before/after this time)';
 		}
-		const bits = [
-			before ? `Before: ${before}` : null,
-			after ? `After: ${after}` : null
-		].filter(Boolean);
+		const bits = [before ? `Before: ${before}` : null, after ? `After: ${after}` : null].filter(
+			Boolean
+		);
 		if (!many) return bits.join('\n');
 		return `- \`${r.slug}\`: ${bits.join(' · ')}`;
 	});

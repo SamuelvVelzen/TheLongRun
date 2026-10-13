@@ -82,7 +82,9 @@ function FuelGroupRow({
 				<div className="flex items-center gap-2 min-h-11 py-1.5">
 					<div className="flex-1 min-w-0">
 						<div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-							<strong className="font-display text-[1.02rem] tracking-[-0.02em]">{group.item}</strong>
+							<strong className="font-display text-[1.02rem] tracking-[-0.02em]">
+								{group.item}
+							</strong>
 							<span
 								className={
 									group.tally.bad > 0 ? 'bg-warn/10 text-warn' : 'bg-accent/15 text-accent-fg'
@@ -91,13 +93,22 @@ function FuelGroupRow({
 								{fuelTallyLabel(group.tally)}
 							</span>
 						</div>
-						<p className={cn('text-muted', 'm-0 mt-1 text-[0.82rem] truncate group-open/fuel:hidden')}>
+						<p
+							className={cn(
+								'text-muted',
+								'm-0 mt-1 text-[0.82rem] truncate group-open/fuel:hidden'
+							)}
+						>
 							{latest.timing || 'timing not noted'}
 							{group.entries.length > 1 ? ` · ${group.entries.length} tries` : ''}
 						</p>
 					</div>
 					<span
-						className={buttonClass({ variant: 'ghost', size: 'icon', className: 'pointer-events-none' })}
+						className={buttonClass({
+							variant: 'ghost',
+							size: 'icon',
+							className: 'pointer-events-none'
+						})}
 						aria-hidden="true"
 					>
 						<Icon
@@ -203,8 +214,8 @@ function RenameDialog({
 				}}
 			>
 				<p className={cn('text-muted', 'm-0')}>
-					Renames every {group ? FUEL_PHASE_META[group.phase].label.toLowerCase() : ''} try. Use an existing
-					name to merge them into one item.
+					Renames every {group ? FUEL_PHASE_META[group.phase].label.toLowerCase() : ''} try. Use an
+					existing name to merge them into one item.
 				</p>
 				<form.AppField name="name" children={(field) => <field.TextField label="Name" />} />
 				<Actions>
@@ -344,7 +355,9 @@ export function FuelLog({
 	async function renameGroup(group: FuelGroup, name: string): Promise<boolean> {
 		setBusy(true);
 		try {
-			const saved = await renameFuelItem({ data: { phase: group.phase, from: group.item, to: name } });
+			const saved = await renameFuelItem({
+				data: { phase: group.phase, from: group.item, to: name }
+			});
 			setLog(saved);
 			snack.success(`Renamed to ${name}`);
 			router.invalidate();
@@ -371,7 +384,9 @@ export function FuelLog({
 					options={[
 						...FUEL_PHASES.map((p) => ({
 							value: p as FuelTab,
-							label: groups[p].length ? `${FUEL_PHASE_META[p].label} · ${groups[p].length}` : FUEL_PHASE_META[p].label
+							label: groups[p].length
+								? `${FUEL_PHASE_META[p].label} · ${groups[p].length}`
+								: FUEL_PHASE_META[p].label
 						})),
 						{ value: 'guidance' as FuelTab, label: 'Guidance' }
 					]}
@@ -469,7 +484,9 @@ export function FuelLog({
 				open={remove != null}
 				title="Remove this try?"
 				description={
-					remove ? `${remove.item} · ${remove.timing || 'timing not noted'} leaves the fuel log.` : undefined
+					remove
+						? `${remove.item} · ${remove.timing || 'timing not noted'} leaves the fuel log.`
+						: undefined
 				}
 				confirmLabel="Remove"
 				onClose={() => setRemove(null)}

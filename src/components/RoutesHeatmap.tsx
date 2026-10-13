@@ -185,24 +185,21 @@ export function RoutesHeatmap({
 				</p>
 			)}
 			{hasFocus && !status && (
-				<div
-					data-map-pill-top
-					className={cn(mapPillTop, 'p-0 border-0 bg-transparent')}
-				>
-				<SegmentedToggle
-					className="[&_button]:text-[0.72rem] [&_button]:font-semibold max-sm:[&_button]:min-w-11 max-sm:[&_button]:min-h-11 max-sm:[&_button]:h-11 max-sm:[&_button]:text-[0.8rem] max-sm:[&_button]:px-[0.9rem] max-sm:[&_button]:py-2"
-					value={view}
-					aria-label="Map zoom"
-					onChange={(next) => {
-						setView(next);
-						if (next === 'recent') fitRecentRef.current();
-						else fitAllRef.current();
-					}}
-					options={[
-						{ value: 'recent', label: 'Recent' },
-						{ value: 'all', label: 'All' }
-					]}
-				/>
+				<div data-map-pill-top className={cn(mapPillTop, 'p-0 border-0 bg-transparent')}>
+					<SegmentedToggle
+						className="[&_button]:text-[0.72rem] [&_button]:font-semibold max-sm:[&_button]:min-w-11 max-sm:[&_button]:min-h-11 max-sm:[&_button]:h-11 max-sm:[&_button]:text-[0.8rem] max-sm:[&_button]:px-[0.9rem] max-sm:[&_button]:py-2"
+						value={view}
+						aria-label="Map zoom"
+						onChange={(next) => {
+							setView(next);
+							if (next === 'recent') fitRecentRef.current();
+							else fitAllRef.current();
+						}}
+						options={[
+							{ value: 'recent', label: 'Recent' },
+							{ value: 'all', label: 'All' }
+						]}
+					/>
 				</div>
 			)}
 			{legendTypes.length > 0 && !status && (

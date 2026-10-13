@@ -1,11 +1,5 @@
 import { z } from 'zod';
-import {
-	GEAR_KINDS,
-	gearKey,
-	gearMeta,
-	type GearContext,
-	type GearKind
-} from '$lib/gear';
+import { GEAR_KINDS, gearKey, gearMeta, type GearContext, type GearKind } from '$lib/gear';
 
 const KIND_ALIASES: Record<string, GearKind> = {
 	shoes: 'shoes',
@@ -136,6 +130,10 @@ export function planGearImport(ctx: GearContext, items: GearImportItem[]): GearI
 export function gearImportSummary(c: GearImportChange): string {
 	const meta = gearMeta(c.kind);
 	const roleLabel =
-		c.role === 'active' ? meta.activeLabel.toLowerCase() : c.role === 'retired' ? 'retired' : 'rotation';
+		c.role === 'active'
+			? meta.activeLabel.toLowerCase()
+			: c.role === 'retired'
+				? 'retired'
+				: 'rotation';
 	return `${meta.section} · ${c.name} (${roleLabel})`;
 }

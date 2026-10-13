@@ -41,7 +41,10 @@ export function WardrobeAiDialog({
 		setPicked(new Set());
 	}, [open]);
 
-	const template = useMemo(() => buildWardrobePrompt(wardrobe, isoDateLocal(new Date())), [wardrobe]);
+	const template = useMemo(
+		() => buildWardrobePrompt(wardrobe, isoDateLocal(new Date())),
+		[wardrobe]
+	);
 	const prompt = injectWardrobeExtra(template, extra);
 
 	async function save() {
@@ -49,8 +52,13 @@ export function WardrobeAiDialog({
 		if (!chosen.length) return;
 		const added = chosen.filter((c) => !c.existing).length;
 		const updated = chosen.length - added;
-		const msg = [added && `Added ${added}`, updated && `updated ${updated}`].filter(Boolean).join(', ');
-		const ok = await onSave(applyClothingChanges(wardrobe, chosen), msg.charAt(0).toUpperCase() + msg.slice(1));
+		const msg = [added && `Added ${added}`, updated && `updated ${updated}`]
+			.filter(Boolean)
+			.join(', ');
+		const ok = await onSave(
+			applyClothingChanges(wardrobe, chosen),
+			msg.charAt(0).toUpperCase() + msg.slice(1)
+		);
 		if (ok) {
 			setExtra('');
 			onClose();
@@ -100,22 +108,28 @@ export function WardrobeAiDialog({
 										})
 									}
 									label={
-									<>
-										<div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-											<strong className="font-display">{c.item.name}</strong>
-											<span className="text-muted text-[0.9rem] tabular-nums">×{c.item.count}</span>
-											<span
-												className={
-													c.existing ? 'text-muted border border-line' : 'bg-accent/15 text-accent-fg'
-												}
-											>
-												{c.existing ? 'Update' : 'New'}
-											</span>
-										</div>
-										<p className={cn('text-muted', 'm-0 mt-1 text-[0.82rem]')}>
-											{[CLOTHING_CATEGORY_META[c.item.category].label, detail].filter(Boolean).join(' · ')}
-										</p>
-									</>
+										<>
+											<div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+												<strong className="font-display">{c.item.name}</strong>
+												<span className="text-muted text-[0.9rem] tabular-nums">
+													×{c.item.count}
+												</span>
+												<span
+													className={
+														c.existing
+															? 'text-muted border border-line'
+															: 'bg-accent/15 text-accent-fg'
+													}
+												>
+													{c.existing ? 'Update' : 'New'}
+												</span>
+											</div>
+											<p className={cn('text-muted', 'm-0 mt-1 text-[0.82rem]')}>
+												{[CLOTHING_CATEGORY_META[c.item.category].label, detail]
+													.filter(Boolean)
+													.join(' · ')}
+											</p>
+										</>
 									}
 								/>
 							);
@@ -126,8 +140,8 @@ export function WardrobeAiDialog({
 				<AiPromptFlow
 					intro={
 						<p className="m-0">
-							List what you own, or ask what you're missing. Copy the prompt into your AI, then paste its JSON
-							back — you choose what to keep.
+							List what you own, or ask what you're missing. Copy the prompt into your AI, then
+							paste its JSON back — you choose what to keep.
 						</p>
 					}
 					extraLabel="Extra for the prompt"
@@ -137,7 +151,9 @@ export function WardrobeAiDialog({
 					prompt={prompt}
 					result={
 						<JsonPasteForm
-							description={<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Paste the AI's reply</p>}
+							description={
+								<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Paste the AI's reply</p>
+							}
 							rows={5}
 							placeholder='{ "items": [ { "category": "bottom", "name": "Shorts + long liner", "count": 2 } ] }'
 							submitLabel="Check reply"

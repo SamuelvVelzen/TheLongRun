@@ -72,9 +72,7 @@ export function StrengthEditor({
 
 	const removeSet = (i: number, si: number) =>
 		push(
-			exercises.map((e, idx) =>
-				idx === i ? { ...e, sets: e.sets.filter((_, s) => s !== si) } : e
-			)
+			exercises.map((e, idx) => (idx === i ? { ...e, sets: e.sets.filter((_, s) => s !== si) } : e))
 		);
 
 	const setSet = (i: number, si: number, field: 'reps' | 'kg' | 'sec', raw: string) => {
@@ -166,7 +164,10 @@ export function StrengthEditor({
 							))}
 							<button
 								type="button"
-								className={buttonClass({ variant: 'ghost', className: 'h-full min-h-29 rounded-xl border-dashed' })}
+								className={buttonClass({
+									variant: 'ghost',
+									className: 'h-full min-h-29 rounded-xl border-dashed'
+								})}
 								onClick={() => addSet(i)}
 							>
 								+ set

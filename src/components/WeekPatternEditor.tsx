@@ -51,7 +51,10 @@ type Draft = {
 
 const CONSTRAINTS: WeekSlotConstraint[] = ['fixed', 'optional', 'preference'];
 
-const CONSTRAINT_OPTIONS = CONSTRAINTS.map((value) => ({ value, label: slotConstraintLabel(value) }));
+const CONSTRAINT_OPTIONS = CONSTRAINTS.map((value) => ({
+	value,
+	label: slotConstraintLabel(value)
+}));
 
 function constraintHint(constraint: WeekSlotConstraint): string {
 	if (constraint === 'fixed') {
@@ -293,14 +296,22 @@ export function WeekPatternEditor({
 	}
 
 	function openEditLimit(limit: DayLimit) {
-		setLimitDraft({ editing: limit.day, day: limit.day, kind: limit.kind, notes: limit.notes ?? '' });
+		setLimitDraft({
+			editing: limit.day,
+			day: limit.day,
+			kind: limit.kind,
+			notes: limit.notes ?? ''
+		});
 	}
 
 	function saveLimit() {
 		if (!limitDraft) return;
 		const rest = dayLimits.filter((l) => l.day !== limitDraft.editing && l.day !== limitDraft.day);
 		onDayLimitsChange(
-			normalizeDayLimits([...rest, { day: limitDraft.day, kind: limitDraft.kind, notes: limitDraft.notes }])
+			normalizeDayLimits([
+				...rest,
+				{ day: limitDraft.day, kind: limitDraft.kind, notes: limitDraft.notes }
+			])
 		);
 		setLimitDraft(null);
 	}
@@ -346,8 +357,8 @@ export function WeekPatternEditor({
 				</div>
 				{readOnly ? null : (
 					<span className={fieldHintClass}>
-						The coach decides how many of these and on which days. Sports you leave off still count as
-						load from your history.
+						The coach decides how many of these and on which days. Sports you leave off still count
+						as load from your history.
 					</span>
 				)}
 			</div>
@@ -523,14 +534,19 @@ export function WeekPatternEditor({
 				<p className={blockLabel}>Day limits</p>
 				{dayLimits.length === 0 ? (
 					<p className={cn('text-muted', 'm-0')}>
-						{readOnly ? 'Every day is available.' : 'Every day is available. Add a limit for days you can’t train, or only part of the day.'}
+						{readOnly
+							? 'Every day is available.'
+							: 'Every day is available. Add a limit for days you can’t train, or only part of the day.'}
 					</p>
 				) : (
 					<div className="border border-line rounded-xl bg-inset overflow-hidden">
 						{dayLimits.map((limit, i) => (
 							<div
 								key={limit.day}
-								className={cn('relative flex items-center gap-2 min-h-11 px-3', i > 0 && 'border-t border-line')}
+								className={cn(
+									'relative flex items-center gap-2 min-h-11 px-3',
+									i > 0 && 'border-t border-line'
+								)}
 							>
 								{readOnly ? null : (
 									<button
@@ -547,7 +563,12 @@ export function WeekPatternEditor({
 										{limit.kind === 'off' ? 'Off' : 'Limited'}
 									</span>
 									{limit.notes ? (
-										<span className={cn('text-muted', 'text-[0.85rem] truncate max-w-[min(100%,20rem)]')}>
+										<span
+											className={cn(
+												'text-muted',
+												'text-[0.85rem] truncate max-w-[min(100%,20rem)]'
+											)}
+										>
 											{limit.notes}
 										</span>
 									) : null}
@@ -587,7 +608,11 @@ export function WeekPatternEditor({
 				onClose={() => setDraft(null)}
 				actions={
 					<>
-						<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={() => setDraft(null)}>
+						<button
+							className={buttonClass({ variant: 'ghost' })}
+							type="button"
+							onClick={() => setDraft(null)}
+						>
 							Cancel
 						</button>
 						<button className={buttonClass()} type="button" onClick={saveDraft} disabled={disabled}>
@@ -681,7 +706,9 @@ export function WeekPatternEditor({
 								onChange={(day) => setLimitDraft({ ...limitDraft, day })}
 							/>
 							{limitReplaces ? (
-								<span className={fieldHintClass}>Replaces the limit already set for {limitDraft.day}.</span>
+								<span className={fieldHintClass}>
+									Replaces the limit already set for {limitDraft.day}.
+								</span>
 							) : null}
 						</div>
 						<div className={fieldClass}>

@@ -17,7 +17,11 @@ export type FuelEntry = {
 
 export type FuelLog = { entries: FuelEntry[]; guidance: string };
 
-export type FuelRunRef = { date: string; distance_km: number | null; activity_type?: string | null };
+export type FuelRunRef = {
+	date: string;
+	distance_km: number | null;
+	activity_type?: string | null;
+};
 
 export const MAX_FUEL_ITEM = 80;
 export const MAX_FUEL_TIMING = 120;
@@ -46,11 +50,24 @@ export const FUEL_OUTCOME_OPTIONS = FUEL_OUTCOMES.map((value) => ({
 	label: FUEL_OUTCOME_META[value].label
 }));
 
-export const FUEL_PLACEHOLDERS: Record<FuelPhase, { item: string; timing: string; notes: string }> = {
-	before: { item: 'Coffee', timing: '20 min before', notes: 'Fine — 10 min before gave me cramps' },
-	during: { item: 'Lidl pigs sweets', timing: 'every 5 km', notes: 'No stomach issues on the long run' },
-	after: { item: 'Chocolate milk', timing: 'within 30 min', notes: 'Easy to get down, legs felt better next day' }
-};
+export const FUEL_PLACEHOLDERS: Record<FuelPhase, { item: string; timing: string; notes: string }> =
+	{
+		before: {
+			item: 'Coffee',
+			timing: '20 min before',
+			notes: 'Fine — 10 min before gave me cramps'
+		},
+		during: {
+			item: 'Lidl pigs sweets',
+			timing: 'every 5 km',
+			notes: 'No stomach issues on the long run'
+		},
+		after: {
+			item: 'Chocolate milk',
+			timing: 'within 30 min',
+			notes: 'Easy to get down, legs felt better next day'
+		}
+	};
 
 export const FUEL_PROMPT_RULE =
 	'Default to what worked; never suggest a timing that caused trouble. Tries are grouped per item: ✓ worked, ~ mixed, ✗ trouble, with counts.';
@@ -242,7 +259,10 @@ function promptOrder(groups: FuelGroup[]): FuelGroup[] {
 }
 
 /** Compact grouped summary for coach prompts — one line per item, capped per phase. */
-export function formatFuelSection(log: FuelLog, runsBySlug: Record<string, FuelRunRef> = {}): string {
+export function formatFuelSection(
+	log: FuelLog,
+	runsBySlug: Record<string, FuelRunRef> = {}
+): string {
 	const groups = groupFuelLog(log);
 	const lines: string[] = [];
 	for (const phase of FUEL_PHASES) {
@@ -266,7 +286,12 @@ export function formatFuelSection(log: FuelLog, runsBySlug: Record<string, FuelR
 		.join('\n');
 }
 
-export function renameFuelItemIn(log: FuelLog, phase: FuelPhase, from: string, to: string): FuelLog {
+export function renameFuelItemIn(
+	log: FuelLog,
+	phase: FuelPhase,
+	from: string,
+	to: string
+): FuelLog {
 	const fromKey = fuelItemKey(from);
 	const name = compactFuelText(to, MAX_FUEL_ITEM);
 	if (!fromKey || !name) return log;

@@ -130,7 +130,11 @@ export function SplitsPanel({
 			)}
 
 			{zones && (
-				<div className={splits.length > 0 ? 'mt-[1.35rem] pt-[1.15rem] border-t border-line' : undefined}>
+				<div
+					className={
+						splits.length > 0 ? 'mt-[1.35rem] pt-[1.15rem] border-t border-line' : undefined
+					}
+				>
 					<div className="flex items-start justify-between gap-3 mb-[0.85rem] flex-wrap">
 						<div>
 							<h3>Heart rate zones</h3>
@@ -144,7 +148,10 @@ export function SplitsPanel({
 									({zoneSourceCopy[zones.source].label})
 								</ExplainTip>
 								{zones.avgZone != null && zones.avgHr != null && (
-									<> · avg {zones.avgHr} → Z{zones.avgZone}</>
+									<>
+										{' '}
+										· avg {zones.avgHr} → Z{zones.avgZone}
+									</>
 								)}
 							</div>
 						</div>
@@ -164,7 +171,11 @@ export function SplitsPanel({
 											if (e.key === 'Escape') setEditingMax(false);
 										}}
 									/>
-									<button type="button" className={buttonClass({ size: 'sm', className: 'max-sm:flex-1' })} onClick={saveMax}>
+									<button
+										type="button"
+										className={buttonClass({ size: 'sm', className: 'max-sm:flex-1' })}
+										onClick={saveMax}
+									>
 										Save
 									</button>
 									{hrMaxManual != null && (
@@ -179,7 +190,13 @@ export function SplitsPanel({
 											{hrMaxAllTime ? `Use ${hrMaxAllTime}` : 'Use activity max'}
 										</button>
 									)}
-									<p className={cn(fieldHintClass, 'text-muted', 'basis-full text-right max-sm:text-left mt-0')}>
+									<p
+										className={cn(
+											fieldHintClass,
+											'text-muted',
+											'basis-full text-right max-sm:text-left mt-0'
+										)}
+									>
 										Saved HRmax is used for every activity.
 									</p>
 								</div>
@@ -218,7 +235,9 @@ export function SplitsPanel({
 											<span className={'text-muted'}>{z.label}</span>
 										</div>
 										<div className="flex items-baseline gap-[0.45rem]">
-											<b className="font-display text-[1.1rem]">{formatDuration(z.seconds) || '0:00'}</b>
+											<b className="font-display text-[1.1rem]">
+												{formatDuration(z.seconds) || '0:00'}
+											</b>
 											<span className={cn('text-muted', 'text-[0.8rem]')}>{z.pct}%</span>
 										</div>
 										<p className={cn('text-muted', 'text-[0.75rem] mt-[0.15rem]')}>
@@ -271,7 +290,11 @@ function ZoneTimeBar({ bands }: { bands: HrZoneBand[] }) {
 						/>
 					))}
 				</div>
-				<div className="relative flex w-full min-h-11" role="group" aria-label="Time in heart rate zones">
+				<div
+					className="relative flex w-full min-h-11"
+					role="group"
+					aria-label="Time in heart rate zones"
+				>
 					{shown.map((z) => (
 						<button
 							key={z.zone}

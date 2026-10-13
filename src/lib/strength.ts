@@ -218,7 +218,8 @@ export function formatLiftTopsBrief(logs: StrengthLogLike[], todayIso: string): 
 	const tops = recentExerciseTops(recent, recent.length);
 	if (!tops.length) return '';
 	const bits = tops.map(
-		(t) => `${t.name} ${formatSetTop({ reps: t.reps, kg: t.kg, sec: t.sec }, t.kind)} (${t.date.slice(5)})`
+		(t) =>
+			`${t.name} ${formatSetTop({ reps: t.reps, kg: t.kg, sec: t.sec }, t.kind)} (${t.date.slice(5)})`
 	);
 	return `## Lift tops (last 12 weeks, newest log of each lift)\nPrescribe gym work from these lifts and loads — match the programme I actually do; progress or back off given recovery.\n${bits.join('; ')}`;
 }
@@ -277,14 +278,10 @@ export function fillStrengthNotesFromTops(notes: string, tops: RecentLiftTop[]):
 
 const PLAN_MIN_RE =
 	/^~?\s*(\d+(?:\.\d+)?)(?:\s*[-–]\s*\d+(?:\.\d+)?)?\s*(?:min(?:ute)?s?)\b[.\s,:]*/i;
-const PLAN_HOUR_RE =
-	/^(\d+)\s*h(?:ours?)?(?:\s*(\d+)\s*m(?:in(?:ute)?s?)?)?\b[.\s,:]*/i;
-const PLAN_TRIPLE_RE =
-	/^(.+?)\s+(\d+)\s*[x×]\s*(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:kgs?)?$/i;
-const PLAN_TIMED_RE =
-	/^(.+?)\s+(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*s(?:ecs?|econds?)?(?:\s+(.+))?$/i;
-const PLAN_SETS_RE =
-	/^(.+?)\s+(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)(?!\s*s\b)(?:\s*(?:at|@)\s+)?(.*)$/i;
+const PLAN_HOUR_RE = /^(\d+)\s*h(?:ours?)?(?:\s*(\d+)\s*m(?:in(?:ute)?s?)?)?\b[.\s,:]*/i;
+const PLAN_TRIPLE_RE = /^(.+?)\s+(\d+)\s*[x×]\s*(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:kgs?)?$/i;
+const PLAN_TIMED_RE = /^(.+?)\s+(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*s(?:ecs?|econds?)?(?:\s+(.+))?$/i;
+const PLAN_SETS_RE = /^(.+?)\s+(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)(?!\s*s\b)(?:\s*(?:at|@)\s+)?(.*)$/i;
 const PLAN_CUE_RE =
 	/^(?:(?:\d+(?:\.\d+)?\s*(?:s|secs?|seconds?)?\s+)?rest(?:s)?|controlled(?:\s+tempo)?|straight sets|not a circuit|not rushed|circuit(?:s)?|warmup|warm-up|cool-?down|rpe\s*\d+(?:\s*[-–]\s*\d+)?)$/i;
 
@@ -428,7 +425,9 @@ function plannedExercisesToStrength(planned: PlanStrengthExercise[]): StrengthEx
 	});
 }
 
-function parsePlanClause(clause: string): { exercise: StrengthExercise; cue: string } | 'cue' | null {
+function parsePlanClause(
+	clause: string
+): { exercise: StrengthExercise; cue: string } | 'cue' | null {
 	const { core, notes } = peelParens(clause);
 	if (
 		PLAN_CUE_RE.test(core) ||
@@ -502,7 +501,10 @@ export function strengthLogFromPlan(
 			rest.replace(/\.+$/, ''),
 			...planned.map((e) => e.note?.trim() ?? '').filter(Boolean)
 		].filter(Boolean);
-		return { time, notes: formatStrengthNotes(plannedExercisesToStrength(planned), extra.join('. ')) };
+		return {
+			time,
+			notes: formatStrengthNotes(plannedExercisesToStrength(planned), extra.join('. '))
+		};
 	}
 	const asNotes = parseStrengthNotes(rest);
 	if (asNotes.exercises.length) {

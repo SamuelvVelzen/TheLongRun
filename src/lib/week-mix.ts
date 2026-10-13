@@ -1,9 +1,9 @@
 import {
-    ACTIVITY_TYPES,
-    activityCount,
-    activityLabel,
-    normalizeActivityType,
-    type ActivityType
+	ACTIVITY_TYPES,
+	activityCount,
+	activityLabel,
+	normalizeActivityType,
+	type ActivityType
 } from './activity';
 
 export type WeekMix = Record<ActivityType, number>;
@@ -173,7 +173,9 @@ function normalizeWeekday(raw: unknown): Weekday | null {
 	const exact = WEEKDAYS.find((d) => d === s);
 	if (exact) return exact;
 	const lower = s.toLowerCase();
-	return WEEKDAYS.find((d) => d.toLowerCase() === lower || d.slice(0, 3).toLowerCase() === lower) ?? null;
+	return (
+		WEEKDAYS.find((d) => d.toLowerCase() === lower || d.slice(0, 3).toLowerCase() === lower) ?? null
+	);
 }
 
 function normalizeSlot(raw: unknown): WeekSlot | null {
@@ -182,7 +184,10 @@ function normalizeSlot(raw: unknown): WeekSlot | null {
 	const day = normalizeWeekday(o.day);
 	if (!day) return null;
 	const rawType = typeof o.activity_type === 'string' ? o.activity_type : 'run';
-	const compact = rawType.trim().toLowerCase().replace(/[\s_-]/g, '');
+	const compact = rawType
+		.trim()
+		.toLowerCase()
+		.replace(/[\s_-]/g, '');
 	if (['swim', 'swimming', 'openwaterswim', 'lapswimming'].includes(compact)) return null;
 	return compactSlot({
 		day,
@@ -198,7 +203,9 @@ function normalizeConstraint(o: Record<string, unknown>): WeekSlotConstraint {
 		.trim()
 		.toLowerCase()
 		.replace(/[\s_-]/g, '');
-	if (['fixed', 'pinned', 'locked', 'cantchange', 'cannotchange', 'unchangeable'].includes(compact)) {
+	if (
+		['fixed', 'pinned', 'locked', 'cantchange', 'cannotchange', 'unchangeable'].includes(compact)
+	) {
 		return 'fixed';
 	}
 	if (['optional', 'opt', 'skipok'].includes(compact)) return 'optional';
@@ -284,7 +291,8 @@ export function normalizePlannedSports(raw: unknown, fallback: ActivityType[]): 
 }
 
 export function normalizeWeekSetup(raw: unknown): WeekSetup {
-	const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+	const o =
+		raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
 	const pattern = normalizeWeekPattern(o.pattern);
 	return {
 		pattern,
@@ -387,7 +395,11 @@ function exampleDistance(type: ActivityType, index: number, total: number): numb
 	return 6;
 }
 
-function exampleRunWorkout(index: number, total: number, easyPace: string): Record<string, unknown> {
+function exampleRunWorkout(
+	index: number,
+	total: number,
+	easyPace: string
+): Record<string, unknown> {
 	if (total >= 2 && index === total - 1) {
 		return {
 			type: 'long',
@@ -526,12 +538,15 @@ export function formatWeekSetupPromptSection(opts: {
 	const lines = [
 		`## Build ${weekPhrase} around my pinned activities`,
 		`Build my week around my pinned activities and day limits. Plan only the sports listed under **Sports to plan**.${
-			weekSetupsEqual(setup, opts.defaultSetup) ? '' : ` (I changed my usual setup for ${weekPhrase}.)`
+			weekSetupsEqual(setup, opts.defaultSetup)
+				? ''
+				: ` (I changed my usual setup for ${weekPhrase}.)`
 		}`
 	];
 	if (pinned.length) lines.push('', '### Pinned activities', formatPatternLines(pinned));
 	if (limits.length) lines.push('', '### Day limits', formatDayLimitLines(limits));
-	if (!pinned.length && !limits.length) lines.push('No pinned activities or day limits — every day is available.');
+	if (!pinned.length && !limits.length)
+		lines.push('No pinned activities or day limits — every day is available.');
 	lines.push(
 		'',
 		'### Sports to plan',
@@ -568,7 +583,10 @@ export function formatWeekSetupPromptSection(opts: {
 }
 
 /** Compact setup block for the debrief prompt — what may and may not move; '' when nothing is fixed. */
-export function formatWeekSetupDebriefSection(setup: WeekSetup, opts: { includeSlots: boolean }): string {
+export function formatWeekSetupDebriefSection(
+	setup: WeekSetup,
+	opts: { includeSlots: boolean }
+): string {
 	const pinned = setup.pattern.filter(isPinnedSlot);
 	const prefs = opts.includeSlots ? setup.pattern.filter((s) => !isPinnedSlot(s)) : [];
 	const limits = normalizeDayLimits(setup.dayLimits);

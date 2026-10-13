@@ -160,9 +160,7 @@ export function computeRouteAnalytics(
 			pace = formatPace(distM, seconds);
 			if (!pace) return;
 		}
-		const avgHr = hrBuf.length
-			? Math.round(hrBuf.reduce((a, b) => a + b, 0) / hrBuf.length)
-			: null;
+		const avgHr = hrBuf.length ? Math.round(hrBuf.reduce((a, b) => a + b, 0) / hrBuf.length) : null;
 		splits.push({
 			km: splits.length + 1,
 			distanceKm,

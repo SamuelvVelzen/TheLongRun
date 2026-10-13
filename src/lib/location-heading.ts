@@ -114,8 +114,10 @@ type OrientationPermission = {
 /** Must run in the same tap as My location so iOS can show the motion prompt. */
 function requestCompassAccess() {
 	if (compassHandler || !isPhoneDevice()) return;
-	const DO = window.DeviceOrientationEvent as (typeof DeviceOrientationEvent & OrientationPermission) | undefined;
-	const DM = window.DeviceMotionEvent as (typeof DeviceMotionEvent & OrientationPermission) | undefined;
+	const DO = window.DeviceOrientationEvent as
+		(typeof DeviceOrientationEvent & OrientationPermission) | undefined;
+	const DM = window.DeviceMotionEvent as
+		(typeof DeviceMotionEvent & OrientationPermission) | undefined;
 	let asked = false;
 	const onGrant = (state: string) => {
 		if (state === 'granted') startCompass();
@@ -123,11 +125,15 @@ function requestCompassAccess() {
 	try {
 		if (typeof DM?.requestPermission === 'function') {
 			asked = true;
-			void DM.requestPermission().then(onGrant).catch(() => {});
+			void DM.requestPermission()
+				.then(onGrant)
+				.catch(() => {});
 		}
 		if (typeof DO?.requestPermission === 'function') {
 			asked = true;
-			void DO.requestPermission().then(onGrant).catch(() => {});
+			void DO.requestPermission()
+				.then(onGrant)
+				.catch(() => {});
 		}
 	} catch {
 		/* user declined or unsupported */

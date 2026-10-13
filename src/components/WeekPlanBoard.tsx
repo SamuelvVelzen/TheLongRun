@@ -1,11 +1,11 @@
 import { StatusPill } from './ui';
 import { activityLabel } from '$lib/activity';
 import {
-    sessionMeasureLabel,
-    weekDayGroups,
-    type UnplannedActivity,
-    type WeekSessionView,
-    type WeekView
+	sessionMeasureLabel,
+	weekDayGroups,
+	type UnplannedActivity,
+	type WeekSessionView,
+	type WeekView
 } from '$lib/plan';
 import type { SessionRouteRef } from '$lib/types';
 import { cn } from '$lib/ui';
@@ -90,13 +90,7 @@ function UnplannedBadge() {
 	);
 }
 
-function UnplannedRow({
-	item,
-	divided
-}: {
-	item: UnplannedActivity;
-	divided: boolean;
-}) {
+function UnplannedRow({ item, divided }: { item: UnplannedActivity; divided: boolean }) {
 	return (
 		<Link
 			to="/runs/$slug"
@@ -221,9 +215,7 @@ export function WeekPlanBoard({
 	const visibleDays = days
 		.map((group) => ({
 			...group,
-			sessions: showCompleted
-				? group.sessions
-				: group.sessions.filter((s) => !isFinishedSession(s))
+			sessions: showCompleted ? group.sessions : group.sessions.filter((s) => !isFinishedSession(s))
 		}))
 		.filter((group) => group.sessions.length > 0 || group.unplanned.length > 0);
 
@@ -233,9 +225,7 @@ export function WeekPlanBoard({
 				<h2 id="week-plan-heading">{title ?? `Week ${view.week.week}`}</h2>
 				<p className={'text-muted'}>
 					{[view.week.dates, view.week.phase, view.week.focus].filter(Boolean).join(' · ')}
-					{view.unplanned.length
-						? ` · ${view.unplanned.length} unplanned logged`
-						: ''}
+					{view.unplanned.length ? ` · ${view.unplanned.length} unplanned logged` : ''}
 					{finishedCount > 0 && (
 						<>
 							{' · '}
@@ -257,20 +247,20 @@ export function WeekPlanBoard({
 			</div>
 			<div className="grid grid-cols-1 gap-3 min-[720px]:grid-cols-2">
 				{visibleDays.map((group) => {
-								const onlyUnplanned = group.sessions.length === 0 && group.unplanned.length > 0;
-								const nextHere = group.sessions.some((s) => s.isNext);
-								return (
-									<article
-										key={group.day}
-										className={cn(
-											'flex flex-col gap-3 min-w-0 p-[0.85rem_0.95rem] rounded-[14px] border',
-											nextHere
-												? 'border-[color-mix(in_srgb,var(--color-accent)_40%,var(--color-line))] bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))]'
-												: onlyUnplanned
-													? 'border-dashed border-[rgba(200,242,90,0.35)] bg-[color-mix(in_srgb,var(--color-panel)_55%,transparent)]'
-													: 'border-line bg-[color-mix(in_srgb,var(--color-panel)_55%,transparent)]'
-										)}
-									>
+					const onlyUnplanned = group.sessions.length === 0 && group.unplanned.length > 0;
+					const nextHere = group.sessions.some((s) => s.isNext);
+					return (
+						<article
+							key={group.day}
+							className={cn(
+								'flex flex-col gap-3 min-w-0 p-[0.85rem_0.95rem] rounded-[14px] border',
+								nextHere
+									? 'border-[color-mix(in_srgb,var(--color-accent)_40%,var(--color-line))] bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))]'
+									: onlyUnplanned
+										? 'border-dashed border-[rgba(200,242,90,0.35)] bg-[color-mix(in_srgb,var(--color-panel)_55%,transparent)]'
+										: 'border-line bg-[color-mix(in_srgb,var(--color-panel)_55%,transparent)]'
+							)}
+						>
 							<header className="flex items-baseline justify-between gap-2">
 								<div>
 									<p className="m-0 text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent-fg">

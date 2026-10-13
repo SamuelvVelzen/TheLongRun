@@ -32,8 +32,7 @@ export function PlanSessionMenu({
 	const canSkip = !session.skipped && !rest;
 	const canUndoSkip = storedSkip;
 	const canLog = !session.skipped && !rest;
-	const canAddRoute =
-		!session.skipped && !linked && sessionCanLinkRoute(session);
+	const canAddRoute = !session.skipped && !linked && sessionCanLinkRoute(session);
 
 	async function persistSkipped(skipped: boolean) {
 		await setPlanSessionSkipped({
@@ -61,8 +60,7 @@ export function PlanSessionMenu({
 						onClick: () => {
 							void persistSkipped(false).then(
 								() => snack.success(`Restored ${session.label}`),
-								(error) =>
-									snack.error(errorMessage(error, 'Could not restore this session'))
+								(error) => snack.error(errorMessage(error, 'Could not restore this session'))
 							);
 						}
 					}
@@ -72,7 +70,10 @@ export function PlanSessionMenu({
 			}
 		} catch (error) {
 			snack.error(
-				errorMessage(error, skipped ? 'Could not skip this session' : 'Could not restore this session')
+				errorMessage(
+					error,
+					skipped ? 'Could not skip this session' : 'Could not restore this session'
+				)
 			);
 		} finally {
 			setBusy(false);

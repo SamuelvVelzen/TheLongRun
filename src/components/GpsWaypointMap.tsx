@@ -1,20 +1,20 @@
 import {
-    insertPinOnLine,
-    MAX_WAYPOINTS,
-    snapToTrackEnds,
-    trackDistanceMeters,
-    type GpsContextTrack,
-    type GpsWaypoint
+	insertPinOnLine,
+	MAX_WAYPOINTS,
+	snapToTrackEnds,
+	trackDistanceMeters,
+	type GpsContextTrack,
+	type GpsWaypoint
 } from '$lib/gps-repair';
 import { mapRoutePaneTall, mapWrap } from '$lib/map-layout';
 import { loadLeaflet } from '$lib/leaflet';
 import {
-    addBasemap,
-    addRoutePolyline,
-    attachMapChrome,
-    leafletMapOptions,
-    waypointPinIcon,
-    type MapChromeHandle
+	addBasemap,
+	addRoutePolyline,
+	attachMapChrome,
+	leafletMapOptions,
+	waypointPinIcon,
+	type MapChromeHandle
 } from '$lib/map-chrome';
 import { cssColor } from '$lib/theme';
 import { useEffect, useRef } from 'react';
@@ -50,11 +50,11 @@ export function GpsWaypointMap({
 	previewRef.current = previewCoords;
 	onChangeRef.current = onChange;
 
-	const lineForKm = previewCoords && previewCoords.length >= 2
-		? previewCoords.map(([lat, lng]) => ({ lat, lng }))
-		: waypoints;
-	const previewKm =
-		lineForKm.length >= 2 ? trackDistanceMeters(lineForKm) / 1000 : 0;
+	const lineForKm =
+		previewCoords && previewCoords.length >= 2
+			? previewCoords.map(([lat, lng]) => ({ lat, lng }))
+			: waypoints;
+	const previewKm = lineForKm.length >= 2 ? trackDistanceMeters(lineForKm) / 1000 : 0;
 
 	useEffect(() => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -111,7 +111,10 @@ export function GpsWaypointMap({
 					any = true;
 				}
 				if (any && bounds.isValid()) {
-					map.fitBounds(bounds, { padding: [36, 36], maxZoom: waypointsRef.current.length < 2 ? 12 : 14 });
+					map.fitBounds(bounds, {
+						padding: [36, 36],
+						maxZoom: waypointsRef.current.length < 2 ? 12 : 14
+					});
 					return;
 				}
 				map.setView([NL_LAT, NL_LNG], 8);
@@ -123,10 +126,7 @@ export function GpsWaypointMap({
 				return routed.map(([lat, lng]) => ({ lat, lng }));
 			};
 
-			const onLineClick = (e: {
-				latlng: { lat: number; lng: number };
-				originalEvent?: Event;
-			}) => {
+			const onLineClick = (e: { latlng: { lat: number; lng: number }; originalEvent?: Event }) => {
 				swallowMapClick();
 				L.DomEvent.stop(e);
 				if (e.originalEvent) L.DomEvent.stop(e.originalEvent);
@@ -214,11 +214,10 @@ export function GpsWaypointMap({
 				}
 				const current = waypointsRef.current;
 				if (current.length >= MAX_WAYPOINTS) return;
-				const snapped =
-					snapToTrackEnds(e.latlng.lat, e.latlng.lng, contextRef.current) ?? {
-						lat: e.latlng.lat,
-						lng: e.latlng.lng
-					};
+				const snapped = snapToTrackEnds(e.latlng.lat, e.latlng.lng, contextRef.current) ?? {
+					lat: e.latlng.lat,
+					lng: e.latlng.lng
+				};
 				onChangeRef.current([...current, snapped]);
 			});
 
@@ -241,11 +240,7 @@ export function GpsWaypointMap({
 	}, [waypoints, previewCoords]);
 
 	return (
-		<div
-			data-map-wrap
-			className={mapWrap}
-			ref={wrapRef}
-		>
+		<div data-map-wrap className={mapWrap} ref={wrapRef}>
 			<p className="absolute z-[2] left-[0.85rem] top-[0.85rem] m-0 px-[0.65rem] py-[0.35rem] rounded-full bg-[rgba(16,20,15,0.85)] border border-line text-muted text-[0.78rem] pointer-events-none max-sm:left-2 max-sm:top-2">
 				{status
 					? status
@@ -255,11 +250,7 @@ export function GpsWaypointMap({
 								previewKm > 0 ? ` · ~${previewKm.toFixed(1)} km` : ''
 							}`}
 			</p>
-			<div
-				data-route-map
-				className={mapRoutePaneTall}
-				ref={containerRef}
-			/>
+			<div data-route-map className={mapRoutePaneTall} ref={containerRef} />
 		</div>
 	);
 }

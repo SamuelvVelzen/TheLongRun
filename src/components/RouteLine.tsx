@@ -87,7 +87,13 @@ export function RouteLine({
 				strokeLinejoin="round"
 			/>
 			{markers && startPt && (
-				<circle cx={startPt.x} cy={startPt.y} r={strokeWidth * 1.4} fill="currentColor" opacity={0.9} />
+				<circle
+					cx={startPt.x}
+					cy={startPt.y}
+					r={strokeWidth * 1.4}
+					fill="currentColor"
+					opacity={0.9}
+				/>
 			)}
 			{markers && endPt && (
 				<circle

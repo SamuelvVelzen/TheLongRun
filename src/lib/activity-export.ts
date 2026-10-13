@@ -82,9 +82,7 @@ function tcxSport(activityType: string): string {
 
 function pointXmlTcx(p: TrackSample): string {
 	const time =
-		p.timeMs != null && Number.isFinite(p.timeMs)
-			? `<Time>${isoUtc(p.timeMs)}</Time>`
-			: '';
+		p.timeMs != null && Number.isFinite(p.timeMs) ? `<Time>${isoUtc(p.timeMs)}</Time>` : '';
 	const ele =
 		p.elev != null && Number.isFinite(p.elev) ? `<AltitudeMeters>${p.elev}</AltitudeMeters>` : '';
 	const hr =
@@ -95,7 +93,9 @@ function pointXmlTcx(p: TrackSample): string {
 }
 
 function lapSeconds(points: TrackSample[]): number {
-	const times = points.map((p) => p.timeMs).filter((n): n is number => n != null && Number.isFinite(n));
+	const times = points
+		.map((p) => p.timeMs)
+		.filter((n): n is number => n != null && Number.isFinite(n));
 	if (times.length < 2) return 0;
 	return Math.max(0, (Math.max(...times) - Math.min(...times)) / 1000);
 }
@@ -109,7 +109,9 @@ function lapDistance(points: TrackSample[]): number {
 		const dlng = ((b.lng - a.lng) * Math.PI) / 180;
 		const x =
 			Math.sin(dlat / 2) ** 2 +
-			Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dlng / 2) ** 2;
+			Math.cos((a.lat * Math.PI) / 180) *
+				Math.cos((b.lat * Math.PI) / 180) *
+				Math.sin(dlng / 2) ** 2;
 		const seg = 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(x)));
 		if (Number.isFinite(seg) && seg > 0 && seg <= 200) m += seg;
 	}
@@ -130,8 +132,7 @@ export function combinedActivityTcx(opts: {
 
 	const laps = usable
 		.map((s) => {
-			const start =
-				s.points.find((p) => p.timeMs != null)?.timeMs ?? firstTime ?? Date.now();
+			const start = s.points.find((p) => p.timeMs != null)?.timeMs ?? firstTime ?? Date.now();
 			const dist = lapDistance(s.points);
 			const sec = lapSeconds(s.points);
 			const pts = s.points.map(pointXmlTcx).join('\n');
@@ -160,7 +161,11 @@ ${laps}
 `;
 }
 
-export function memberActivityGpx(opts: { name: string; activityType: string; points: TrackSample[] }): string {
+export function memberActivityGpx(opts: {
+	name: string;
+	activityType: string;
+	points: TrackSample[];
+}): string {
 	return combinedActivityGpx({
 		name: opts.name,
 		activityType: opts.activityType,
@@ -222,4 +227,3 @@ export function saveExportedFile(file: {
 }
 
 export { safeFilename };
-

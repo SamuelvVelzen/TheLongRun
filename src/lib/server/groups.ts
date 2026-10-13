@@ -51,10 +51,11 @@ export async function listActivityGroups(): Promise<ActivityGroupInfo[]> {
 export async function getActivityGroup(id: string): Promise<ActivityGroupInfo | null> {
 	if (!id) return null;
 	const sql = getSql();
-	const rows = (await sql`SELECT id, name, created_on FROM activity_groups WHERE id = ${id} LIMIT 1`) as Record<
-		string,
-		unknown
-	>[];
+	const rows =
+		(await sql`SELECT id, name, created_on FROM activity_groups WHERE id = ${id} LIMIT 1`) as Record<
+			string,
+			unknown
+		>[];
 	if (!rows.length) return null;
 	const members = (await sql`
 		SELECT activity_slug FROM activity_group_members
@@ -165,7 +166,10 @@ export async function createActivityGroup(slugs: string[], name = ''): Promise<A
 	};
 }
 
-export async function addActivityToGroup(groupId: string, slug: string): Promise<ActivityGroupInfo> {
+export async function addActivityToGroup(
+	groupId: string,
+	slug: string
+): Promise<ActivityGroupInfo> {
 	const group = await getActivityGroup(groupId);
 	if (!group) throw new Error('Group not found.');
 	const run = await getRun(slug);
@@ -237,7 +241,9 @@ export async function enrichAllGroupEfforts(
 	const bySlug = new Map(runs.map((r) => [r.slug, r] as const));
 	const out: ActivityGroupInfo[] = [];
 	for (const g of groups) {
-		const members = g.member_slugs.map((s) => bySlug.get(s)).filter((r): r is RunRecord => r != null);
+		const members = g.member_slugs
+			.map((s) => bySlug.get(s))
+			.filter((r): r is RunRecord => r != null);
 		out.push(await enrichGroupEfforts(g, members));
 	}
 	return out;

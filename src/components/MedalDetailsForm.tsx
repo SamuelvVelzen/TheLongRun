@@ -106,7 +106,11 @@ export function MedalDetailsForm({
 							values.bib_number !== defaultValues.bib_number ||
 							values.result_url !== defaultValues.result_url ||
 							values.medal_notes !== defaultValues.medal_notes;
-						return dirty ? submit : extraActions ? <Actions className="justify-start!">{extraActions}</Actions> : null;
+						return dirty ? (
+							submit
+						) : extraActions ? (
+							<Actions className="justify-start!">{extraActions}</Actions>
+						) : null;
 					}}
 				</form.Subscribe>
 			)}

@@ -221,7 +221,10 @@ export function computeBestEffortsFromTrack(samples: TrackSample[]): BestEffort[
 }
 
 /** Fill distance keys the GPS pass missed (e.g. older imports) without replacing GPS times. */
-export function mergeMissingBestEfforts(stored: BestEffort[], fallback: BestEffort[]): BestEffort[] {
+export function mergeMissingBestEfforts(
+	stored: BestEffort[],
+	fallback: BestEffort[]
+): BestEffort[] {
 	if (!fallback.length) return stored;
 	const have = new Set(stored.map((e) => e.key));
 	const extra = fallback.filter((e) => !have.has(e.key));
@@ -241,15 +244,22 @@ export function mergeFastestEfforts(lists: BestEffort[][]): BestEffort[] {
 	return [...best.values()].sort((a, b) => a.meters - b.meters);
 }
 
-export function missingEffortKeys(distanceKm: number | null | undefined, efforts: BestEffort[]): BestEffortKey[] {
+export function missingEffortKeys(
+	distanceKm: number | null | undefined,
+	efforts: BestEffort[]
+): BestEffortKey[] {
 	const meters = (Number(distanceKm) || 0) * 1000;
 	const have = new Set(efforts.map((e) => e.key));
-	return BEST_EFFORT_DISTANCES.filter((d) => meters >= d.meters && !have.has(d.key)).map((d) => d.key);
+	return BEST_EFFORT_DISTANCES.filter((d) => meters >= d.meters && !have.has(d.key)).map(
+		(d) => d.key
+	);
 }
 
 export function effortsEqual(a: BestEffort[], b: BestEffort[]): boolean {
 	if (a.length !== b.length) return false;
-	return a.every((e, i) => e.key === b[i]!.key && e.seconds === b[i]!.seconds && e.meters === b[i]!.meters);
+	return a.every(
+		(e, i) => e.key === b[i]!.key && e.seconds === b[i]!.seconds && e.meters === b[i]!.meters
+	);
 }
 
 /**
@@ -304,7 +314,8 @@ export function rankEffortsForActivity(
 			})
 			.filter((x): x is { slug: string; date: string; seconds: number } => x != null)
 			.sort(
-				(a, b) => a.seconds - b.seconds || a.date.localeCompare(b.date) || a.slug.localeCompare(b.slug)
+				(a, b) =>
+					a.seconds - b.seconds || a.date.localeCompare(b.date) || a.slug.localeCompare(b.slug)
 			);
 		const rank = others.findIndex((x) => x.slug === slug) + 1;
 		if (rank < 1) continue;
@@ -331,7 +342,10 @@ export function highlightsForActivity(
 }
 
 /** All-time top 3 per distance for one activity type. */
-export function buildBestEffortBoard(all: EffortOwner[], activityType: string): BestEffortBoardRow[] {
+export function buildBestEffortBoard(
+	all: EffortOwner[],
+	activityType: string
+): BestEffortBoardRow[] {
 	const pool = comparable(all, activityType);
 	const rows: BestEffortBoardRow[] = [];
 	for (const def of BEST_EFFORT_DISTANCES) {
@@ -342,7 +356,8 @@ export function buildBestEffortBoard(all: EffortOwner[], activityType: string): 
 			})
 			.filter((x): x is { slug: string; date: string; seconds: number } => x != null)
 			.sort(
-				(a, b) => a.seconds - b.seconds || a.date.localeCompare(b.date) || a.slug.localeCompare(b.slug)
+				(a, b) =>
+					a.seconds - b.seconds || a.date.localeCompare(b.date) || a.slug.localeCompare(b.slug)
 			)
 			.slice(0, 3)
 			.map((e, i) => ({

@@ -16,7 +16,8 @@ export const ui = {
 	btnIcon:
 		'size-11 min-h-11 min-w-11 p-0! px-0! py-0! rounded-full leading-none shrink-0 self-center box-border max-sm:!flex-none max-sm:!size-11 max-sm:!min-h-11 max-sm:!min-w-11 max-sm:!p-0',
 	btnSm: 'min-h-11 px-[0.85rem] py-2 text-[0.82rem]',
-	field: 'grid gap-[0.35rem] text-[0.9rem] text-muted [&_input]:text-base [&_select]:text-base [&_[data-select]]:text-base [&_textarea]:text-base',
+	field:
+		'grid gap-[0.35rem] text-[0.9rem] text-muted [&_input]:text-base [&_select]:text-base [&_[data-select]]:text-base [&_textarea]:text-base',
 	req: "after:content-['_*'] after:text-accent-fg",
 	fieldHint: 'block mt-[0.35rem] text-[0.78rem]',
 	form: 'grid gap-4',
@@ -72,12 +73,12 @@ export const ui = {
 		'appearance-none inline-flex items-center justify-center gap-1.5 min-h-11 px-[0.95rem] py-2 rounded-full border border-solid border-line bg-transparent text-muted font-semibold cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:border-accent/35 disabled:opacity-35 disabled:cursor-not-allowed aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent',
 	scoreChip:
 		'min-w-0 min-h-11 inline-flex items-center justify-center p-0 border border-line rounded-inset bg-inset text-muted font-inherit tabular-nums cursor-pointer transition-[border-color,color,background-color] duration-150 ease-out hover:border-accent active:border-accent aria-[pressed=true]:border-accent! aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:font-semibold',
-	dialogRoot: 'overlay-root fixed inset-0 z-[20000] flex items-end justify-center p-0 sm:items-center sm:p-4',
+	dialogRoot:
+		'overlay-root fixed inset-0 z-[20000] flex items-end justify-center p-0 sm:items-center sm:p-4',
 	dialogBackdrop: 'absolute inset-0 bg-black/55',
 	dialogPanel:
 		'relative z-[1] flex w-full max-h-[min(88dvh,100%)] flex-col gap-4 overflow-y-auto [overscroll-behavior:contain] border border-line border-b-0 rounded-t-box bg-surface p-[1.15rem_1.2rem_calc(1.15rem+env(safe-area-inset-bottom,0px))] shadow-lift sm:max-w-[26rem] sm:border-b sm:rounded-box sm:p-[1.25rem_1.35rem]',
-	dialogPanelMedal:
-		'sm:max-w-[min(34rem,100%)]! sm:p-[1.35rem_1.5rem]!',
+	dialogPanelMedal: 'sm:max-w-[min(34rem,100%)]! sm:p-[1.35rem_1.5rem]!',
 	statusPill:
 		'inline-flex items-center gap-1 shrink-0 px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] tracking-[0.06em] uppercase font-bold',
 	routeChip:

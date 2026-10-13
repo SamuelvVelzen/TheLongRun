@@ -75,7 +75,9 @@ export function ClothingForm({
 			<div className="grid grid-cols-1 sm:grid-cols-[10rem_1fr_5rem] gap-3">
 				<form.AppField
 					name="category"
-					children={(field) => <field.SelectField label="Category" options={CLOTHING_CATEGORY_OPTIONS} />}
+					children={(field) => (
+						<field.SelectField label="Category" options={CLOTHING_CATEGORY_OPTIONS} />
+					)}
 				/>
 				<form.Subscribe selector={(s) => s.values.category}>
 					{(cat) => (
@@ -109,13 +111,27 @@ export function ClothingForm({
 				<form.AppField
 					name="min_c"
 					children={(field) => (
-						<field.NumberField label="From °C" min={-40} max={50} step={1} placeholder="e.g. 8" disabled={busy} />
+						<field.NumberField
+							label="From °C"
+							min={-40}
+							max={50}
+							step={1}
+							placeholder="e.g. 8"
+							disabled={busy}
+						/>
 					)}
 				/>
 				<form.AppField
 					name="max_c"
 					children={(field) => (
-						<field.NumberField label="Up to °C" min={-40} max={50} step={1} placeholder="e.g. 18" disabled={busy} />
+						<field.NumberField
+							label="Up to °C"
+							min={-40}
+							max={50}
+							step={1}
+							placeholder="e.g. 18"
+							disabled={busy}
+						/>
 					)}
 				/>
 			</div>
@@ -134,7 +150,9 @@ export function ClothingForm({
 									disabled={busy}
 									onClick={() =>
 										field.handleChange(
-											on ? field.state.value.filter((f) => f !== flag) : [...field.state.value, flag]
+											on
+												? field.state.value.filter((f) => f !== flag)
+												: [...field.state.value, flag]
 										)
 									}
 								>
@@ -161,7 +179,12 @@ export function ClothingForm({
 					<form.SubmitButton>{submitLabel}</form.SubmitButton>
 				</form.AppForm>
 				{onCancel && (
-					<button type="button" className={buttonClass({ variant: 'ghost' })} disabled={busy} onClick={onCancel}>
+					<button
+						type="button"
+						className={buttonClass({ variant: 'ghost' })}
+						disabled={busy}
+						onClick={onCancel}
+					>
 						Cancel
 					</button>
 				)}

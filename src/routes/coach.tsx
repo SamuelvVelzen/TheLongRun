@@ -8,45 +8,45 @@ import {
 	type GenerateDraft
 } from '$lib/generate-draft';
 import {
-    clearDebriefHabits,
-    readDebriefHabits,
-    seedDebriefHabits,
-    setDebriefHabitField
+	clearDebriefHabits,
+	readDebriefHabits,
+	seedDebriefHabits,
+	setDebriefHabitField
 } from '$lib/debrief-habits';
 import {
-    clearDebriefWriteups,
-    readDebriefWriteups,
-    writeDebriefWriteups
+	clearDebriefWriteups,
+	readDebriefWriteups,
+	writeDebriefWriteups
 } from '$lib/debrief-writeups';
 import type { BodySuggestion } from '$lib/body-notes';
 import type { FuelEntry } from '$lib/fuel';
 import type { GearContext, GearKind, GearWear } from '$lib/gear';
 import { formatHorizonShort } from '$lib/goals';
 import {
-    formatAllWeeksClipboard,
-    formatWeekPlanClipboard,
-    isoDateLocal,
-    planWeekDateRange,
-    planWeekDateRangeShort
+	formatAllWeeksClipboard,
+	formatWeekPlanClipboard,
+	isoDateLocal,
+	planWeekDateRange,
+	planWeekDateRangeShort
 } from '$lib/plan';
 import {
-    getCoachBrief,
-    getCoachPlan,
-    getDebriefPrompt,
-    getWeekPattern,
-    saveActivityFeel,
-    saveDebrief,
-    savePlanWeeks,
-    saveWeekPattern
+	getCoachBrief,
+	getCoachPlan,
+	getDebriefPrompt,
+	getWeekPattern,
+	saveActivityFeel,
+	saveDebrief,
+	savePlanWeeks,
+	saveWeekPattern
 } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import { cn } from '$lib/ui';
 import type { ActivityType } from '$lib/activity';
 import {
-    formatWeekSetupProse,
-    weekSetupsEqual,
-    type DayLimit,
-    type WeekSetup
+	formatWeekSetupProse,
+	weekSetupsEqual,
+	type DayLimit,
+	type WeekSetup
 } from '$lib/week-mix';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -79,10 +79,10 @@ import {
 } from '../components/ui';
 import { buttonClass } from '../components/ui/Button';
 import {
-    rowsFrom,
-    toPattern,
-    WeekPatternEditor,
-    type SlotRow
+	rowsFrom,
+	toPattern,
+	WeekPatternEditor,
+	type SlotRow
 } from '../components/WeekPatternEditor';
 import { WeekPlanBoard } from '../components/WeekPlanBoard';
 
@@ -263,8 +263,8 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 				{authed ? (
 					<>
 						<p className={cn('text-muted', 'm-0 max-sm:hidden')}>
-							Copy this week (live status plus JSON) into a new chat, or every week that already
-							has sessions. Paste an updated JSON block back below.
+							Copy this week (live status plus JSON) into a new chat, or every week that already has
+							sessions. Paste an updated JSON block back below.
 						</p>
 						<Actions>
 							<IconLabelButton
@@ -306,8 +306,7 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 					title="Paste updated JSON"
 					description={
 						<p className={cn('text-muted', 'mt-[0.3rem]')}>
-							Same shape as Generate — one week object or an array of weeks. Merged by week
-							number.
+							Same shape as Generate — one week object or an array of weeks. Merged by week number.
 						</p>
 					}
 					placeholder='{ "week": 5, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'
@@ -334,7 +333,8 @@ export const Route = createFileRoute('/coach')({
 		tab: parseTab(s.tab),
 		slug: typeof s.slug === 'string' && s.slug ? s.slug : undefined,
 		planWeek: parsePlanWeek(s.planWeek),
-		includePlan: s.includePlan === true || s.includePlan === 'true' || s.includePlan === '1' ? true : undefined
+		includePlan:
+			s.includePlan === true || s.includePlan === 'true' || s.includePlan === '1' ? true : undefined
 	}),
 	// Search (tab, range, slug) must not remount DeferredData/Await — that felt like a full refresh.
 	loaderDeps: () => ({}),
@@ -380,17 +380,17 @@ function Coach() {
 				value={tab}
 				onChange={setTab}
 				options={[
-						{
-							value: 'training' as const,
-							label: (
-								<>
-									<Icon name="calendar" size={15} />
-									Training
-								</>
-							)
-						},
-						...(authed
-							? [
+					{
+						value: 'training' as const,
+						label: (
+							<>
+								<Icon name="calendar" size={15} />
+								Training
+							</>
+						)
+					},
+					...(authed
+						? [
 								{
 									value: 'generate' as const,
 									label: (
@@ -401,18 +401,18 @@ function Coach() {
 									)
 								}
 							]
-							: []),
-						{
-							value: 'plan' as const,
-							label: (
-								<>
-									<Icon name="board" size={15} />
-									Plan
-								</>
-							)
-						},
-						...(authed
-							? [
+						: []),
+					{
+						value: 'plan' as const,
+						label: (
+							<>
+								<Icon name="board" size={15} />
+								Plan
+							</>
+						)
+					},
+					...(authed
+						? [
 								{
 									value: 'debrief' as const,
 									label: (
@@ -424,7 +424,7 @@ function Coach() {
 									)
 								}
 							]
-							: [])
+						: [])
 				]}
 			/>
 
@@ -556,8 +556,7 @@ function CoachPanels({
 
 	const runs = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
 	const many = runs.length > 1;
-	const allWrote =
-		runs.length > 0 && runs.every((r) => (writeups[r.slug] ?? '').trim() !== '');
+	const allWrote = runs.length > 0 && runs.every((r) => (writeups[r.slug] ?? '').trim() !== '');
 
 	function setWriteup(slugKey: string, text: string) {
 		setWriteups((prev) => {
@@ -739,9 +738,7 @@ function CoachPanels({
 								{authed ? (
 									<GpxImport
 										onImported={(ok) => {
-											const slugs = ok
-												.map((r) => r.slug)
-												.filter((s): s is string => Boolean(s));
+											const slugs = ok.map((r) => r.slug).filter((s): s is string => Boolean(s));
 											if (slugs.length) {
 												router.navigate({
 													to: '/coach',
@@ -854,7 +851,8 @@ function CoachPanels({
 												`feelings on ${res.feelingsUpdated} activit${res.feelingsUpdated === 1 ? 'y' : 'ies'}`
 											);
 										}
-										if (res.planUpdated.length) bits.push(`week ${res.planUpdated.join(', ')} updated`);
+										if (res.planUpdated.length)
+											bits.push(`week ${res.planUpdated.join(', ')} updated`);
 										if (res.fuelSuggestions.length) {
 											bits.push('food found — review it');
 											setFuelSuggestions(res.fuelSuggestions);
@@ -897,9 +895,7 @@ function CoachPanels({
 				</Panel>
 			)}
 
-			{tab === 'plan' && (
-				<PlanWeekPanel planData={planData} />
-			)}
+			{tab === 'plan' && <PlanWeekPanel planData={planData} />}
 
 			{tab === 'generate' && authed && (
 				<>
@@ -917,7 +913,9 @@ function CoachPanels({
 									{planData.activeGoal.name}.
 								</>
 							) : null}{' '}
-							<Link className="text-accent-fg font-semibold" to="/goals">Goals</Link>
+							<Link className="text-accent-fg font-semibold" to="/goals">
+								Goals
+							</Link>
 							{mixDirty ? (
 								<>
 									{' · '}

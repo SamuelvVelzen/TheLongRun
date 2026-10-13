@@ -1,8 +1,4 @@
-import {
-	BODY_SAFETY_RULE,
-	formatBodyNotesSection,
-	type BodyNotes
-} from '$lib/body-notes';
+import { BODY_SAFETY_RULE, formatBodyNotesSection, type BodyNotes } from '$lib/body-notes';
 import { tidyPrompt } from '$lib/prompt';
 
 export const BODY_NOTES_EXTRA_TOKEN = '<<<BODY_EXTRA>>>';

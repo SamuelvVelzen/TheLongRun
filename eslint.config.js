@@ -10,13 +10,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
 	{
-		ignores: [
-			'dist/**',
-			'.output/**',
-			'node_modules/**',
-			'.wrangler/**',
-			'src/routeTree.gen.ts'
-		]
+		ignores: ['dist/**', '.output/**', 'node_modules/**', '.wrangler/**', 'src/routeTree.gen.ts']
 	},
 	js.configs.recommended,
 	...tseslint.configs.recommended,
@@ -142,7 +136,11 @@ export default tseslint.config(
 		}
 	},
 	{
-		files: ['src/components/Dialog.tsx', 'src/components/Snackbar.tsx', 'src/components/PageHero.tsx'],
+		files: [
+			'src/components/Dialog.tsx',
+			'src/components/Snackbar.tsx',
+			'src/components/PageHero.tsx'
+		],
 		rules: {
 			'no-restricted-imports': 'off'
 		}

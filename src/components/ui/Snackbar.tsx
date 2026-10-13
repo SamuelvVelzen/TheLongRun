@@ -7,16 +7,12 @@ import {
 	useMemo,
 	useRef,
 	useState,
-	type ReactNode, type ButtonHTMLAttributes 
+	type ReactNode,
+	type ButtonHTMLAttributes
 } from 'react';
 import { ui } from './tokens';
 
-
-
-export function SnackAction({
-	className,
-	...props
-}: ButtonHTMLAttributes<HTMLButtonElement>) {
+export function SnackAction({ className, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
 	return <button type="button" className={cn(ui.snackAction, className)} {...props} />;
 }
 

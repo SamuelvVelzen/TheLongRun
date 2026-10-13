@@ -37,7 +37,12 @@ function FuelPage() {
 	return (
 		<>
 			<PageHero variant="quiet" kicker="Food and drink" title="Fuel" />
-			{!authed ? <SignInPanel title="Sign in to log fuel" body="You can still browse what you logged before." /> : null}
+			{!authed ? (
+				<SignInPanel
+					title="Sign in to log fuel"
+					body="You can still browse what you logged before."
+				/>
+			) : null}
 			<DeferredData promise={page}>
 				{(data) => (
 					<FuelLog

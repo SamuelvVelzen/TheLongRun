@@ -19,7 +19,17 @@ import { Icon } from './Icon';
 import { WardrobeAddDialog } from './WardrobeAddDialog';
 import { WardrobeAiDialog } from './WardrobeAiDialog';
 import { ClothingForm } from './WardrobeClothingForm';
-import { Actions, ConfirmDialog, Form, IconLabelButton, Panel, PanelTitle, errorMessage, useAppForm, useSnackbar } from './ui';
+import {
+	Actions,
+	ConfirmDialog,
+	Form,
+	IconLabelButton,
+	Panel,
+	PanelTitle,
+	errorMessage,
+	useAppForm,
+	useSnackbar
+} from './ui';
 import { buttonClass } from './ui/Button';
 
 function ClothingRow({
@@ -67,10 +77,20 @@ function ClothingRow({
 					>
 						+
 					</button>
-					<button type="button" className={buttonClass({ variant: 'ghost', size: 'sm' })} disabled={busy} onClick={onEdit}>
+					<button
+						type="button"
+						className={buttonClass({ variant: 'ghost', size: 'sm' })}
+						disabled={busy}
+						onClick={onEdit}
+					>
 						Edit
 					</button>
-					<button type="button" className={buttonClass({ variant: 'danger', size: 'sm' })} disabled={busy} onClick={onRemove}>
+					<button
+						type="button"
+						className={buttonClass({ variant: 'danger', size: 'sm' })}
+						disabled={busy}
+						onClick={onRemove}
+					>
 						Remove
 					</button>
 				</div>
@@ -174,7 +194,9 @@ export function WardrobePanel({
 	}
 
 	async function copyKitForAi() {
-		const text = [formatGearCompact(gear), formatWardrobeCompact(wardrobe)].filter(Boolean).join('\n\n');
+		const text = [formatGearCompact(gear), formatWardrobeCompact(wardrobe)]
+			.filter(Boolean)
+			.join('\n\n');
 		if (!text) {
 			snack.info('Nothing to copy yet — add gear or clothing first.');
 			return;
@@ -227,7 +249,12 @@ export function WardrobePanel({
 
 			{CLOTHING_CATEGORIES.filter((c) => grouped[c].length).map((c) => (
 				<div key={c} className="mt-5">
-					<p className={cn('text-muted', 'm-0 mb-1 text-[0.8rem] font-display uppercase tracking-[0.08em]')}>
+					<p
+						className={cn(
+							'text-muted',
+							'm-0 mb-1 text-[0.8rem] font-display uppercase tracking-[0.08em]'
+						)}
+					>
 						{CLOTHING_CATEGORY_META[c].title}
 					</p>
 					{grouped[c].map((item) =>
@@ -254,7 +281,10 @@ export function WardrobePanel({
 								authed={authed}
 								busy={busy}
 								onCount={(count) =>
-									void persist(upsertClothing(wardrobe, { ...item, count }), `${item.name} ×${count}`)
+									void persist(
+										upsertClothing(wardrobe, { ...item, count }),
+										`${item.name} ×${count}`
+									)
 								}
 								onEdit={() => setEditing(item.id)}
 								onRemove={() => setRemove(item)}
@@ -272,7 +302,9 @@ export function WardrobePanel({
 				/>
 			)}
 
-			{!authed && wardrobe.notes ? <p className={cn('text-muted', 'mt-3 mb-0')}>{wardrobe.notes}</p> : null}
+			{!authed && wardrobe.notes ? (
+				<p className={cn('text-muted', 'mt-3 mb-0')}>{wardrobe.notes}</p>
+			) : null}
 
 			<WardrobeAddDialog
 				open={adding}

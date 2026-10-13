@@ -101,7 +101,11 @@ export function FilterSheet({
 				{open ? (
 					<OverlayPortal>
 						<div className={ui.dialogRoot}>
-							<div className={ui.dialogBackdrop} onClick={() => setOpen(false)} aria-hidden="true" />
+							<div
+								className={ui.dialogBackdrop}
+								onClick={() => setOpen(false)}
+								aria-hidden="true"
+							/>
 							<div
 								id={panelId}
 								className={cn(ui.dialogPanel, 'sm:max-w-none')}

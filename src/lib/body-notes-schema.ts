@@ -43,7 +43,10 @@ const areaField = z
 const itemSchema = z.object({
 	area: areaField,
 	status: z
-		.preprocess((v) => STATUS_ALIASES[aliasKey(v)] ?? v, z.enum(BODY_NOTE_STATUSES as [BodyNoteStatus, ...BodyNoteStatus[]]))
+		.preprocess(
+			(v) => STATUS_ALIASES[aliasKey(v)] ?? v,
+			z.enum(BODY_NOTE_STATUSES as [BodyNoteStatus, ...BodyNoteStatus[]])
+		)
 		.optional()
 		.default('monitoring'),
 	trigger: z
@@ -108,6 +111,9 @@ export function parseBodyNotesReplyText(text: string): BodyNoteImportItem[] {
 }
 
 /** Same merge rules as debrief body suggestions — ready for the confirm checklist. */
-export function planBodyNotesImport(body: BodyNotes, items: BodyNoteImportItem[]): BodySuggestion[] {
+export function planBodyNotesImport(
+	body: BodyNotes,
+	items: BodyNoteImportItem[]
+): BodySuggestion[] {
 	return mergeBodySuggestions(body, items);
 }

@@ -1,9 +1,5 @@
 import { activityLabel, type ActivityType } from '$lib/activity';
-import {
-    compactHabitText,
-    HABIT_PLACEHOLDERS,
-    type HabitPair
-} from '$lib/activity-habits';
+import { compactHabitText, HABIT_PLACEHOLDERS, type HabitPair } from '$lib/activity-habits';
 import { cn } from '$lib/ui';
 import { useEffect } from 'react';
 import { Icon } from './Icon';
@@ -41,7 +37,12 @@ export function SportHabitsForm({
 	}, [pair]);
 
 	const caption = (
-		<p className={cn('text-muted', 'm-0 mb-2 text-[0.8rem] font-display uppercase tracking-[0.08em]')}>
+		<p
+			className={cn(
+				'text-muted',
+				'm-0 mb-2 text-[0.8rem] font-display uppercase tracking-[0.08em]'
+			)}
+		>
 			Habits
 		</p>
 	);

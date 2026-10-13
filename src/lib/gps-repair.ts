@@ -206,7 +206,9 @@ function densifyPair(a: GpsPoint, b: GpsPoint): GpsPoint[] {
 
 /** Straight line through pins, densified so the GPX has a continuous track. */
 export function densifyWaypoints(waypoints: GpsWaypoint[]): GpsPoint[] {
-	const pts = waypoints.filter((p) => isValidCoord(p.lat, p.lng)).map((p) => ({ lat: p.lat, lng: p.lng }));
+	const pts = waypoints
+		.filter((p) => isValidCoord(p.lat, p.lng))
+		.map((p) => ({ lat: p.lat, lng: p.lng }));
 	if (pts.length < 2) return pts;
 	const out: GpsPoint[] = [];
 	for (let i = 0; i < pts.length - 1; i++) {

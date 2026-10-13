@@ -28,7 +28,10 @@ function appScrollHeight(el: Window | HTMLElement): number {
 	return (el as HTMLElement).scrollHeight - (el as HTMLElement).clientHeight;
 }
 
-export function appCanScrollTo(y: number, el: Window | HTMLElement | null = getAppScrollElement()): boolean {
+export function appCanScrollTo(
+	y: number,
+	el: Window | HTMLElement | null = getAppScrollElement()
+): boolean {
 	if (!el) return false;
 	return appScrollHeight(el) >= y - 2;
 }

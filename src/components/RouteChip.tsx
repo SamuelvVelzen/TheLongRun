@@ -26,8 +26,7 @@ export function RouteChip({
 	prefix?: string;
 	className?: string;
 }) {
-	const distance =
-		distanceKm != null && !/\bkm\b/i.test(name) ? ` · ${distanceKm} km` : '';
+	const distance = distanceKm != null && !/\bkm\b/i.test(name) ? ` · ${distanceKm} km` : '';
 	return (
 		<Link
 			className={cn(routeChipClass, className)}

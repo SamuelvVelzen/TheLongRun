@@ -218,7 +218,9 @@ export function AiPromptFlow({
 							aria-expanded={promptOpen}
 							onClick={() => setPromptOpen((open) => !open)}
 						>
-							<span className="text-muted font-normal" aria-hidden>→</span>
+							<span className="text-muted font-normal" aria-hidden>
+								→
+							</span>
 							{promptOpen ? 'Hide prompt' : 'Show prompt'}
 							<span
 								className={buttonClass({
@@ -247,7 +249,9 @@ export function AiPromptFlow({
 							value={prompt}
 							readOnly={!promptEditable}
 							tabIndex={promptOpen ? undefined : -1}
-							onChange={promptEditable && onPromptChange ? (e) => onPromptChange(e.target.value) : undefined}
+							onChange={
+								promptEditable && onPromptChange ? (e) => onPromptChange(e.target.value) : undefined
+							}
 						/>
 					</div>
 					{result}

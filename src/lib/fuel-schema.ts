@@ -171,7 +171,10 @@ export function parseFuelReply(input: unknown, runDates: Record<string, string>)
 }
 
 /** Lenient: keeps valid entries and drops broken ones (debrief replies must still save). */
-export function parseFuelSuggestions(input: unknown, runDates: Record<string, string>): FuelEntry[] {
+export function parseFuelSuggestions(
+	input: unknown,
+	runDates: Record<string, string>
+): FuelEntry[] {
 	const list = fuelList(input) ?? [];
 	const out: FuelEntry[] = [];
 	for (const raw of list) {

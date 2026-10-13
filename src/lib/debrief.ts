@@ -1,8 +1,8 @@
 import { activityLabel, showsField } from '$lib/activity';
 import {
-    formatSessionHabitsBlock,
-    type ActivityHabits,
-    type HabitPair
+	formatSessionHabitsBlock,
+	type ActivityHabits,
+	type HabitPair
 } from '$lib/activity-habits';
 
 /** Marker in the server debrief prompt; the client fills this as you type. */

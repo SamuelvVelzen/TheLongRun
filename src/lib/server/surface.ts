@@ -60,7 +60,9 @@ function pointToSegmentDistanceM(p: LatLng, a: LatLng, b: LatLng): number {
 			lat: a.lat + (b.lat - a.lat) * t2,
 			lng: a.lng + (b.lng - a.lng) * t2
 		};
-		if (haversineMeters(p.lat, p.lng, p1.lat, p1.lng) < haversineMeters(p.lat, p.lng, p2.lat, p2.lng)) {
+		if (
+			haversineMeters(p.lat, p.lng, p1.lat, p1.lng) < haversineMeters(p.lat, p.lng, p2.lat, p2.lng)
+		) {
 			hi = t2;
 		} else {
 			lo = t1;
@@ -78,16 +80,24 @@ function bucketFromTags(tags: Record<string, string>): SurfaceBucket | null {
 	const surface = (tags.surface ?? tags['surface:note'] ?? '').toLowerCase();
 	if (surface) {
 		if (/asphalt|paved|concrete|paving_stones|metal|tartan|rubber/.test(surface)) return 'asphalt';
-		if (/cobblestone|sett|unhewn_cobblestone|paving_stones/.test(surface) && !/asphalt/.test(surface)) {
+		if (
+			/cobblestone|sett|unhewn_cobblestone|paving_stones/.test(surface) &&
+			!/asphalt/.test(surface)
+		) {
 			return 'cobblestone';
 		}
 		if (/gravel|fine_gravel|compacted|pebblestone|shell/.test(surface)) return 'gravel';
-		if (/unpaved|dirt|ground|grass|mud|sand|woodchips|earth|soil|rock/.test(surface)) return 'trail';
+		if (/unpaved|dirt|ground|grass|mud|sand|woodchips|earth|soil|rock/.test(surface))
+			return 'trail';
 		if (surface === 'wood') return 'trail';
 	}
 	const highway = (tags.highway ?? '').toLowerCase();
 	if (!highway) return null;
-	if (/^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|road)$/.test(highway)) {
+	if (
+		/^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|road)$/.test(
+			highway
+		)
+	) {
 		return 'asphalt';
 	}
 	if (highway === 'cycleway' || highway === 'pedestrian') return 'asphalt';
@@ -153,7 +163,12 @@ function parseOverpassWays(raw: unknown): OsmWay[] {
 			tags?: Record<string, string>;
 			geometry?: { lat?: number; lon?: number }[];
 		};
-		if (e.type !== 'way' || !e.tags?.highway || !Array.isArray(e.geometry) || e.geometry.length < 2) {
+		if (
+			e.type !== 'way' ||
+			!e.tags?.highway ||
+			!Array.isArray(e.geometry) ||
+			e.geometry.length < 2
+		) {
 			continue;
 		}
 		const pts: LatLng[] = [];
@@ -185,7 +200,12 @@ function parseOverpassWays(raw: unknown): OsmWay[] {
 	return out;
 }
 
-async function fetchHighwaysInBbox(south: number, west: number, north: number, east: number): Promise<OsmWay[]> {
+async function fetchHighwaysInBbox(
+	south: number,
+	west: number,
+	north: number,
+	east: number
+): Promise<OsmWay[]> {
 	const query = `[out:json][timeout:25];
 (
   way["highway"](${south},${west},${north},${east});
@@ -266,9 +286,7 @@ export async function inferSurfaceForRun(
 	if (!geo) return '';
 	const samples = trackSamplesFromGeoJson(geo);
 	const points =
-		samples.length >= 2
-			? samples.map((s) => ({ lat: s.lat, lng: s.lng }))
-			: coordsFromGeoJson(geo);
+		samples.length >= 2 ? samples.map((s) => ({ lat: s.lat, lng: s.lng })) : coordsFromGeoJson(geo);
 	return inferSurfaceFromTrack(points);
 }
 

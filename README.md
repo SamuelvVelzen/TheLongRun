@@ -58,13 +58,13 @@ schema.sql           same schema, for reading
 
 ## Data model (D1)
 
-| Table | Holds |
-|-------|-------|
-| `runs` | one row per run |
-| `routes` | `id` + GeoJSON track + downsampled `polyline` for heatmaps |
-| `context` | goals.json, gear inventory, plan.json, profile, injury, fueling, race strategy |
-| `planned_routes` | BRouter exports (not activity GPS) |
-| `planned_route_links` | plan-day / activity attachments |
+| Table                 | Holds                                                                          |
+| --------------------- | ------------------------------------------------------------------------------ |
+| `runs`                | one row per run                                                                |
+| `routes`              | `id` + GeoJSON track + downsampled `polyline` for heatmaps                     |
+| `context`             | goals.json, gear inventory, plan.json, profile, injury, fueling, race strategy |
+| `planned_routes`      | BRouter exports (not activity GPS)                                             |
+| `planned_route_links` | plan-day / activity attachments                                                |
 
 ## How data flows
 

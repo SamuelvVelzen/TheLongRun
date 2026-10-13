@@ -13,7 +13,11 @@ export function EmptyState({
 }) {
 	return (
 		<Panel
-			className={cn('text-muted', action ? 'grid gap-[0.85rem] justify-items-start' : false, className)}
+			className={cn(
+				'text-muted',
+				action ? 'grid gap-[0.85rem] justify-items-start' : false,
+				className
+			)}
 		>
 			{typeof children === 'string' ? <p className="m-0">{children}</p> : children}
 			{action}

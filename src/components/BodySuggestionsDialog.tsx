@@ -9,12 +9,24 @@ import { Button, Checkbox, Dialog, errorMessage, useSnackbar } from './ui';
 
 function bodySuggestionTag({ note, existing }: BodySuggestion): ReactNode {
 	if (!existing) {
-		return <span className="inline-flex px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] font-bold uppercase tracking-wide bg-accent/15 text-accent-fg">New</span>;
+		return (
+			<span className="inline-flex px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] font-bold uppercase tracking-wide bg-accent/15 text-accent-fg">
+				New
+			</span>
+		);
 	}
 	if (note.status === 'resolved') {
-		return <span className="inline-flex px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] font-bold uppercase tracking-wide text-muted border border-line">Resolved</span>;
+		return (
+			<span className="inline-flex px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] font-bold uppercase tracking-wide text-muted border border-line">
+				Resolved
+			</span>
+		);
 	}
-	return <span className="inline-flex px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] font-bold uppercase tracking-wide text-muted border border-line">Changed</span>;
+	return (
+		<span className="inline-flex px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] font-bold uppercase tracking-wide text-muted border border-line">
+			Changed
+		</span>
+	);
 }
 
 /** Body notes the coach read from the write-up — nothing is saved until confirmed here. */
@@ -69,7 +81,8 @@ export function BodySuggestionsDialog({
 			}
 		>
 			<p className={cn('text-muted', 'm-0')}>
-				From your debrief JSON — new areas, status changes, or niggles marked resolved. Nothing is written to Profile until you save here.
+				From your debrief JSON — new areas, status changes, or niggles marked resolved. Nothing is
+				written to Profile until you save here.
 			</p>
 			<div className="grid">
 				{suggestions.map(({ note, existing }) => (
@@ -87,11 +100,7 @@ export function BodySuggestionsDialog({
 							})
 						}
 						label={
-							<BodyNoteLine
-								note={note}
-								hideUpdated
-								tag={bodySuggestionTag({ note, existing })}
-							/>
+							<BodyNoteLine note={note} hideUpdated tag={bodySuggestionTag({ note, existing })} />
 						}
 					/>
 				))}

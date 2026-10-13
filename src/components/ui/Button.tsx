@@ -42,7 +42,11 @@ export function Button({
 	children?: ReactNode;
 } & ButtonHTMLAttributes<HTMLButtonElement>) {
 	return (
-		<button type={type} className={buttonClass({ variant, size, stickyPrimary, className })} {...props}>
+		<button
+			type={type}
+			className={buttonClass({ variant, size, stickyPrimary, className })}
+			{...props}
+		>
 			{children}
 		</button>
 	);

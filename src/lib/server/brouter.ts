@@ -12,7 +12,8 @@ type BrouterGeo = {
 
 function flattenCoords(raw: unknown): GpsPoint[] {
 	const lines: unknown[] = Array.isArray(raw) ? raw : [];
-	const looksNested = lines.length > 0 && Array.isArray(lines[0]) && Array.isArray((lines[0] as unknown[])[0]);
+	const looksNested =
+		lines.length > 0 && Array.isArray(lines[0]) && Array.isArray((lines[0] as unknown[])[0]);
 	const pts = looksNested ? (lines as unknown[][]).flat() : lines;
 	const out: GpsPoint[] = [];
 	for (const c of pts) {

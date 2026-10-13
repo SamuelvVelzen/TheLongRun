@@ -41,11 +41,7 @@ export function formatClockTime(d: Date | null | undefined): string {
  * Convert a civil date + clock in an IANA zone to a UTC epoch.
  * Used when a reconstructed GPS track needs timestamps but the file had none.
  */
-export function localDateTimeToUtcMs(
-	date: string,
-	clock: string,
-	timeZone: string
-): number | null {
+export function localDateTimeToUtcMs(date: string, clock: string, timeZone: string): number | null {
 	const start = normalizeStartTime(clock);
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !start || !timeZone) return null;
 	const [year, month, day] = date.split('-').map(Number);
@@ -85,9 +81,7 @@ export function localDateTimeToUtcMs(
 export function dayFromIsoDate(iso: string): string {
 	const d = new Date(`${iso}T12:00:00`);
 	if (Number.isNaN(d.getTime())) return '';
-	return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][
-		d.getDay()
-	];
+	return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()];
 }
 
 /** Map a plan label like "Easy + strides" or "10K effort" to a session type. */

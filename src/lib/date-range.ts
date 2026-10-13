@@ -73,10 +73,7 @@ export function dateRangeFromSearch(
 }
 
 /** Resolve search params into a concrete inclusive date window. */
-export function parseDateRange(
-	searchParams: URLSearchParams,
-	now = new Date()
-): DateRange {
+export function parseDateRange(searchParams: URLSearchParams, now = new Date()): DateRange {
 	const rangeRaw = String(searchParams.get('range') ?? '')
 		.trim()
 		.toLowerCase();
@@ -162,7 +159,12 @@ export function dateRangeSearch(range: DateRange | RangeKind, from?: string, to?
 	return parts.join('&');
 }
 
-export function dateRangeHref(pathname: string, range: DateRange | RangeKind, from?: string, to?: string) {
+export function dateRangeHref(
+	pathname: string,
+	range: DateRange | RangeKind,
+	from?: string,
+	to?: string
+) {
 	const q = dateRangeSearch(range, from, to);
 	return q ? `${pathname}?${q}` : pathname;
 }

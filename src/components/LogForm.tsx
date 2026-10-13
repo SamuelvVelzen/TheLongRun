@@ -10,8 +10,7 @@ import type { PlanWeek } from '$lib/types';
 import { useRouter } from '@tanstack/react-router';
 import { ActivityForm } from './ActivityForm';
 import { Icon } from './Icon';
-import { IconLabelLink, errorMessage, useSnackbar  } from './ui';
-
+import { IconLabelLink, errorMessage, useSnackbar } from './ui';
 
 export type LogFormPrefill = {
 	activityType?: ActivityType;
@@ -80,7 +79,12 @@ export function LogForm({
 				after_notes: ritual.after
 			})}
 			cancel={
-				<IconLabelLink label="Cancel" size="default" to="/" icon={<Icon name="close" size={16} />} />
+				<IconLabelLink
+					label="Cancel"
+					size="default"
+					to="/"
+					icon={<Icon name="close" size={16} />}
+				/>
 			}
 			onSubmit={async (values) => {
 				try {

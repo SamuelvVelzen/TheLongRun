@@ -1,8 +1,4 @@
-import {
-	activityCount,
-	normalizeActivityType,
-	type ActivityType
-} from './activity';
+import { activityCount, normalizeActivityType, type ActivityType } from './activity';
 import type { GearImportChange } from './gear-schema';
 import { tidyPrompt } from './prompt';
 import type { RunRecord } from './types';
@@ -173,7 +169,9 @@ export function normalizeGearCatalog(input: {
 		.trim()
 		.replace(/\s+/g, ' ');
 	const rotation = uniqueGearNames(input.rotation ?? []);
-	const retired = uniqueGearNames(input.retired ?? []).filter((n) => gearKey(n) !== gearKey(active));
+	const retired = uniqueGearNames(input.retired ?? []).filter(
+		(n) => gearKey(n) !== gearKey(active)
+	);
 	const retiredKeys = new Set(retired.map(gearKey));
 	const inRotation = rotation.filter((n) => !retiredKeys.has(gearKey(n)));
 	const rotationWithActive =
@@ -217,9 +215,7 @@ export function normalizeGearContext(input: unknown): GearContext {
 	return emptyGear();
 }
 
-function wearFromRuns(
-	runs: Pick<RunRecord, 'gear' | 'distance_km'>[]
-): Record<string, GearWear> {
+function wearFromRuns(runs: Pick<RunRecord, 'gear' | 'distance_km'>[]): Record<string, GearWear> {
 	const map: Record<string, GearWear> = {};
 	for (const run of runs) {
 		const name = String(run.gear ?? '')
@@ -295,9 +291,7 @@ export function gearPickerOptions(ctx: GearCatalog, extra: string[] = []): GearC
 
 /** Names logged on matching activities that are not in the inventory. */
 export function unknownLoggedGear(ctx: GearCatalog, wear: Record<string, GearWear>): GearWear[] {
-	const known = new Set(
-		[ctx.active, ...ctx.rotation, ...ctx.retired].map(gearKey).filter(Boolean)
-	);
+	const known = new Set([ctx.active, ...ctx.rotation, ...ctx.retired].map(gearKey).filter(Boolean));
 	return Object.entries(wear)
 		.filter(([k, w]) => !known.has(k) && w.count > 0)
 		.map(([, w]) => w)

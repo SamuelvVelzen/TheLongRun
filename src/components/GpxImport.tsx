@@ -195,39 +195,39 @@ export function GpxImport({
 					void form.handleSubmit();
 				}}
 			>
-			<form.AppField
-				name="activityType"
-				children={(field) => (
-					<field.SelectField
-						label="Activity type"
-						placeholder="Auto-detect from file"
-						options={[
-							{ value: '', label: 'Auto-detect from file' },
-							...ACTIVITY_TYPES.map((t) => ({
-								value: t,
-								label: activityLabel(t)
-							}))
-						]}
-					/>
-				)}
-			/>
+				<form.AppField
+					name="activityType"
+					children={(field) => (
+						<field.SelectField
+							label="Activity type"
+							placeholder="Auto-detect from file"
+							options={[
+								{ value: '', label: 'Auto-detect from file' },
+								...ACTIVITY_TYPES.map((t) => ({
+									value: t,
+									label: activityLabel(t)
+								}))
+							]}
+						/>
+					)}
+				/>
 
-			<Actions>
-				<form.Subscribe selector={(s) => s.isSubmitting}>
-					{(submitting) => (
-						<Button type="submit" variant="primary" disabled={submitting || files.length === 0}>
-							{submitting
-								? progress || 'Importing…'
-								: (
+				<Actions>
+					<form.Subscribe selector={(s) => s.isSubmitting}>
+						{(submitting) => (
+							<Button type="submit" variant="primary" disabled={submitting || files.length === 0}>
+								{submitting ? (
+									progress || 'Importing…'
+								) : (
 									<>
 										<Icon name="upload" size={16} />
 										{`Import ${files.length || ''} ${files.length === 1 ? 'file' : 'files'}`.trim()}
 									</>
 								)}
-						</Button>
-					)}
-				</form.Subscribe>
-			</Actions>
+							</Button>
+						)}
+					</form.Subscribe>
+				</Actions>
 			</Form>
 
 			{results.length > 0 && (
@@ -255,7 +255,9 @@ export function GpxImport({
 									</>
 								)}
 								{r.distanceKm != null && <span className={'text-muted'}>({r.distanceKm} km)</span>}
-								{r.duplicate && <span className={'text-muted'}>— already logged, refreshed its map</span>}
+								{r.duplicate && (
+									<span className={'text-muted'}>— already logged, refreshed its map</span>
+								)}
 								{r.message && <span className={'text-muted'}>— {r.message}</span>}
 								{r.highlights && r.highlights.length > 0 && (
 									<BestEffortBadges highlights={r.highlights} />
@@ -265,11 +267,7 @@ export function GpxImport({
 					</ul>
 					{coachAfter && lastOk?.slug && (
 						<Actions className="mt-3">
-							<Link
-								className={buttonClass()}
-								to="/runs/$slug"
-								params={{ slug: lastOk.slug }}
-							>
+							<Link className={buttonClass()} to="/runs/$slug" params={{ slug: lastOk.slug }}>
 								Open activity
 							</Link>
 						</Actions>

@@ -1,51 +1,51 @@
 import { normalizeActivityType } from '$lib/activity';
 import {
-    emptyActivityHabits,
-    normalizeActivityHabits,
-    type ActivityHabits
+	emptyActivityHabits,
+	normalizeActivityHabits,
+	type ActivityHabits
 } from '$lib/activity-habits';
 import {
-    asGearNameList,
-    emptyGear,
-    gearKey,
-    gearKindForActivity,
-    normalizeGearCatalog,
-    normalizeGearContext,
-    type GearCatalog,
-    type GearContext
+	asGearNameList,
+	emptyGear,
+	gearKey,
+	gearKindForActivity,
+	normalizeGearCatalog,
+	normalizeGearContext,
+	type GearCatalog,
+	type GearContext
 } from '$lib/gear';
 import { emptyFuelLog, normalizeFuelLog, type FuelLog } from '$lib/fuel';
 import { emptyWardrobe, normalizeWardrobe, type Wardrobe } from '$lib/wardrobe';
 import { goalIdFrom, pickSoonestOpenGoal, stampGoalsByDate } from '$lib/goals';
 import {
-    isLiveLocationFresh,
-    roundCoord,
-    roundHeading,
-    type LiveLocationPing
+	isLiveLocationFresh,
+	roundCoord,
+	roundHeading,
+	type LiveLocationPing
 } from '$lib/live-location';
 import {
-    calendarFromGoal,
-    filterPlanForCalendar,
-    planWeekIndex,
-    rollingCalendar,
-    type PlanCalendar
+	calendarFromGoal,
+	filterPlanForCalendar,
+	planWeekIndex,
+	rollingCalendar,
+	type PlanCalendar
 } from '$lib/plan';
 import type { Goal, PlanWeek } from '$lib/types';
 import type { ActivityType } from '$lib/activity';
 import {
-    clonePattern,
-    DEFAULT_WEEK_PATTERN,
-    defaultPlannedSports,
-    mixFromPattern,
-    normalizeDayLimits,
-    normalizePlannedSports,
-    normalizeWeekMix,
-    normalizeWeekPattern,
-    patternFromMix,
-    type DayLimit,
-    type WeekMix,
-    type WeekPattern,
-    type WeekSetup
+	clonePattern,
+	DEFAULT_WEEK_PATTERN,
+	defaultPlannedSports,
+	mixFromPattern,
+	normalizeDayLimits,
+	normalizePlannedSports,
+	normalizeWeekMix,
+	normalizeWeekPattern,
+	patternFromMix,
+	type DayLimit,
+	type WeekMix,
+	type WeekPattern,
+	type WeekSetup
 } from '$lib/week-mix';
 import matter from 'gray-matter';
 import { getSql } from './db';
@@ -124,14 +124,20 @@ function normalizeStoredGoal(item: unknown): Goal | null {
 	const name = String(o.name ?? o.race_name ?? '').trim();
 	const dateRaw = toIsoDate(o.date ?? o.race_date, '');
 	const date = /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : '';
-	const horizonRaw = String(o.horizon ?? '').trim().slice(0, 7);
+	const horizonRaw = String(o.horizon ?? '')
+		.trim()
+		.slice(0, 7);
 	const horizon = /^\d{4}-\d{2}$/.test(horizonRaw) ? horizonRaw : date ? date.slice(0, 7) : '';
 	if (!name && !date) return null;
 	const distance = Number(o.distance_km ?? o.race_distance_km ?? 10);
 	const primary = Array.isArray(o.primary)
-		? o.primary.map(String).map((s) => s.trim()).filter(Boolean)
+		? o.primary
+				.map(String)
+				.map((s) => s.trim())
+				.filter(Boolean)
 		: [];
-	const status: Goal['status'] = o.status === 'done' ? 'done' : o.status === 'upcoming' ? 'upcoming' : 'active';
+	const status: Goal['status'] =
+		o.status === 'done' ? 'done' : o.status === 'upcoming' ? 'upcoming' : 'active';
 	const result =
 		o.result && typeof o.result === 'object'
 			? {
@@ -140,7 +146,7 @@ function normalizeStoredGoal(item: unknown): Goal | null {
 					time: String((o.result as { time?: unknown }).time ?? ''),
 					distance_km:
 						typeof (o.result as { distance_km?: unknown }).distance_km === 'number'
-							? ((o.result as { distance_km: number }).distance_km)
+							? (o.result as { distance_km: number }).distance_km
 							: null,
 					pace: String((o.result as { pace?: unknown }).pace ?? '')
 				}
@@ -401,7 +407,10 @@ export function splitFuelSection(markdown: string): { guidance: string; rest: st
 	const m = markdown.match(FUEL_SECTION_RE);
 	if (!m) return null;
 	const guidance = m[1]!.trim();
-	const rest = markdown.replace(m[0], '').replace(/\n{3,}/g, '\n\n').trimEnd();
+	const rest = markdown
+		.replace(m[0], '')
+		.replace(/\n{3,}/g, '\n\n')
+		.trimEnd();
 	return { guidance, rest: rest ? `${rest}\n` : '' };
 }
 

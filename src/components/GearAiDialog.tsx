@@ -1,10 +1,5 @@
 import { isoDateLocal } from '$lib/date-range';
-import {
-	applyGearImport,
-	buildGearPrompt,
-	injectGearExtra,
-	type GearContext
-} from '$lib/gear';
+import { applyGearImport, buildGearPrompt, injectGearExtra, type GearContext } from '$lib/gear';
 import { gearImportSummary, parseGearReplyText, planGearImport } from '$lib/gear-schema';
 import { cn } from '$lib/ui';
 import { useEffect, useMemo, useState } from 'react';
@@ -42,7 +37,10 @@ export function GearAiDialog({
 	async function save() {
 		const chosen = changes.filter((c) => picked.has(c.key));
 		if (!chosen.length) return;
-		const ok = await onSave(applyGearImport(gear, chosen), `Updated ${chosen.length} kit item${chosen.length === 1 ? '' : 's'}`);
+		const ok = await onSave(
+			applyGearImport(gear, chosen),
+			`Updated ${chosen.length} kit item${chosen.length === 1 ? '' : 's'}`
+		);
 		if (ok) {
 			setExtra('');
 			onClose();
@@ -95,7 +93,9 @@ export function GearAiDialog({
 											<strong className="font-display">{gearImportSummary(c)}</strong>
 											<span
 												className={
-													c.existing ? 'text-muted border border-line' : 'bg-accent/15 text-accent-fg'
+													c.existing
+														? 'text-muted border border-line'
+														: 'bg-accent/15 text-accent-fg'
 												}
 											>
 												{c.existing ? 'Update' : 'New'}
@@ -111,8 +111,8 @@ export function GearAiDialog({
 				<AiPromptFlow
 					intro={
 						<p className="m-0">
-							List shoes or bikes you own, or ask what to retire. Copy the prompt into your AI, paste JSON
-							back — you choose what to save.
+							List shoes or bikes you own, or ask what to retire. Copy the prompt into your AI,
+							paste JSON back — you choose what to save.
 						</p>
 					}
 					extraLabel="Extra for the prompt"
@@ -122,7 +122,9 @@ export function GearAiDialog({
 					prompt={prompt}
 					result={
 						<JsonPasteForm
-							description={<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Paste the AI's reply</p>}
+							description={
+								<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Paste the AI's reply</p>
+							}
 							rows={5}
 							placeholder='{ "items": [ { "kind": "shoes", "name": "Saucony Speed 4", "role": "active" } ] }'
 							submitLabel="Check reply"

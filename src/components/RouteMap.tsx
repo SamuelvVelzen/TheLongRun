@@ -1,14 +1,14 @@
 import { activityMapColor, normalizeActivityType } from '$lib/activity';
 import { loadLeaflet } from '$lib/leaflet';
 import {
-    addBasemap,
-    addRouteCasing,
-    addRouteEndpoints,
-    addRoutePolyline,
-    attachMapChrome,
-    kmMarkerIcon,
-    leafletMapOptions,
-    type MapChromeHandle
+	addBasemap,
+	addRouteCasing,
+	addRouteEndpoints,
+	addRoutePolyline,
+	attachMapChrome,
+	kmMarkerIcon,
+	leafletMapOptions,
+	type MapChromeHandle
 } from '$lib/map-chrome';
 import { mapPillLegend, mapPillTop, mapRoutePane, mapWrap } from '$lib/map-layout';
 import { getRouteGeoJsonFn } from '$lib/server/functions';
@@ -53,7 +53,9 @@ function partColor(index: number, type: string | undefined, mixed: boolean, coun
 	return PART_COLORS[index % PART_COLORS.length]!;
 }
 
-function coordsFromGeo(geo: { geometry?: { coordinates?: number[][] } } | null): [number, number][] {
+function coordsFromGeo(
+	geo: { geometry?: { coordinates?: number[][] } } | null
+): [number, number][] {
 	const raw = geo?.geometry?.coordinates;
 	if (!Array.isArray(raw) || raw.length < 2) return [];
 	return raw

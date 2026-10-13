@@ -1,8 +1,8 @@
 import {
-    MAX_HABIT_NOTES,
-    withHabitDefaults,
-    type ActivityHabits,
-    type HabitPair
+	MAX_HABIT_NOTES,
+	withHabitDefaults,
+	type ActivityHabits,
+	type HabitPair
 } from '$lib/activity-habits';
 
 const KEY = 'coach-debrief-habits';

@@ -118,9 +118,7 @@ function normalizeTime(v: unknown): unknown {
 function normalizeWeekday(v: unknown): unknown {
 	if (typeof v !== 'string') return v;
 	const s = v.trim().toLowerCase();
-	return (
-		WEEKDAYS.find((d) => d.toLowerCase() === s || d.slice(0, 3).toLowerCase() === s) ?? v
-	);
+	return WEEKDAYS.find((d) => d.toLowerCase() === s || d.slice(0, 3).toLowerCase() === s) ?? v;
 }
 
 function isSkipped(v: unknown): boolean {
@@ -133,10 +131,7 @@ export const runStepSchema = z
 		mode: opt(z.preprocess(lower, z.enum(['run', 'walk']))),
 		distance_km: opt(z.preprocess(toKm, z.number().positive().max(100))),
 		time: opt(
-			z.preprocess(
-				normalizeTime,
-				z.string().regex(TIME_RE, 'time must be "MM:SS" or "H:MM:SS"')
-			)
+			z.preprocess(normalizeTime, z.string().regex(TIME_RE, 'time must be "MM:SS" or "H:MM:SS"'))
 		),
 		pace: opt(
 			z.preprocess(

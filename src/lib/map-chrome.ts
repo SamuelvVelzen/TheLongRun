@@ -337,7 +337,16 @@ function applyFsBox(wrap: HTMLElement, mapEl: HTMLElement, on: boolean, nativeFs
 			wrap.style.setProperty('z-index', '10000', 'important');
 			wrap.style.setProperty('margin', '0', 'important');
 		} else {
-			for (const prop of ['position', 'inset', 'top', 'left', 'right', 'bottom', 'z-index', 'margin']) {
+			for (const prop of [
+				'position',
+				'inset',
+				'top',
+				'left',
+				'right',
+				'bottom',
+				'z-index',
+				'margin'
+			]) {
 				wrap.style.removeProperty(prop);
 			}
 		}
@@ -385,7 +394,15 @@ function applyFsBox(wrap: HTMLElement, mapEl: HTMLElement, on: boolean, nativeFs
 		]) {
 			wrap.style.removeProperty(prop);
 		}
-		for (const prop of ['display', 'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height']) {
+		for (const prop of [
+			'display',
+			'width',
+			'height',
+			'min-width',
+			'min-height',
+			'max-width',
+			'max-height'
+		]) {
 			mapEl.style.removeProperty(prop);
 		}
 	}
@@ -734,7 +751,6 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	};
 	window.addEventListener('keydown', onKey);
 
-	 
 	const L = (typeof window !== 'undefined' ? window.L : null) as LeafletGlobal | null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let locAccuracy: any = null;

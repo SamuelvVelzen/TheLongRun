@@ -2,34 +2,39 @@ import { subscribeAppResume } from '$lib/app-resume';
 import { useAuthed } from '$lib/auth';
 import { loadLeaflet } from '$lib/leaflet';
 import {
-    LIVE_LOCATION_PING_MS,
-    LIVE_SHARE_EVENT,
-    LIVE_SHARE_REQUEST,
-    liveAgo,
-    liveShareWanted,
-    liveWatchPromptSeen,
-    requestLiveShare,
-    setLiveShareWanted,
-    setLiveWatchPromptSeen,
-    syncLiveShareDom,
-    type LiveLocationPing,
-    type LiveShareDetail,
-    type LiveShareRequestDetail
+	LIVE_LOCATION_PING_MS,
+	LIVE_SHARE_EVENT,
+	LIVE_SHARE_REQUEST,
+	liveAgo,
+	liveShareWanted,
+	liveWatchPromptSeen,
+	requestLiveShare,
+	setLiveShareWanted,
+	setLiveWatchPromptSeen,
+	syncLiveShareDom,
+	type LiveLocationPing,
+	type LiveShareDetail,
+	type LiveShareRequestDetail
 } from '$lib/live-location';
 import { getLastHeading, noteGpsHeading } from '$lib/location-heading';
-import { addBasemap, attachMapChrome, leafletMapOptions, type MapChromeHandle } from '$lib/map-chrome';
+import {
+	addBasemap,
+	attachMapChrome,
+	leafletMapOptions,
+	type MapChromeHandle
+} from '$lib/map-chrome';
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
 import { getLiveLocation, pingLiveLocation, stopLiveLocation } from '$lib/server/functions';
 import { setScreenWakeLock } from '$lib/wake-lock';
 import { liveShareHost, liveWatchCanvas, liveWatchMapShell, mapWrap } from '$lib/map-layout';
 import { cn } from '$lib/ui';
 import {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useRef,
-    useState,
-    type MouseEventHandler
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+	type MouseEventHandler
 } from 'react';
 import { Icon } from './Icon';
 import { Dialog, SnackAction, errorMessage, useSnackbar } from './ui';
@@ -168,7 +173,11 @@ function LiveLocationBroadcaster() {
 				onClose={() => setConfirmOpen(false)}
 				actions={
 					<>
-						<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={() => setConfirmOpen(false)}>
+						<button
+							className={buttonClass({ variant: 'ghost' })}
+							type="button"
+							onClick={() => setConfirmOpen(false)}
+						>
 							Cancel
 						</button>
 						<button className={buttonClass()} type="button" onClick={() => void start()}>
@@ -178,15 +187,12 @@ function LiveLocationBroadcaster() {
 				}
 			>
 				<p className={cn('text-muted', 'm-0 leading-[1.45]')}>
-					Anyone looking at this site will see where you are on the map. The pin updates about
-					every 30 seconds while this app stays open. You can stop at any time.
+					Anyone looking at this site will see where you are on the map. The pin updates about every
+					30 seconds while this app stays open. You can stop at any time.
 				</p>
 			</Dialog>
 			{sharing ? (
-				<div
-					data-live-share-host
-					className={liveShareHost}
-				>
+				<div data-live-share-host className={liveShareHost}>
 					<div
 						className="pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.65rem] pr-[0.45rem] pl-[0.9rem] rounded-[14px] border border-live/40 bg-surface shadow-lift"
 						role="status"
@@ -266,7 +272,11 @@ function LiveLocationWatch() {
 				onClose={dismissPrompt}
 				actions={
 					<>
-						<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={dismissPrompt}>
+						<button
+							className={buttonClass({ variant: 'ghost' })}
+							type="button"
+							onClick={dismissPrompt}
+						>
 							Not now
 						</button>
 						<button className={buttonClass()} type="button" onClick={openWatch}>
@@ -282,10 +292,7 @@ function LiveLocationWatch() {
 				<p className={cn('text-muted', 'm-0 text-[0.82rem]')}>Updated {liveAgo(ping.updatedAt)}</p>
 			</Dialog>
 			{!watching && !promptOpen ? (
-				<div
-					data-live-watch-host
-					className={liveShareHost}
-				>
+				<div data-live-watch-host className={liveShareHost}>
 					<div
 						className="pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.65rem] pr-[0.45rem] pl-[0.9rem] rounded-[14px] border border-live/40 bg-surface shadow-lift"
 						role="status"

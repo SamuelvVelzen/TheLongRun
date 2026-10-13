@@ -66,13 +66,25 @@ type GoalsData = Awaited<ReturnType<typeof getGoalsData>>;
 function formatRaceDate(iso: string) {
 	const d = new Date(`${iso}T12:00:00`);
 	if (Number.isNaN(d.getTime())) return iso;
-	return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+	return d.toLocaleDateString('en-GB', {
+		weekday: 'short',
+		day: 'numeric',
+		month: 'short',
+		year: 'numeric'
+	});
 }
 
 function goalSummaryLine(
 	goal: Pick<
 		Goal,
-		'date' | 'horizon' | 'distance_km' | 'sport' | 'time_goal' | 'bib_number' | 'wave' | 'start_time'
+		| 'date'
+		| 'horizon'
+		| 'distance_km'
+		| 'sport'
+		| 'time_goal'
+		| 'bib_number'
+		| 'wave'
+		| 'start_time'
 	>
 ) {
 	const when = goal.date
@@ -148,24 +160,24 @@ function GoalsPage() {
 				value={tab}
 				onChange={setTab}
 				options={[
-						{
-							value: 'races',
-							label: (
-								<>
-									<Icon name="flag" size={15} />
-									Races
-								</>
-							)
-						},
-						{
-							value: 'medals',
-							label: (
-								<>
-									<Icon name="trophy" size={15} />
-									Medals
-								</>
-							)
-						}
+					{
+						value: 'races',
+						label: (
+							<>
+								<Icon name="flag" size={15} />
+								Races
+							</>
+						)
+					},
+					{
+						value: 'medals',
+						label: (
+							<>
+								<Icon name="trophy" size={15} />
+								Medals
+							</>
+						)
+					}
 				]}
 			/>
 
@@ -210,7 +222,9 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 		return days == null || days >= 0;
 	});
 	const editingOlderGoal =
-		openDialog?.mode === 'edit' && openDialog.goal && olderPast.some((g) => g.id === openDialog.goal.id)
+		openDialog?.mode === 'edit' &&
+		openDialog.goal &&
+		olderPast.some((g) => g.id === openDialog.goal.id)
 			? openDialog.goal
 			: null;
 	const olderVisible = olderPast.length > 0 && (showOlder || editingOlderGoal != null);
@@ -451,7 +465,9 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 												<Icon name="trophy" size={14} />
 												Medal
 											</p>
-											<h3 className="font-display text-[1.35rem] tracking-[-0.03em] m-0 mt-1">{g.name}</h3>
+											<h3 className="font-display text-[1.35rem] tracking-[-0.03em] m-0 mt-1">
+												{g.name}
+											</h3>
 											<p className="font-display font-bold text-[2.1rem] tracking-[-0.04em] text-accent-fg m-0 mt-2 leading-none">
 												{g.result?.time || '—'}
 											</p>
@@ -462,10 +478,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 											</p>
 										</div>
 										{track && (
-											<RouteLine
-												coords={track}
-												className="shrink-0 self-center text-accent/35"
-											/>
+											<RouteLine coords={track} className="shrink-0 self-center text-accent/35" />
 										)}
 									</button>
 								);
@@ -487,9 +500,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 				mode={openDialog?.mode ?? 'add'}
 				initial={openDialog?.mode === 'edit' ? openDialog.goal : null}
 				hasActiveGoal={data.activeGoal != null}
-				isActiveGoal={
-					openDialog?.mode === 'edit' && openDialog.goal.id === data.activeGoal?.id
-				}
+				isActiveGoal={openDialog?.mode === 'edit' && openDialog.goal.id === data.activeGoal?.id}
 				onClose={closeDialog}
 				onSaved={onDialogSaved}
 			/>
@@ -499,7 +510,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 				goal={openMedal}
 				track={openMedal ? data.medalTracks[openMedal.id] : undefined}
 				activity={openMedal ? data.medalActivities[openMedal.id] : undefined}
-				candidates={openMedal ? data.candidatesByGoalId[openMedal.id] ?? [] : []}
+				candidates={openMedal ? (data.candidatesByGoalId[openMedal.id] ?? []) : []}
 				authed={authed}
 				onEditRace={
 					authed && openMedal
@@ -592,7 +603,13 @@ function ActiveGoalCard({
 			<div className="flex flex-wrap gap-6">
 				<div>
 					<span className={cn('block text-[0.78rem]', 'text-muted')}>
-						{days == null ? 'Race day' : days > 0 ? 'Days to go' : days === 0 ? 'Race day' : 'Days since'}
+						{days == null
+							? 'Race day'
+							: days > 0
+								? 'Days to go'
+								: days === 0
+									? 'Race day'
+									: 'Days since'}
 					</span>
 					<strong className="font-display text-[2.1rem] tracking-[-0.04em] text-accent-fg leading-none">
 						{days == null ? '—' : days === 0 ? 'Today' : Math.abs(days)}
@@ -615,7 +632,9 @@ function ActiveGoalCard({
 					))}
 				</ul>
 			)}
-			{goal.notes ? <p className={cn('text-muted', 'm-0 whitespace-pre-wrap')}>{goal.notes}</p> : null}
+			{goal.notes ? (
+				<p className={cn('text-muted', 'm-0 whitespace-pre-wrap')}>{goal.notes}</p>
+			) : null}
 			{authed && (
 				<Actions className="justify-start!">
 					<IconLabelButton
@@ -639,9 +658,7 @@ function ActiveGoalCard({
 					</Link>
 				</Actions>
 			)}
-			{authed && canPinRaceResult(goal) && (
-				<PinRaceResult goal={goal} candidates={candidates} />
-			)}
+			{authed && canPinRaceResult(goal) && <PinRaceResult goal={goal} candidates={candidates} />}
 		</Panel>
 	);
 }
@@ -675,7 +692,13 @@ function UpcomingGoalCard({
 				</div>
 				<div className="text-right">
 					<span className={cn('block text-[0.78rem]', 'text-muted')}>
-						{days == null ? 'Race day' : days > 0 ? 'Days to go' : days === 0 ? 'Race day' : 'Days since'}
+						{days == null
+							? 'Race day'
+							: days > 0
+								? 'Days to go'
+								: days === 0
+									? 'Race day'
+									: 'Days since'}
 					</span>
 					<strong className="font-display text-[1.7rem] tracking-[-0.04em] leading-none">
 						{days == null ? '—' : days === 0 ? 'Today' : Math.abs(days)}
@@ -695,9 +718,7 @@ function UpcomingGoalCard({
 					</button>
 				</Actions>
 			)}
-			{authed && canPinRaceResult(goal) && (
-				<PinRaceResult goal={goal} candidates={candidates} />
-			)}
+			{authed && canPinRaceResult(goal) && <PinRaceResult goal={goal} candidates={candidates} />}
 		</Panel>
 	);
 }

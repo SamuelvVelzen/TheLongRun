@@ -1,5 +1,10 @@
 import type { FuelLog } from '$lib/fuel';
-import { injectFuelText, readFuelDraft, scheduleFuelDraftWrite, writeFuelDraft } from '$lib/fuel-prompt';
+import {
+	injectFuelText,
+	readFuelDraft,
+	scheduleFuelDraftWrite,
+	writeFuelDraft
+} from '$lib/fuel-prompt';
 import { saveFuelLog, saveFuelReply } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import { useRouter } from '@tanstack/react-router';
@@ -58,8 +63,9 @@ export function FuelDescribeDialog({
 			<AiPromptFlow
 				intro={
 					<p className="m-0">
-						Describe what you ate in your own words, copy the prompt into your AI, then paste JSON back.
-						Checked entries save when you confirm{log.entries.length ? ' — existing food names are reused' : ''}.
+						Describe what you ate in your own words, copy the prompt into your AI, then paste JSON
+						back. Checked entries save when you confirm
+						{log.entries.length ? ' — existing food names are reused' : ''}.
 					</p>
 				}
 				prompt={prompt}

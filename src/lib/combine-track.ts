@@ -5,7 +5,12 @@ import {
 	supportsBestEfforts,
 	type BestEffort
 } from '$lib/best-efforts';
-import { computeRouteAnalyticsFromParts, haversineMeters, type RouteAnalytics, type TrackSample } from '$lib/splits';
+import {
+	computeRouteAnalyticsFromParts,
+	haversineMeters,
+	type RouteAnalytics,
+	type TrackSample
+} from '$lib/splits';
 import type { RunRecord } from '$lib/types';
 
 /** Watch-restart / new file: treat as one stream for rolling efforts. */

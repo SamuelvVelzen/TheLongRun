@@ -79,7 +79,7 @@ export async function listRouteEffortSources(): Promise<
 	for (const row of rows) {
 		const geo = parseJsonColumn(row.geojson);
 		const analytics = analyticsFromProperties(
-			geo && typeof geo === 'object' ? (geo as { properties?: unknown }).properties ?? null : null
+			geo && typeof geo === 'object' ? ((geo as { properties?: unknown }).properties ?? null) : null
 		);
 		const splits = analytics?.splits ?? [];
 		const samples = trackSamplesFromGeoJson(geo);

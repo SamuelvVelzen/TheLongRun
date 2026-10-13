@@ -108,9 +108,7 @@ export function weatherLocationFromTrack(
 	return null;
 }
 
-export async function locationForRun(
-	run: Pick<RunRecord, 'route' | 'strava_id'>
-): Promise<LatLon> {
+export async function locationForRun(run: Pick<RunRecord, 'route' | 'strava_id'>): Promise<LatLon> {
 	const id = routeIdForRun(run);
 	if (id) {
 		const c = centroidFromGeoJson(await getRouteGeoJson(id));
@@ -205,7 +203,7 @@ export function formatWeatherString(opts: {
 }): string {
 	const temp =
 		opts.tempC != null && Number.isFinite(opts.tempC) ? `${Math.round(opts.tempC)}°C` : '';
-	const sky = (opts.condition?.trim() || weatherCodeLabel(opts.weatherCode));
+	const sky = opts.condition?.trim() || weatherCodeLabel(opts.weatherCode);
 	const humid = humidityPhrase(opts.humidity);
 
 	if (!temp && !sky) return '';
@@ -225,8 +223,7 @@ export function formatStravaDeviceWeather(opts: {
 	condition?: string | null;
 	humidity?: number | null;
 }): string {
-	const condition =
-		opts.condition?.trim() || stravaConditionLabel(opts.conditionCode) || '';
+	const condition = opts.condition?.trim() || stravaConditionLabel(opts.conditionCode) || '';
 	return formatWeatherString({
 		tempC: opts.tempC ?? null,
 		condition,
@@ -373,14 +370,10 @@ export async function fetchWeatherForDateTime(
 	const preferForecast = offset >= 0;
 
 	const archiveUrl =
-		`${ARCHIVE_URL}?${common}` +
-		`&start_date=${date}&end_date=${date}` +
-		`&hourly=${hourly}`;
+		`${ARCHIVE_URL}?${common}` + `&start_date=${date}&end_date=${date}` + `&hourly=${hourly}`;
 
 	const forecastUrl =
-		`${FORECAST_URL}?${common}` +
-		`&start_date=${date}&end_date=${date}` +
-		`&hourly=${hourly}`;
+		`${FORECAST_URL}?${common}` + `&start_date=${date}&end_date=${date}` + `&hourly=${hourly}`;
 
 	const primary = preferForecast ? forecastUrl : archiveUrl;
 	const secondary = preferForecast ? archiveUrl : forecastUrl;
@@ -412,7 +405,10 @@ const FORECAST_HORIZON_DAYS = 15;
  * Daily forecast at the home location for each date in [startIso, endIso] that is today or later
  * and within the forecast horizon. Empty on failure — callers treat the forecast as optional.
  */
-export async function fetchDailyForecast(startIso: string, endIso: string): Promise<DailyForecast[]> {
+export async function fetchDailyForecast(
+	startIso: string,
+	endIso: string
+): Promise<DailyForecast[]> {
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(startIso) || !/^\d{4}-\d{2}-\d{2}$/.test(endIso)) return [];
 	const startOffset = Math.max(0, daysFromToday(startIso));
 	const endOffset = Math.min(FORECAST_HORIZON_DAYS, daysFromToday(endIso));

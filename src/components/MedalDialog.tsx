@@ -47,7 +47,9 @@ function formatRaceDate(iso: string) {
 
 function locationLabel(activity: MedalActivity | undefined): string | null {
 	if (!activity) return null;
-	const parts = [activity.place, activity.province, activity.country].map((s) => s.trim()).filter(Boolean);
+	const parts = [activity.place, activity.province, activity.country]
+		.map((s) => s.trim())
+		.filter(Boolean);
 	return parts.length ? parts.join(', ') : null;
 }
 
@@ -141,11 +143,16 @@ function ActivityStats({ activity }: { activity: MedalActivity }) {
 					<div className="flex items-baseline gap-1">
 						<b>{activity.avg_hr ?? '—'}</b>
 						<span className="text-muted text-[0.95rem]">/</span>
-						<strong className="font-display text-[1.05rem] text-warn">{activity.max_hr ?? '—'}</strong>
+						<strong className="font-display text-[1.05rem] text-warn">
+							{activity.max_hr ?? '—'}
+						</strong>
 					</div>
 					<span>HR avg / max</span>
 					{hrFill != null && (
-						<div className="mt-[0.45rem] h-1 rounded-full bg-white/8 overflow-hidden" aria-hidden="true">
+						<div
+							className="mt-[0.45rem] h-1 rounded-full bg-white/8 overflow-hidden"
+							aria-hidden="true"
+						>
 							<div
 								className="h-full rounded-[inherit] bg-[linear-gradient(90deg,var(--color-accent),var(--color-warn))]"
 								style={{ width: `${hrFill}%` }}
@@ -216,12 +223,7 @@ export function MedalDialog({
 	const distanceLine = goal ? formatMedalDistanceLine(goal, goal.result) : '';
 
 	return (
-		<Dialog
-			open={open}
-			title={goal?.name ?? 'Medal'}
-			onClose={onClose}
-			size="medal"
-		>
+		<Dialog open={open} title={goal?.name ?? 'Medal'} onClose={onClose} size="medal">
 			{goal && (
 				<div className="relative grid gap-4">
 					<Confetti active={celebrate} />
@@ -305,13 +307,17 @@ export function MedalDialog({
 							)}
 							{activity.weather && <span className={tagClass()}>{activity.weather}</span>}
 							{activity.surface && <span className={tagClass()}>{activity.surface}</span>}
-							{activity.start_time && <span className={tagClass()}>Start {activity.start_time}</span>}
+							{activity.start_time && (
+								<span className={tagClass()}>Start {activity.start_time}</span>
+							)}
 						</div>
 					)}
 
 					{goal.primary.length > 0 && (
 						<div>
-							<p className="m-0 text-[0.78rem] uppercase tracking-[0.06em] text-muted font-bold">Race plan</p>
+							<p className="m-0 text-[0.78rem] uppercase tracking-[0.06em] text-muted font-bold">
+								Race plan
+							</p>
 							<ul className="m-0 mt-1 pl-[1.1rem]">
 								{goal.primary.map((p) => (
 									<li key={p}>{p}</li>
@@ -325,7 +331,9 @@ export function MedalDialog({
 							<p className="m-0 text-[0.78rem] uppercase tracking-[0.06em] text-muted font-bold">
 								Pre-race notes
 							</p>
-							<p className={cn('text-muted', 'm-0 mt-1 whitespace-pre-wrap text-[0.92rem]')}>{goal.notes}</p>
+							<p className={cn('text-muted', 'm-0 mt-1 whitespace-pre-wrap text-[0.92rem]')}>
+								{goal.notes}
+							</p>
 						</div>
 					)}
 
@@ -352,7 +360,9 @@ export function MedalDialog({
 
 					{authed ? (
 						<div className="grid gap-3 pt-1 border-t border-line">
-							<p className="m-0 text-[0.78rem] uppercase tracking-[0.06em] text-muted font-bold">Medal details</p>
+							<p className="m-0 text-[0.78rem] uppercase tracking-[0.06em] text-muted font-bold">
+								Medal details
+							</p>
 							<MedalDetailsForm
 								key={goal.id}
 								goalId={goal.id}
@@ -369,7 +379,6 @@ export function MedalDialog({
 							<p className={cn('text-muted', 'm-0 whitespace-pre-wrap')}>{goal.medal_notes}</p>
 						</div>
 					) : null}
-
 				</div>
 			)}
 		</Dialog>

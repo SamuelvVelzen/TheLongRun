@@ -5,5 +5,13 @@ yarn.lock
 bun.lock
 bun.lockb
 
+# Build output
+/dist/
+/.output/
+/.wrangler/
+/.tanstack/
+src/routeTree.gen.ts
+
 # Miscellaneous
 /static/
+/data/

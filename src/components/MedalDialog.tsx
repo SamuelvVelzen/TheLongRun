@@ -1,5 +1,6 @@
 import { PinRaceResult, type PinRaceCandidate } from './PinRaceResult';
-import { actionsClass, buttonClass, metricsClass, metricClass, tagClass, dialogPanelMedalClass, panelClass } from './ui';
+import { Actions, Dialog, IconLabelButton, Metric, Metrics, Panel, Tag } from './ui';
+import { buttonClass } from './ui/Button';
 import { activityLabel, showsField } from '$lib/activity';
 import { formatDuration, parseDurationSeconds } from '$lib/format';
 import { formatMedalDistanceLine, goalUrlHref, pinnedActivityMismatch } from '$lib/goals';
@@ -8,7 +9,6 @@ import { cn } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { Confetti } from './Confetti';
-import { Dialog } from './Dialog';
 import { Icon } from './Icon';
 import { MedalDetailsForm } from './MedalDetailsForm';
 import { RouteLine } from './RouteLine';
@@ -134,9 +134,9 @@ function ActivityStats({ activity }: { activity: MedalActivity }) {
 			? Math.min(100, Math.round((activity.avg_hr / activity.max_hr) * 100))
 			: null;
 	return (
-		<div className={metricsClass('mt-1')}>
+		<Metrics className="mt-1">
 			{activity.avg_hr != null || activity.max_hr != null ? (
-				<div className={metricClass('flex-[1.4_1_9rem]')}>
+				<Metric className="flex-[1.4_1_9rem]">
 					<div className="flex items-baseline gap-1">
 						<b>{activity.avg_hr ?? '—'}</b>
 						<span className="text-muted text-[0.95rem]">/</span>
@@ -151,33 +151,33 @@ function ActivityStats({ activity }: { activity: MedalActivity }) {
 							/>
 						</div>
 					)}
-				</div>
+				</Metric>
 			) : null}
 			{showsField(activity.activity_type, 'elevation') && activity.elev_gain != null && (
-				<div className={metricClass()}>
+				<Metric>
 					<b>{activity.elev_gain}</b>
 					<span>elev m</span>
-				</div>
+				</Metric>
 			)}
 			{showsField(activity.activity_type, 'cadence') && activity.cadence != null && (
-				<div className={metricClass()}>
+				<Metric>
 					<b>{activity.cadence}</b>
 					<span>cadence</span>
-				</div>
+				</Metric>
 			)}
 			{activity.calories != null && (
-				<div className={metricClass()}>
+				<Metric>
 					<b>{activity.calories}</b>
 					<span>kcal</span>
-				</div>
+				</Metric>
 			)}
 			{activity.effort != null && (
-				<div className={metricClass()}>
+				<Metric>
 					<b>{activity.effort}</b>
 					<span>effort</span>
-				</div>
+				</Metric>
 			)}
-		</div>
+		</Metrics>
 	);
 }
 
@@ -219,17 +219,13 @@ export function MedalDialog({
 			open={open}
 			title={goal?.name ?? 'Medal'}
 			onClose={onClose}
-			className={dialogPanelMedalClass}
+			size="medal"
 		>
 			{goal && (
 				<div className="relative grid gap-4">
 					<Confetti active={celebrate} />
 
-					<div
-						className={panelClass(
-							'relative overflow-hidden border-accent/25 bg-[linear-gradient(165deg,color-mix(in_srgb,var(--accent)_14%,transparent),transparent_55%)] p-0!'
-						)}
-					>
+					<Panel className="relative overflow-hidden border-accent/25 bg-[linear-gradient(165deg,color-mix(in_srgb,var(--accent)_14%,transparent),transparent_55%)] p-0!">
 						{track ? (
 							<div className="flex items-center justify-center px-4 pt-5 pb-2 min-h-[9.5rem]">
 								<RouteLine
@@ -261,7 +257,7 @@ export function MedalDialog({
 								</p>
 							)}
 						</div>
-					</div>
+					</Panel>
 
 					<div className="grid gap-1">
 						<p className={cn('text-muted', 'm-0')}>
@@ -333,12 +329,14 @@ export function MedalDialog({
 					)}
 
 					{authed && onEditRace && (
-						<div className={actionsClass('justify-start! pt-1 border-t border-line')}>
-							<button type="button" className={buttonClass({ variant: 'ghost' })} onClick={onEditRace}>
-								<Icon name="pencil" size={16} />
-								Edit race
-							</button>
-						</div>
+						<Actions className="justify-start! pt-1 border-t border-line">
+							<IconLabelButton
+								label="Edit race"
+								size="default"
+								icon={<Icon name="pencil" size={16} />}
+								onClick={onEditRace}
+							/>
+						</Actions>
 					)}
 
 					{authed && (

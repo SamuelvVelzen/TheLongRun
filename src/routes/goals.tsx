@@ -1,41 +1,51 @@
-import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
-import { useAuthed } from '$lib/auth';
-import { goalFormSchema, goalToFormValues, toGoalInput } from '$lib/goal-form';
+import { activityLabel } from '$lib/activity';
+import { SignInPanel, useAuthed } from '$lib/auth';
 import {
-    canPinRaceResult,
-    emptyGoalDraft,
-    formatHorizonLabel,
-    formatHorizonShort,
-    formatMedalDistanceLine,
-    goalDraftFromReply,
-    goalUrlHref,
-    isHorizonPast,
-    isOlderPastRace,
-    isUnpinnedPastRace,
-    planStartHint,
-    shiftPlanStartWithRaceDate
+	canPinRaceResult,
+	formatHorizonLabel,
+	formatHorizonShort,
+	formatMedalDistanceLine,
+	goalUrlHref,
+	isHorizonPast,
+	isOlderPastRace,
+	isUnpinnedPastRace
 } from '$lib/goals';
-import { calendarFromGoal, daysUntil, mondayIso } from '$lib/plan';
-import { clearGoal, getGoalBrief, getGoalsData, saveActiveGoal } from '$lib/server/functions';
+import { daysUntil } from '$lib/plan';
+import { clearGoal, getGoalsData } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import type { Goal } from '$lib/types';
 import { cn } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
-import { ConfirmDialog, Dialog } from '../components/Dialog';
-import { Icon, sportChipLabel } from '../components/Icon';
+import { GoalDialog } from '../components/GoalDialog';
+import { Icon } from '../components/Icon';
 import { MedalDialog } from '../components/MedalDialog';
 import { PinRaceResult } from '../components/PinRaceResult';
-import { PageHero } from '../components/PageHero';
 import { RouteLine } from '../components/RouteLine';
-import { AiPromptFlow } from '../components/AiPromptFlow';
-import { SegmentedToggle } from '../components/SegmentedToggle';
-import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, actionsClass, Button, buttonClass, dialogPanelMedalClass, Field, Form, FormGrid, FormSection, panelClass, sectionTitleClass, tabBarClass, Textarea, useAppForm } from '../components/ui';
+import {
+	Actions,
+	ConfirmDialog,
+	IconLabelButton,
+	IconLabelLink,
+	PageHero,
+	PageTabs,
+	Panel,
+	SectionTitle,
+	errorMessage,
+	useSnackbar
+} from '../components/ui';
+import { buttonClass } from '../components/ui/Button';
+import { panelClass } from '../components/ui/Panel';
 
 type GoalsTab = 'races' | 'medals';
 type GoalsSearch = { tab?: GoalsTab };
+
+type OpenGoalDialog =
+	| { variant: 'race'; mode: 'add' }
+	| { variant: 'race'; mode: 'edit'; goal: Goal }
+	| { variant: 'lookahead'; mode: 'add' }
+	| { variant: 'lookahead'; mode: 'edit'; goal: Goal };
 
 function parseTab(v: unknown): GoalsTab {
 	return v === 'medals' ? 'medals' : 'races';
@@ -52,13 +62,6 @@ export const Route = createFileRoute('/goals')({
 });
 
 type GoalsData = Awaited<ReturnType<typeof getGoalsData>>;
-
-function hasRaceCopy(primary: string[] | string, notes: string): boolean {
-	const lines = Array.isArray(primary)
-		? primary
-		: primary.split('\n').map((s) => s.trim()).filter(Boolean);
-	return lines.some((p) => p.trim()) || notes.trim() !== '';
-}
 
 function formatRaceDate(iso: string) {
 	const d = new Date(`${iso}T12:00:00`);
@@ -140,13 +143,11 @@ function GoalsPage() {
 
 	return (
 		<>
-			<div className={tabBarClass()}>
-				<SegmentedToggle
-					fill
-					aria-label="Goals"
-					value={tab}
-					onChange={setTab}
-					options={[
+			<PageTabs
+				aria-label="Goals"
+				value={tab}
+				onChange={setTab}
+				options={[
 						{
 							value: 'races',
 							label: (
@@ -165,21 +166,16 @@ function GoalsPage() {
 								</>
 							)
 						}
-					]}
-				/>
-			</div>
+				]}
+			/>
 
 			<PageHero
 				variant="quiet"
-				className="max-sm:hidden"
 				kicker={tab === 'medals' ? 'On the wall' : 'Race on the calendar'}
 				title="Goals"
-				lead={
-					tab === 'medals'
-						? 'Finished races live here with the time you pinned. Open one for the goal you set and the activity you ran.'
-						: 'The soonest booked race is active — it drives the plan length. Look-aheads are a month only: coach can see them, they never set race day. Later races wait. Older past races stay hidden until you open them.'
-				}
 			/>
+
+			{!authed ? <SignInPanel title="Sign in to set races and medals" /> : null}
 
 			<DeferredData promise={page}>
 				{(data) => <GoalsBody data={data} authed={authed} tab={tab} />}
@@ -191,9 +187,7 @@ function GoalsPage() {
 function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; tab: GoalsTab }) {
 	const router = useRouter();
 	const snack = useSnackbar();
-	const [editingId, setEditingId] = useState<string | 'new' | 'new-look' | null>(null);
-	const adding = editingId === 'new' || editingId === 'new-look';
-	const addingLook = editingId === 'new-look';
+	const [openDialog, setOpenDialog] = useState<OpenGoalDialog | null>(null);
 	const [pendingRemove, setPendingRemove] = useState<{
 		id: string;
 		name: string;
@@ -201,8 +195,6 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 		isIntention?: boolean;
 	} | null>(null);
 	const [openMedal, setOpenMedal] = useState<Goal | null>(null);
-	const [editingMedalId, setEditingMedalId] = useState<string | null>(null);
-	const editingMedal = editingMedalId ? data.medals.find((g) => g.id === editingMedalId) ?? null : null;
 	const [showOlder, setShowOlder] = useState(false);
 	const nextAfterClear = pendingRemove?.isActive ? data.upcoming[0] : undefined;
 	const pastOpen = data.upcoming
@@ -217,16 +209,25 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 		const days = daysUntil(g.date);
 		return days == null || days >= 0;
 	});
-	const olderVisible =
-		olderPast.length > 0 &&
-		(showOlder || (typeof editingId === 'string' && olderPast.some((g) => g.id === editingId)));
+	const editingOlderGoal =
+		openDialog?.mode === 'edit' && openDialog.goal && olderPast.some((g) => g.id === openDialog.goal.id)
+			? openDialog.goal
+			: null;
+	const olderVisible = olderPast.length > 0 && (showOlder || editingOlderGoal != null);
+
+	function closeDialog() {
+		setOpenDialog(null);
+	}
+
+	async function onDialogSaved() {
+		closeDialog();
+		await router.invalidate();
+	}
 
 	function toggleOlder() {
 		if (olderVisible) {
 			setShowOlder(false);
-			if (typeof editingId === 'string' && olderPast.some((g) => g.id === editingId)) {
-				setEditingId(null);
-			}
+			if (editingOlderGoal) closeDialog();
 		} else {
 			setShowOlder(true);
 		}
@@ -239,13 +240,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 				goal={g}
 				candidates={data.candidatesByGoalId[g.id] ?? []}
 				authed={authed}
-				editing={editingId === g.id}
-				onEdit={() => setEditingId(g.id)}
-				onCancelEdit={() => setEditingId(null)}
-				onSaved={async () => {
-					setEditingId(null);
-					await router.invalidate();
-				}}
+				onEdit={() => setOpenDialog({ variant: 'race', mode: 'edit', goal: g })}
 				onRemove={() => setPendingRemove({ id: g.id, name: g.name, isActive: false })}
 			/>
 		);
@@ -261,13 +256,9 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 							weekCount={data.calendar.weekCount}
 							candidates={data.candidatesByGoalId[data.activeGoal.id] ?? []}
 							authed={authed}
-							editing={editingId === data.activeGoal.id}
-							onEdit={() => setEditingId(data.activeGoal!.id)}
-							onCancelEdit={() => setEditingId(null)}
-							onSaved={async () => {
-								setEditingId(null);
-								await router.invalidate();
-							}}
+							onEdit={() =>
+								setOpenDialog({ variant: 'race', mode: 'edit', goal: data.activeGoal! })
+							}
 							onClear={() =>
 								setPendingRemove({
 									id: data.activeGoal!.id,
@@ -277,7 +268,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 							}
 						/>
 					) : (
-						<section className={panelClass('mb-6')}>
+						<Panel className="mb-6">
 							<p className={cn('text-muted', 'mt-0')}>
 								No race on the calendar. Coach still plans this week as base training
 								{data.intentions.length
@@ -285,28 +276,29 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 									: '.'}
 							</p>
 							{authed && (
-								<div className={actionsClass('justify-start!')}>
-									<button className={buttonClass()} type="button" onClick={() => setEditingId('new')}>
+								<Actions className="justify-start!">
+									<button
+										className={buttonClass()}
+										type="button"
+										onClick={() => setOpenDialog({ variant: 'race', mode: 'add' })}
+									>
 										<Icon name="flag" size={16} />
 										Set a race
 									</button>
-									<button
-										className={buttonClass({ variant: 'ghost' })}
-										type="button"
-										onClick={() => setEditingId('new-look')}
-									>
-										<Icon name="calendar" size={16} />
-										Look-ahead
-									</button>
-								</div>
+									<IconLabelButton
+										label="Look-ahead"
+										size="default"
+										icon={<Icon name="calendar" size={16} />}
+										onClick={() => setOpenDialog({ variant: 'lookahead', mode: 'add' })}
+									/>
+								</Actions>
 							)}
-							{!authed && <p className={cn('text-muted', 'mb-0')}>Sign in to set a race.</p>}
-						</section>
+						</Panel>
 					)}
 
 					{authed && (pastOpen.length > 0 || olderVisible) && (
 						<>
-							<section className={sectionTitleClass()}>
+							<SectionTitle>
 								<div>
 									<h2>Unpinned</h2>
 									<p>
@@ -319,7 +311,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 												: `${olderPast.length} races already happened. Pin each activity to put them on the medal wall.`}
 									</p>
 								</div>
-							</section>
+							</SectionTitle>
 							{pastOpen.map(pastCard)}
 							{olderVisible && olderPast.map(pastCard)}
 						</>
@@ -327,7 +319,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 
 					{authed && (data.activeGoal || later.length > 0) && (
 						<>
-							<section className={sectionTitleClass()}>
+							<SectionTitle>
 								<div>
 									<h2>Up next</h2>
 									<p>
@@ -375,37 +367,31 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 									</p>
 								</div>
 								{authed && data.activeGoal && (
-									<button className={buttonClass()} type="button" onClick={() => setEditingId('new')}>
-										<Icon name="plus" size={16} />
-										Add race
-									</button>
+									<IconLabelButton
+										label="Add race"
+										variant="primary"
+										size="default"
+										icon={<Icon name="plus" size={16} />}
+										onClick={() => setOpenDialog({ variant: 'race', mode: 'add' })}
+									/>
 								)}
-							</section>
+							</SectionTitle>
 							{later.map((g) => (
 								<UpcomingGoalCard
 									key={g.id}
 									goal={g}
 									candidates={data.candidatesByGoalId[g.id] ?? []}
 									authed={authed}
-									editing={editingId === g.id}
-									onEdit={() => setEditingId(g.id)}
-									onCancelEdit={() => setEditingId(null)}
-									onSaved={async () => {
-										setEditingId(null);
-										await router.invalidate();
-									}}
+									onEdit={() => setOpenDialog({ variant: 'race', mode: 'edit', goal: g })}
 									onRemove={() => setPendingRemove({ id: g.id, name: g.name, isActive: false })}
 								/>
 							))}
-							{!authed && data.activeGoal && (
-								<p className={cn('text-muted', 'mb-6')}>Sign in to add another race.</p>
-							)}
 						</>
 					)}
 
 					{(data.intentions.length > 0 || (authed && data.activeGoal)) && (
 						<>
-							<section className={sectionTitleClass()}>
+							<SectionTitle>
 								<div>
 									<h2>Look-ahead</h2>
 									<p>
@@ -415,28 +401,21 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 									</p>
 								</div>
 								{authed && (
-									<button
-										className={buttonClass()}
-										type="button"
-										onClick={() => setEditingId('new-look')}
-									>
-										<Icon name="plus" size={16} />
-										Add look-ahead
-									</button>
+									<IconLabelButton
+										label="Add look-ahead"
+										variant="primary"
+										size="default"
+										icon={<Icon name="plus" size={16} />}
+										onClick={() => setOpenDialog({ variant: 'lookahead', mode: 'add' })}
+									/>
 								)}
-							</section>
+							</SectionTitle>
 							{data.intentions.map((g) => (
 								<IntentionGoalCard
 									key={g.id}
 									goal={g}
 									authed={authed}
-									editing={editingId === g.id}
-									onEdit={() => setEditingId(g.id)}
-									onCancelEdit={() => setEditingId(null)}
-									onSaved={async () => {
-										setEditingId(null);
-										await router.invalidate();
-									}}
+									onEdit={() => setOpenDialog({ variant: 'lookahead', mode: 'edit', goal: g })}
 									onRemove={() =>
 										setPendingRemove({
 											id: g.id,
@@ -493,42 +472,27 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 							})}
 						</div>
 					) : (
-						<section className={panelClass()}>
+						<Panel>
 							<p className={cn('text-muted', 'm-0')}>
 								Nothing on the wall yet. Pin a result after you run the race.
 							</p>
-						</section>
+						</Panel>
 					)}
 				</>
 			)}
 
-			<Dialog
-				open={adding}
-				title={addingLook ? 'Add look-ahead' : data.activeGoal ? 'Add race' : 'Set a race'}
-				onClose={() => setEditingId(null)}
-				className={cn(dialogPanelMedalClass, 'sm:max-w-[min(42rem,100%)]!')}
-			>
-				<p className={cn('text-muted', 'm-0')}>
-					{addingLook
-						? 'Month only — coach can see it when planning. It never sets race day or plan length.'
-						: data.activeGoal
-							? 'Later dates wait. A sooner date takes over as active and resets the plan.'
-							: 'The soonest booked race becomes active and sets the plan length.'}
-				</p>
-				{adding ? (
-					<GoalForm
-						key={addingLook ? 'new-look' : 'new'}
-						initial={null}
-						defaultKind={addingLook ? 'intention' : 'race'}
-						submitLabel={addingLook ? 'Save look-ahead' : data.activeGoal ? 'Add race' : 'Set race'}
-						onCancel={() => setEditingId(null)}
-						onSaved={async () => {
-							setEditingId(null);
-							await router.invalidate();
-						}}
-					/>
-				) : null}
-			</Dialog>
+			<GoalDialog
+				open={openDialog != null}
+				variant={openDialog?.variant ?? 'race'}
+				mode={openDialog?.mode ?? 'add'}
+				initial={openDialog?.mode === 'edit' ? openDialog.goal : null}
+				hasActiveGoal={data.activeGoal != null}
+				isActiveGoal={
+					openDialog?.mode === 'edit' && openDialog.goal.id === data.activeGoal?.id
+				}
+				onClose={closeDialog}
+				onSaved={onDialogSaved}
+			/>
 
 			<MedalDialog
 				open={openMedal != null}
@@ -540,7 +504,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 				onEditRace={
 					authed && openMedal
 						? () => {
-								setEditingMedalId(openMedal.id);
+								setOpenDialog({ variant: 'race', mode: 'edit', goal: openMedal });
 								setOpenMedal(null);
 							}
 						: undefined
@@ -548,30 +512,6 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 				onClose={() => setOpenMedal(null)}
 				onSaved={() => router.invalidate()}
 			/>
-
-			<Dialog
-				open={editingMedal != null}
-				title={editingMedal ? `Edit ${editingMedal.name}` : 'Edit race'}
-				onClose={() => setEditingMedalId(null)}
-				className={cn(dialogPanelMedalClass, 'sm:max-w-[min(42rem,100%)]!')}
-			>
-				<p className={cn('text-muted', 'm-0')}>
-					Updates name, date, distance, and notes. The medal time stays tied to the linked activity
-					until you change that below the race fields on the medal view.
-				</p>
-				{editingMedal ? (
-					<GoalForm
-						key={editingMedal.id}
-						initial={editingMedal}
-						submitLabel="Save race"
-						onCancel={() => setEditingMedalId(null)}
-						onSaved={async () => {
-							setEditingMedalId(null);
-							await router.invalidate();
-						}}
-					/>
-				) : null}
-			</Dialog>
 
 			<ConfirmDialog
 				open={pendingRemove != null}
@@ -602,7 +542,7 @@ function GoalsBody({ data, authed, tab }: { data: GoalsData; authed: boolean; ta
 					try {
 						await clearGoal({ data: pendingRemove.id });
 						setPendingRemove(null);
-						setEditingId(null);
+						closeDialog();
 						if (pendingRemove.isActive) {
 							snack.success(
 								nextAfterClear
@@ -627,25 +567,19 @@ function ActiveGoalCard({
 	weekCount,
 	candidates,
 	authed,
-	editing,
 	onEdit,
-	onCancelEdit,
-	onSaved,
 	onClear
 }: {
 	goal: Goal;
 	weekCount: number;
 	candidates: GoalsData['candidatesByGoalId'][string];
 	authed: boolean;
-	editing: boolean;
 	onEdit: () => void;
-	onCancelEdit: () => void;
-	onSaved: () => void | Promise<void>;
 	onClear: () => void;
 }) {
 	const days = daysUntil(goal.date);
 	return (
-		<section className={panelClass('mb-6 grid gap-4')}>
+		<Panel className="mb-6 grid gap-4">
 			<div>
 				<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
 					<Icon name="flag" size={14} />
@@ -683,29 +617,29 @@ function ActiveGoalCard({
 			)}
 			{goal.notes ? <p className={cn('text-muted', 'm-0 whitespace-pre-wrap')}>{goal.notes}</p> : null}
 			{authed && (
-				<div className={actionsClass('justify-start!')}>
-					{!editing && (
-						<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={onEdit}>
-							<Icon name="pencil" size={16} />
-							Edit
-						</button>
-					)}
+				<Actions className="justify-start!">
+					<IconLabelButton
+						label="Edit"
+						size="default"
+						icon={<Icon name="pencil" size={16} />}
+						onClick={onEdit}
+					/>
 					<button className={buttonClass({ variant: 'danger' })} type="button" onClick={onClear}>
 						Clear
 					</button>
-					<Link className={buttonClass({ variant: 'ghost' })} to="/coach" search={{ tab: 'plan' }}>
-						<Icon name="board" size={16} />
-						Plan
-					</Link>
-				</div>
+					<IconLabelLink
+						label="Plan"
+						size="default"
+						to="/coach"
+						search={{ tab: 'plan' }}
+						icon={<Icon name="board" size={16} />}
+					/>
+				</Actions>
 			)}
-			{authed && editing && (
-				<GoalForm initial={goal} submitLabel="Save goal" onCancel={onCancelEdit} onSaved={onSaved} />
-			)}
-			{authed && canPinRaceResult(goal) && !editing && (
+			{authed && canPinRaceResult(goal) && (
 				<PinRaceResult goal={goal} candidates={candidates} />
 			)}
-		</section>
+		</Panel>
 	);
 }
 
@@ -713,25 +647,19 @@ function UpcomingGoalCard({
 	goal,
 	candidates,
 	authed,
-	editing,
 	onEdit,
-	onCancelEdit,
-	onSaved,
 	onRemove
 }: {
 	goal: Goal;
 	candidates: GoalsData['candidatesByGoalId'][string];
 	authed: boolean;
-	editing: boolean;
 	onEdit: () => void;
-	onCancelEdit: () => void;
-	onSaved: () => void | Promise<void>;
 	onRemove: () => void;
 }) {
 	const days = daysUntil(goal.date);
 	const past = days != null && days < 0;
 	return (
-		<section className={panelClass('mb-3 grid gap-3')}>
+		<Panel className="mb-3 grid gap-3">
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div>
 					<p className="m-0 inline-flex items-center gap-1.5 text-muted font-bold text-[0.72rem] tracking-[0.08em] uppercase">
@@ -752,48 +680,39 @@ function UpcomingGoalCard({
 				</div>
 			</div>
 			{authed && (
-				<div className={actionsClass('justify-start!')}>
-					{!editing && (
-						<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={onEdit}>
-							<Icon name="pencil" size={16} />
-							Edit
-						</button>
-					)}
+				<Actions className="justify-start!">
+					<IconLabelButton
+						label="Edit"
+						size="default"
+						icon={<Icon name="pencil" size={16} />}
+						onClick={onEdit}
+					/>
 					<button className={buttonClass({ variant: 'danger' })} type="button" onClick={onRemove}>
 						Remove
 					</button>
-				</div>
+				</Actions>
 			)}
-			{authed && editing && (
-				<GoalForm initial={goal} submitLabel="Save race" onCancel={onCancelEdit} onSaved={onSaved} />
-			)}
-			{authed && canPinRaceResult(goal) && !editing && (
+			{authed && canPinRaceResult(goal) && (
 				<PinRaceResult goal={goal} candidates={candidates} />
 			)}
-		</section>
+		</Panel>
 	);
 }
 
 function IntentionGoalCard({
 	goal,
 	authed,
-	editing,
 	onEdit,
-	onCancelEdit,
-	onSaved,
 	onRemove
 }: {
 	goal: Goal;
 	authed: boolean;
-	editing: boolean;
 	onEdit: () => void;
-	onCancelEdit: () => void;
-	onSaved: () => void | Promise<void>;
 	onRemove: () => void;
 }) {
 	const past = isHorizonPast(goal.horizon);
 	return (
-		<section className={panelClass('mb-3 grid gap-3')}>
+		<Panel className="mb-3 grid gap-3">
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div>
 					<p className="m-0 inline-flex items-center gap-1.5 text-muted font-bold text-[0.72rem] tracking-[0.08em] uppercase">
@@ -812,442 +731,18 @@ function IntentionGoalCard({
 				</div>
 			</div>
 			{authed && (
-				<div className={actionsClass('justify-start!')}>
-					{!editing && (
-						<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={onEdit}>
-							<Icon name="pencil" size={16} />
-							Edit
-						</button>
-					)}
+				<Actions className="justify-start!">
+					<IconLabelButton
+						label="Edit"
+						size="default"
+						icon={<Icon name="pencil" size={16} />}
+						onClick={onEdit}
+					/>
 					<button className={buttonClass({ variant: 'danger' })} type="button" onClick={onRemove}>
 						Remove
 					</button>
-				</div>
+				</Actions>
 			)}
-			{authed && editing && (
-				<GoalForm initial={goal} submitLabel="Save look-ahead" onCancel={onCancelEdit} onSaved={onSaved} />
-			)}
-		</section>
-	);
-}
-
-function GoalForm({
-	initial,
-	defaultKind,
-	submitLabel,
-	onCancel,
-	onSaved
-}: {
-	initial: Goal | null;
-	defaultKind?: 'race' | 'intention';
-	submitLabel: string;
-	onCancel: () => void;
-	onSaved: () => void | Promise<void>;
-}) {
-	const snack = useSnackbar();
-	const draft = initial ?? emptyGoalDraft();
-	const defaultValues = goalToFormValues(
-		!initial && defaultKind === 'intention'
-			? { ...draft, date: '', horizon: '', plan_start: '' }
-			: draft,
-		initial ? undefined : defaultKind
-	);
-	const lastDate = useRef(defaultValues.date);
-	const [copyTab, setCopyTab] = useState<'copy' | 'generate'>(() =>
-		hasRaceCopy(draft.primary, draft.notes) ? 'copy' : 'generate'
-	);
-	const [extra, setExtra] = useState('');
-	const [briefText, setBriefText] = useState('');
-	const [replyJson, setReplyJson] = useState('');
-	const [briefBusy, setBriefBusy] = useState(false);
-	const form = useAppForm({
-		defaultValues,
-		validators: { onSubmit: goalFormSchema },
-		onSubmit: async ({ value }) => {
-			try {
-				const res = await saveActiveGoal({ data: toGoalInput(value, initial?.id) });
-				if (initial?.status === 'done') {
-					snack.success('Race details saved — medal time still comes from the linked activity.');
-				} else if (res.isIntention) {
-					snack.success('Saved — look-ahead only. Coach will not treat this as race day.');
-				} else if (res.isActive) {
-					let weeks = 1;
-					try {
-						weeks = calendarFromGoal({
-							plan_start: mondayIso(value.plan_start),
-							date: value.date
-						}).weekCount;
-					} catch {
-						weeks = 1;
-					}
-					snack.success(`Saved — ${weeks} week plan through race day.`);
-				} else {
-					snack.success(`Saved — later on the calendar. Training stays on ${res.activeName}.`);
-				}
-				await onSaved();
-			} catch (err) {
-				snack.error(errorMessage(err, 'Could not save the goal.'));
-			}
-		}
-	});
-
-	async function generateBrief() {
-		const value = form.state.values;
-		setBriefBusy(true);
-		try {
-			const next = await getGoalBrief({
-				data: {
-					name: value.name,
-					date: value.kind === 'race' ? value.date : '',
-					horizon: value.horizon,
-					distance_km: value.distance_km,
-					sport: value.sport,
-					time_goal: value.time_goal,
-					plan_start: value.plan_start,
-					url: value.url,
-					itinerary_url: value.itinerary_url,
-					primary: value.primary,
-					notes: value.notes,
-					extra
-				}
-			});
-			setBriefText(next);
-		} catch (e) {
-			snack.error(errorMessage(e, 'Could not build the prompt.'));
-		} finally {
-			setBriefBusy(false);
-		}
-	}
-
-	function applyReply() {
-		try {
-			const patch = goalDraftFromReply(replyJson);
-			const currentDate = form.getFieldValue('date');
-			if (patch.name !== undefined) form.setFieldValue('name', patch.name);
-			if (patch.date !== undefined) {
-				if (patch.plan_start === undefined) {
-					form.setFieldValue(
-						'plan_start',
-						shiftPlanStartWithRaceDate(form.getFieldValue('plan_start'), currentDate, patch.date)
-					);
-				}
-				form.setFieldValue('date', patch.date);
-				form.setFieldValue('horizon', patch.date.slice(0, 7));
-				form.setFieldValue('kind', 'race');
-				lastDate.current = patch.date;
-			}
-			if (patch.horizon !== undefined && patch.date === undefined) {
-				form.setFieldValue('horizon', patch.horizon);
-			}
-			if (patch.distance_km !== undefined) form.setFieldValue('distance_km', patch.distance_km);
-			if (patch.sport !== undefined) form.setFieldValue('sport', patch.sport);
-			if (patch.time_goal !== undefined) form.setFieldValue('time_goal', patch.time_goal);
-			if (patch.plan_start !== undefined) form.setFieldValue('plan_start', patch.plan_start);
-			if (patch.url !== undefined) form.setFieldValue('url', patch.url);
-			if (patch.itinerary_url !== undefined) form.setFieldValue('itinerary_url', patch.itinerary_url);
-			if (patch.primary !== undefined) form.setFieldValue('primary', patch.primary);
-			if (patch.notes !== undefined) form.setFieldValue('notes', patch.notes);
-			setReplyJson('');
-			if (patch.primary !== undefined || patch.notes !== undefined) setCopyTab('copy');
-			snack.success('Filled from the reply — review and save.');
-		} catch (e) {
-			snack.error(errorMessage(e, 'Could not apply that JSON.'));
-		}
-	}
-
-	return (
-		<Form
-			className={initial ? 'pt-3 border-t border-line' : ''}
-			onSubmit={(e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				void form.handleSubmit();
-			}}
-		>
-			<form.Subscribe selector={(s) => s.values.kind}>
-				{(kind) => (
-					<div className="mb-1">
-						<SegmentedToggle
-							fill
-							aria-label="Goal type"
-							value={kind}
-							onChange={(next) => {
-								form.setFieldValue('kind', next);
-								if (next === 'intention') {
-									const date = form.getFieldValue('date');
-									const horizon = form.getFieldValue('horizon');
-									if (!horizon && date) form.setFieldValue('horizon', date.slice(0, 7));
-									form.setFieldValue('date', '');
-								} else if (!form.getFieldValue('plan_start')) {
-									form.setFieldValue('plan_start', mondayIso(new Date()));
-								}
-							}}
-							options={[
-								{ value: 'race', label: 'Booked race' },
-								{ value: 'intention', label: 'Look-ahead' }
-							]}
-						/>
-					</div>
-				)}
-			</form.Subscribe>
-			<form.Subscribe selector={(s) => s.values.kind}>
-				{(kind) => (
-					<form.AppField
-						name="name"
-						children={(field) => (
-							<field.TextField
-								label={kind === 'intention' ? 'Name' : 'Race name'}
-								required
-								placeholder={kind === 'intention' ? 'Half marathon' : 'Amersfoort 10K'}
-							/>
-						)}
-					/>
-				)}
-			</form.Subscribe>
-			<form.Subscribe selector={(s) => s.values.kind}>
-				{(kind) =>
-					kind === 'intention' ? (
-						<FormGrid>
-							<form.AppField
-								name="horizon"
-								children={(field) => (
-									<field.TextField
-										label="Month"
-										required
-										type="month"
-										hint="No race picked yet — planning uses this window, not a race day."
-									/>
-								)}
-							/>
-							<form.AppField
-								name="distance_km"
-								children={(field) => (
-									<field.TextField label="Distance (km)" required type="number" min={0.1} step="0.1" />
-								)}
-							/>
-						</FormGrid>
-					) : (
-						<FormGrid>
-							<form.AppField
-								name="date"
-								listeners={{
-									onChange: ({ value }) => {
-										if (!value) return;
-										const prev = lastDate.current;
-										lastDate.current = value;
-										form.setFieldValue('horizon', value.slice(0, 7));
-										if (prev && prev !== value) {
-											form.setFieldValue(
-												'plan_start',
-												shiftPlanStartWithRaceDate(form.getFieldValue('plan_start'), prev, value)
-											);
-										} else if (!form.getFieldValue('plan_start')) {
-											form.setFieldValue('plan_start', mondayIso(new Date()));
-										}
-									}
-								}}
-								children={(field) => <field.TextField label="Race date" required type="date" />}
-							/>
-							<form.AppField
-								name="distance_km"
-								children={(field) => (
-									<field.TextField label="Distance (km)" required type="number" min={0.1} step="0.1" />
-								)}
-							/>
-						</FormGrid>
-					)
-				}
-			</form.Subscribe>
-			<form.AppField
-				name="sport"
-				children={(field) => (
-					<field.ChipField
-						label="Sport"
-						options={ACTIVITY_TYPES.map((t) => ({
-							value: t,
-							label: sportChipLabel(t, activityLabel(t))
-						}))}
-					/>
-				)}
-			/>
-			<FormGrid>
-				<form.AppField
-					name="time_goal"
-					children={(field) => <field.TextField label="Time goal" placeholder="45:00" />}
-				/>
-				<form.Subscribe selector={(s) => s.values.kind}>
-					{(kind) =>
-						kind === 'race' ? (
-							<form.AppField
-								name="bib_number"
-								children={(field) => (
-									<field.TextField label="Bib number" placeholder="e.g. 4821" inputMode="numeric" />
-								)}
-							/>
-						) : (
-							<div />
-						)
-					}
-				</form.Subscribe>
-			</FormGrid>
-			<form.Subscribe selector={(s) => s.values.kind}>
-				{(kind) =>
-					kind === 'race' ? (
-						<>
-							<FormGrid>
-								<form.AppField
-									name="wave"
-									children={(field) => <field.TextField label="Wave" placeholder="e.g. 2" />}
-								/>
-								<form.AppField
-									name="start_time"
-									children={(field) => <field.TextField label="Start time" type="time" />}
-								/>
-							</FormGrid>
-							<form.Subscribe selector={(s) => [s.values.plan_start, s.values.date] as const}>
-								{([planStart, date]) => (
-									<form.AppField
-										name="plan_start"
-										listeners={{
-											onBlur: ({ value }) => {
-												const monday = mondayIso(value);
-												if (monday !== value) form.setFieldValue('plan_start', monday);
-											}
-										}}
-										children={(field) => (
-											<field.TextField
-												label="Plan starts (Monday)"
-												required
-												type="date"
-												hint={planStartHint(planStart, date)}
-											/>
-										)}
-									/>
-								)}
-							</form.Subscribe>
-						</>
-					) : null
-				}
-			</form.Subscribe>
-			<FormGrid>
-				<form.AppField
-					name="url"
-					children={(field) => (
-						<field.TextField
-							label="Race URL"
-							placeholder="https://example.com/race"
-							inputMode="url"
-							autoComplete="url"
-						/>
-					)}
-				/>
-				<form.AppField
-					name="itinerary_url"
-					children={(field) => (
-						<field.TextField
-							label="Itinerary URL"
-							placeholder="https://maps.app.goo.gl/…"
-							inputMode="url"
-							autoComplete="url"
-						/>
-					)}
-				/>
-			</FormGrid>
-			<FormSection className="border-t border-line pt-4 grid gap-4">
-				<SegmentedToggle
-					fill
-					aria-label="Priorities and notes"
-					value={copyTab}
-					onChange={setCopyTab}
-					options={[
-						{ value: 'copy', label: 'Priorities & notes' },
-						{
-							value: 'generate',
-							label: (
-								<>
-									<Icon name="sparkle" size={14} />
-									Generate
-								</>
-							)
-						}
-					]}
-				/>
-				{copyTab === 'copy' && (
-					<>
-						<form.AppField
-							name="primary"
-							children={(field) => (
-								<field.TextAreaField label="Priorities (one per line)" rows={4} />
-							)}
-						/>
-						<form.AppField
-							name="notes"
-							children={(field) => <field.TextAreaField label="Notes" rows={4} />}
-						/>
-					</>
-				)}
-				{copyTab === 'generate' && (
-					<>
-						<p className={cn('text-muted', 'm-0')}>
-							Same as Coach: build a prompt from this goal plus your last 30 days of activities, copy
-							it to an AI, then paste the JSON back to fill the form. For a look-ahead the prompt
-							will not invent a race day.
-						</p>
-						<Field label="Anything extra for the prompt? (optional)">
-							<Textarea
-								rows={3}
-								value={extra}
-								onChange={(e) => setExtra(e.target.value)}
-								placeholder="e.g. hilly course, travel the day before, want a conservative first 5k"
-							/>
-						</Field>
-						<Actions className="justify-start!">
-							<Button variant="primary" disabled={briefBusy} onClick={() => void generateBrief()}>
-								<Icon name="sparkle" size={16} />
-								{briefBusy ? 'Building…' : briefText ? 'Regenerate prompt' : 'Generate prompt'}
-							</Button>
-						</Actions>
-						{briefText ? (
-							<AiPromptFlow
-								prompt={briefText}
-								promptEditable
-								onPromptChange={setBriefText}
-								promptRows={12}
-							/>
-						) : null}
-						<Field label="Paste the JSON your AI returned">
-							<Textarea
-								variant="editor"
-								rows={8}
-								value={replyJson}
-								onChange={(e) => setReplyJson(e.target.value)}
-								placeholder='{ "name": "…", "primary": ["…"], "notes": "…" }'
-							/>
-						</Field>
-						<Actions className="justify-start!">
-							<Button variant="ghost" onClick={applyReply} disabled={!replyJson.trim()}>
-								<Icon name="plus" size={16} />
-								Fill form
-							</Button>
-						</Actions>
-					</>
-				)}
-			</FormSection>
-			<Actions>
-				<form.AppForm>
-					<form.SubmitButton busyLabel="Saving…">
-						<Icon name="check" size={16} />
-						{submitLabel}
-					</form.SubmitButton>
-				</form.AppForm>
-				<form.Subscribe selector={(s) => s.isSubmitting}>
-					{(busy) => (
-						<Button variant="ghost" onClick={onCancel} disabled={busy}>
-							Cancel
-						</Button>
-					)}
-				</form.Subscribe>
-			</Actions>
-		</Form>
+		</Panel>
 	);
 }

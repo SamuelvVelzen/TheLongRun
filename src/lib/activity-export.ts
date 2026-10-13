@@ -47,6 +47,7 @@ function pointXmlGpx(p: TrackSample): string {
 }
 
 function safeFilename(name: string): string {
+	// eslint-disable-next-line no-control-regex -- strip illegal filename code points
 	return name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').trim() || 'activity';
 }
 

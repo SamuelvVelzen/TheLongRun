@@ -71,6 +71,7 @@ export function downloadPlannedRouteGpx(
 	const url = URL.createObjectURL(blob);
 	const link = document.createElement('a');
 	link.href = url;
+	// eslint-disable-next-line no-control-regex -- strip illegal filename code points
 	link.download = `${name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').trim() || 'route'}.gpx`;
 	document.body.appendChild(link);
 	link.click();

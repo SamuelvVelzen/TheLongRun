@@ -1,5 +1,11 @@
 import type { BodySuggestion } from '$lib/body-notes';
-import type { ReactNode } from 'react';
+import { applyBodySuggestions } from '$lib/server/functions';
+import { cn } from '$lib/ui';
+import { useRouter } from '@tanstack/react-router';
+import { useEffect, useState, type ReactNode } from 'react';
+import { BodyNoteLine } from './BodyNoteParts';
+import { Icon } from './Icon';
+import { Button, Checkbox, Dialog, errorMessage, useSnackbar } from './ui';
 
 function bodySuggestionTag({ note, existing }: BodySuggestion): ReactNode {
 	if (!existing) {
@@ -10,13 +16,6 @@ function bodySuggestionTag({ note, existing }: BodySuggestion): ReactNode {
 	}
 	return <span className="inline-flex px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] font-bold uppercase tracking-wide text-muted border border-line">Changed</span>;
 }
-import { applyBodySuggestions } from '$lib/server/functions';
-import { cn } from '$lib/ui';
-import { useRouter } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
-import { BodyNoteLine } from './BodyNoteParts';
-import { Icon } from './Icon';
-import { Button, Checkbox, Dialog, StatusPill, errorMessage, useSnackbar } from './ui';
 
 /** Body notes the coach read from the write-up — nothing is saved until confirmed here. */
 export function BodySuggestionsDialog({

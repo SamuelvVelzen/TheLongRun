@@ -30,7 +30,7 @@ import { DeferredData } from '../components/DeferredData';
 import { FeelBadge } from '../components/FeelBadge';
 import { ActivityIcon, ActivityMark, Icon } from '../components/Icon';
 import { LogPlannedStrengthLink } from '../components/LogPlannedStrength';
-import { PageHero } from '../components/ui';
+import { PageHero, Actions, EmptyState, Grid, IconLabelLink, MapBadge, Panel, RunTitle, SectionTitle  } from '../components/ui';
 import { PlanSessionBody } from '../components/PlanSessionBody';
 import { RouteChip } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
@@ -41,7 +41,7 @@ import {
     sportIsAll
 } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
-import { Actions, EmptyState, Grid, IconLabelLink, MapBadge, Panel, RunTitle, SectionTitle } from '../components/ui';
+
 import { buttonClass } from '../components/ui/Button';
 import { runRowClass } from '../components/ui/Chrome';
 

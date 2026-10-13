@@ -198,7 +198,7 @@ function extractJsonPayload(text: string): unknown {
 		const parsed = tryParse(fence[1]!.trim());
 		if (parsed.ok) return parsed.value;
 	}
-	const start = trimmed.search(/[\[{]/);
+	const start = trimmed.search(/[[{]/);
 	if (start >= 0) {
 		const parsed = tryParse(trimmed.slice(start));
 		if (parsed.ok) return parsed.value;

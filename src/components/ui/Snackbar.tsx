@@ -7,11 +7,11 @@ import {
 	useMemo,
 	useRef,
 	useState,
-	type ReactNode
+	type ReactNode, type ButtonHTMLAttributes 
 } from 'react';
 import { ui } from './tokens';
 
-import type { ButtonHTMLAttributes } from 'react';
+
 
 export function SnackAction({
 	className,

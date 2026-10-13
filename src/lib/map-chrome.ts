@@ -734,7 +734,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	};
 	window.addEventListener('keydown', onKey);
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	 
 	const L = (typeof window !== 'undefined' ? window.L : null) as LeafletGlobal | null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let locAccuracy: any = null;

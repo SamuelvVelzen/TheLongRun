@@ -1,5 +1,5 @@
-import { saveWardrobe } from '$lib/server/functions';
 import { formatGearCompact, type GearContext } from '$lib/gear';
+import { saveWardrobe } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import {
 	CLOTHING_CATEGORIES,
@@ -15,13 +15,12 @@ import {
 } from '$lib/wardrobe';
 import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
 import { WardrobeAddDialog } from './WardrobeAddDialog';
 import { WardrobeAiDialog } from './WardrobeAiDialog';
 import { ClothingForm } from './WardrobeClothingForm';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, buttonClass, Form, formClass, formSectionTitleClass, panelClass, useAppForm } from './ui';
+import { Actions, ConfirmDialog, Form, IconLabelButton, Panel, PanelTitle, errorMessage, useAppForm, useSnackbar } from './ui';
+import { buttonClass } from './ui/Button';
 
 function ClothingRow({
 	item,
@@ -194,38 +193,29 @@ export function WardrobePanel({
 	const empty = !wardrobeHasItems(wardrobe);
 
 	return (
-		<div className={panelClass(authed && formClass, 'mb-5')}>
+		<Panel form={authed} className="mb-5">
 			<div className="flex flex-wrap items-center gap-2">
-				<h3 className={cn(formSectionTitleClass, 'm-0 mb-0 pb-0 border-b-0 flex-1 min-w-[8rem]')}>Clothing</h3>
+				<PanelTitle className="m-0 mb-0 pb-0 border-b-0 flex-1 min-w-[8rem]">Clothing</PanelTitle>
 				{authed && (
 					<div className="flex flex-wrap gap-2 justify-end">
-						<button
-							type="button"
-							className={buttonClass({ variant: 'ghost', size: 'sm' })}
+						<IconLabelButton
+							label="Add clothing"
 							disabled={busy}
+							icon={<Icon name="plus" size={16} />}
 							onClick={() => setAdding(true)}
-						>
-							<Icon name="plus" size={16} />
-							Add clothing
-						</button>
-						<button
-							type="button"
-							className={buttonClass({ variant: 'ghost', size: 'sm' })}
+						/>
+						<IconLabelButton
+							label="Copy kit for AI"
 							disabled={busy}
+							icon={<Icon name={kitCopied ? 'check' : 'copy'} size={16} />}
 							onClick={() => void copyKitForAi()}
-						>
-							<Icon name={kitCopied ? 'check' : 'copy'} size={16} />
-							Copy kit for AI
-						</button>
-						<button
-							type="button"
-							className={buttonClass({ variant: 'ghost', size: 'sm' })}
+						/>
+						<IconLabelButton
+							label="Import with AI"
 							disabled={busy}
+							icon={<Icon name="sparkle" size={16} />}
 							onClick={() => setAsking(true)}
-						>
-							<Icon name="sparkle" size={16} />
-							Ask AI
-						</button>
+						/>
 					</div>
 				)}
 			</div>
@@ -312,6 +302,6 @@ export function WardrobePanel({
 					setRemove(null);
 				}}
 			/>
-		</div>
+		</Panel>
 	);
 }

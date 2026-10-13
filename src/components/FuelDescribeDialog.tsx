@@ -6,8 +6,7 @@ import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { AiPromptFlow } from './AiPromptFlow';
 import { JsonPasteForm } from './JsonPasteForm';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { Dialog, dialogPanelMedalClass, Field, Textarea } from './ui';
+import { Dialog, Field, Textarea, errorMessage, useSnackbar } from './ui';
 
 /** Describe in your own words → copy prompt → paste the AI's JSON → saved (zod-checked) with Undo. */
 export function FuelDescribeDialog({
@@ -51,15 +50,16 @@ export function FuelDescribeDialog({
 	return (
 		<Dialog
 			open={open}
-			title="Describe what you ate"
+			size="medal"
+			title="Import fuel with AI"
 			onClose={onClose}
-			className={cn(dialogPanelMedalClass, 'sm:max-w-[min(42rem,100%)]!')}
+			className="sm:max-w-[min(42rem,100%)]!"
 		>
 			<AiPromptFlow
 				intro={
 					<p className="m-0">
-						Write it down in your own words, copy the prompt into your AI, then paste its JSON back. The
-						reply is checked and saved straight away{log.entries.length ? ' — names you already use are reused' : ''}.
+						Describe what you ate in your own words, copy the prompt into your AI, then paste JSON back.
+						Checked entries save when you confirm{log.entries.length ? ' — existing food names are reused' : ''}.
 					</p>
 				}
 				prompt={prompt}
@@ -91,7 +91,7 @@ export function FuelDescribeDialog({
 					<Textarea
 						rows={4}
 						value={text}
-						placeholder="Coffee 20 min before, fine. Lidl pigs sweets every 5 km during my long run — no issues."
+						placeholder="What you had, when, and how it felt."
 						onChange={(e) => {
 							setText(e.target.value);
 							scheduleFuelDraftWrite(e.target.value);

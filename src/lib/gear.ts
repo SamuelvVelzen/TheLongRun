@@ -3,6 +3,8 @@ import {
 	normalizeActivityType,
 	type ActivityType
 } from './activity';
+import type { GearImportChange } from './gear-schema';
+import { tidyPrompt } from './prompt';
 import type { RunRecord } from './types';
 
 export type GearKind = 'shoes' | 'walk_shoes' | 'bike';
@@ -353,6 +355,83 @@ export function removeGear(ctx: GearCatalog, name: string): GearCatalog {
 		rotation: remaining,
 		retired: ctx.retired.filter((s) => gearKey(s) !== k)
 	});
+}
+
+/** Marker in the gear prompt; the dialog fills this as you type. */
+export const GEAR_EXTRA_TOKEN = '<<<GEAR_EXTRA>>>';
+
+export function injectGearExtra(template: string, extra: string): string {
+	return template.split(GEAR_EXTRA_TOKEN).join(extra.trim() || '(nothing extra.)');
+}
+
+export function gearInventoryLines(gear: GearContext): string[] {
+	return GEAR_KINDS.map((kind) => {
+		const c = gear[kind];
+		if (!catalogHasItems(c)) return null;
+		const meta = gearMeta(kind);
+		const rot = c.rotation.filter((n) => gearKey(n) !== gearKey(c.active));
+		const parts: string[] = [];
+		if (c.active) parts.push(`${meta.activeLabel}: ${c.active}`);
+		if (rot.length) parts.push(`Rotation: ${rot.join(', ')}`);
+		if (c.retired.length) parts.push(`Retired: ${c.retired.join(', ')}`);
+		if (c.notes.trim()) parts.push(`Notes: ${c.notes.trim()}`);
+		return `${meta.section} — ${parts.join('; ')}`;
+	}).filter((line): line is string => Boolean(line));
+}
+
+export function buildGearPrompt(gear: GearContext, todayIso: string): string {
+	const owned = gearInventoryLines(gear).join('\n') || 'Nothing in the inventory yet.';
+	const example = JSON.stringify({
+		items: [
+			{ kind: 'shoes', name: 'Saucony Endorphin Speed 4', role: 'rotation' },
+			{ kind: 'shoes', name: 'Nike Vaporfly 3', role: 'active' }
+		]
+	});
+	return tidyPrompt(`# The Long Run — my kit inventory
+
+Help me keep run/walk shoes and bikes in my app. Today is ${todayIso}.
+
+## What I own now
+${owned}
+
+## What I wrote
+If this lists kit I own, turn it into items. If it asks what I should buy or retire, suggest changes and say so briefly in prose before the JSON.
+
+${GEAR_EXTRA_TOKEN}
+
+## Reply
+A short note is fine, then ONE JSON block in exactly this shape:
+
+\`\`\`json
+${example}
+\`\`\`
+
+Rules:
+- \`kind\`: \`shoes\` (running), \`walk_shoes\`, or \`bike\`.
+- \`name\`: exact product name as I would log it on an activity.
+- \`role\`: \`active\` (daily/primary pair), \`rotation\` (backup), or \`retired\`.
+- Only include items that are new or changed. Reuse an exact name I already have to update its role.
+- Do not invent kit I did not mention.
+`);
+}
+
+export function applyGearImport(ctx: GearContext, changes: GearImportChange[]): GearContext {
+	let next = ctx;
+	for (const c of changes) {
+		let cat = next[c.kind];
+		const k = gearKey(c.name);
+		const known = [cat.active, ...cat.rotation, ...cat.retired].some((n) => gearKey(n) === k);
+		if (!known && c.role !== 'retired') cat = addGear(cat, c.name);
+		if (c.role === 'active') cat = setActiveGear(cat, c.name);
+		else if (c.role === 'retired') cat = known ? retireGear(cat, c.name) : cat;
+		else if (c.role === 'rotation' && known && gearKey(cat.active) === k) {
+			/* already active */
+		} else if (c.role === 'rotation' && !known) {
+			cat = addGear(cat, c.name);
+		}
+		next = { ...next, [c.kind]: cat };
+	}
+	return next;
 }
 
 /** Compact kit lines for pasting into an AI chat. */

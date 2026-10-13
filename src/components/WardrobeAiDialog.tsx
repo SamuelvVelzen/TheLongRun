@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AiPromptFlow } from './AiPromptFlow';
 import { Icon } from './Icon';
 import { JsonPasteForm } from './JsonPasteForm';
-import { Button, Checkbox, Dialog, statusPillClass } from './ui';
+import { Button, Checkbox, Dialog, StatusPill } from './ui';
 
 /** Describe or ask → copy prompt → paste the AI's JSON → pick what to keep. Nothing saves until confirmed. */
 export function WardrobeAiDialog({
@@ -62,7 +62,7 @@ export function WardrobeAiDialog({
 	return (
 		<Dialog
 			open={open}
-			title="Ask AI about your clothing"
+			title="Import clothing with AI"
 			className="sm:max-w-[38rem]"
 			onClose={busy ? () => {} : onClose}
 			actions={
@@ -105,9 +105,9 @@ export function WardrobeAiDialog({
 											<strong className="font-display">{c.item.name}</strong>
 											<span className="text-muted text-[0.9rem] tabular-nums">×{c.item.count}</span>
 											<span
-												className={statusPillClass(
+												className={
 													c.existing ? 'text-muted border border-line' : 'bg-accent/15 text-accent-fg'
-												)}
+												}
 											>
 												{c.existing ? 'Update' : 'New'}
 											</span>

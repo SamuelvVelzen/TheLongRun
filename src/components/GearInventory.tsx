@@ -8,6 +8,7 @@ import {
 import {
     addGear,
     catalogHasItems,
+    formatGearCompact,
     formatGearKm,
     GEAR_KINDS,
     gearKey,
@@ -30,10 +31,21 @@ import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { SportHabitsForm } from './ActivityHabitsEditor';
-import { ConfirmDialog } from './Dialog';
+import { GearAiDialog } from './GearAiDialog';
 import { Icon, sportChipLabel } from './Icon';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, buttonClass, Form, formClass, formSectionTitleClass, panelClass, statusPillClass, useAppForm } from './ui';
+import {
+	Actions,
+	ConfirmDialog,
+	Form,
+	IconLabelButton,
+	Panel,
+	PanelTitle,
+	StatusPill,
+	errorMessage,
+	useAppForm,
+	useSnackbar
+} from './ui';
+import { buttonClass } from './ui/Button';
 
 /** Kit shown in the open editor — strength has none. */
 function kitKindForSection(type: ActivityType): GearKind | null {
@@ -107,10 +119,10 @@ function ItemRow({
 				<div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
 					<strong className="font-display text-[1.02rem] tracking-[-0.02em]">{name}</strong>
 					{role === 'active' && (
-						<span className={statusPillClass('bg-accent/15 text-accent-fg')}>{activeLabel}</span>
+						<span className={'bg-accent/15 text-accent-fg'}>{activeLabel}</span>
 					)}
 					{role === 'retired' && (
-						<span className={statusPillClass('text-muted border border-line')}>Retired</span>
+						<StatusPill className={'text-muted border border-line'}>Retired</StatusPill>
 					)}
 				</div>
 				<p className={cn('text-muted', 'm-0 mt-1 text-[0.82rem]')}>{sub || 'No km logged yet'}</p>
@@ -301,6 +313,8 @@ export function GearInventory({
 	const [habits, setHabits] = useState(initialHabits);
 	const [busy, setBusy] = useState(false);
 	const [remove, setRemove] = useState<{ kind: GearKind; name: string } | null>(null);
+	const [asking, setAsking] = useState(false);
+	const [kitCopied, setKitCopied] = useState(false);
 
 	useEffect(() => {
 		setGear(initial);
@@ -335,8 +349,43 @@ export function GearInventory({
 	const emptyKit = GEAR_KINDS.every((k) => !catalogHasItems(gear[k]));
 	const empty = emptyKit && !habitsHaveText(habits);
 
+	async function copyKitForAi() {
+		const text = formatGearCompact(gear);
+		if (!text) {
+			snack.info('Nothing to copy yet — add kit first.');
+			return;
+		}
+		try {
+			await navigator.clipboard.writeText(text);
+			setKitCopied(true);
+			snack.success('Copied kit summary for AI.');
+			window.setTimeout(() => setKitCopied(false), 1800);
+		} catch {
+			snack.error('Could not copy.');
+		}
+	}
+
 	return (
-		<div className={panelClass(authed && formClass, 'mb-5')}>
+		<Panel form={authed} className="mb-5">
+			<div className="flex flex-wrap items-center gap-2">
+				<PanelTitle className="m-0 mb-0 pb-0 border-b-0 flex-1 min-w-[8rem]">Kit</PanelTitle>
+				{authed && (
+					<div className="flex flex-wrap gap-2 justify-end">
+						<IconLabelButton
+							label="Copy kit for AI"
+							disabled={busy}
+							icon={<Icon name={kitCopied ? 'check' : 'copy'} size={16} />}
+							onClick={() => void copyKitForAi()}
+						/>
+						<IconLabelButton
+							label="Import with AI"
+							disabled={busy}
+							icon={<Icon name="sparkle" size={16} />}
+							onClick={() => setAsking(true)}
+						/>
+					</div>
+				)}
+			</div>
 			<div>
 				<p className={cn('text-muted', 'mt-0 mb-0 text-[0.9rem]')}>
 					{empty && !authed
@@ -352,14 +401,9 @@ export function GearInventory({
 					<details key={type} className="group mt-6 first:mt-5">
 						<summary className="list-none cursor-pointer [&::-webkit-details-marker]:hidden">
 							<div className="flex items-center gap-2 min-h-11">
-								<h3
-									className={cn(
-										formSectionTitleClass,
-										'flex items-center gap-1.5 m-0 mb-0 pb-0 border-b-0 min-w-0 flex-1'
-									)}
-								>
+								<PanelTitle className="flex items-center gap-1.5 m-0 mb-0 pb-0 border-b-0 min-w-0 flex-1">
 									{sportChipLabel(type, activityLabel(type))}
-								</h3>
+								</PanelTitle>
 								<span
 									className={buttonClass({
 										variant: 'ghost',
@@ -410,6 +454,14 @@ export function GearInventory({
 				);
 			})}
 
+			<GearAiDialog
+				open={asking}
+				gear={gear}
+				busy={busy}
+				onClose={() => setAsking(false)}
+				onSave={persist}
+			/>
+
 			<ConfirmDialog
 				open={remove != null}
 				title={`Remove this ${remove ? gearMeta(remove.kind).itemSingular : 'item'}?`}
@@ -430,7 +482,7 @@ export function GearInventory({
 					setRemove(null);
 				}}
 			/>
-		</div>
+		</Panel>
 	);
 }
 

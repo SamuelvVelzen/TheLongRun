@@ -17,27 +17,27 @@ import { cn } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
-import { ConfirmDialog } from './Dialog';
 import { FuelAddDialog } from './FuelAddDialog';
 import { FuelDescribeDialog } from './FuelDescribeDialog';
 import { FuelEntryForm } from './FuelEntryForm';
 import { FuelTryLine } from './FuelParts';
 import { Icon } from './Icon';
-import { SegmentedToggle } from './SegmentedToggle';
-import { errorMessage, useSnackbar } from './Snackbar';
 import {
 	Actions,
 	Button,
-	buttonClass,
+	ConfirmDialog,
 	Dialog,
+	errorMessage,
 	Form,
-	formClass,
-	formSectionTitleClass,
-	panelClass,
-	statusPillClass,
-	tabBarClass,
-	useAppForm
+	IconLabelButton,
+	Panel,
+	PanelTitle,
+	SegmentedToggle,
+	TabBar,
+	useAppForm,
+	useSnackbar
 } from './ui';
+import { buttonClass } from './ui/Button';
 
 function tryMeta(entry: FuelEntry, runsBySlug: Record<string, FuelRunRef>) {
 	const run = entry.slug ? runsBySlug[entry.slug] : null;
@@ -84,9 +84,9 @@ function FuelGroupRow({
 						<div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
 							<strong className="font-display text-[1.02rem] tracking-[-0.02em]">{group.item}</strong>
 							<span
-								className={statusPillClass(
+								className={
 									group.tally.bad > 0 ? 'bg-warn/10 text-warn' : 'bg-accent/15 text-accent-fg'
-								)}
+								}
 							>
 								{fuelTallyLabel(group.tally)}
 							</span>
@@ -155,15 +155,13 @@ function FuelGroupRow({
 					)
 				)}
 				{authed && (
-					<button
-						type="button"
-						className={buttonClass({ variant: 'ghost', size: 'sm', className: 'mt-2' })}
+					<IconLabelButton
+						label="Rename item"
+						className="mt-2"
 						disabled={busy}
+						icon={<Icon name="pencil" size={14} />}
 						onClick={() => onRename(group)}
-					>
-						<Icon name="pencil" size={14} />
-						Rename item
-					</button>
+					/>
 				)}
 			</div>
 		</details>
@@ -364,7 +362,7 @@ export function FuelLog({
 
 	return (
 		<>
-			<div className={tabBarClass()}>
+			<TabBar>
 				<SegmentedToggle
 					fill
 					aria-label="Fuel"
@@ -378,28 +376,32 @@ export function FuelLog({
 						{ value: 'guidance' as FuelTab, label: 'Guidance' }
 					]}
 				/>
-			</div>
+			</TabBar>
 
 			{authed && (
 				<div className="flex flex-wrap gap-2 justify-end mb-4">
 					{phase && (
-						<Button variant="ghost" size="sm" disabled={busy} onClick={() => setAdding(true)}>
-							<Icon name="plus" size={16} />
-							Add
-						</Button>
+						<IconLabelButton
+							label="Add"
+							disabled={busy}
+							icon={<Icon name="plus" size={16} />}
+							onClick={() => setAdding(true)}
+						/>
 					)}
-					<Button variant="ghost" size="sm" disabled={busy} onClick={() => setDescribing(true)}>
-						<Icon name="sparkle" size={16} />
-						Describe what you ate
-					</Button>
+					<IconLabelButton
+						label="Import with AI"
+						disabled={busy}
+						icon={<Icon name="sparkle" size={16} />}
+						onClick={() => setDescribing(true)}
+					/>
 				</div>
 			)}
 
 			{phase && (
-				<section className={panelClass(authed && formClass, 'mb-5')}>
-					<h3 className={cn(formSectionTitleClass, 'm-0 mb-0 pb-0 border-b-0')}>
+				<Panel form={authed} className="mb-5">
+					<PanelTitle className="m-0 mb-0 pb-0 border-b-0">
 						{FUEL_PHASE_META[phase].title}
-					</h3>
+					</PanelTitle>
 					{groups[phase].length ? (
 						<div className="mt-2">
 							{groups[phase].map((g) => (
@@ -423,12 +425,12 @@ export function FuelLog({
 							Nothing logged {phase === 'during' ? 'during runs' : `${phase} runs`} yet.
 						</p>
 					)}
-				</section>
+				</Panel>
 			)}
 
 			{tab === 'guidance' && (
-				<section className={panelClass(authed && formClass, 'mb-5')}>
-					<h3 className={cn(formSectionTitleClass, 'm-0 mb-2 pb-0 border-b-0')}>Guidance</h3>
+				<Panel form={authed} className="mb-5">
+					<PanelTitle className="m-0 mb-2 pb-0 border-b-0">Guidance</PanelTitle>
 					{authed ? (
 						<GuidanceForm
 							guidance={log.guidance}
@@ -440,7 +442,7 @@ export function FuelLog({
 					) : (
 						<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>No general guidance yet.</p>
 					)}
-				</section>
+				</Panel>
 			)}
 
 			{authed && phase && (

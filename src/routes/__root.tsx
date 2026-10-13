@@ -26,7 +26,7 @@ import { Icon } from '../components/Icon';
 import { LiveLocationMenuItem, LiveLocationShare } from '../components/LiveLocationShare';
 import { PwaInstall } from '../components/PwaInstall';
 import { ScrollToTop } from '../components/ScrollToTop';
-import { SnackbarProvider } from '../components/Snackbar';
+import { destructiveNavLinkClass, SnackbarProvider } from '../components/ui';
 import { ThemeToggle } from '../components/ThemeToggle';
 
 export const Route = createRootRoute({
@@ -241,7 +241,7 @@ function RootShell() {
 								<>
 									<LiveLocationMenuItem className={tabMoreLink} onClick={closeDetails} />
 									<div className="my-[0.15rem] border-t border-line" />
-									<SignOutLink className={tabMoreLink} onClick={closeDetails} />
+									<SignOutLink className={destructiveNavLinkClass()} onClick={closeDetails} />
 								</>
 							) : null}
 							</div>
@@ -297,7 +297,7 @@ function DesktopMore() {
 					<>
 						<LiveLocationMenuItem className={tabMoreLink} onClick={closeDetails} />
 						<div className="my-[0.15rem] border-t border-line" />
-						<SignOutLink className={tabMoreLink} onClick={closeDetails} />
+						<SignOutLink className={destructiveNavLinkClass()} onClick={closeDetails} />
 					</>
 				) : null}
 			</div>

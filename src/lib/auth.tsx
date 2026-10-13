@@ -1,4 +1,4 @@
-import { buttonClass, panelClass, actionsClass, formClass } from '../components/ui';
+import { Actions, Button, Panel } from '../components/ui';
 import { createContext, useContext, type MouseEventHandler, type ReactNode } from 'react';
 import { useRouterState } from '@tanstack/react-router';
 import { cn } from './ui';
@@ -101,15 +101,20 @@ export function SignInPanel({
 	title: string;
 	body?: string;
 }) {
+	const here = useRouterState({
+		select: (s) => `${s.location.pathname}${s.location.searchStr}`
+	});
+	const href = loginHref(here);
+
 	return (
-		<div className={panelClass(formClass)}>
+		<Panel form>
 			<h2 className="m-0">{title}</h2>
 			<p className={cn('text-muted', 'mt-[0.35rem] mb-0')}>
 				{body ?? 'Sign in to add, edit, or delete.'}
 			</p>
-			<div className={actionsClass()}>
-				<SignInLink className={buttonClass()}>Sign in</SignInLink>
-			</div>
-		</div>
+			<Actions>
+				<Button type="button" onClick={() => window.location.assign(href)}>Sign in</Button>
+			</Actions>
+		</Panel>
 	);
 }

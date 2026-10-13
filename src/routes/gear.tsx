@@ -1,10 +1,10 @@
-import { useAuthed } from '$lib/auth';
+import { SignInPanel, useAuthed } from '$lib/auth';
 import { getGearData } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import { createFileRoute } from '@tanstack/react-router';
 import { DeferredData } from '../components/DeferredData';
 import { GearInventory } from '../components/GearInventory';
-import { PageHero } from '../components/PageHero';
+import { PageHero } from '../components/ui';
 import { WardrobePanel } from '../components/WardrobePanel';
 
 export const Route = createFileRoute('/gear')({
@@ -18,12 +18,8 @@ function GearPage() {
 	const authed = useAuthed();
 	return (
 		<>
-			<PageHero
-				variant="quiet"
-				kicker="Kit and habits"
-				title="Gear"
-				lead="Default kit and usual before/after notes for each sport. Mileage is counted from logged activities."
-			/>
+			<PageHero variant="quiet" kicker="Kit and habits" title="Gear" />
+			{!authed ? <SignInPanel title="Sign in to edit gear" /> : null}
 			<DeferredData promise={page}>
 				{(data) => (
 					<>

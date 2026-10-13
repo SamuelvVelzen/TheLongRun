@@ -1,10 +1,10 @@
-import { useAuthed } from '$lib/auth';
+import { SignInPanel, useAuthed } from '$lib/auth';
 import { getFuelData } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { DeferredData } from '../components/DeferredData';
 import { FuelLog, parseFuelTab, type FuelTab } from '../components/FuelLog';
-import { PageHero } from '../components/PageHero';
+import { PageHero } from '../components/ui';
 
 type FuelSearch = { tab?: FuelTab };
 
@@ -36,12 +36,8 @@ function FuelPage() {
 
 	return (
 		<>
-			<PageHero
-				variant="quiet"
-				kicker="Food and drink"
-				title="Fuel"
-				lead="Track what you eat or drink before, during, and after runs, and how your stomach handled it. Most useful once runs pass about an hour — for example when you start training for half marathons, need to fuel mid-run, and want race day to hold no surprises."
-			/>
+			<PageHero variant="quiet" kicker="Food and drink" title="Fuel" />
+			{!authed ? <SignInPanel title="Sign in to log fuel" body="You can still browse what you logged before." /> : null}
 			<DeferredData promise={page}>
 				{(data) => (
 					<FuelLog

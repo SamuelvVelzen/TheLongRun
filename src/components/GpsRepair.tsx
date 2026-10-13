@@ -3,11 +3,12 @@ import type { GpsContextTrack, GpsHealth } from '$lib/gps-repair';
 import { samplesFromGeoJson } from '$lib/gps-repair';
 import { getRouteGeoJsonFn, repairRunGps } from '$lib/server/functions';
 import type { SessionRouteRef } from '$lib/types';
+import { SignInPanel } from '$lib/auth';
 import { cn } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { Button, useAppForm, buttonClass, panelClass } from './ui';
+import { Button, Panel, errorMessage, useAppForm, useSnackbar } from './ui';
+import { buttonClass } from './ui/Button';
 import { WaypointEditor } from './WaypointEditor';
 import { z } from 'zod';
 
@@ -121,7 +122,7 @@ export function GpsRepair({
 	if (!missing) return null;
 
 	return (
-		<div className={panelClass('mb-4')}>
+		<Panel className="mb-4">
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div className="min-w-0">
 					<h3 className="m-0">GPS</h3>
@@ -212,8 +213,10 @@ export function GpsRepair({
 					)}
 				</div>
 			) : authed ? null : (
-				<p className={cn('text-muted', 'm-0 mt-3 text-[0.92rem]')}>Sign in to add a GPS track with map pins.</p>
+				<div className="mt-3">
+					<SignInPanel title="Sign in to add a GPS track" />
+				</div>
 			)}
-		</div>
+		</Panel>
 	);
 }

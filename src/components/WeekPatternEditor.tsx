@@ -1,4 +1,6 @@
-import { buttonClass, fieldClass, fieldHintClass } from './ui';
+import { ConfirmDialog, Dialog, Field, IconLabelButton } from './ui';
+import { buttonClass } from './ui/Button';
+import { fieldHintClass } from './ui/Field';
 import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
 import { cn } from '$lib/ui';
 import {
@@ -17,7 +19,6 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ChoiceChips } from './ChoiceChips';
 import { DeleteButton } from './DeleteButton';
-import { ConfirmDialog, Dialog } from './Dialog';
 import { ActivityIcon, Icon, sportChipLabel } from './Icon';
 
 export type SlotRow = WeekSlot & { id: string };
@@ -478,7 +479,7 @@ export function WeekPatternEditor({
 												)}
 											</div>
 											{editingNote && (
-												<label className={cn(fieldClass, 'relative z-[1] px-3 pb-2.5')}>
+												<Field as="label" className="relative z-[1] px-3 pb-2.5">
 													<textarea
 														ref={noteRef}
 														rows={2}
@@ -498,7 +499,7 @@ export function WeekPatternEditor({
 															}
 														}}
 													/>
-												</label>
+												</Field>
 											)}
 										</div>
 									);
@@ -508,15 +509,13 @@ export function WeekPatternEditor({
 					);
 				})}
 				{readOnly ? null : (
-					<button
-						className={buttonClass({ variant: 'ghost' })}
-						type="button"
+					<IconLabelButton
+						label="Pin an activity"
+						size="default"
 						disabled={disabled || atCap}
+						icon={<Icon name="plus" size={16} />}
 						onClick={openAdd}
-					>
-						<Icon name="plus" size={16} />
-						Pin an activity
-					</button>
+					/>
 				)}
 			</div>
 
@@ -571,15 +570,13 @@ export function WeekPatternEditor({
 					</div>
 				)}
 				{readOnly ? null : (
-					<button
-						className={buttonClass({ variant: 'ghost' })}
-						type="button"
+					<IconLabelButton
+						label="Day limit"
+						size="default"
 						disabled={disabled || dayLimits.length >= WEEKDAYS.length}
+						icon={<Icon name="plus" size={16} />}
 						onClick={openAddLimit}
-					>
-						<Icon name="plus" size={16} />
-						Day limit
-					</button>
+					/>
 				)}
 			</div>
 
@@ -632,7 +629,7 @@ export function WeekPatternEditor({
 							/>
 							<span className={fieldHintClass}>{constraintHint(draft.constraint)}</span>
 						</div>
-						<label className={fieldClass}>
+						<Field as="label">
 							<span>Notes</span>
 							<textarea
 								rows={3}
@@ -642,7 +639,7 @@ export function WeekPatternEditor({
 								onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
 							/>
 							<span className={fieldHintClass}>Copied into the generate and debrief prompts.</span>
-						</label>
+						</Field>
 					</div>
 				)}
 			</Dialog>
@@ -698,7 +695,7 @@ export function WeekPatternEditor({
 							/>
 							<span className={fieldHintClass}>{limitHint(limitDraft.kind)}</span>
 						</div>
-						<label className={fieldClass}>
+						<Field as="label">
 							<span>{limitDraft.kind === 'limited' ? 'When or how much' : 'Why (optional)'}</span>
 							<textarea
 								rows={2}
@@ -712,7 +709,7 @@ export function WeekPatternEditor({
 									? 'Required — the coach fits any session that day inside this.'
 									: 'Copied into the prompts so the coach knows why.'}
 							</span>
-						</label>
+						</Field>
 					</div>
 				)}
 			</Dialog>

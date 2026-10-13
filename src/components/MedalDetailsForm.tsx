@@ -2,8 +2,7 @@ import { medalDetailsSchema, type MedalDetailsValues } from '$lib/goal-form';
 import { saveMedalDetails } from '$lib/server/functions';
 import type { ReactNode } from 'react';
 import { Icon } from './Icon';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, Form, FormGrid, useAppForm } from './ui';
+import { Actions, Form, FormGrid, errorMessage, useAppForm, useSnackbar } from './ui';
 
 export function MedalDetailsForm({
 	goalId,

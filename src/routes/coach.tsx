@@ -1,5 +1,5 @@
 import { emptyActivityHabits } from '$lib/activity-habits';
-import { useAuthed } from '$lib/auth';
+import { SignInPanel, useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
 import { composeDebriefPrompt } from '$lib/debrief';
 import {
@@ -61,11 +61,23 @@ import { FuelSuggestionsDialog } from '../components/FuelSuggestionsDialog';
 import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
 import { JsonPasteForm } from '../components/JsonPasteForm';
-import { PageHero } from '../components/PageHero';
-import { SegmentedToggle } from '../components/SegmentedToggle';
-import { Select } from '../components/Select';
-import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, actionsClass, Button, buttonClass, Checkbox, Field, fieldClass, Form, formClass, panelClass, tabBarClass, Textarea } from '../components/ui';
+import {
+	Actions,
+	Button,
+	Checkbox,
+	Field,
+	Form,
+	IconLabelButton,
+	PageHero,
+	PageTabs,
+	Panel,
+	PanelTitle,
+	Select,
+	Textarea,
+	errorMessage,
+	useSnackbar
+} from '../components/ui';
+import { buttonClass } from '../components/ui/Button';
 import {
     rowsFrom,
     toPattern,
@@ -167,9 +179,8 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 
 	return (
 		<>
-			<div className={panelClass(formClass, 'mb-4')}>
-				<div className={fieldClass}>
-					<span>Week</span>
+			<Panel form className="mb-4">
+				<Field as="div" label="Week">
 					<div className="hidden max-sm:flex flex-col gap-[0.35rem]">
 						<div className="flex items-stretch gap-2">
 							<button
@@ -248,41 +259,30 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 							})}
 						</div>
 					</div>
-				</div>
+				</Field>
 				{authed ? (
 					<>
 						<p className={cn('text-muted', 'm-0 max-sm:hidden')}>
 							Copy this week (live status plus JSON) into a new chat, or every week that already
 							has sessions. Paste an updated JSON block back below.
 						</p>
-						<div className={actionsClass()}>
-							<button
-								className={buttonClass({ variant: 'ghost' })}
-								type="button"
+						<Actions>
+							<IconLabelButton
+								label={copied === 'week' ? 'Copied' : 'Copy this week'}
 								disabled={!view}
+								icon={<Icon name={copied === 'week' ? 'check' : 'copy'} size={16} />}
 								onClick={() => view && copyText('week', formatWeekPlanClipboard(view, todayIso))}
-							>
-								<Icon name={copied === 'week' ? 'check' : 'copy'} size={16} />
-								{copied === 'week' ? 'Copied' : 'Copy this week'}
-							</button>
-							<button
-								className={buttonClass({ variant: 'ghost' })}
-								type="button"
+							/>
+							<IconLabelButton
+								label={copied === 'all' ? 'Copied' : 'Copy all planned weeks'}
 								disabled={!planData.views.length}
+								icon={<Icon name={copied === 'all' ? 'check' : 'copy'} size={16} />}
 								onClick={() => copyText('all', formatAllWeeksClipboard(planData.views, todayIso))}
-							>
-								<Icon name={copied === 'all' ? 'check' : 'copy'} size={16} />
-								{copied === 'all' ? 'Copied' : (
-									<>
-										<span className="max-sm:hidden">Copy all planned weeks</span>
-										<span className="hidden max-sm:inline">Copy all weeks</span>
-									</>
-								)}
-							</button>
-						</div>
+							/>
+						</Actions>
 					</>
 				) : null}
-			</div>
+			</Panel>
 			{view ? (
 				<WeekPlanBoard
 					view={view}
@@ -302,7 +302,7 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 			)}
 			{authed && (
 				<JsonPasteForm
-					className={panelClass('mt-4')}
+					className="mt-4"
 					title="Paste updated JSON"
 					description={
 						<p className={cn('text-muted', 'mt-[0.3rem]')}>
@@ -375,13 +375,11 @@ function Coach() {
 
 	return (
 		<>
-			<div className={tabBarClass()}>
-				<SegmentedToggle
-					fill
-					aria-label="Coach"
-					value={tab}
-					onChange={setTab}
-					options={[
+			<PageTabs
+				aria-label="Coach"
+				value={tab}
+				onChange={setTab}
+				options={[
 						{
 							value: 'training' as const,
 							label: (
@@ -427,17 +425,10 @@ function Coach() {
 								}
 							]
 							: [])
-					]}
-				/>
-			</div>
-
-			<PageHero
-				variant="quiet"
-				className="max-sm:hidden"
-				kicker="This week"
-				title="Coach"
-				lead="Pin what life fixes, choose what the coach plans around it. With a race on Goals, the block runs through race week. Without one, generate this week as base training."
+				]}
 			/>
+
+			<PageHero variant="quiet" kicker="This week" title="Coach" />
 
 			<DeferredData promise={page}>
 				{(data) => (
@@ -510,6 +501,7 @@ function CoachPanels({
 	);
 	const [fuelSuggestions, setFuelSuggestions] = useState<FuelEntry[]>([]);
 	const [bodySuggestions, setBodySuggestions] = useState<BodySuggestion[]>([]);
+	const [bodySuggestionsQueued, setBodySuggestionsQueued] = useState<BodySuggestion[]>([]);
 
 	const [usual, setUsual] = useState<SlotRow[]>(() => rowsFrom(initialSetup.pattern));
 	const [dayLimits, setDayLimits] = useState<DayLimit[]>(initialSetup.dayLimits);
@@ -675,21 +667,12 @@ function CoachPanels({
 	return (
 		<>
 			{tab === 'training' && (
-				<div className={panelClass(formClass, 'mb-4')}>
-					<div className={fieldClass}>
-						<span>Week setup</span>
+				<Panel form className="mb-4">
+					<Field as="div" label="Week setup">
 						{authed ? (
-							<>
-								<span className={cn('text-muted', 'font-normal')}>
-									Pin what life fixes, choose what the coach plans. Pin only what you can't move (a
-									commute); the coach builds the week around it and decides how many sessions of each
-									sport and on which days. Day limits mark days you can't train, or only part of the day.
-									Changes apply to Generate right away; save only if this should become your default.
-								</span>
-								<span className={cn('text-muted', 'font-normal')}>
-									Saved default: {formatWeekSetupProse(savedSetup)}.
-								</span>
-							</>
+							<span className={cn('text-muted', 'font-normal')}>
+								Saved default: {formatWeekSetupProse(savedSetup)}.
+							</span>
 						) : null}
 						<WeekPatternEditor
 							rows={usual}
@@ -701,13 +684,13 @@ function CoachPanels({
 							disabled={mixBusy}
 							readOnly={!authed}
 						/>
-					</div>
+					</Field>
 					{authed && (mixDirty || mixBusy) && (
 						<>
 							<p className={cn('text-muted', 'm-0')}>
 								Unsaved — Generate will use this setup, not your saved default.
 							</p>
-							<div className={actionsClass('mt-[0.35rem]')}>
+							<Actions className="mt-[0.35rem]">
 								<button
 									className={buttonClass({ variant: 'ghost' })}
 									type="button"
@@ -726,21 +709,17 @@ function CoachPanels({
 									<Icon name={mixBusy ? 'calendar' : 'check'} size={16} />
 									{mixBusy ? 'Saving…' : 'Save as my default week'}
 								</button>
-							</div>
+							</Actions>
 						</>
 					)}
-				</div>
+				</Panel>
 			)}
 
 			{tab === 'debrief' && (
-				<>
+				<Panel className="mb-4">
 					<ol className="list-none m-0 p-0 flex flex-col gap-6 max-sm:gap-[1.15rem] [&>li>strong]:block [&>li>strong]:text-[1.05rem] [&_li.done>strong]:text-accent-fg">
 						<li className={runs.length ? 'done' : 'current'}>
 							<strong>1. Import the GPX</strong>
-							<span className={cn('text-muted', 'block mt-1')}>
-								Download from Strava, then drop it here. One file or several — they all go into the
-								prompt, along with other this-week sessions that still need a write-up.
-							</span>
 							{runs.length > 0 && (
 								<div className="mt-[0.45rem] mb-0 font-semibold max-sm:[overflow-wrap:anywhere]">
 									<p className="m-0">
@@ -756,7 +735,7 @@ function CoachPanels({
 									</ul>
 								</div>
 							)}
-							<div className={panelClass(formClass, 'mt-3')}>
+							<Panel form className="mt-3">
 								{authed ? (
 									<GpxImport
 										onImported={(ok) => {
@@ -777,9 +756,9 @@ function CoachPanels({
 										}}
 									/>
 								) : (
-									<p className={cn('text-muted', 'm-0')}>Sign in to import a GPX.</p>
+									<SignInPanel title="Sign in to import a GPX" />
 								)}
-							</div>
+							</Panel>
 							<p className={cn('text-muted', 'mt-2')}>
 								No GPS?{' '}
 								<Link to="/import" search={{ mode: 'manual' }}>
@@ -790,11 +769,6 @@ function CoachPanels({
 						</li>
 						<li className={runs.length ? (allWrote ? 'done' : 'current') : undefined}>
 							<strong>2. How it felt</strong>
-							<span className={cn('text-muted', 'block mt-1')}>
-								Write how it felt — GPS numbers are already in the prompt. Under each activity,
-								add session, cadence, and gear when Strava did not (or tap scores yourself). For
-								races, pin the result and add bib / results when prompted.
-							</span>
 							{runs.length > 0 &&
 								runs.map((r) => (
 									<div key={r.slug}>
@@ -828,17 +802,11 @@ function CoachPanels({
 						</li>
 						<li className={runs.length && debriefPrompt ? 'current' : undefined}>
 							<strong>3. Copy the prompt</strong>
-							<span className={cn('text-muted', 'block mt-1')}>
-								{includePlan
-									? 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary, any scores it read from your write-up, and the rest of the week. Distance, time, elevation, and pace per km are already in the prompt — no screenshots.'
-									: 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary and any scores it read from your write-up. The prompt also tells the AI to return an updated week if remaining sessions should change — even with “New chat” off. Distance, time, elevation, and pace per km are already in the prompt — no screenshots.'}{' '}
-								If you mention food or drink (coffee before, sweets every 5 km), or a niggle that started or cleared up, the AI lists it too.
-							</span>
 							{debrief.error && !debriefPrompt && (
 								<p className={cn('text-muted', 'mt-[0.4rem]')}>{debrief.error}</p>
 							)}
 							{debriefPrompt && (
-								<div className={panelClass(formClass, 'mt-3')}>
+								<Panel form className="mt-3">
 									<AiPromptFlow
 										prompt={debriefPrompt}
 										promptEditable
@@ -849,22 +817,16 @@ function CoachPanels({
 										checked={includePlan}
 										onChange={setIncludePlan}
 										label="New chat — include my plan and standing info"
-										hint="Turn on when you paste into a fresh chat: adds this week's sessions, body notes, habits, fuel log and the workout rules. Leave off when you continue the chat that has your week brief — the prompt stays much smaller."
+										hint="On for a new chat; off to keep the prompt small in an ongoing thread."
 									/>
-								</div>
+								</Panel>
 							)}
 						</li>
 						<li>
 							<strong>4. Paste the AI’s JSON</strong>
-							<span className={cn('text-muted', 'block mt-1')}>
-								{includePlan
-									? 'A short notes summary for this activity plus the updated rest of the week. Days can change. Advice stays in the chat — only the JSON is saved.'
-									: 'A short notes summary for this activity, and an updated week if remaining sessions should change. Advice stays in the chat — only the JSON is saved.'}{' '}
-								Food and body notes it found are not saved straight away — you'll be asked first.
-							</span>
 							{authed ? (
 								<JsonPasteForm
-									className={panelClass('mt-3')}
+									className="mt-3"
 									placeholder={
 										includePlan
 											? '{ "feelings": { "slug": "…", "notes": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
@@ -896,8 +858,11 @@ function CoachPanels({
 										if (res.fuelSuggestions.length) {
 											bits.push('food found — review it');
 											setFuelSuggestions(res.fuelSuggestions);
-										}
-										if (res.bodySuggestions.length) {
+											if (res.bodySuggestions.length) {
+												bits.push('body notes next');
+												setBodySuggestionsQueued(res.bodySuggestions);
+											}
+										} else if (res.bodySuggestions.length) {
 											bits.push('body notes found — review them');
 											setBodySuggestions(res.bodySuggestions);
 										}
@@ -917,13 +882,19 @@ function CoachPanels({
 					</ol>
 					<FuelSuggestionsDialog
 						suggestions={fuelSuggestions}
-						onClose={() => setFuelSuggestions([])}
+						onClose={() => {
+							setFuelSuggestions([]);
+							if (bodySuggestionsQueued.length) {
+								setBodySuggestions(bodySuggestionsQueued);
+								setBodySuggestionsQueued([]);
+							}
+						}}
 					/>
 					<BodySuggestionsDialog
-						suggestions={fuelSuggestions.length ? [] : bodySuggestions}
+						suggestions={bodySuggestions}
 						onClose={() => setBodySuggestions([])}
 					/>
-				</>
+				</Panel>
 			)}
 
 			{tab === 'plan' && (
@@ -932,48 +903,33 @@ function CoachPanels({
 
 			{tab === 'generate' && authed && (
 				<>
-					<div className={panelClass(formClass, 'mb-4')}>
-						<div className={fieldClass}>
-							<span>History window</span>
+					<Panel form className="mb-4">
+						<Field as="div" label="History window">
 							<div className="flex flex-wrap items-center gap-x-6 gap-y-[0.55rem]">
 								<DateRangeFilter range={range} to="/coach" defaultKind={DEFAULT_BRIEF_RANGE} />
 							</div>
-						</div>
-						<p className={cn('text-muted', 'mt-[0.4rem] mb-0')}>
-							The activity table covers {range.label.toLowerCase()}. Weekly volume (20 weeks), monthly
-							and yearly totals and PBs are always included, so a short window keeps the prompt small
-							without losing the long view.
-							{planData.activeGoal
-								? ` Generating week ${planData.generateWeek} of ${planData.calendar.weekCount} toward ${planData.activeGoal.name}.`
-								: planData.intentions.length
-									? ` No race on the calendar — this prompt is a base week, with a look-ahead (${planData.intentions
-											.map((g) => `${g.name} in ${formatHorizonShort(g.horizon)}`)
-											.join(', ')}).`
-									: ' No race on the calendar — this prompt is a base week.'}{' '}
-							<Link className="text-accent-fg font-semibold" to="/goals">
-								Goals
-							</Link>
-							.
-						</p>
-						<p className={cn('text-muted', 'mt-2 mb-0')}>
+						</Field>
+						<p className={cn('text-muted', 'mt-[0.4rem] mb-0 text-[0.88rem]')}>
+							Activity window: {range.label.toLowerCase()}. Long-term totals always included.{' '}
+							{planData.activeGoal ? (
+								<>
+									Week {planData.generateWeek} of {planData.calendar.weekCount} toward{' '}
+									{planData.activeGoal.name}.
+								</>
+							) : null}{' '}
+							<Link className="text-accent-fg font-semibold" to="/goals">Goals</Link>
 							{mixDirty ? (
 								<>
-									{weekPhraseCap}: {formatWeekSetupProse(setup)} — not saved as your default (
-									{formatWeekSetupProse(savedSetup)}).
+									{' · '}
+									<Link
+										className="text-accent-fg font-semibold"
+										to="/coach"
+										search={withCoachSearch(search, { tab: 'training' })}
+									>
+										Unsaved week setup
+									</Link>
 								</>
-							) : (
-								<>
-									{weekPhraseCap}: {formatWeekSetupProse(savedSetup)}.
-								</>
-							)}{' '}
-							<Link
-								className="text-accent-fg font-semibold"
-								to="/coach"
-								search={withCoachSearch(search, { tab: 'training' })}
-							>
-								Edit in Training
-							</Link>
-							.
+							) : null}
 						</p>
 						<GenerateBriefForm
 							weekPhrase={weekPhrase}
@@ -987,14 +943,11 @@ function CoachPanels({
 							}
 							onGenerate={generateBrief}
 						/>
-					</div>
+					</Panel>
 
 					{generateDraft.brief && (
-						<div className={panelClass(formClass)}>
-							<h3>Prompt</h3>
-							<p className={cn('text-muted', 'm-0 mt-1 text-[0.9rem]')}>
-								Tweak before you copy — collapsed by default like Ask AI.
-							</p>
+						<Panel form>
+							<PanelTitle className="m-0 mb-2 pb-0 border-b-0">Prompt</PanelTitle>
 							<AiPromptFlow
 								className="mt-2"
 								prompt={generateDraft.brief}
@@ -1002,17 +955,18 @@ function CoachPanels({
 								onPromptChange={(brief) => patchGenerateDraft({ brief })}
 								promptRows={16}
 								afterCopy={
-									<Button variant="ghost" onClick={download}>
-										<Icon name="download" size={16} />
-										Download .md
-									</Button>
+									<IconLabelButton
+										label="Download .md"
+										icon={<Icon name="download" size={16} />}
+										onClick={download}
+									/>
 								}
 							/>
-						</div>
+						</Panel>
 					)}
 
 					<JsonPasteForm
-						className={panelClass('mt-4')}
+						className="mt-4"
 						title={`Save ${weekPhrase}’s plan`}
 						description={
 							<p className={cn('text-muted', 'mt-[0.3rem]')}>

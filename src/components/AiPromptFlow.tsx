@@ -2,7 +2,8 @@ import { formatTokenEstimate } from '$lib/prompt';
 import { cn } from '$lib/ui';
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Icon } from './Icon';
-import { Button, Field, Textarea, buttonClass } from './ui';
+import { Button, Field, IconLabelButton, Textarea } from './ui';
+import { buttonClass } from './ui/Button';
 
 function formatUpdatedAt(ms: number): string {
 	return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -197,10 +198,13 @@ export function AiPromptFlow({
 			{promptReady && (
 				<>
 					<div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-h-11">
-						<Button variant="primary" size="sm" disabled={copyDisabled} onClick={() => void copy()}>
-							<Icon name={copied ? 'check' : 'copy'} size={16} />
-							{copied ? 'Copied' : 'Copy prompt'}
-						</Button>
+						<IconLabelButton
+							label={copied ? 'Copied' : 'Copy prompt'}
+							variant="primary"
+							disabled={copyDisabled}
+							icon={<Icon name={copied ? 'check' : 'copy'} size={16} />}
+							onClick={() => void copy()}
+						/>
 						<span
 							className="text-muted text-[0.85rem] tabular-nums"
 							title="Rough size of the prompt (about 4 characters per token)"

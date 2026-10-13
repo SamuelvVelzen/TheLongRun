@@ -1,4 +1,17 @@
-import { buttonClass, panelClass, actionsClass, metricsClass, metricClass } from '../components/ui';
+import {
+	Actions,
+	ConfirmDialog,
+	Dialog,
+	IconLabelButton,
+	Metric,
+	Metrics,
+	PageHero,
+	Panel,
+	PanelTitle,
+	errorMessage,
+	useSnackbar
+} from '../components/ui';
+import { buttonClass } from '../components/ui/Button';
 import { activityLabel, headlineMetric, showsField } from '$lib/activity';
 import { saveExportedFile, shareOrDownload } from '$lib/activity-export';
 import { AuthGate } from '$lib/auth';
@@ -21,11 +34,8 @@ import { cn } from '$lib/ui';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { BestEffortBadges } from '../components/BestEffortBadges';
-import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { ActivityTag, Icon } from '../components/Icon';
-import { PageHero } from '../components/PageHero';
 import { RouteMap } from '../components/RouteMap';
-import { errorMessage, useSnackbar } from '../components/Snackbar';
 import { SplitsPanel } from '../components/SplitsPanel';
 
 export const Route = createFileRoute('/groups/$id')({
@@ -123,10 +133,12 @@ function GroupDetail() {
 				actions={
 					<AuthGate>
 						<>
-							<button type="button" className={buttonClass({ variant: 'ghost' })} onClick={() => setAddOpen(true)}>
-								<Icon name="plus" size={16} />
-								Add part
-							</button>
+							<IconLabelButton
+								label="Add part"
+								size="default"
+								icon={<Icon name="plus" size={16} />}
+								onClick={() => setAddOpen(true)}
+							/>
 							<button
 								type="button"
 								className={buttonClass({ variant: 'ghost' })}
@@ -139,57 +151,57 @@ function GroupDetail() {
 				}
 			/>
 
-			<div className={metricsClass('mb-4')}>
+			<Metrics className="mb-4">
 				{showsField(stats.activity_type, 'distance') && (
-					<div className={metricClass(true)}>
+					<Metric emph>
 						<b>{stats.distance_km ?? '—'}</b>
 						<span>km</span>
-					</div>
+					</Metric>
 				)}
-				<div className={metricClass(true)}>
+				<Metric emph>
 					<b>{metric.value}</b>
 					<span>{metricSub}</span>
-				</div>
+				</Metric>
 				{metric.unit !== '' && (
-					<div className={metricClass(true)}>
+					<Metric emph>
 						<b>{stats.time || '—'}</b>
 						<span>
 							{stats.elapsed_time && stats.elapsed_time !== stats.time
 								? `moving · ${stats.elapsed_time} elapsed`
 								: 'time'}
 						</span>
-					</div>
+					</Metric>
 				)}
 				{stats.avg_hr != null || stats.max_hr != null ? (
-					<div className={metricClass()}>
+					<Metric>
 						<div className="flex items-baseline gap-1">
 							<b>{stats.avg_hr ?? '—'}</b>
 							<span className="text-muted text-[0.95rem]">/</span>
 							<strong className="font-display text-[1.05rem] text-warn">{stats.max_hr ?? '—'}</strong>
 						</div>
 						<span>HR avg / max</span>
-					</div>
+					</Metric>
 				) : null}
 				{showsField(stats.activity_type, 'elevation') && (
-					<div className={metricClass()}>
+					<Metric>
 						<b>{stats.elev_gain != null ? stats.elev_gain : '—'}</b>
 						<span>elev m</span>
-					</div>
+					</Metric>
 				)}
 				{stats.calories != null && (
-					<div className={metricClass()}>
+					<Metric>
 						<b>{stats.calories}</b>
 						<span>kcal</span>
-					</div>
+					</Metric>
 				)}
-			</div>
+			</Metrics>
 
 			<BestEffortBadges highlights={highlights} />
 
 			{routeIds.length > 0 && (
-				<div className={panelClass('mb-4 p-0 overflow-hidden')}>
+				<Panel className="mb-4 p-0 overflow-hidden">
 					<div className="p-[1.1rem_1.2rem_0.6rem]">
-						<h3>Route</h3>
+						<PanelTitle>Route</PanelTitle>
 						<p className={cn('text-muted', 'm-0 mt-1 text-[0.85rem]')}>
 							{routeIds.length} GPS parts — pause between files is not drawn as a line
 						</p>
@@ -199,16 +211,16 @@ function GroupDetail() {
 						activityTypes={segments.filter((s) => s.route_id).map((s) => s.activity_type)}
 						kmMarkers={analytics?.kmMarkers ?? null}
 					/>
-				</div>
+				</Panel>
 			)}
 
 			{analytics && !stats.mixed && (
 				<SplitsPanel analytics={analytics} hrMaxManual={hrMaxManual} hrMaxAllTime={hrMaxAllTime} />
 			)}
 
-			<div className={panelClass('mb-4')}>
+			<Panel className="mb-4">
 				<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
-					<h3>Parts</h3>
+					<PanelTitle>Parts</PanelTitle>
 					<p className={cn('text-muted', 'text-[0.85rem]')}>original imported activities</p>
 				</div>
 				<div className="grid gap-2">
@@ -247,25 +259,24 @@ function GroupDetail() {
 						</div>
 					))}
 				</div>
-			</div>
+			</Panel>
 
-			<div className={panelClass('mb-4')}>
+			<Panel className="mb-4">
 				<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
-					<h3>Export</h3>
+					<PanelTitle>Export</PanelTitle>
 					<p className={cn('text-muted', 'text-[0.85rem]')}>one file for Strava; Apple Health is a hop</p>
 				</div>
-				<div className={actionsClass('justify-start!')}>
+				<Actions className="justify-start!">
 					{canCombinedExport && (
 						<>
-							<button
-								type="button"
-								className={buttonClass()}
+							<IconLabelButton
+								label="GPX"
+								variant="primary"
+								size="default"
 								disabled={exporting}
+								icon={<Icon name="download" size={16} />}
 								onClick={() => void onExport('gpx')}
-							>
-								<Icon name="download" size={16} />
-								GPX
-							</button>
+							/>
 							<button
 								type="button"
 								className={buttonClass({ variant: 'ghost' })}
@@ -277,17 +288,16 @@ function GroupDetail() {
 						</>
 					)}
 					{canZipExport && (
-						<button
-							type="button"
-							className={buttonClass({ variant: canCombinedExport ? 'ghost' : 'primary' })}
+						<IconLabelButton
+							label={stats.mixed ? 'Each part (ZIP)' : 'ZIP of parts'}
+							variant={canCombinedExport ? 'ghost' : 'primary'}
+							size="default"
 							disabled={exporting}
+							icon={<Icon name="download" size={16} />}
 							onClick={() => void onExport('zip')}
-						>
-							<Icon name="download" size={16} />
-							{stats.mixed ? 'Each part (ZIP)' : 'ZIP of parts'}
-						</button>
+						/>
 					)}
-				</div>
+				</Actions>
 				<p className={cn('text-muted', 'mt-3 mb-0 text-[0.82rem]')}>
 					{stats.mixed
 						? 'Mixed sports cannot be one Strava/Apple activity. Download each part and upload separately.'
@@ -296,7 +306,7 @@ function GroupDetail() {
 						? ' Parts with no GPS are omitted until you add GPS on that part.'
 						: ''}
 				</p>
-			</div>
+			</Panel>
 
 			<Dialog
 				open={addOpen}

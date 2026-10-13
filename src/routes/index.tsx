@@ -30,7 +30,7 @@ import { DeferredData } from '../components/DeferredData';
 import { FeelBadge } from '../components/FeelBadge';
 import { ActivityIcon, ActivityMark, Icon } from '../components/Icon';
 import { LogPlannedStrengthLink } from '../components/LogPlannedStrength';
-import { PageHero } from '../components/PageHero';
+import { PageHero } from '../components/ui';
 import { PlanSessionBody } from '../components/PlanSessionBody';
 import { RouteChip } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
@@ -41,7 +41,9 @@ import {
     sportIsAll
 } from '../components/SportFilter';
 import { TrendsSection } from '../components/TrendsSection';
-import { actionsClass, buttonClass, gridClass, mapBadgeClass, panelClass, runRowClass, runTitleClass, sectionTitleClass } from '../components/ui';
+import { Actions, EmptyState, Grid, IconLabelLink, MapBadge, Panel, RunTitle, SectionTitle } from '../components/ui';
+import { buttonClass } from '../components/ui/Button';
+import { runRowClass } from '../components/ui/Chrome';
 
 type DashSearch = RangeSearch & { sport?: string; country?: string; province?: string; place?: string };
 
@@ -244,19 +246,31 @@ function DashboardBody({
 				actionsClassName="justify-start!"
 				actions={
 					<>
-						<Link className={buttonClass()} to="/coach">
-							<Icon name="coach" size={16} />
-							Coach
-						</Link>
+						<IconLabelLink
+							label="Coach"
+							variant="primary"
+							size="default"
+							to="/coach"
+							icon={<Icon name="coach" size={16} />}
+						/>
 						{authed ? (
-							<Link className={buttonClass({ variant: 'ghost' })} to="/import">
-								<Icon name="plus" size={16} />
-								Add activity
-							</Link>
+							<IconLabelLink
+								label="Add activity"
+								size="default"
+								to="/import"
+								icon={<Icon name="plus" size={16} />}
+							/>
 						) : (
-							<SignInLink className={buttonClass({ variant: 'ghost' })}>
+							<SignInLink
+								className={cn(
+									buttonClass({ variant: 'ghost' }),
+									'max-sm:min-w-11 max-sm:w-11 max-sm:px-0 max-sm:justify-center max-sm:gap-0'
+								)}
+								aria-label="Sign in to edit"
+								title="Sign in to edit"
+							>
 								<Icon name="signIn" size={16} />
-								Sign in to edit
+								<span className="max-sm:hidden">Sign in to edit</span>
 							</SignInLink>
 						)}
 					</>
@@ -306,7 +320,7 @@ function DashboardBody({
 										session.done && 'opacity-80',
 										session.skipped && 'opacity-55',
 										logSlug &&
-											'text-inherit no-underline rounded-[10px] -mx-1 px-1 py-1 hover:bg-accent/6'
+											'text-inherit no-underline rounded-inset -mx-1 px-1 py-1 hover:bg-accent/6'
 									);
 									const body = (
 										<>
@@ -411,14 +425,15 @@ function DashboardBody({
 			)}
 
 			{filteredEmpty ? (
-				<div className={panelClass('text-muted', 'grid gap-[0.85rem] justify-items-start')}>
-					<p>
-						No {activityPlural(sport)} in {range.label.toLowerCase()}.
-					</p>
-					<Link className={buttonClass({ variant: 'ghost' })} to="/" search={{}}>
-						Show all time
-					</Link>
-				</div>
+				<EmptyState
+					action={
+						<Link className={buttonClass({ variant: 'ghost' })} to="/" search={{}}>
+							Show all time
+						</Link>
+					}
+				>
+					No {activityPlural(sport)} in {range.label.toLowerCase()}.
+				</EmptyState>
 			) : (
 				<>
 					<section
@@ -534,7 +549,7 @@ function DashboardBody({
 					)}
 
 					<section className="mb-1" aria-labelledby="routes-heading">
-						<div className={sectionTitleClass('mt-2')}>
+						<SectionTitle className="mt-2">
 							<div>
 								<h2 id="routes-heading">
 									{rangeActive || sportFilterActive || locationActive
@@ -549,18 +564,18 @@ function DashboardBody({
 											: 'Heatmap appears when GPS routes are imported'}
 								</p>
 							</div>
-						</div>
+						</SectionTitle>
 						<RoutesHeatmap tracks={tracks} meta={routeMeta} focusIds={focusIds} />
 					</section>
 
-					<div className={sectionTitleClass()}>
+					<SectionTitle>
 						<div>
 							<h2>{activityListHeading(sport, rangeActive ? 'range' : 'recent')}</h2>
 							<p>
 								{listItems.length} {rangeActive ? `in ${range.label.toLowerCase()}` : 'total'}
 							</p>
 						</div>
-						<div className={actionsClass('max-sm:hidden')}>
+						<Actions className="max-sm:hidden">
 							<Link
 								className={buttonClass({ variant: 'ghost' })}
 								to="/timeline"
@@ -581,10 +596,10 @@ function DashboardBody({
 									Add
 								</Link>
 							) : null}
-						</div>
-					</div>
+						</Actions>
+					</SectionTitle>
 
-					<div className={gridClass()}>
+					<Grid>
 						{recent.length ? (
 							recent.map((item, i) =>
 								item.kind === 'group' ? (
@@ -597,23 +612,19 @@ function DashboardBody({
 									>
 										<ActivityMark type={item.stats.activity_type} />
 										<span className="min-w-0 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-[0.1rem] items-baseline">
-											<strong className={runTitleClass}>
+											<RunTitle>
 												{groupedSessionTitle(item.group, item.members.length, item.stats.date)}
 												{item.members.some((m) => m.has_map) && (
-													<span
-														className={mapBadgeClass()}
-														title="Route map available"
-														aria-label="Has route map"
-													>
+													<MapBadge title="Route map available" aria-label="Has route map">
 														<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
 															<path
 																fill="currentColor"
 																d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"
 															/>
 														</svg>
-													</span>
+													</MapBadge>
 												)}
-											</strong>
+											</RunTitle>
 											<span className="font-[650] tracking-[-0.02em] justify-self-end text-right max-sm:text-[0.95rem]">
 												{showsField(item.stats.activity_type, 'distance')
 													? `${item.stats.distance_km ?? '—'} km · ${metricText(item.stats)}`
@@ -634,24 +645,20 @@ function DashboardBody({
 									>
 										<ActivityMark type={item.run.activity_type} />
 										<span className="min-w-0 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-[0.1rem] items-baseline">
-											<strong className={runTitleClass}>
+											<RunTitle>
 												{item.run.date}
 												{item.run.has_map && (
-													<span
-														className={mapBadgeClass()}
-														title="Route map available"
-														aria-label="Has route map"
-													>
+													<MapBadge title="Route map available" aria-label="Has route map">
 														<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
 															<path
 																fill="currentColor"
 																d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"
 															/>
 														</svg>
-													</span>
+													</MapBadge>
 												)}
 												{hasContext(item.run) && <FeelBadge />}
-											</strong>
+											</RunTitle>
 											<span className="font-[650] tracking-[-0.02em] justify-self-end text-right max-sm:text-[0.95rem]">
 												{showsField(item.run.activity_type, 'distance')
 													? `${item.run.distance_km ?? '—'} km · ${metricText(item.run)}`
@@ -665,11 +672,11 @@ function DashboardBody({
 								)
 							)
 						) : (
-							<div className={panelClass('text-muted')}>
+							<Panel className="text-muted">
 								No {activityPlural(sport)} yet. Import a file or log one manually.
-							</div>
+							</Panel>
 						)}
-					</div>
+					</Grid>
 				</>
 			)}
 		</>

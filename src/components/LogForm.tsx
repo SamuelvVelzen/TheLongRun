@@ -7,11 +7,11 @@ import { type PlanCalendar } from '$lib/plan';
 import { createRun } from '$lib/server/functions';
 import { fillStrengthNotesFromTops, type RecentLiftTop } from '$lib/strength';
 import type { PlanWeek } from '$lib/types';
-import { Link, useRouter } from '@tanstack/react-router';
+import { useRouter } from '@tanstack/react-router';
 import { ActivityForm } from './ActivityForm';
 import { Icon } from './Icon';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { buttonClass } from './ui';
+import { IconLabelLink } from './ui';
+import { errorMessage, useSnackbar } from './ui';
 
 export type LogFormPrefill = {
 	activityType?: ActivityType;
@@ -80,10 +80,7 @@ export function LogForm({
 				after_notes: ritual.after
 			})}
 			cancel={
-				<Link className={buttonClass({ variant: 'ghost' })} to="/">
-					<Icon name="close" size={16} />
-					Cancel
-				</Link>
+				<IconLabelLink label="Cancel" size="default" to="/" icon={<Icon name="close" size={16} />} />
 			}
 			onSubmit={async (values) => {
 				try {

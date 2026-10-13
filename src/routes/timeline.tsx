@@ -1,4 +1,19 @@
-import { buttonClass, panelClass, sectionTitleClass, mapBadgeClass, runTitleClass, actionsClass } from '../components/ui';
+import {
+	Actions,
+	ConfirmDialog,
+	EmptyState,
+	IconLabelButton,
+	IconLabelLink,
+	MapBadge,
+	PageHero,
+	Panel,
+	RunTitle,
+	SectionTitle,
+	errorMessage,
+	filterSummary,
+	useSnackbar
+} from '../components/ui';
+import { buttonClass } from '../components/ui/Button';
 import {
     activityLabel,
     activityPlural,
@@ -32,13 +47,9 @@ import { BestEffortBadges, BestEffortBoard } from '../components/BestEffortBadge
 import { type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
 import { DeleteButton, EditButton, TrashIcon } from '../components/DeleteButton';
-import { ConfirmDialog } from '../components/Dialog';
 import { FeelBadge } from '../components/FeelBadge';
-import { filterSummary } from '../components/FilterSheet';
 import { ActivityTag, Icon } from '../components/Icon';
 import { MoreMenu } from '../components/MoreMenu';
-import { PageHero } from '../components/PageHero';
-import { errorMessage, useSnackbar } from '../components/Snackbar';
 import {
     matchesSportFilter,
     parseSportSearch,
@@ -106,14 +117,14 @@ function groupItems(items: TimelineItem[]) {
 
 function MapPin() {
 	return (
-		<span className={mapBadgeClass()} title="Route map available" aria-label="Has route map">
+		<MapBadge title="Route map available" aria-label="Has route map">
 			<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
 				<path
 					fill="currentColor"
 					d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"
 				/>
 			</svg>
-		</span>
+		</MapBadge>
 	);
 }
 
@@ -190,11 +201,11 @@ function RunCardBody({
 	return (
 		<>
 			<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.35rem]">
-				<strong className={runTitleClass}>
+				<RunTitle>
 					{run.date}
 					{run.has_map && <MapPin />}
 					{hasContext(run) && <FeelBadge />}
-				</strong>
+				</RunTitle>
 				<ActivityTag type={run.activity_type} />
 			</div>
 			{(run.day ||
@@ -418,34 +429,27 @@ function TimelineBody({
 				actions={
 					<>
 						{authed ? (
-							<Link className={buttonClass()} to="/import">
-								<Icon name="plus" size={16} />
-								Add activity
-							</Link>
+							<IconLabelLink
+								label="Add activity"
+								variant="primary"
+								size="default"
+								to="/import"
+								icon={<Icon name="plus" size={16} />}
+							/>
 						) : null}
-						<Link className={buttonClass({ variant: 'ghost' })} to="/coach">
-							<Icon name="coach" size={16} />
-							Coach
-						</Link>
+						<IconLabelLink
+							label="Coach"
+							size="default"
+							to="/coach"
+							icon={<Icon name="coach" size={16} />}
+						/>
 						{authed ? (
-							<button
-								className={buttonClass({ variant: 'ghost' })}
-								type="button"
+							<IconLabelButton
+								label={copied ? 'Copied' : 'Copy timeline'}
 								disabled={!runs.length}
-								title="Copy the filtered activity log for an AI chat"
-								aria-label="Copy the filtered timeline"
+								icon={<Icon name={copied ? 'check' : 'copy'} size={16} />}
 								onClick={() => void copyTimeline()}
-							>
-								<Icon name={copied ? 'check' : 'copy'} size={16} />
-								{copied ? (
-									'Copied'
-								) : (
-									<>
-										<span className="max-sm:hidden">Copy timeline</span>
-										<span className="hidden max-sm:inline">Copy</span>
-									</>
-								)}
-							</button>
+							/>
 						) : null}
 					</>
 				}
@@ -462,16 +466,17 @@ function TimelineBody({
 			) : null}
 
 			{neverLogged ? (
-				<div className={panelClass('text-muted')}>No activities yet.</div>
+				<EmptyState>No activities yet.</EmptyState>
 			) : filteredEmpty ? (
-				<div className={panelClass('text-muted', 'grid gap-[0.85rem] justify-items-start')}>
-					<p>
-						No {activityPlural(sport)} in {range.label.toLowerCase()}.
-					</p>
-					<Link className={buttonClass({ variant: 'ghost' })} to="/timeline" search={{}}>
-						Show all time
-					</Link>
-				</div>
+				<EmptyState
+					action={
+						<Link className={buttonClass({ variant: 'ghost' })} to="/timeline" search={{}}>
+							Show all time
+						</Link>
+					}
+				>
+					No {activityPlural(sport)} in {range.label.toLowerCase()}.
+				</EmptyState>
 			) : (
 				<div className={selecting && authed ? 'pb-24' : undefined}>
 					<BestEffortBoard
@@ -485,12 +490,12 @@ function TimelineBody({
 
 					{months.map((month) => (
 						<div key={month.key}>
-							<div className={sectionTitleClass()}>
+							<SectionTitle>
 								<div>
 									<h2>{month.label}</h2>
 									<p>{activityTally(month.items.length, sport, month.totalKm)}</p>
 								</div>
-							</div>
+							</SectionTitle>
 
 							<div className="grid gap-[0.35rem] mb-6 max-sm:gap-[0.45rem]">
 								{month.items.map((item, i) =>
@@ -519,14 +524,14 @@ function TimelineBody({
 												)}
 											>
 												<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.35rem]">
-													<strong className={runTitleClass}>
+													<RunTitle>
 														{groupedSessionTitle(
 															item.group,
 															item.members.length,
 															item.stats.date
 														)}
 														{item.members.some((m) => m.has_map) && <MapPin />}
-													</strong>
+													</RunTitle>
 													{item.stats.types.map((t) => (
 														<ActivityTag key={t} type={t} />
 													))}
@@ -576,14 +581,14 @@ function TimelineBody({
 													params={{ id: item.group.id }}
 												>
 													<div className="flex flex-wrap items-center gap-x-2 gap-y-[0.35rem]">
-														<strong className={runTitleClass}>
+														<RunTitle>
 															{groupedSessionTitle(
 																item.group,
 																item.members.length,
 																item.stats.date
 															)}
 															{item.members.some((m) => m.has_map) && <MapPin />}
-														</strong>
+														</RunTitle>
 														{item.stats.types.map((t) => (
 															<ActivityTag key={t} type={t} />
 														))}

@@ -1,40 +1,24 @@
-import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
+﻿import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
+import type { GoalCopyPatch } from '$lib/goal-copy-schema';
 import { goalFormSchema, goalToFormValues, toGoalInput } from '$lib/goal-form';
-import {
-	emptyGoalDraft,
-	goalDraftFromReply,
-	planStartHint,
-	shiftPlanStartWithRaceDate
-} from '$lib/goals';
+import { emptyGoalDraft, planStartHint, shiftPlanStartWithRaceDate } from '$lib/goals';
 import { calendarFromGoal, mondayIso } from '$lib/plan';
-import { getGoalBrief, saveActiveGoal } from '$lib/server/functions';
+import { saveActiveGoal } from '$lib/server/functions';
 import type { Goal } from '$lib/types';
-import { cn } from '$lib/ui';
 import { useRef, useState } from 'react';
-import { AiPromptFlow } from './AiPromptFlow';
 import { GoalCopyAiDialog } from './GoalCopyAiDialog';
 import { Icon, sportChipLabel } from './Icon';
 import {
 	Actions,
 	Button,
-	Field,
 	Form,
 	FormGrid,
 	FormSection,
 	IconLabelButton,
-	SegmentedToggle,
-	Textarea,
 	errorMessage,
 	useAppForm,
 	useSnackbar
 } from './ui';
-
-function hasRaceCopy(primary: string[] | string, notes: string): boolean {
-	const lines = Array.isArray(primary)
-		? primary
-		: primary.split('\n').map((s) => s.trim()).filter(Boolean);
-	return lines.some((p) => p.trim()) || notes.trim() !== '';
-}
 
 export function GoalForm({
 	initial,
@@ -58,19 +42,15 @@ export function GoalForm({
 		fixedKind
 	);
 	const lastDate = useRef(defaultValues.date);
-	const [copyTab, setCopyTab] = useState<'copy' | 'generate'>(() =>
-		hasRaceCopy(draft.primary, draft.notes) ? 'copy' : 'generate'
-	);
-	const [extra, setExtra] = useState('');
-	const [briefText, setBriefText] = useState('');
-	const [replyJson, setReplyJson] = useState('');
-	const [briefBusy, setBriefBusy] = useState(false);
 	const [copyAi, setCopyAi] = useState(false);
 	const form = useAppForm({
 		defaultValues,
 		validators: { onSubmit: goalFormSchema },
 		onSubmit: async ({ value }) => {
-			const payload = fixedKind === 'intention' ? { ...value, kind: 'intention' as const } : { ...value, kind: 'race' as const };
+			const payload =
+				fixedKind === 'intention'
+					? { ...value, kind: 'intention' as const }
+					: { ...value, kind: 'race' as const };
 			try {
 				const res = await saveActiveGoal({ data: toGoalInput(payload, initial?.id) });
 				if (initial?.status === 'done') {
@@ -98,73 +78,34 @@ export function GoalForm({
 		}
 	});
 
-	async function generateBrief() {
-		const value = form.state.values;
-		setBriefBusy(true);
-		try {
-			const next = await getGoalBrief({
-				data: {
-					name: value.name,
-					date: fixedKind === 'race' ? value.date : '',
-					horizon: value.horizon,
-					distance_km: value.distance_km,
-					sport: value.sport,
-					time_goal: value.time_goal,
-					plan_start: value.plan_start,
-					url: value.url,
-					itinerary_url: value.itinerary_url,
-					primary: value.primary,
-					notes: value.notes,
-					extra
-				}
-			});
-			setBriefText(next);
-		} catch (e) {
-			snack.error(errorMessage(e, 'Could not build the prompt.'));
-		} finally {
-			setBriefBusy(false);
+	function applyCopy(patch: GoalCopyPatch) {
+		const currentDate = form.getFieldValue('date');
+		if (patch.name !== undefined) form.setFieldValue('name', patch.name);
+		if (patch.date !== undefined && fixedKind === 'race') {
+			if (patch.plan_start === undefined) {
+				form.setFieldValue(
+					'plan_start',
+					shiftPlanStartWithRaceDate(form.getFieldValue('plan_start'), currentDate, patch.date)
+				);
+			}
+			form.setFieldValue('date', patch.date);
+			form.setFieldValue('horizon', patch.date.slice(0, 7));
+			lastDate.current = patch.date;
+		} else if (patch.date !== undefined) {
+			form.setFieldValue('horizon', patch.date.slice(0, 7));
 		}
-	}
-
-	function applyReply() {
-		try {
-			const patch = goalDraftFromReply(replyJson);
-			const currentDate = form.getFieldValue('date');
-			if (patch.name !== undefined) form.setFieldValue('name', patch.name);
-			if (patch.date !== undefined) {
-				if (fixedKind === 'intention') {
-					form.setFieldValue('horizon', patch.date.slice(0, 7));
-				} else {
-					if (patch.plan_start === undefined) {
-						form.setFieldValue(
-							'plan_start',
-							shiftPlanStartWithRaceDate(form.getFieldValue('plan_start'), currentDate, patch.date)
-						);
-					}
-					form.setFieldValue('date', patch.date);
-					form.setFieldValue('horizon', patch.date.slice(0, 7));
-					lastDate.current = patch.date;
-				}
-			}
-			if (patch.horizon !== undefined && patch.date === undefined) {
-				form.setFieldValue('horizon', patch.horizon);
-			}
-			if (patch.distance_km !== undefined) form.setFieldValue('distance_km', patch.distance_km);
-			if (patch.sport !== undefined) form.setFieldValue('sport', patch.sport);
-			if (patch.time_goal !== undefined) form.setFieldValue('time_goal', patch.time_goal);
-			if (patch.plan_start !== undefined && fixedKind === 'race') {
-				form.setFieldValue('plan_start', patch.plan_start);
-			}
-			if (patch.url !== undefined) form.setFieldValue('url', patch.url);
-			if (patch.itinerary_url !== undefined) form.setFieldValue('itinerary_url', patch.itinerary_url);
-			if (patch.primary !== undefined) form.setFieldValue('primary', patch.primary);
-			if (patch.notes !== undefined) form.setFieldValue('notes', patch.notes);
-			setReplyJson('');
-			if (patch.primary !== undefined || patch.notes !== undefined) setCopyTab('copy');
-			snack.success('Filled from the reply — review and save.');
-		} catch (e) {
-			snack.error(errorMessage(e, 'Could not apply that JSON.'));
-		}
+		if (patch.horizon !== undefined && patch.date === undefined)
+			form.setFieldValue('horizon', patch.horizon);
+		if (patch.distance_km !== undefined) form.setFieldValue('distance_km', patch.distance_km);
+		if (patch.sport !== undefined) form.setFieldValue('sport', patch.sport);
+		if (patch.time_goal !== undefined) form.setFieldValue('time_goal', patch.time_goal);
+		if (patch.plan_start !== undefined && fixedKind === 'race')
+			form.setFieldValue('plan_start', patch.plan_start);
+		if (patch.url !== undefined) form.setFieldValue('url', patch.url);
+		if (patch.itinerary_url !== undefined) form.setFieldValue('itinerary_url', patch.itinerary_url);
+		if (patch.primary !== undefined) form.setFieldValue('primary', patch.primary);
+		if (patch.notes !== undefined) form.setFieldValue('notes', patch.notes);
+		snack.success('Applied from AI — review and save the goal.');
 	}
 
 	const kind = fixedKind;
@@ -325,122 +266,43 @@ export function GoalForm({
 				/>
 			</FormGrid>
 			<FormSection className="border-t border-line pt-4 grid gap-4">
-				<div className="flex flex-wrap items-center gap-2">
-					<SegmentedToggle
-						fill
-						className="min-w-0 flex-1"
-						aria-label="Priorities and notes"
-						value={copyTab}
-						onChange={setCopyTab}
-						options={[
-							{ value: 'copy', label: 'Priorities & notes' },
-							{
-								value: 'generate',
-								label: (
-									<>
-										<Icon name="sparkle" size={14} />
-										Generate
-									</>
-								)
-							}
-						]}
+				<div className="flex flex-wrap items-center justify-between gap-2">
+					<h3 className="m-0 text-[0.95rem]">Priorities &amp; notes</h3>
+					<IconLabelButton
+						label="Import with AI"
+						icon={<Icon name="sparkle" size={16} />}
+						onClick={() => setCopyAi(true)}
 					/>
-					{copyTab === 'copy' && (
-						<IconLabelButton
-							label="Import with AI"
-							icon={<Icon name="sparkle" size={16} />}
-							onClick={() => setCopyAi(true)}
-						/>
-					)}
 				</div>
-				{copyTab === 'copy' && (
-					<>
-						<form.AppField
-							name="primary"
-							children={(field) => (
-								<field.TextAreaField label="Priorities (one per line)" rows={4} />
-							)}
-						/>
-						<form.AppField
-							name="notes"
-							children={(field) => <field.TextAreaField label="Notes" rows={4} />}
-						/>
-					</>
-				)}
-				{copyTab === 'generate' && (
-					<>
-						<p className={cn('text-muted', 'm-0')}>
-							Same as Coach: build a prompt from this goal plus your last 30 days of activities, copy
-							it to an AI, then paste the JSON back to fill the form.
-							{kind === 'intention' ? ' For a look-ahead the prompt will not invent a race day.' : ''}
-						</p>
-						<Field label="Anything extra for the prompt? (optional)">
-							<Textarea
-								rows={3}
-								value={extra}
-								onChange={(e) => setExtra(e.target.value)}
-								placeholder="e.g. hilly course, travel the day before, want a conservative first 5k"
-							/>
-						</Field>
-						<Actions className="justify-start!">
-							<Button variant="primary" disabled={briefBusy} onClick={() => void generateBrief()}>
-								<Icon name="sparkle" size={16} />
-								{briefBusy ? 'Building…' : briefText ? 'Regenerate prompt' : 'Generate prompt'}
-							</Button>
-						</Actions>
-						{briefText ? (
-							<AiPromptFlow
-								prompt={briefText}
-								promptEditable
-								onPromptChange={setBriefText}
-								promptRows={12}
-							/>
-						) : null}
-						<Field label="Paste the JSON your AI returned">
-							<Textarea
-								variant="editor"
-								rows={8}
-								value={replyJson}
-								onChange={(e) => setReplyJson(e.target.value)}
-								placeholder='{ "name": "…", "primary": ["…"], "notes": "…" }'
-							/>
-						</Field>
-						<Actions className="justify-start!">
-							<IconLabelButton
-								label="Fill form"
-								size="default"
-								disabled={!replyJson.trim()}
-								icon={<Icon name="plus" size={16} />}
-								onClick={applyReply}
-							/>
-						</Actions>
-					</>
-				)}
+				<form.AppField
+					name="primary"
+					children={(field) => <field.TextAreaField label="Priorities (one per line)" rows={4} />}
+				/>
+				<form.AppField
+					name="notes"
+					children={(field) => <field.TextAreaField label="Notes" rows={4} />}
+				/>
 			</FormSection>
 			<form.Subscribe selector={(s) => s.values}>
 				{(values) => (
 					<GoalCopyAiDialog
 						open={copyAi}
+						kind={fixedKind}
 						draft={{
 							name: values.name,
-							date: fixedKind === 'race' ? values.date : '',
+							date: values.date,
 							horizon: values.horizon,
 							distance_km: values.distance_km,
 							sport: values.sport,
 							time_goal: values.time_goal,
-							plan_start: fixedKind === 'race' ? values.plan_start : '',
+							plan_start: values.plan_start,
 							url: values.url,
 							itinerary_url: values.itinerary_url,
 							primary: values.primary,
-							notes: values.notes,
-							extra: ''
+							notes: values.notes
 						}}
 						onClose={() => setCopyAi(false)}
-						onApply={(patch) => {
-							if (patch.primary !== undefined) form.setFieldValue('primary', patch.primary);
-							if (patch.notes !== undefined) form.setFieldValue('notes', patch.notes);
-							snack.success('Applied from AI — review and save the goal.');
-						}}
+						onApply={applyCopy}
 					/>
 				)}
 			</form.Subscribe>

@@ -75,13 +75,13 @@ import {
 	trackDistanceMeters
 } from '$lib/gps-repair';
 import { combineRunStats, groupedSessionTitle, sortGroupMembers } from '$lib/group';
-import { renderJsonPretty, renderMarkdown } from '$lib/markdown';
 import {
 	buildWeekView,
 	calendarFromGoal,
 	dateForSessionDay,
 	daysUntil,
 	formatUnplannedBrief,
+	formatWeekPlanMarkdown,
 	isoDateLocal,
 	isRestLike,
 	keepSoonestNext,
@@ -121,11 +121,24 @@ import {
 import { looksLikePlanWeek, parsePlanWeeks } from '$lib/plan-schema';
 import { workoutMarkdown, workoutSummary } from '$lib/run-workout';
 import {
-	formatStrengthHistoryBrief,
+	formatLiftTopsBrief,
 	parseStrengthNotes,
 	recentExerciseTops,
-	strengthSummary
+	strengthCompact
 } from '$lib/strength';
+import {
+	BODY_SAFETY_RULE,
+	formatBodyNotesSection,
+	formatCoachNotesSection,
+	mergeBodySuggestions,
+	normalizeBodyNotes,
+	painLabel,
+	type BodyNote,
+	type BodyNotes
+} from '$lib/body-notes';
+import { buildHistoryTiers, personalBestsLine, sportVolume } from '$lib/history-brief';
+import { buildPaceProfile, formatPaceSection, typicalEasyPace } from '$lib/pace-profile';
+import { feelCell, feelScale, hrCell, joinSections, section, tidyPrompt } from '$lib/prompt';
 import type {
 	ActivityAttachOption,
 	ActivityGroupInfo,
@@ -147,10 +160,11 @@ import {
 	formatWeekSetupPromptSection,
 	normalizeWeekSetup,
 	PLANNING_GUARDRAILS_PROMPT,
-	RUN_SESSION_PROMPT,
+	runSessionPrompt,
 	STRENGTH_SESSION_PROMPT,
 	type WeekSetup
 } from '$lib/week-mix';
+import { loadBodyNotes, loadProfile, persistBodyNotes, persistCoachNotes } from './profile';
 import { zipStoreBytes } from '$lib/zip';
 import { createServerFn } from '@tanstack/react-start';
 import { requireAuth } from './auth';
@@ -167,20 +181,17 @@ import {
 	loadPlan,
 	loadSettings,
 	loadTrainingContext,
-	migrateRaceStrategyToActiveGoal,
 	persistActivityHabits,
 	persistFuelLog,
 	persistGear,
 	persistWardrobe,
-	readContextFile,
 	rememberGearName,
 	saveGoalStore,
 	saveHrMaxSetting,
 	saveLiveLocation,
 	savePlan,
 	saveWeekSetupSetting,
-	weekSetupFromSettings,
-	writeContextFile
+	weekSetupFromSettings
 } from './context';
 import { reverseGeocode, timezoneForCoord } from './geo';
 import { parseActivityFile } from './gpx';
@@ -312,9 +323,11 @@ async function highlightsAfterSave(
 
 // ---------- reads ----------
 
+/** Root-loader data shared by every page: sign-in state + the pain score label. */
 export const getAuthState = createServerFn({ method: 'GET' }).handler(async () => {
 	const { readAuthSession } = await import('./auth.server');
-	return readAuthSession();
+	const [auth, body] = await Promise.all([readAuthSession(), loadBodyNotes()]);
+	return { ...auth, painLabel: painLabel(body) };
 });
 
 export const getLiveLocation = createServerFn({ method: 'GET' }).handler(async () => {
@@ -583,14 +596,6 @@ export const getWeather = createServerFn({ method: 'GET' })
 		);
 	});
 
-const CONTEXT_FILES: { name: string; title: string }[] = [
-	{ name: 'profile.md', title: 'Runner profile' },
-	{ name: 'injury.md', title: 'Injury rules' },
-	{ name: 'gear.md', title: 'Checklist & kit' }
-];
-
-export type ContextFile = { name: string; title: string; body: string; html: string };
-
 function historyWindowPhrase(range: DateRange): string {
 	return range.label.toLowerCase();
 }
@@ -625,29 +630,23 @@ function weekHasSessions(w: PlanWeek | undefined): boolean {
 	return (w?.sessions?.length ?? 0) > 0;
 }
 
-/** Compact plan for the coach brief — never the full plan.json. */
-function formatTrainingPlanBrief(plan: PlanWeek[], targetWeek: number, cal: PlanCalendar): string {
+/**
+ * Compact plan for the coach brief: up to two previous weeks as one line per session (with
+ * done / skipped states). The week to plan lives only in the reply JSON, never twice.
+ */
+function formatTrainingPlanBrief(
+	plan: PlanWeek[],
+	targetWeek: number,
+	cal: PlanCalendar,
+	runs: RunRecord[],
+	today: Date
+): string {
 	const byWeek = new Map(plan.map((w) => [w.week, w]));
-	const include = new Set<number>([targetWeek]);
-	for (const w of plan
+	const previous = plan
 		.filter((x) => x.week < targetWeek && weekHasSessions(x))
 		.sort((a, b) => b.week - a.week)
-		.slice(0, 2)) {
-		include.add(w.week);
-	}
-
-	const jsonWeeks = [...include]
-		.sort((a, b) => a - b)
-		.map(
-			(n) =>
-				byWeek.get(n) ?? {
-					week: n,
-					dates: planWeekDateRange(n, cal),
-					phase: '',
-					focus: '',
-					sessions: [] as PlanWeek['sessions']
-				}
-		);
+		.slice(0, 2)
+		.sort((a, b) => a.week - b.week);
 
 	const emptyFuture: number[] = [];
 	const filledFuture: number[] = [];
@@ -656,49 +655,45 @@ function formatTrainingPlanBrief(plan: PlanWeek[], targetWeek: number, cal: Plan
 		else emptyFuture.push(n);
 	}
 
-	const parts: string[] = [
-		'Only the week to plan and up to two previous weeks with sessions are included — not the full plan.json.'
-	];
-	if (jsonWeeks.length) {
-		parts.push('```json\n' + JSON.stringify(jsonWeeks, null, 2) + '\n```');
-	}
-	if (emptyFuture.length) {
-		parts.push(`${formatWeekNumberRange(emptyFuture)}: not planned yet.`);
-	}
+	const parts = previous.map((w) =>
+		formatWeekPlanMarkdown(
+			buildWeekView({ ...w, dates: planWeekDateRange(w.week, cal) }, runs, cal, today)
+		).replace(/^## /, '### ')
+	);
+	parts.push(`Week ${targetWeek} is the week to plan — its JSON is under When you reply.`);
+	if (emptyFuture.length) parts.push(`${formatWeekNumberRange(emptyFuture)}: not planned yet.`);
 	if (filledFuture.length) {
 		parts.push(
 			`${formatWeekNumberRange(filledFuture)} already have sessions in the plan file — omitted here; do not copy them into this week's JSON.`
 		);
 	}
-	return parts.join('\n\n');
+	return parts.join('\n');
 }
 
-/** Decoder for feel columns in generate/debrief/race prompts. */
-const FEEL_SCALE =
-	'Feel = effort/shins/legs/energy. Effort and energy 1–10 (effort higher = harder, energy higher = better). Shins and legs 0–10 (higher = worse). – = not recorded.';
-
 function notesForBriefRow(r: RunRecord): string {
-	const isStrength = normalizeActivityType(r.activity_type) === 'strength';
-	let notesText = r.notes || '';
-	if (isImportNote(notesText)) notesText = '';
-	else if (isStrength) {
+	if (normalizeActivityType(r.activity_type) === 'strength') {
 		const p = parseStrengthNotes(r.notes);
-		notesText = [strengthSummary(p.exercises), p.extra].filter(Boolean).join(' — ');
-		if (isImportNote(notesText)) notesText = '';
+		const extra = isImportNote(p.extra) ? '' : p.extra.replace(/\s+/g, ' ').trim().slice(0, 60);
+		return [strengthCompact(p.exercises), extra].filter(Boolean).join(' — ').replace(/\|/g, '/');
 	}
+	const notesText = isImportNote(r.notes || '') ? '' : r.notes || '';
 	return notesText
 		.replace(/\s+/g, ' ')
 		.replace(/\|/g, '/')
 		.trim()
-		.slice(0, isStrength ? 400 : 140);
+		.slice(0, 140);
 }
 
-function gearNotesForBrief(notes: string): string {
-	const t = notes.trim();
-	if (!t) return '';
-	if (/track shoe rotation here/i.test(t)) return '';
-	return t;
+/** Activity table row; strength shows duration in the metric column and lifts in Notes. */
+function briefTableRow(r: RunRecord): string {
+	const isStrength = normalizeActivityType(r.activity_type) === 'strength';
+	const metric = isStrength ? r.time?.trim() || '–' : metricText(r);
+	const km = isStrength ? '–' : (r.distance_km ?? '–');
+	return `| ${r.date} | ${activityLabel(r.activity_type)} | ${km} | ${metric} | ${hrCell(r)} | ${feelCell(r)} | ${notesForBriefRow(r)} |`;
 }
+
+const BRIEF_TABLE_HEAD = `| Date | Type | km | pace/speed/time | HR avg/max | Feel | Notes |
+|------|------|----|-----------|-----------|------|-------|`;
 
 function catalogLinesForBrief(catalog: GearCatalog, kind: GearKind, runs: RunRecord[]): string[] {
 	const wear = wearByAllGear(runs)[kind];
@@ -710,9 +705,8 @@ function catalogLinesForBrief(catalog: GearCatalog, kind: GearKind, runs: RunRec
 	};
 	const rotationRest = catalog.rotation.filter((n) => gearKey(n) !== gearKey(catalog.active));
 	return [
-		`- ${meta.activeLabel}: ${catalog.active ? line(catalog.active) : '—'}`,
-		rotationRest.length ? `- Rotation: ${rotationRest.map(line).join('; ')}` : '',
-		catalog.retired.length ? `- Retired: ${catalog.retired.map(line).join('; ')}` : ''
+		catalog.active ? `- ${meta.activeLabel}: ${line(catalog.active)}` : '',
+		rotationRest.length ? `- Rotation: ${rotationRest.map(line).join('; ')}` : ''
 	].filter(Boolean);
 }
 
@@ -720,33 +714,18 @@ function gearSectionForBrief(gear: GearContext, runs: RunRecord[]): string {
 	const blocks: string[] = [];
 	for (const kind of GEAR_KINDS) {
 		const catalog = gear[kind];
-		if (!catalogHasItems(catalog) && !catalog.notes.trim()) continue;
+		const lines = catalogLinesForBrief(catalog, kind, runs);
+		const notes = catalog.notes.trim();
+		if (!lines.length && !notes) continue;
 		const meta = gearMeta(kind);
-		const notes = gearNotesForBrief(catalog.notes);
-		blocks.push(
-			`### ${meta.section} — ${meta.label}\n${catalogLinesForBrief(catalog, kind, runs).join('\n')}${notes ? `\n\n${notes}` : ''}`
-		);
+		blocks.push(`### ${meta.section} — ${meta.label}\n${[...lines, notes].filter(Boolean).join('\n')}`);
 	}
-	if (!blocks.length) {
-		return `## Gear
-No kit logged yet. Mileage is counted from logged activities. Strava GPX exports do not include gear.`;
-	}
+	if (!blocks.length) return '';
 	return `## Gear
-Mileage is counted from logged activities. Strava GPX exports do not include gear.
+Mileage is counted from logged activities. Imports do not include gear.
 
 ${blocks.join('\n\n')}`;
 }
-
-export const getContextData = createServerFn({ method: 'GET' }).handler(async () => {
-	await migrateRaceStrategyToActiveGoal();
-	const raw = await Promise.all(CONTEXT_FILES.map((f) => readContextFile(f.name)));
-	const files: ContextFile[] = CONTEXT_FILES.map((f, i) => {
-		const body = raw[i]!;
-		const html = f.name.endsWith('.json') ? renderJsonPretty(body) : renderMarkdown(body);
-		return { name: f.name, title: f.title, body, html };
-	});
-	return { files };
-});
 
 export const getGearData = createServerFn({ method: 'GET' }).handler(async () => {
 	const [gear, runs, habits, wardrobe] = await Promise.all([
@@ -758,18 +737,69 @@ export const getGearData = createServerFn({ method: 'GET' }).handler(async () =>
 	return { gear, gearWear: wearByAllGear(runs), habits, wardrobe };
 });
 
+/** Detailed activity rows default to the last 30 days; older history is summarised in tiers. */
+const DEFAULT_BRIEF_RANGE: RangeKind = '30d';
+
+const HOW_TO_READ = `Goal and Timing come from the booked race and calendar I set. Look-aheads are not races — they constrain the horizon, they do not set race day. Every section with numbers (summary, paces, weekly/monthly volume, activity log, lift tops) is auto-computed from my logs and is **current**. Body notes and Notes from me are hand-written by me. ${BODY_SAFETY_RULE}`;
+
+/** All-time facts computed from every activity; the pain trend line only when scores exist. */
+function allTimeSummarySection(allRuns: RunRecord[], pain: string): string {
+	if (!allRuns.length) return '';
+	const runsAll = allRuns.filter((r) => normalizeActivityType(r.activity_type) === 'run');
+	const firstDate = allRuns.reduce((min, r) => (r.date < min ? r.date : min), allRuns[0]!.date);
+	const totalRunKm = Math.round(runsAll.reduce((a, r) => a + (r.distance_km ?? 0), 0));
+	const longest = runsAll.reduce<RunRecord | null>(
+		(best, r) => ((r.distance_km ?? 0) > (best?.distance_km ?? 0) ? r : best),
+		null
+	);
+	const scored = runsAll.filter((r) => r.shins != null).sort(byDateNewestFirst);
+	const avg = (arr: number[]) =>
+		arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : null;
+	const recent = avg(scored.slice(0, 4).map((r) => r.shins!));
+	const prior = avg(scored.slice(4, 8).map((r) => r.shins!));
+	const lines = [
+		`- Logged since ${firstDate}: ${sportVolume(allRuns)}.`,
+		longest?.distance_km
+			? `- Longest run: ${longest.distance_km} km (${longest.avg_pace || '—'}/km) on ${longest.date}.`
+			: '',
+		runsAll.length ? `- Running total: ${totalRunKm} km.` : '',
+		personalBestsLine(allRuns),
+		recent != null
+			? `- ${pain} trend (0–10, lower = better): last 4 runs avg ${recent}${prior != null ? ` vs prior 4 ${prior}` : ''}.`
+			: ''
+	].filter(Boolean);
+	return `## All-time summary\n${lines.join('\n')}`;
+}
+
+/** Median clock start of recent outdoor sessions, e.g. "07:10", or null when unknown. */
+function typicalStartTime(runs: RunRecord[]): string | null {
+	const mins = [...runs]
+		.filter((r) => normalizeActivityType(r.activity_type) !== 'strength')
+		.sort(byDateNewestFirst)
+		.slice(0, 20)
+		.map((r) => /^(\d{1,2}):(\d{2})/.exec(r.start_time ?? ''))
+		.filter((m): m is RegExpExecArray => m != null)
+		.map((m) => Number(m[1]) * 60 + Number(m[2]))
+		.sort((a, b) => a - b);
+	if (mins.length < 3) return null;
+	const mid = mins[Math.floor(mins.length / 2)]!;
+	const rounded = Math.round(mid / 10) * 10;
+	return `${String(Math.floor(rounded / 60) % 24).padStart(2, '0')}:${String(rounded % 60).padStart(2, '0')}`;
+}
+
 function forecastSectionForBrief(
 	forecast: { date: string; line: string }[],
 	weekPhrase: string,
-	hasWardrobe: boolean
+	hasWardrobe: boolean,
+	startTime: string | null
 ): string {
 	if (!forecast.length) return '';
-	const kitRule = hasWardrobe
-		? ' Use it with My clothing to suggest kit per session.'
+	const kitRule = hasWardrobe ? ' Use it with My clothing to suggest kit per session.' : '';
+	const when = startTime
+		? ` My sessions usually start around ${startTime} — weigh the temperature for that time of day.`
 		: '';
 	return `## Forecast (${weekPhrase}, home location, auto-fetched)
-Daily range — sessions are usually in the morning, so lean toward the low end.${kitRule} Days past the forecast horizon are missing; do not guess them.
-
+Daily range.${when}${kitRule} Days past the forecast horizon are missing; do not guess them.
 ${forecast.map((f) => `- ${f.line}`).join('\n')}`;
 }
 
@@ -783,7 +813,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		note?: string;
 	} = {}) => {
 		const range = dateRangeFromSearch({
-			range: d?.range,
+			range: d?.range ?? (d?.from || d?.to ? undefined : DEFAULT_BRIEF_RANGE),
 			from: d?.from ?? undefined,
 			to: d?.to ?? undefined
 		});
@@ -798,19 +828,18 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		const range = data.range;
 		// Before reading gear.md: the first load moves its fuel section into the fuel log.
 		const fuelLog = await loadFuelLog();
-		const [allRuns, training, gearInventory, profile, injury, gear, settings, habits, wardrobe] =
+		const [allRuns, training, gearInventory, settings, habits, wardrobe, profile] =
 			await Promise.all([
 				listRuns(),
 				loadTrainingContext(),
 				loadGear(),
-				readContextFile('profile.md'),
-				readContextFile('injury.md'),
-				readContextFile('gear.md'),
 				loadSettings(),
 				loadActivityHabits(),
-				loadWardrobe()
+				loadWardrobe(),
+				loadProfile()
 			]);
 		const { plan, calendar, activeGoal, medals, store } = training;
+		const pain = painLabel(profile.body);
 		const defaultSetup = data.defaultSetup ?? weekSetupFromSettings(settings);
 		const thisSetup = data.setup ?? defaultSetup;
 		const mixNote = data.note.trim();
@@ -827,69 +856,18 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		const todayIso = isoDateLocal(today);
 		const weekRange = (n: number) => planWeekDateRange(n, calendar);
 
-		// All-time summary (computed from every activity, so derived facts stay current).
-		const byType = { run: 0, bike: 0, walk: 0, strength: 0 } as Record<string, number>;
-		for (const r of allRuns) byType[normalizeActivityType(r.activity_type)]++;
-		const runsAll = allRuns.filter((r) => normalizeActivityType(r.activity_type) === 'run');
-		const totalRunKm = Math.round(runsAll.reduce((a, r) => a + (r.distance_km ?? 0), 0));
-		const longest = runsAll.reduce<RunRecord | null>(
-			(best, r) => ((r.distance_km ?? 0) > (best?.distance_km ?? 0) ? r : best),
-			null
-		);
-		const paceSecs = runsAll
-			.map((r) => parseDurationSeconds(r.avg_pace))
-			.filter((n): n is number => n != null && n > 0 && n < 20 * 60);
-		const avgRunPace = paceSecs.length
-			? formatDuration(Math.round(paceSecs.reduce((a, b) => a + b, 0) / paceSecs.length))
-			: '—';
-		const firstDate = allRuns.length
-			? allRuns.reduce((min, r) => (r.date < min ? r.date : min), allRuns[0]!.date)
-			: '—';
-		const shinRuns = runsAll.filter((r) => r.shins != null).sort(byDateNewestFirst);
-		const avg = (arr: number[]) =>
-			arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : null;
-		const shinsRecent = avg(shinRuns.slice(0, 4).map((r) => r.shins!));
-		const shinsPrior = avg(shinRuns.slice(4, 8).map((r) => r.shins!));
-
-		const weekMap = new Map<string, { counts: Record<string, number>; km: Record<string, number> }>();
-		for (const r of windowRuns) {
-			const wk = mondayIso(r.date);
-			const t = normalizeActivityType(r.activity_type);
-			const e = weekMap.get(wk) ?? { counts: {}, km: {} };
-			e.counts[t] = (e.counts[t] ?? 0) + 1;
-			if (t !== 'strength') e.km[t] = (e.km[t] ?? 0) + (r.distance_km ?? 0);
-			weekMap.set(wk, e);
-		}
+		const paces = buildPaceProfile(allRuns, medals, todayIso);
+		const easyPace = typicalEasyPace(paces) ?? 'M:SS';
+		const history = buildHistoryTiers(allRuns, today, pain);
 		const windowPhrase = historyWindowPhrase(range);
-		const weekLines =
-			[...weekMap.entries()]
-				.sort((a, b) => (a[0] > b[0] ? -1 : a[0] < b[0] ? 1 : 0))
-				.map(([wk, e]) => {
-					const bits = ACTIVITY_TYPES.filter((t) => e.counts[t]).map((t) => {
-						const n = e.counts[t]!;
-						if (t === 'strength') return `${n} strength`;
-						const km = Math.round((e.km[t] ?? 0) * 10) / 10;
-						const name = n === 1 ? activityLabel(t).toLowerCase() : activityPlural(t);
-						return `${n} ${name}${km ? ` (${km} km)` : ''}`;
-					});
-					return `- Week of ${wk}: ${bits.join(', ') || 'no sessions'}`;
-				})
-				.join('\n') || '- (no activities in window)';
-
-		const activityHeading = `${windowPhrase}, newest first`;
-		const rows =
-			windowRuns
-				.map((r) => {
-					const feel = [r.effort, r.shins, r.legs, r.energy]
-						.map((v) => (v == null ? '–' : v))
-						.join('/');
-					return `| ${r.date} | ${activityLabel(r.activity_type)} | ${r.distance_km ?? '–'} | ${metricText(r)} | ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} | ${feel} | ${notesForBriefRow(r)} |`;
-				})
-				.join('\n') || '| – | – | – | – | – | – | – |';
+		const rows = windowRuns.map(briefTableRow).join('\n');
+		const activitySection = rows
+			? `## Activity log (${windowPhrase}, newest first)\n${feelScale(pain)}\n\n${BRIEF_TABLE_HEAD}\n${rows}`
+			: '';
 		const strengthLogs = allRuns
 			.filter((r) => normalizeActivityType(r.activity_type) === 'strength')
 			.sort(byDateNewestFirst);
-		const strengthSection = formatStrengthHistoryBrief(strengthLogs);
+		const liftTopsSection = formatLiftTopsBrief(strengthLogs, todayIso);
 
 		const savedTarget = plan.find((w) => w.week === targetWeek);
 		const revising = weekHasSessions(savedTarget);
@@ -898,9 +876,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 			targetView?.unplanned.length
 				? `## Unplanned activities (${weekPhrase})
 These logs fall in week ${targetWeek} but did not match a planned session (extra session, rest/empty day, or different sport). They are **already done extra load** — do not add a plan row just to file them. Account for that load when ${revising ? 'revising remaining sessions' : 'planning the week'}.
-
-${formatUnplannedBrief(targetView.unplanned)}
-`
+${formatUnplannedBrief(targetView.unplanned)}`
 				: '';
 		const weekStartIso = planWeekStartIso(targetWeek, calendar);
 		const weekEndIso = planWeekEndIso(targetWeek, calendar);
@@ -909,7 +885,12 @@ ${formatUnplannedBrief(targetView.unplanned)}
 			const weekday = new Date(`${f.date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long' });
 			return { date: f.date, line: `${weekday} ${f.date}: ${formatDailyForecast(f)}` };
 		});
-		const forecastSection = forecastSectionForBrief(forecast, weekPhrase, hasWardrobe);
+		const forecastSection = forecastSectionForBrief(
+			forecast,
+			weekPhrase,
+			hasWardrobe,
+			typicalStartTime(allRuns)
+		);
 		const wardrobeSection = formatWardrobeSection(wardrobe);
 		const kitReply = hasWardrobe
 			? ` In the prose, give each run, walk, and bike session a one-line **Kit:** from My clothing${forecast.length ? ' for that day’s forecast' : ''} (long or wet runs → long-run-safe bottoms). Keep kit out of the JSON. If the weather calls for something I don’t own, say so once.`
@@ -923,9 +904,7 @@ ${formatUnplannedBrief(targetView.unplanned)}
 			!revising && thisWeekLogs.length
 				? `## Already logged this week
 These are already done. If a log matches a pinned activity (day + sport), that activity is done — keep it in the JSON to match what I did. A log in a sport you plan counts toward that sport for the week — include it as a row to match what I did, and plan the rest around it. Logs in sports you do not plan are extra load; do not add a plan row just to file them.
-
-${thisWeekLogs.map(formatRunBriefLine).join('\n')}
-`
+${thisWeekLogs.map(formatRunBriefLine).join('\n')}`
 				: '';
 		const recentSports = ACTIVITY_TYPES.filter((t) =>
 			windowRuns.some((r) => normalizeActivityType(r.activity_type) === t)
@@ -940,8 +919,8 @@ ${thisWeekLogs.map(formatRunBriefLine).join('\n')}
 		const exampleJson = JSON.stringify(
 			revising && savedTarget
 				? {
-						week: savedTarget.week,
-						dates: savedTarget.dates || weekRange(targetWeek),
+						week: targetWeek,
+						dates: weekRange(targetWeek),
 						phase: savedTarget.phase,
 						focus: savedTarget.focus,
 						sessions: savedTarget.sessions
@@ -951,10 +930,8 @@ ${thisWeekLogs.map(formatRunBriefLine).join('\n')}
 						dates: weekRange(targetWeek),
 						phase: 'base | build | peak | taper',
 						focus: 'one-line focus for the week',
-						sessions: exampleSessionsForSetup(thisSetup)
-					},
-			null,
-			2
+						sessions: exampleSessionsForSetup(thisSetup, easyPace)
+					}
 		);
 		const lastMedal = medals[0];
 		const lastMedalLine = lastMedal
@@ -978,31 +955,34 @@ ${thisWeekLogs.map(formatRunBriefLine).join('\n')}
 				}`
 			: `There is **no race on the calendar**. Plan ${weekPhrase} as base / consistency training.${intentionLookahead}`;
 		const ladderLine = activeGoal
-			? 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering and laddering toward the race. Runs need their warmup / reps / cooldown as blocks in `workout`. Strength sessions need a gym kind in `label`, duration/load/tempo in `detail`, and the lift list in `exercises`.'
-			: 'Invent `label`, `distance_km` (null for strength), and intent from how I\'ve been recovering. Runs need their warmup / reps / cooldown as blocks in `workout`. Strength sessions need a gym kind in `label`, duration/load/tempo in `detail`, and the lift list in `exercises`. No race to peak for — keep it sustainable.';
+			? "Base each session on how I've been recovering and laddering toward the race."
+			: "Base each session on how I've been recovering. No race to peak for — keep it sustainable.";
 		const briefAsk = revising
 			? `Week ${targetWeek} already has a saved plan (see Training plan). **Revise remaining sessions** given what is already logged, including any unplanned extras. Start from the saved week JSON. Keep completed planned sessions in the JSON as they were (a matching Activity log date + sport means done; do not add \`"status": "completed"\` — \`status\` is only for skipped). Remaining sessions in the sports you plan may move to any day my day limits allow, or be added or dropped, if that serves the goal — say why. Flag any red flags (injury risk, overtraining, under-recovery).`
 			: `Please assess how my training is going and **build ${weekPhrase} around my pinned activities**: keep every pinned activity, respect my day limits, and plan the sports I listed — you decide how many sessions of each and on which days. ${ladderLine} If a log ${weekPhrase} already covers a pinned activity or a planned sport, keep it in the JSON to match what I did, and plan the rest around it. Flag any red flags (injury risk, overtraining, under-recovery).`;
+		const runRules = runSessionPrompt(easyPace);
 		const replyRules = revising
-			? `Start from the saved week JSON. Keep completed sessions as they were (do not add \`"status": "completed"\`). Revise what's still ahead. Never move or skip a **pinned** activity; **pinned, optional** ones may be skipped with \`"status": "skipped"\`. Other remaining sessions may move to any day my day limits allow — say why. If you drop a session, set \`"status": "skipped"\`. ${SKIP_STATUS_PROMPT} ${DAY_LIMIT_PROMPT} ${RUN_SESSION_PROMPT} ${STRENGTH_SESSION_PROMPT}`
-			: `Include every pinned activity on its day. Add the sessions you plan for the sports I listed — every row needs a real weekday in \`"day"\` and an \`"activity_type"\`. You invent \`"label"\` (Easy, Quality, Long, tempo, easy spin, endurance ride; for strength: Full body, Lower, Upper, …), \`"distance_km"\` (null for strength), \`"detail"\`, and \`"workout"\` for runs. ${RUN_SESSION_PROMPT} ${STRENGTH_SESSION_PROMPT} The example rows, labels, days, and distances below are placeholders, not prescriptions — "YOU CHOOSE — a weekday" means pick a real day, and add or remove rows as the week needs. **Pinned, optional** activities may be skipped with \`"status": "skipped"\`. ${SKIP_STATUS_PROMPT} ${DAY_LIMIT_PROMPT} ${PLANNING_GUARDRAILS_PROMPT}`;
+			? `Start from the saved week JSON. Keep completed sessions as they were (do not add \`"status": "completed"\`). Revise what's still ahead. Never move or skip a **pinned** activity; **pinned, optional** ones may be skipped with \`"status": "skipped"\`. Other remaining sessions may move to any day my day limits allow — say why. If you drop a session, set \`"status": "skipped"\`. ${SKIP_STATUS_PROMPT} ${runRules} ${STRENGTH_SESSION_PROMPT}`
+			: `Include every pinned activity on its day. Add the sessions you plan for the sports I listed — every row needs a real weekday in \`"day"\` and an \`"activity_type"\`. You invent \`"label"\`, \`"distance_km"\` (null for strength), \`"detail"\`, and \`"workout"\` for runs. ${runRules} ${STRENGTH_SESSION_PROMPT} The example rows, labels, days, and distances below are placeholders, not prescriptions — "YOU CHOOSE — a weekday" means pick a real day, and add or remove rows as the week needs. **Pinned, optional** activities may be skipped with \`"status": "skipped"\`. ${SKIP_STATUS_PROMPT}`;
 
-		const goalSection = activeGoal
-			? `## Goal
-- Race: ${activeGoal.name} — ${activeGoal.distance_km} km on ${activeGoal.date}${daysToRace != null ? ` (~${daysToRace} days to go)` : ''}
-- Sport: ${activityLabel(activeGoal.sport)}
-- Time goal: ${activeGoal.time_goal || '—'}
-${activeGoal.bib_number ? `- Bib: ${activeGoal.bib_number}` : ''}
-${activeGoal.wave ? `- Wave: ${activeGoal.wave}` : ''}
-${activeGoal.start_time ? `- Start: ${activeGoal.start_time}` : ''}
-${activeGoal.url ? `- Race URL: ${activeGoal.url}` : ''}
-${activeGoal.itinerary_url ? `- Itinerary: ${activeGoal.itinerary_url}` : ''}
-${(activeGoal.primary ?? []).map((p) => `- Priority: ${p}`).join('\n')}
-${laterLines ? `${laterLines}\n` : ''}${intentionLines ? `${intentionLines}\n` : ''}${activeGoal.notes ? `\n${activeGoal.notes}\n` : ''}`
-			: `## Goal
-- No active race. This is a base week.
-${lastMedalLine}
-${intentionLines ? `${intentionLines}\n` : ''}`;
+		const goalLines = activeGoal
+			? [
+					'## Goal',
+					`- Race: ${activeGoal.name} — ${activeGoal.distance_km} km on ${activeGoal.date}${daysToRace != null ? ` (~${daysToRace} days to go)` : ''}`,
+					`- Sport: ${activityLabel(activeGoal.sport)}`,
+					activeGoal.time_goal ? `- Time goal: ${activeGoal.time_goal}` : '',
+					activeGoal.bib_number ? `- Bib: ${activeGoal.bib_number}` : '',
+					activeGoal.wave ? `- Wave: ${activeGoal.wave}` : '',
+					activeGoal.start_time ? `- Start: ${activeGoal.start_time}` : '',
+					activeGoal.url ? `- Race URL: ${activeGoal.url}` : '',
+					activeGoal.itinerary_url ? `- Itinerary: ${activeGoal.itinerary_url}` : '',
+					...(activeGoal.primary ?? []).map((p) => `- Priority: ${p}`),
+					laterLines,
+					intentionLines,
+					activeGoal.notes.trim() ? `\n${activeGoal.notes.trim()}` : ''
+				]
+			: ['## Goal', '- No active race. This is a base week.', lastMedalLine, intentionLines];
+		const goalSection = goalLines.filter(Boolean).join('\n');
 
 		const timingSection = calendar.rolling
 			? `## Timing (use these exact values — do not guess dates)
@@ -1015,62 +995,46 @@ ${intentionLines ? `${intentionLines}\n` : ''}`;
 - Current week: **week ${curWeek}** of ${calendar.weekCount} (${weekRange(curWeek)}).
 - The week to plan is **week ${targetWeek}** (${weekRange(targetWeek)}) — ${weekPhrase}. In the JSON you return, set exactly \`"week": ${targetWeek}\` and \`"dates": "${weekRange(targetWeek)}"\`.`;
 
-		return `# The Long Run — training context
+		return tidyPrompt(
+			joinSections(
+				'# The Long Run — training context',
+				`## Coaching brief
+You are my coach for the sports I actually do — not a running-only coach. ${toward}. My pinned activities and day limits are fixed by life; everything else is yours to plan around them. You choose how many sessions of each sport I asked you to plan, which days, the session kind, distance or strength prescription, and intent. Below is my plan, my recent training with how each session felt, weekly volume across sports, and my constraints.
 
-## Coaching brief
-You are my coach for the sports I actually do — not a running-only coach. ${toward}. My pinned activities and day limits are fixed by life; everything else is yours to plan around them. You choose how many sessions of each sport I asked you to plan, which days, the session kind (easy / quality / long / tempo / easy spin / …; for gym: full body / lower / upper / …), distance or strength prescription, and intent. Below is my plan, my recent training with how each session felt (effort and energy 1–10, shins and legs 0–10), weekly volume across sports, and my constraints.
-
-${briefAsk}
-
-## How to read this brief
-Goal and Timing come from the booked race and calendar I set. Look-aheads are not races — they constrain the horizon, they do not set race day. All-time summary, weekly volume, and the Activity log are auto-computed from logs and are **current**. Runner profile, injury, and fueling are hand-written and may lag. If they disagree on numbers (longest run, weekly volume), **prefer the computed sections**. Race-day intent lives on the goal notes, not a global file.
-
-${goalSection}
-${timingSection}
-
-## All-time summary (auto-computed from all logged activities — current, not hand-maintained)
-- Logged since ${firstDate}: ${byType.run} runs, ${byType.bike} bikes, ${byType.walk} walks${byType.strength ? `, ${byType.strength} strength sessions` : ''}.
-- Running: ${totalRunKm} km total across ${runsAll.length} runs; typical pace ~${avgRunPace}/km.
-- Longest run: ${longest ? `${longest.distance_km} km (${longest.avg_pace || '—'}/km) on ${longest.date}` : '—'}.
-- Shin trend (0–10, lower = better): last 4 runs avg ${shinsRecent ?? '—'} vs prior 4 ${shinsPrior ?? '—'}.
-
-## Weekly volume (${windowPhrase})
-${weekLines}
-
-## Activity log (${activityHeading})
-${FEEL_SCALE}
-
-| Date | Type | km | pace/speed | HR avg/max | Feel | Notes |
-|------|------|----|-----------|-----------|------|-------|
-${rows}
-
-${strengthSection ? `${strengthSection}\n\n` : ''}## Training plan
-${plan.length ? formatTrainingPlanBrief(plan, targetWeek, calendar) : '(no plan set)'}
-
-${unplannedSection}${unplannedSection ? '\n' : ''}${alreadyLoggedSection}${alreadyLoggedSection ? '\n' : ''}${forecastSection ? `${forecastSection}\n\n` : ''}${gearSectionForBrief(gearInventory, allRuns)}
-${wardrobeSection ? `\n${wardrobeSection}\n` : ''}
-## Runner profile
-${profile.trim() || '(none)'}
-
-## Injury rules
-${injury.trim() || '(none)'}
-
-${formatUsualHabitsSection(habits)}
-
-${formatFuelSection(fuelLog, fuelRunRefs(allRuns, fuelLog))}
-
-## Checklist & kit
-${gear.trim() || '(none)'}
-
-${mixSection}
-
-## When you reply
+${briefAsk}`,
+				`## How to read this brief
+${HOW_TO_READ}`,
+				goalSection,
+				timingSection,
+				allTimeSummarySection(allRuns, pain),
+				formatPaceSection(paces),
+				history.weekly,
+				history.monthly,
+				history.yearly,
+				activitySection,
+				liftTopsSection,
+				section(
+					'Training plan',
+					plan.length ? formatTrainingPlanBrief(plan, targetWeek, calendar, allRuns, today) : ''
+				),
+				unplannedSection,
+				alreadyLoggedSection,
+				forecastSection,
+				gearSectionForBrief(gearInventory, allRuns),
+				wardrobeSection,
+				formatBodyNotesSection(profile.body),
+				formatCoachNotesSection(profile.coachNotes),
+				formatUsualHabitsSection(habits),
+				formatFuelSection(fuelLog, fuelRunRefs(allRuns, fuelLog)),
+				mixSection,
+				`## When you reply
 Give your assessment and ${weekPhrase}'s sessions in prose.${kitReply} Then, so I can save it straight back into my app, also output **${weekPhrase} as one JSON object** in exactly this shape (real values, same keys). ${replyRules}
 
 \`\`\`json
 ${exampleJson}
-\`\`\`
-`;
+\`\`\``
+			)
+		);
 	});
 
 export const getWeekPattern = createServerFn({ method: 'GET' }).handler(async () => {
@@ -1383,10 +1347,10 @@ function formatPlannedForActivity(run: RunRecord, match: PlannedMatch): string {
 	return lines.join('\n');
 }
 
-function formatFeelLogged(r: RunRecord): string {
+function formatFeelLogged(r: RunRecord, pain: string): string {
 	const scores = [
 		`effort ${r.effort ?? '–'}`,
-		`shins ${r.shins ?? '–'}`,
+		`${pain.toLowerCase()} ${r.shins ?? '–'}`,
 		`legs ${r.legs ?? '–'}`,
 		`energy ${r.energy ?? '–'}`
 	];
@@ -1410,39 +1374,22 @@ function formatFeelLogged(r: RunRecord): string {
 	return `- \`${r.slug}\`: ${scores.join(' · ')}${surface ? ` · surface ${surface}` : ''}${manualBit}`;
 }
 
-function formatFeelingsNotesExample(runs: RunRecord[]): string {
-	const fields = (r: RunRecord, pad: string) => {
-		const lines = [
-			`${pad}"slug": ${JSON.stringify(r.slug)},`,
-			`${pad}"effort": 6,`,
-			`${pad}"shins": 2,`,
-			`${pad}"legs": 4,`,
-			`${pad}"energy": 7,`,
-			`${pad}"wanted_faster": false,`,
-			`${pad}"surface": "asphalt",`,
-			`${pad}"notes": "Short first-person summary of What I wrote — not the whole dump."`
-		];
-		if (normalizeActivityType(r.activity_type) === 'run') {
-			lines.splice(
-				1,
-				0,
-				`${pad}"session": "long",`,
-				`${pad}"cadence": 176,`
-			);
-		}
-		if (showsField(r.activity_type, 'gear')) {
-			lines.splice(lines.length - 1, 0, `${pad}"gear": "shoe name",`);
-		}
-		return lines.join('\n');
-	};
-	const r = runs[0];
-	if (!r || runs.length === 1) {
-		if (!r) return `  "feelings": { "slug": "…", "notes": "…" }`;
-		return `  "feelings": {\n${fields(r, '    ')}\n  }`;
-	}
-	return `  "feelings": [\n${runs
-		.map((row) => `    {\n${fields(row, '      ')}\n    }`)
-		.join(',\n')}\n  ]`;
+/** One `feelings` row per featured activity — only the keys that apply to its sport. */
+function feelingsExample(runs: RunRecord[]): unknown {
+	const row = (r: RunRecord) => ({
+		slug: r.slug,
+		...(normalizeActivityType(r.activity_type) === 'run' ? { session: 'easy' } : {}),
+		effort: 6,
+		...(showsFeel(r.activity_type, 'shins') ? { shins: 2 } : {}),
+		legs: 4,
+		energy: 7,
+		...(showsFeel(r.activity_type, 'wanted_faster') ? { wanted_faster: false } : {}),
+		...(showsField(r.activity_type, 'surface') ? { surface: 'asphalt' } : {}),
+		...(showsField(r.activity_type, 'gear') ? { gear: 'shoe name' } : {}),
+		notes: 'Short first-person summary of What I wrote.'
+	});
+	if (!runs.length) return { slug: '…', notes: '…' };
+	return runs.length === 1 ? row(runs[0]!) : runs.map(row);
 }
 
 export const getDebriefPrompt = createServerFn({ method: 'GET' })
@@ -1455,10 +1402,10 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 	})
 	.handler(async ({ data }) => {
 		const { slug, includePlan } = data;
-		const [allRuns, week, injury, settings, training, gearInventory, allTimeMaxHr, habits, fuelLog] = await Promise.all([
+		const [allRuns, week, profile, settings, training, gearInventory, allTimeMaxHr, habits, fuelLog] = await Promise.all([
 			listRuns(),
 			currentPlanWeek(),
-			readContextFile('injury.md'),
+			loadProfile(),
 			loadSettings(),
 			loadTrainingContext(),
 			loadGear(),
@@ -1538,13 +1485,16 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			? formatUnplannedBrief(weekView.unplanned)
 			: '';
 
+		const pain = painLabel(profile.body);
+		const easyPace =
+			typicalEasyPace(buildPaceProfile(allRuns, training.medals, isoDateLocal(new Date()))) ?? 'M:SS';
 		const many = featured.length > 1;
 		const sessionWord = many ? 'these sessions' : 'this session';
 		const sessionHeading = many ? 'These sessions' : 'This session';
 		const sessionBlock = featured
 			.map((r, i) => formatDebriefFeatured(r, featuredAnalytics[i] ?? null))
 			.join('\n');
-		const feelBlock = featured.map(formatFeelLogged).join('\n');
+		const feelBlock = featured.map((r) => formatFeelLogged(r, pain)).join('\n');
 		const plannedHeading = many ? 'Planned for these sessions' : 'Planned for this session';
 		const plannedBlock = featured
 			.map((r) =>
@@ -1554,107 +1504,87 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const compareLine = `Compare what I did against **${plannedHeading}**: did each step hit its target pace or effort (use the km splits and HR in the session block), and did I cut it short or add to it? If it says Unplanned, coach it as extra load. If no plan covers the date, do not call it unplanned.`;
 		const job = includePlan
 			? `Coach from ${sessionWord}: how it went, recovery, and what to watch. ${compareLine} Answer any questions I asked in What I wrote. Then update **this week** only if remaining sessions should change. Remaining sessions may move to any day my day limits allow, or be dropped, if recovery or the goal calls for it — say why. Never move or drop a **pinned** activity.`
-			: `Coach from ${sessionWord}: how it went, recovery, and what to watch. ${compareLine} Answer any questions I asked in What I wrote. This chat already has my week plan — use that, do not repeat it here. If remaining sessions should change, include an updated \`week\` in your JSON reply (see When you reply).`;
+			: `Coach from ${sessionWord}: how it went, recovery, and what to watch. ${compareLine} Answer any questions I asked in What I wrote. **Same rules and context as the week brief earlier in this chat** (plan, body notes, habits, fuel, day limits, workout JSON shape) — use those, they are not repeated here. If remaining sessions should change, include an updated \`week\` in your JSON reply.`;
 		const planSections = includePlan
-			? `
-## Current week plan${week ? ` — week ${week.week} (${week.dates}) · ${week.phase} · ${week.focus}` : ''}
-${sessionLines}
-
-${unplannedLines ? `## Unplanned activities this week\nThese logs did not match a planned session — extra load, already done. Do not add a plan row just to file them.\n${unplannedLines}\n` : ''}`
+			? joinSections(
+					`## Current week plan${week ? ` — week ${week.week} (${planWeekDateRange(week.week, calendar)}) · ${week.phase} · ${week.focus}` : ''}\n${sessionLines}`,
+					unplannedLines
+						? `## Unplanned activities this week\nThese logs did not match a planned session — extra load, already done. Do not add a plan row just to file them.\n${unplannedLines}`
+						: ''
+				)
 			: '';
-		const notesRule =
-			'- `feelings.notes` is a **short** first-person summary of What I wrote (about 2–5 sentences) for the activity log. Keep my voice. Keep the useful specifics (shins after, shoes, questions you answered). Do **not** paste the whole write-up. Omit `notes` if I wrote nothing. For strength, notes are extra commentary only — never rewrite the lift list.\n' +
-			'- Before/after in **This session’s habits** are what I actually did. If they differ from Usual habits, treat the session block as ground truth. Do not copy those rituals into `feelings.notes` or into week `detail`.';
-		const scoresRule =
-			'- Scores marked – were not tapped in the app. Infer effort/shins/legs/energy (and wanted_faster / surface) from What I wrote when the text is clear enough for a number. Omit a field if the write-up does not support it. Do not invent from GPS. If How I felt already has a number, omit that field — keep mine. Do not copy example numbers.\n' +
-			'- `session` (runs only): easy / quality / long / race / … — keep mine if already set; infer from What I wrote only when obvious.\n' +
-			'- `cadence` (runs only): average steps per minute — only if I gave a number in What I wrote or Details; never invent.\n' +
-			'- `gear`: shoes or bike name — only if I named it; never invent.';
-		const fuelJson = `,
-  "fuel": [
-    { "slug": ${JSON.stringify(featured[0]?.slug ?? '')}, "phase": "before", "item": "Coffee", "timing": "20 min before", "outcome": "good", "notes": "" }
-  ]`;
-		const fuelRule = `- \`fuel\`: **only** when What I wrote mentions food or drink before, during, or after ${sessionWord} — otherwise omit \`fuel\` entirely. One entry per item + phase + timing; \`phase\` is before / during / after; \`timing\` in my words; \`outcome\` good / mixed / bad from what I said (cramps, stitch, nausea → bad; no complaint → good); \`notes\` short. Reuse an exact name from my known items when it is the same thing: ${fuelItemsPromptLine(fuelLog)}. Never invent food. If you include \`fuel\`, end your prose by asking whether I want these saved to my fuel log (the app asks me before saving).`;
-		const weekJson = includePlan
-			? `,
-  "week": {
-    "week": ${week?.week ?? 0},
-    "dates": ${JSON.stringify(week?.dates ?? '')},
-    "phase": ${JSON.stringify(week?.phase ?? '')},
-    "focus": "one-line focus after ${sessionWord}",
-    "sessions": [
-      { "day": "Friday", "activity_type": "run", "label": "Easy", "distance_km": 7, "detail": "copy each day from Current week plan — do not use this Friday row as-is", "workout": { "type": "easy", "blocks": [{ "kind": "run", "distance_km": 7, "pace": "6:30", "effort": "easy" }] } }
-    ]
-  }`
-			: '';
-		const weekRules = includePlan
-			? `- \`week.sessions\` is the **full week** from Current week plan: keep completed/skipped rows as they were, rewrite what's still ahead. Every session needs \`"activity_type"\`. Only move a day if you must, and say why.
-- To drop a session, set \`"status": "skipped"\` on that row (why can go in \`detail\`; wording alone is not a skip). ${SKIP_STATUS_PROMPT}
-- If the week is finished, return the same session rows unchanged — do not invent a completed status (\`status\` is only \`"skipped"\`).
-- ${RUN_SESSION_PROMPT}
-- ${STRENGTH_SESSION_PROMPT}
-`
-			: `- **Week updates:** if anything still ahead should change, include \`week\` in the JSON (full week from this chat, \`activity_type\` on every session, keep completed/skipped rows as they were). Omit \`week\` only when nothing ahead changes. ${SKIP_STATUS_PROMPT} ${RUN_SESSION_PROMPT} ${STRENGTH_SESSION_PROMPT}
-`;
+		const fuelNames = fuelItemNames(fuelLog);
+		const bodyAreas = profile.body.notes.map((n) => n.area);
+		const rules = [
+			'- `feelings.notes` is a **short** first-person summary of What I wrote (about 2–5 sentences) for the activity log. Keep my voice and the useful specifics (body, shoes, questions you answered). Do **not** paste the whole write-up. Omit `notes` if I wrote nothing. For strength, notes are extra commentary only — never rewrite the lift list.',
+			"- Before/after in **This session's habits** are what I actually did — ground truth. Do not copy those rituals into `feelings.notes` or into week `detail`.",
+			`- Scores marked – were not tapped in the app. Infer effort / \`shins\` (my ${pain.toLowerCase()} score, 0–10) / legs / energy (and wanted_faster / surface) from What I wrote when the text is clear enough for a number; otherwise omit the field. Do not invent from GPS. If How I felt already has a number, omit that field. Do not copy example numbers. Only include keys shown in the example for that activity.`,
+			'- `session` (runs only): easy / quality / long / race / … — keep mine if already set; infer only when obvious. `cadence` (runs only, steps per minute) and `gear` (shoe or bike name): only if I gave them; never invent.',
+			`- \`fuel\`: **only** when What I wrote mentions food or drink before, during, or after ${sessionWord} — otherwise omit it. One entry per item + phase + timing; \`phase\` before / during / after; \`timing\` in my words; \`outcome\` good / mixed / bad from what I said (cramps, stitch, nausea → bad; no complaint → good); \`notes\` short. Never invent food.${fuelNames.length ? ` Reuse an exact name from my known items when it is the same thing: ${fuelNames.join(', ')}.` : ''} If you include \`fuel\`, end your prose by asking whether I want these saved (the app asks me before saving).`,
+			`- \`body\`: **only** when What I wrote mentions new or changed pain, or something that has cleared up — otherwise omit it. One entry per area; \`status\` active / monitoring / resolved; \`trigger\` and \`helps\` short, in my words.${bodyAreas.length ? ` Reuse an exact area name when it is the same place: ${bodyAreas.join(', ')}.` : ''} The app asks me before saving.`,
+			includePlan
+				? `- \`week.sessions\` is the **full week** from Current week plan: keep completed/skipped rows as they were, rewrite what's still ahead. Every session needs \`"activity_type"\`. Only move a day if you must, and say why. If the week is finished, return the rows unchanged. ${SKIP_STATUS_PROMPT}`
+				: `- **Week updates:** if anything still ahead should change, include \`week\` (full week from this chat, \`activity_type\` on every session, completed/skipped rows kept as they were); otherwise omit it. ${SKIP_STATUS_PROMPT}`,
+			includePlan ? `- ${runSessionPrompt(easyPace)}` : '',
+			includePlan ? `- ${STRENGTH_SESSION_PROMPT}` : ''
+		].filter(Boolean);
+		const exampleReply = JSON.stringify({
+			feelings: feelingsExample(featured),
+			fuel: [
+				{ slug: featured[0]?.slug ?? '', phase: 'before', item: 'Coffee', timing: '20 min before', outcome: 'good', notes: '' }
+			],
+			body: [{ area: bodyAreas[0] ?? 'knee', status: 'monitoring', trigger: 'downhills', helps: '' }],
+			week: {
+				week: week?.week ?? 0,
+				dates: week ? planWeekDateRange(week.week, calendar) : '',
+				phase: week?.phase ?? '',
+				focus: `one-line focus after ${sessionWord}`,
+				sessions: [
+					{
+						day: 'Friday',
+						activity_type: 'run',
+						label: 'Easy',
+						distance_km: 7,
+						detail: 'every day of the week, not just this placeholder row',
+						workout: { type: 'easy', blocks: [{ kind: 'run', distance_km: 7, pace: easyPace, effort: 'easy' }] }
+					}
+				]
+			}
+		});
 		const reply = `## When you reply
-Lead with coaching advice in prose (how ${sessionWord} went, recovery, and whether anything ahead should change). Answer any questions from What I wrote there. After the advice, output one fenced JSON object I can paste back — the JSON is what I save; the advice is not.
+Lead with coaching advice in prose (how ${sessionWord} went, recovery, and whether anything ahead should change). Answer any questions from What I wrote there. After the advice, output one fenced JSON object I can paste back — the JSON is what I save; the advice is not. \`fuel\`, \`body\` and \`week\` are optional.
 
 \`\`\`json
-{
-${formatFeelingsNotesExample(featured)}${fuelJson}${weekJson}
-}
+${exampleReply}
 \`\`\`
 
 Rules:
-${notesRule}
-${scoresRule}
-${fuelRule}
-${weekRules}`;
+${rules.join('\n')}`;
 
-		const usualWeekSection = `${formatWeekSetupDebriefSection(weekSetupFromSettings(settings), {
-			includeSlots: week == null
-		})}
+		const usualWeekSection = includePlan
+			? formatWeekSetupDebriefSection(weekSetupFromSettings(settings), { includeSlots: week == null })
+			: '';
 
-`;
-
-		const prompt = `# The Long Run — debrief ${sessionWord}
-
-You are my coach for the sports I train, not a running-only coach. GPS numbers from the import (distance, moving and elapsed time, elevation, pace per km) and how I felt are below.
-${FEEL_SCALE}
-
-${job}
-
-${usualWeekSection}## ${sessionHeading}
-${sessionBlock}
-
-## ${plannedHeading}
-${plannedBlock}
-
-## How I felt
-– means I did not tap a number. Infer those from What I wrote when the text is clear; keep any number already here.
-${feelBlock}
-
-## What I wrote
-This is my own account of ${sessionWord} — as long as I needed, including questions I want answered. Treat it as ground truth. GPS is the device record; if they disagree, mention it but trust how I said it felt.
-
-${DEBRIEF_WRITEUP_TOKEN}
-
-## This session's habits
-Before/after as I did them this time — may differ from Usual habits. Treat overrides as ground truth. Do not assume the template if this block differs.
-
-${DEBRIEF_HABITS_TOKEN}
-
-## Other activities already logged this week
-${otherThisWeek.length ? otherThisWeek.map(formatRunBriefLine).join('\n') : `- (none besides ${many ? 'these' : 'this one'})`}
-${planSections}
-## Injury rules
-${injury.trim() || '(none)'}
-
-${formatUsualHabitsSection(habits)}
-
-${formatFuelSection(fuelLog, fuelRunRefs(allRuns, fuelLog))}
-
-${reply}`;
+		const prompt = tidyPrompt(
+			joinSections(
+				`# The Long Run — debrief ${sessionWord}`,
+				`You are my coach for the sports I train, not a running-only coach. GPS numbers from the import (distance, moving and elapsed time, elevation, pace per km) and how I felt are below.${includePlan ? `\n${feelScale(pain)}` : ''}\n\n${job}`,
+				usualWeekSection,
+				`## ${sessionHeading}\n${sessionBlock}`,
+				`## ${plannedHeading}\n${plannedBlock}`,
+				`## How I felt\n– means I did not tap a number. Infer those from What I wrote when the text is clear; keep any number already here.\n${feelBlock}`,
+				`## What I wrote\nThis is my own account of ${sessionWord} — as long as I needed, including questions I want answered. Treat it as ground truth. GPS is the device record; if they disagree, mention it but trust how I said it felt.\n\n${DEBRIEF_WRITEUP_TOKEN}`,
+				`## This session's habits\nBefore/after as I did them this time — may differ from Usual habits. Treat overrides as ground truth.\n\n${DEBRIEF_HABITS_TOKEN}`,
+				section('Other activities already logged this week', otherThisWeek.map(formatRunBriefLine).join('\n')),
+				planSections,
+				includePlan ? formatBodyNotesSection(profile.body) : '',
+				includePlan ? formatCoachNotesSection(profile.coachNotes) : '',
+				includePlan ? formatUsualHabitsSection(habits) : '',
+				includePlan ? formatFuelSection(fuelLog, fuelRunRefs(allRuns, fuelLog)) : '',
+				includePlan ? BODY_SAFETY_RULE : '',
+				reply
+			)
+		);
 		const runs = featured.map(debriefRunSummary);
 		const raceBySlug: Record<string, DebriefRaceHint | null> = {};
 		for (const r of featured) raceBySlug[r.slug] = debriefRaceHint(r, goals);
@@ -2494,7 +2424,9 @@ export const saveDebrief = createServerFn({ method: 'POST' }).middleware([requir
 		const weeks = candidates.length ? parsePlanWeeks(candidates) : [];
 		const fuelSuggestions =
 			obj.fuel != null ? parseFuelSuggestions(obj.fuel, runDatesBySlug(await listRuns())) : [];
-		if (!rows.length && !weeks.length && !fuelSuggestions.length) {
+		const bodySuggestions =
+			obj.body != null ? mergeBodySuggestions((await loadProfile()).body, obj.body) : [];
+		if (!rows.length && !weeks.length && !fuelSuggestions.length && !bodySuggestions.length) {
 			throw new Error('Need a "feelings" object and/or a "week" with sessions in that JSON.');
 		}
 		const feelings = rows.length
@@ -2507,8 +2439,35 @@ export const saveDebrief = createServerFn({ method: 'POST' }).middleware([requir
 			feelingsMissing: feelings.missing,
 			planWeeks: plan.weeks,
 			planUpdated: plan.updated,
-			fuelSuggestions
+			fuelSuggestions,
+			bodySuggestions
 		};
+	});
+
+// ---------- profile: body notes + coach notes ----------
+
+export const getProfileData = createServerFn({ method: 'GET' }).handler(async () => {
+	return loadProfile();
+});
+
+export const saveBodyNotes = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: BodyNotes) => normalizeBodyNotes(d))
+	.handler(async ({ data }) => persistBodyNotes(data));
+
+export const saveCoachNotes = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: { text: string }) => ({ text: typeof d?.text === 'string' ? d.text : '' }))
+	.handler(async ({ data }) => ({ coachNotes: await persistCoachNotes(data.text) }));
+
+/** Upsert picked debrief suggestions into the body notes (same area → same note). */
+export const applyBodySuggestions = createServerFn({ method: 'POST' }).middleware([requireAuth])
+	.validator((d: BodyNote[]) => (Array.isArray(d) ? d : []))
+	.handler(async ({ data }) => {
+		const { body } = await loadProfile();
+		const picked = normalizeBodyNotes({ notes: data }).notes;
+		const byId = new Map(picked.map((n) => [n.id, n]));
+		const kept = body.notes.map((n) => byId.get(n.id) ?? n);
+		const added = picked.filter((n) => !body.notes.some((o) => o.id === n.id));
+		return persistBodyNotes({ notes: [...kept, ...added] });
 	});
 
 // ---------- weekly feelings round-trip ----------
@@ -2525,7 +2484,9 @@ export const getFeelingsPrompt = createServerFn({ method: 'GET' })
 		weeks: Number.isFinite(d.weeks) && d.weeks > 0 ? Math.floor(d.weeks) : 1
 	}))
 	.handler(async ({ data }) => {
-		const all = (await listRuns()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+		const [runs, profile] = await Promise.all([listRuns(), loadProfile()]);
+		const pain = painLabel(profile.body);
+		const all = runs.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 		let targets: RunRecord[];
 		let rangeLabel: string;
 		if (data.scope === 'missing') {
@@ -2554,40 +2515,40 @@ export const getFeelingsPrompt = createServerFn({ method: 'GET' })
 			: '| — | — | — | — | — |';
 
 		const exampleSlug = targets[0]?.slug ?? 'copy-slug-from-table';
-		const prompt = `# The Long Run — capture how each activity felt
+		const example = JSON.stringify({
+			activities: [
+				{
+					slug: exampleSlug,
+					effort: 6,
+					shins: 3,
+					legs: 7,
+					energy: 7,
+					wanted_faster: true,
+					surface: 'wet asphalt',
+					notes: 'Tight for the first 2 km, then opened up after the turnaround.'
+				}
+			]
+		});
+		const prompt = tidyPrompt(`# The Long Run — capture how each activity felt
 
-From our conversation, summarise how I felt for each activity below (${rangeLabel}). I describe things like the road/terrain, shin soreness, energy, whether I wanted to run more or faster, and how my legs felt.
+From our conversation, summarise how I felt for each activity below (${rangeLabel}): terrain, ${pain.toLowerCase()}, energy, legs, and whether I wanted to go more or faster.
 
 Return ONLY a JSON block in exactly this shape — no prose before or after:
 
 \`\`\`json
-{
-  "activities": [
-    {
-      "slug": ${JSON.stringify(exampleSlug)},
-      "effort": 6,
-      "shins": 3,
-      "legs": 7,
-      "energy": 7,
-      "wanted_faster": true,
-      "surface": "wet asphalt",
-      "notes": "My shins were tight the first 2 km, then opened up after the turnaround."
-    }
-  ]
-}
+${example}
 \`\`\`
 
 Rules:
 - Copy \`slug\` from the table — do not use the example slug if it is not in the table. Do not copy example numbers.
-- ${FEEL_SCALE} \`wanted_faster\` is true/false.
+- ${feelScale(pain)} \`shins\` holds the ${pain.toLowerCase()} score. \`wanted_faster\` is true/false.
 - Omit any field you have no information for; omit an activity entirely if I said nothing about it.
 - Keep \`notes\` short and in my voice (first person).
 
 ## Activities (${from} → ${to})
 | slug | date | type | distance | current feel |
 |------|------|------|----------|--------------|
-${table}
-`;
+${table}`);
 		return { prompt, count: targets.length, from, to };
 	});
 
@@ -2626,54 +2587,45 @@ function runDatesBySlug(runs: RunRecord[]): Record<string, string> {
 	return Object.fromEntries(runs.map((r) => [r.slug, r.date]));
 }
 
-function fuelItemsPromptLine(log: FuelLog): string {
-	const names = fuelItemNames(log);
-	return names.length ? names.join(', ') : '(none yet)';
-}
-
 function buildFuelPromptTemplate(log: FuelLog, runs: RunRecord[]): string {
 	const recent = [...runs].sort(byDateNewestFirst).slice(0, 10);
-	const recentLines = recent.length
-		? recent
-				.map(
-					(r) =>
-						`- \`${r.slug}\` · ${r.date} · ${activityLabel(r.activity_type)}${
-							r.distance_km != null ? ` · ${r.distance_km} km` : ''
-						}`
-				)
-				.join('\n')
-		: '- (none)';
-	const example = recent[0]?.slug ?? '';
-	return `# The Long Run — log what I ate
+	const recentLines = recent
+		.map(
+			(r) =>
+				`- \`${r.slug}\` · ${r.date} · ${activityLabel(r.activity_type)}${
+					r.distance_km != null ? ` · ${r.distance_km} km` : ''
+				}`
+		)
+		.join('\n');
+	const names = fuelItemNames(log);
+	const example = JSON.stringify({
+		fuel: [
+			{
+				phase: 'before',
+				item: 'Coffee',
+				timing: '20 min before',
+				outcome: 'good',
+				notes: '',
+				slug: recent[0]?.slug ?? ''
+			}
+		]
+	});
+	return tidyPrompt(`# The Long Run — log what I ate
 
 Turn what I wrote below into fuel tries for my log: what I ate or drank before, during, or after a run, and how it went.
 
 ## What I wrote
 ${FUEL_TEXT_TOKEN}
 
-## Items already in my log
-Reuse one of these exact names when it is the same food or drink: ${fuelItemsPromptLine(log)}
+${section('Items already in my log', names.length ? `Reuse one of these exact names when it is the same food or drink: ${names.join(', ')}` : '')}
 
-## Recent activities
-Link a try to one of these only when I clearly mean it (e.g. "my 18 km on Sunday").
-${recentLines}
+${section('Recent activities', recentLines ? `Link a try to one of these only when I clearly mean it (e.g. "my 18 km on Sunday").\n${recentLines}` : '')}
 
 ## Reply
 Return ONLY one JSON block in exactly this shape — no prose before or after:
 
 \`\`\`json
-{
-  "fuel": [
-    {
-      "phase": "before",
-      "item": "Coffee",
-      "timing": "20 min before",
-      "outcome": "good",
-      "notes": "",
-      "slug": ${JSON.stringify(example)}
-    }
-  ]
-}
+${example}
 \`\`\`
 
 Rules:
@@ -2683,8 +2635,7 @@ Rules:
 - \`outcome\`: \`good\` (fine / no issues), \`mixed\`, or \`bad\` (cramps, stitch, nausea, energy crash). Only from what I said — if I said nothing went wrong, use \`good\`.
 - \`notes\`: short, my words — symptoms, amounts, conditions. Empty if nothing to add.
 - \`slug\`: only from Recent activities, otherwise \`""\`. Do not copy the example slug unless it fits.
-- Never invent food I did not mention.
-`;
+- Never invent food I did not mention.`);
 }
 
 export const getFuelData = createServerFn({ method: 'GET' }).handler(async () => {
@@ -2735,21 +2686,6 @@ export const saveActivityHabits = createServerFn({ method: 'POST' }).middleware(
 		return persistActivityHabits(data);
 	});
 
-const EDITABLE = new Set(CONTEXT_FILES.map((f) => f.name));
-
-export const saveContextFile = createServerFn({ method: 'POST' }).middleware([requireAuth])
-	.validator((d: { name: string; body: string }) => d)
-	.handler(async ({ data }) => {
-		const name = data.name.trim();
-		let body = data.body;
-		if (!EDITABLE.has(name) || name.includes('..') || name.includes('/') || name.includes('\\')) {
-			throw new Error('That file cannot be edited.');
-		}
-		if (body.length > 0 && !body.endsWith('\n')) body = `${body}\n`;
-		await writeContextFile(name, body);
-		return { ok: true };
-	});
-
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ISO_HORIZON_RE = /^\d{4}-\d{2}$/;
 
@@ -2786,16 +2722,17 @@ export const getGoalBrief = createServerFn({ method: 'GET' })
 	}))
 	.handler(async ({ data }) => {
 		const range = dateRangeFromSearch({ range: '30d' });
-		const [allRuns, training, injury, habits, fuelLog] = await Promise.all([
+		const [allRuns, training, profile, habits, fuelLog] = await Promise.all([
 			listRuns(),
 			loadTrainingContext(),
-			readContextFile('injury.md'),
+			loadProfile(),
 			loadActivityHabits(),
 			loadFuelLog()
 		]);
 		const { medals } = training;
 		const windowRuns = filterRunsByRange(allRuns, range).sort(byDateNewestFirst);
 		const todayIso = isoDateLocal(new Date());
+		const pain = painLabel(profile.body);
 		const sport = normalizeActivityType(data.sport || 'run');
 		const distance = Number(data.distance_km);
 		const distanceKm = Number.isFinite(distance) && distance > 0 ? distance : null;
@@ -2811,16 +2748,8 @@ export const getGoalBrief = createServerFn({ method: 'GET' })
 		const lastMedal = medals[0];
 		const lastMedalLine = lastMedal
 			? `- Last race: ${lastMedal.name} on ${lastMedal.date}${lastMedal.result?.time ? ` in ${lastMedal.result.time}` : ''}${lastMedal.result?.pace ? ` (${lastMedal.result.pace}/km)` : ''}`
-			: '- Last race: (none pinned yet)';
-		const activityRows =
-			windowRuns
-				.map((r) => {
-					const feel = [r.effort, r.shins, r.legs, r.energy]
-						.map((v) => (v == null ? '–' : v))
-						.join('/');
-					return `| ${r.date} | ${activityLabel(r.activity_type)} | ${r.distance_km ?? '–'} | ${metricText(r)} | ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} | ${feel} | ${notesForBriefRow(r)} |`;
-				})
-				.join('\n') || '| – | – | – | – | – | – | – |';
+			: '';
+		const activityRows = windowRuns.map(briefTableRow).join('\n');
 		const extra = data.extra.trim();
 		const exampleJson = JSON.stringify(
 			booked
@@ -2846,72 +2775,70 @@ export const getGoalBrief = createServerFn({ method: 'GET' })
 						itinerary_url: data.itinerary_url.trim(),
 						primary: primaryLines,
 						notes: data.notes.trim()
-					},
-			null,
-			2
+					}
 		);
 		const briefKind = booked ? 'race' : 'look-ahead';
-		const identity = booked
-			? `## Race (current draft)
-- Name: ${data.name.trim() || '(empty — fill if you can)'}
-- Date: ${data.date || '(empty)'}
-- Distance: ${distanceKm != null ? `${distanceKm} km` : '(empty)'}
-- Sport: ${activityLabel(sport)}
-- Time goal: ${data.time_goal.trim() || '(empty)'}
-- Plan starts (Monday): ${data.plan_start || '(empty)'}
-${daysToRace != null ? `- Days to race: ${daysToRace}${daysToRace === 0 ? ' (race day or already past)' : ''}` : ''}
-- Race URL: ${data.url.trim() || '(none)'}
-- Itinerary URL: ${data.itinerary_url.trim() || '(none)'}`
-			: `## Look-ahead (current draft)
-- Name: ${data.name.trim() || '(empty — fill if you can)'}
-- Horizon: ${horizon ? formatHorizonLabel(horizon) : '(empty — pick a month)'}
-- Distance: ${distanceKm != null ? `${distanceKm} km` : '(empty)'}
-- Sport: ${activityLabel(sport)}
-- Time goal: ${data.time_goal.trim() || '(empty)'}
-- URL: ${data.url.trim() || '(none)'}
-- Itinerary URL: ${data.itinerary_url.trim() || '(none)'}
-This is **not a booked race**. Do not invent a race date, plan start, peak, or taper.`;
+		const field = (label: string, value: string) => (value ? `- ${label}: ${value}` : '');
+		const identityLines = booked
+			? [
+					field('Name', data.name.trim()),
+					field('Date', data.date),
+					field('Distance', distanceKm != null ? `${distanceKm} km` : ''),
+					field('Sport', activityLabel(sport)),
+					field('Time goal', data.time_goal.trim()),
+					field('Plan starts (Monday)', data.plan_start),
+					daysToRace != null
+						? `- Days to race: ${daysToRace}${daysToRace === 0 ? ' (race day or already past)' : ''}`
+						: '',
+					field('Race URL', data.url.trim()),
+					field('Itinerary URL', data.itinerary_url.trim())
+				]
+			: [
+					field('Name', data.name.trim()),
+					field('Horizon', horizon ? formatHorizonLabel(horizon) : ''),
+					field('Distance', distanceKm != null ? `${distanceKm} km` : ''),
+					field('Sport', activityLabel(sport)),
+					field('Time goal', data.time_goal.trim()),
+					field('URL', data.url.trim()),
+					field('Itinerary URL', data.itinerary_url.trim()),
+					'This is **not a booked race**. Do not invent a race date, plan start, peak, or taper.'
+				];
+		const draftLines = [
+			...identityLines,
+			primaryLines.length
+				? `- Current priorities:\n${primaryLines.map((p) => `  - ${p}`).join('\n')}`
+				: '',
+			field('Current notes', data.notes.trim())
+		].filter(Boolean);
+		const identity = `## ${booked ? 'Race' : 'Look-ahead'} (current draft — fields not listed are empty)\n${draftLines.join('\n')}`;
 		const coaching = booked
 			? 'You are helping me set this race in my training app. Propose **priorities** (how I should train toward it) and **notes** (course, logistics, race-day intent). Keep every identity field and any priorities/notes I already filled unless I asked to change them. Fill empty identity fields only from the race URL, itinerary URL, or my extra notes — do not guess.'
 			: 'You are helping me set a **look-ahead**, not a booked race. Propose **priorities** (how I should train toward that month) and **notes**. Do not invent a race date. Do not peak or taper. Keep every identity field and any priorities/notes I already filled unless I asked to change them.';
 		const replyNotes = booked
 			? '`notes` is a few sentences on course / logistics / race-day intent.'
 			: '`notes` is a few sentences on why this look-ahead matters. Leave `date` and `plan_start` empty.';
-		return `# The Long Run — ${briefKind} brief
-
-## Coaching brief
-${coaching}
-
-${identity}
-- Current priorities:
-${primaryLines.length ? primaryLines.map((p) => `  - ${p}`).join('\n') : '  - (none yet)'}
-- Current notes: ${data.notes.trim() || '(none yet)'}
-
-Today is ${todayIso}.
-${lastMedalLine}
-
-${extra ? `## Extra from me\n${extra}\n` : ''}## Recent training (${range.label.toLowerCase()}, newest first)
-${FEEL_SCALE} Use this to keep priorities honest (volume, shin load, what is already working).
-
-| Date | Type | km | pace/speed | HR avg/max | Feel | Notes |
-|------|------|----|-----------|-----------|------|-------|
-${activityRows}
-
-## Injury rules
-${injury.trim() || '(none)'}
-
-${formatUsualHabitsSection(habits)}
-
-${formatFuelSection(fuelLog, fuelRunRefs(allRuns, fuelLog))}
-Use this fuel log for any race-day fueling advice in \`notes\` — repeat what worked, avoid what caused trouble.
-
-## When you reply
-Give a short assessment in prose if you want. Then output **one JSON object** I can paste back, with exactly these keys. If a draft field is empty, leave it \`""\`, \`null\`, or \`[]\` unless a URL or my extra notes make it clear. Do not copy example placeholders. \`primary\` is an array of 3–6 short priorities (one line each). ${replyNotes} Keep any URL I gave.
-
-\`\`\`json
-${exampleJson}
-\`\`\`
-`;
+		const fuelSection = formatFuelSection(fuelLog, fuelRunRefs(allRuns, fuelLog));
+		return tidyPrompt(
+			joinSections(
+				`# The Long Run — ${briefKind} brief`,
+				`## Coaching brief\n${coaching}`,
+				identity,
+				[`Today is ${todayIso}.`, lastMedalLine].filter(Boolean).join('\n'),
+				section('Extra from me', extra),
+				allTimeSummarySection(allRuns, pain),
+				formatPaceSection(buildPaceProfile(allRuns, medals, todayIso)),
+				activityRows
+					? `## Recent training (${range.label.toLowerCase()}, newest first)\n${feelScale(pain)} Use this to keep priorities honest (volume, ${pain.toLowerCase()}, what is already working).\n\n${BRIEF_TABLE_HEAD}\n${activityRows}`
+					: '',
+				formatBodyNotesSection(profile.body),
+				formatCoachNotesSection(profile.coachNotes),
+				formatUsualHabitsSection(habits),
+				fuelSection
+					? `${fuelSection}\nUse this fuel log for any race-day fueling advice in \`notes\` — repeat what worked, avoid what caused trouble.`
+					: '',
+				`## When you reply\nGive a short assessment in prose if you want. Then output **one JSON object** I can paste back, with exactly these keys. If a draft field is empty, leave it \`""\`, \`null\`, or \`[]\` unless a URL or my extra notes make it clear. Do not copy example placeholders. \`primary\` is an array of 3–6 short priorities (one line each). ${replyNotes} Keep any URL I gave. ${BODY_SAFETY_RULE}\n\n\`\`\`json\n${exampleJson}\n\`\`\``
+			)
+		);
 	});
 
 export const getGoalsData = createServerFn({ method: 'GET' }).handler(async () => {

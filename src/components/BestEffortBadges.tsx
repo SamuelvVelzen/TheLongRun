@@ -1,4 +1,4 @@
-import { panelClass } from './ui';
+import { Panel } from './ui';
 import type { BestEffortBoardRow, EffortHighlight } from '$lib/best-efforts';
 import {
 	effortBoardHasMixedYears,
@@ -100,7 +100,7 @@ export function BestEffortBoard({
 	if (!rows.length) return null;
 	const showYear = effortBoardHasMixedYears(rows);
 	return (
-		<div className={panelClass('mb-5')}>
+		<Panel className="mb-5">
 			<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
 				<h3 className="inline-flex items-center gap-2 m-0">
 					<Icon name="trophy" size={18} />
@@ -164,6 +164,6 @@ export function BestEffortBoard({
 					</div>
 				))}
 			</div>
-		</div>
+		</Panel>
 	);
 }

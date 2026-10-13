@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Icon } from './Icon';
 import { plannedSessionLogSearch } from './LogPlannedStrength';
 import { MoreMenu, type MoreMenuItem } from './MoreMenu';
-import { errorMessage, useSnackbar } from './Snackbar';
+import { errorMessage, useSnackbar } from './ui';
 
 export function PlanSessionMenu({
 	week,

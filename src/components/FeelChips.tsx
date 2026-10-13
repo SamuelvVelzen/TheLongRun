@@ -1,15 +1,13 @@
-import { fieldClass } from './ui';
+import { Field } from './ui';
 import { cn } from '$lib/ui';
 import { useState } from 'react';
+import { ui } from './ui/tokens';
 
 function range(min: number, max: number): number[] {
 	const out: number[] = [];
 	for (let n = min; n <= max; n++) out.push(n);
 	return out;
 }
-
-const feelChip =
-	'min-w-0 min-h-11 inline-flex items-center justify-center p-0 border border-line rounded-[10px] bg-inset text-muted font-inherit tabular-nums cursor-pointer transition-[border-color,color,background-color] duration-150 ease-out hover:border-accent active:border-accent aria-[pressed=true]:border-accent! aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:font-semibold';
 
 /** Tappable 0–10 / 1–10 scores. */
 export function FeelChips({
@@ -50,8 +48,7 @@ export function FeelChips({
 	}
 
 	return (
-		<div className={cn(fieldClass, 'col-span-full')}>
-			<span>{label}</span>
+		<Field label={label} className="col-span-full">
 			{name != null ? <input type="hidden" name={name} value={selected ?? ''} /> : null}
 			<div
 				className="grid gap-[0.25rem]"
@@ -65,7 +62,7 @@ export function FeelChips({
 						<button
 							key={n}
 							type="button"
-							className={feelChip}
+							className={ui.scoreChip}
 							aria-pressed={active}
 							onClick={() => set(active ? null : n)}
 						>
@@ -84,7 +81,7 @@ export function FeelChips({
 					</span>
 				</div>
 			)}
-		</div>
+		</Field>
 	);
 }
 
@@ -115,8 +112,7 @@ export function WantedFasterChips({
 	}
 
 	return (
-		<div className={cn(fieldClass, 'col-span-full')}>
-			<span>Wanted to go faster?</span>
+		<Field label="Wanted to go faster?" className="col-span-full">
 			{name != null ? <input type="hidden" name={name} value={value} /> : null}
 			<div
 				className="grid grid-cols-3 gap-[0.3rem]"
@@ -129,7 +125,7 @@ export function WantedFasterChips({
 						<button
 							key={opt.v || 'unset'}
 							type="button"
-							className={feelChip}
+							className={ui.scoreChip}
 							aria-pressed={active}
 							onClick={() => set(opt.v)}
 						>
@@ -138,6 +134,6 @@ export function WantedFasterChips({
 					);
 				})}
 			</div>
-		</div>
+		</Field>
 	);
 }

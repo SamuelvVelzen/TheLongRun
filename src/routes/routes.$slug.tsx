@@ -20,14 +20,27 @@ import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-rout
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import { DeleteButton, EditButton } from '../components/DeleteButton';
-import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
 import { OpenRouteBadge } from '../components/OpenRouteBadge';
-import { PageHero } from '../components/PageHero';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 import { RouteAttach } from '../components/RouteAttach';
-import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, Button, buttonClass, Form, metricClass, metricsClass, Panel, panelClass, runTitleClass, useAppForm } from '../components/ui';
+import {
+	Actions,
+	Button,
+	ConfirmDialog,
+	Form,
+	IconLabelButton,
+	Metric,
+	Metrics,
+	PageHero,
+	Panel,
+	PanelTitle,
+	RunTitle,
+	errorMessage,
+	useAppForm,
+	useSnackbar
+} from '../components/ui';
+import { buttonClass } from '../components/ui/Button';
 import { WaypointEditor, type WaypointEditorHandle } from '../components/WaypointEditor';
 
 export const Route = createFileRoute('/routes/$slug')({
@@ -192,7 +205,7 @@ function PlannedRouteDetail() {
 								name="name"
 								children={(field) => (
 									<input
-										className="block w-full max-w-[min(28ch,100%)] m-0 px-[0.4rem] py-[0.1rem] border border-dashed border-line rounded-[10px] bg-transparent text-inherit font-inherit focus:border-solid focus:border-accent focus:outline-none"
+										className="block w-full max-w-[min(28ch,100%)] m-0 px-[0.4rem] py-[0.1rem] border border-dashed border-line rounded-inset bg-transparent text-inherit font-inherit focus:border-solid focus:border-accent focus:outline-none"
 										value={field.state.value}
 										required
 										aria-label="Route name"
@@ -204,8 +217,8 @@ function PlannedRouteDetail() {
 						}
 					/>
 
-					<div className={panelClass('mb-4 p-[1.1rem_1.2rem_1.15rem]')}>
-						<h3 className="m-0 mb-3">Path</h3>
+					<Panel className="mb-4 p-[1.1rem_1.2rem_1.15rem]">
+						<PanelTitle className="m-0 mb-3">Path</PanelTitle>
 						<WaypointEditor
 							ref={pathRef}
 							embedded
@@ -214,7 +227,7 @@ function PlannedRouteDetail() {
 							emptyHint="Tap to drop pins along the loop"
 							hint="Place pins in order. Tap a pin to remove it, or tap the line to add one between. Drag to adjust."
 						/>
-					</div>
+					</Panel>
 
 					<Panel className="mb-4">
 						<form.AppField
@@ -273,32 +286,42 @@ function PlannedRouteDetail() {
 						actions={
 							<>
 								<button
-									className={buttonClass({ variant: mapsPref === 'apple' ? 'primary' : 'ghost' })}
+									className={cn(
+										buttonClass({ variant: mapsPref === 'apple' ? 'primary' : 'ghost' }),
+										'max-sm:min-w-11 max-sm:w-11 max-sm:px-0 max-sm:justify-center max-sm:gap-0'
+									)}
 									type="button"
+									aria-label="Apple Maps"
+									title="Apple Maps"
 									onClick={openAppleMaps}
 								>
 									<Icon name="map" size={16} />
-									Apple Maps
-									<Icon name="external" size={13} />
+									<span className="max-sm:hidden">Apple Maps</span>
+									<Icon name="external" size={13} className="max-sm:hidden" />
 								</button>
 								<button
-									className={buttonClass({ variant: mapsPref === 'desktop' ? 'primary' : 'ghost' })}
+									className={cn(
+										buttonClass({ variant: mapsPref === 'desktop' ? 'primary' : 'ghost' }),
+										'max-sm:min-w-11 max-sm:w-11 max-sm:px-0 max-sm:justify-center max-sm:gap-0'
+									)}
 									type="button"
+									aria-label="Open in BRouter"
+									title="Open in BRouter"
 									onClick={openInBrouter}
 								>
 									<Icon name="routes" size={16} />
-									Open in BRouter
-									<Icon name="external" size={13} />
+									<span className="max-sm:hidden">Open in BRouter</span>
+									<Icon name="external" size={13} className="max-sm:hidden" />
 								</button>
 								{authed && (
-									<button
-										className={buttonClass({ variant: 'ghost' })}
-										type="button"
-										onClick={() => downloadPlannedRouteGpx(route.name, route.geojson, route.waypoints)}
-									>
-										<Icon name="download" size={16} />
-										Download GPX
-									</button>
+									<IconLabelButton
+										label="Download GPX"
+										size="default"
+										icon={<Icon name="download" size={16} />}
+										onClick={() =>
+											downloadPlannedRouteGpx(route.name, route.geojson, route.waypoints)
+										}
+									/>
 								)}
 								{authed && (
 									<>
@@ -316,9 +339,9 @@ function PlannedRouteDetail() {
 						}
 					/>
 
-					<div className={panelClass('mb-4 p-0 overflow-hidden max-sm:order-1')}>
+					<Panel className="mb-4 p-0 overflow-hidden max-sm:order-1">
 						<div className="hidden sm:block p-[1.1rem_1.2rem_0.65rem]">
-							<h3>Route</h3>
+							<PanelTitle>Route</PanelTitle>
 							<p className={cn('text-muted', 'mt-1')}>Kilometres and available GPX waypoints are marked</p>
 						</div>
 						<PlannedRouteMap
@@ -326,30 +349,30 @@ function PlannedRouteDetail() {
 							kmMarkers={route.kmMarkers}
 							waypoints={route.waypoints}
 						/>
-					</div>
+					</Panel>
 
-					<div className={metricsClass('mb-4 max-sm:order-2')}>
-						<div className={metricClass(true)}>
+					<Metrics className="mb-4 max-sm:order-2">
+						<Metric emph>
 							<b>{route.distance_km ?? '—'}</b>
 							<span>km</span>
-						</div>
+						</Metric>
 						{elevationLabel && (
-							<div className={metricClass()}>
+							<Metric>
 								<b>{elevationLabel}</b>
 								<span>
 									{route.elev_gain != null || route.elev_loss != null
 										? (elevationRange ?? 'elevation')
 										: 'elevation'}
 								</span>
-							</div>
+							</Metric>
 						)}
 						{waypointCount > 0 && (
-							<div className={metricClass()}>
+							<Metric>
 								<b>{waypointCount}</b>
 								<span>{waypointCount === 1 ? 'waypoint' : 'waypoints'}</span>
-							</div>
+							</Metric>
 						)}
-					</div>
+					</Metrics>
 
 					{authed ? (
 						<div className="max-sm:order-5">
@@ -364,8 +387,8 @@ function PlannedRouteDetail() {
 					) : null}
 
 					{route.waypoints.length > 0 && (
-						<div className={panelClass('mb-4 max-sm:order-6')}>
-							<h3>Waypoints</h3>
+						<Panel className="mb-4 max-sm:order-6">
+							<PanelTitle>Waypoints</PanelTitle>
 							<div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-0 mt-3 border-t border-line [&>div]:flex [&>div]:flex-col [&>div]:gap-[0.15rem] [&>div]:py-[0.7rem] [&>div]:pr-4 [&>div]:border-b [&>div]:border-line">
 								{route.waypoints.map((waypoint, index) => (
 									<div key={`${waypoint.name}-${index}`}>
@@ -376,7 +399,7 @@ function PlannedRouteDetail() {
 									</div>
 								))}
 							</div>
-						</div>
+						</Panel>
 					)}
 				</div>
 			)}

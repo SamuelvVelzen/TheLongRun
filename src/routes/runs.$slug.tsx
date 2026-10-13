@@ -31,18 +31,30 @@ import { useCallback, useRef, useState } from 'react';
 import { ActivityForm } from '../components/ActivityForm';
 import { BestEffortBadges } from '../components/BestEffortBadges';
 import { EditButton, TrashIcon } from '../components/DeleteButton';
-import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { GearField } from '../components/GearField';
 import { FuelTryLine } from '../components/FuelParts';
 import { exportActivityGpx, GpsRepair } from '../components/GpsRepair';
 import { ActivityIcon, Icon } from '../components/Icon';
 import { MoreMenu } from '../components/MoreMenu';
-import { PageHero } from '../components/PageHero';
 import { RouteChip } from '../components/RouteChip';
 import { RouteMap } from '../components/RouteMap';
-import { errorMessage, useSnackbar } from '../components/Snackbar';
 import { SplitsPanel } from '../components/SplitsPanel';
-import { Button, buttonClass, mapBadgeClass, metricClass, metricsClass, panelClass, runTitleClass } from '../components/ui';
+import {
+	Button,
+	ConfirmDialog,
+	Dialog,
+	MapBadge,
+	Metric,
+	Metrics,
+	PageHero,
+	Panel,
+	PanelTitle,
+	errorMessage,
+	useSnackbar
+} from '../components/ui';
+import { buttonClass } from '../components/ui/Button';
+import { runTitleClass } from '../components/ui/Chrome';
+import { metricClass } from '../components/ui/Metric';
 
 type RunSearch = { edit?: boolean };
 
@@ -250,7 +262,7 @@ function FeelTile({
 
 	if (editing) {
 		return (
-			<div className={metricClass(true, 'pt-2 max-sm:flex-[1_1_100%]')}>
+			<Metric emph className="pt-2 max-sm:flex-[1_1_100%]">
 				<input
 					className="font-display text-[1.35rem] min-h-11 px-2 py-[0.35rem] rounded-lg w-full"
 					type="number"
@@ -267,7 +279,7 @@ function FeelTile({
 					}}
 				/>
 				<span>{label}</span>
-			</div>
+			</Metric>
 		);
 	}
 	return (
@@ -444,12 +456,12 @@ function RunDetail() {
 	return (
 		<>
 			{group && (
-				<p className={panelClass('mb-4')}>
+				<Panel className="mb-4">
 					Part of a grouped session.{' '}
 					<Link className="text-accent-fg font-semibold" to="/groups/$id" params={{ id: group.id }}>
 						Open grouped activity
 					</Link>
-				</p>
+				</Panel>
 			)}
 			<PageHero
 				className="grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2"
@@ -473,8 +485,8 @@ function RunDetail() {
 					<>
 						{r.date}
 						{r.has_map && (
-							<span
-								className={mapBadgeClass('ml-[0.15rem] align-middle')}
+							<MapBadge
+								className="ml-[0.15rem] align-middle"
 								title="Route map available"
 								aria-label="Has route map"
 							>
@@ -484,7 +496,7 @@ function RunDetail() {
 										d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"
 									/>
 								</svg>
-							</span>
+							</MapBadge>
 						)}
 					</>
 				}
@@ -584,29 +596,29 @@ function RunDetail() {
 				/>
 			) : (
 				<>
-					<div className={metricsClass('mb-4')}>
+					<Metrics className="mb-4">
 						{showsField(r.activity_type, 'distance') && (
-							<div className={metricClass(true)}>
+							<Metric emph>
 								<b>{r.distance_km ?? '—'}</b>
 								<span>km</span>
-							</div>
+							</Metric>
 						)}
-						<div className={metricClass(true)}>
+						<Metric emph>
 							<b>{metric.value}</b>
 							<span>{metricSub}</span>
-						</div>
+						</Metric>
 						{metric.unit !== '' && (
-							<div className={metricClass(true)}>
+							<Metric emph>
 								<b>{r.time || '—'}</b>
 								<span>
 									{r.elapsed_time && r.elapsed_time !== r.time
 										? `moving · ${r.elapsed_time} elapsed`
 										: 'time'}
 								</span>
-							</div>
+							</Metric>
 						)}
 						{r.avg_hr != null || r.max_hr != null ? (
-							<div className={metricClass('flex-[1.4_1_9rem]')}>
+							<Metric className="flex-[1.4_1_9rem]">
 								<div className="flex items-baseline gap-1">
 									<b>{r.avg_hr ?? '—'}</b>
 									<span className="text-muted text-[0.95rem]">/</span>
@@ -618,49 +630,49 @@ function RunDetail() {
 										<div
 											className="h-full rounded-[inherit] bg-[linear-gradient(90deg,var(--color-accent),var(--color-warn))]"
 											style={{ width: `${hrFill}%` }}
-										></div>
+										/>
 									</div>
 								)}
-							</div>
+							</Metric>
 						) : (
-							<div className={metricClass()}>
+							<Metric>
 								<b>—</b>
 								<span>HR</span>
-							</div>
+							</Metric>
 						)}
 						{showsField(r.activity_type, 'elevation') && (
-							<div className={metricClass()}>
+							<Metric>
 								<b>{r.elev_gain != null ? r.elev_gain : '—'}</b>
 								<span>elev m</span>
-							</div>
+							</Metric>
 						)}
 						{showsField(r.activity_type, 'cadence') && (
-							<div className={metricClass()}>
+							<Metric>
 								<b>{r.cadence ?? '—'}</b>
 								<span>cadence</span>
-							</div>
+							</Metric>
 						)}
 						{r.calories != null && (
-							<div className={metricClass()}>
+							<Metric>
 								<b>{r.calories}</b>
 								<span>kcal</span>
-							</div>
+							</Metric>
 						)}
 						{r.kilojoules != null && (
-							<div className={metricClass()}>
+							<Metric>
 								<b>{r.kilojoules}</b>
 								<span>kJ</span>
-							</div>
+							</Metric>
 						)}
 						{r.max_speed != null && (
-							<div className={metricClass()}>
+							<Metric>
 								<b>{r.max_speed}</b>
 								<span>max km/h</span>
-							</div>
+							</Metric>
 						)}
-					</div>
+					</Metrics>
 
-					<div className={metricsClass('mb-5')}>
+					<Metrics className="mb-5">
 						{showsFeel(r.activity_type, 'effort') && (
 							<FeelTile editable={authed} label="effort" value={r.effort} min={1} max={10} onSave={(v) => patchRun({ effort: v })} />
 						)}
@@ -673,12 +685,12 @@ function RunDetail() {
 						{showsFeel(r.activity_type, 'legs') && (
 							<FeelTile editable={authed} label="legs" value={r.legs} min={0} max={10} onSave={(v) => patchRun({ legs: v })} />
 						)}
-					</div>
+					</Metrics>
 
 					{strength && strength.exercises.length > 0 && (
-						<div className={panelClass('mb-4')}>
+						<Panel className="mb-4">
 							<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
-								<h3>Sets</h3>
+								<PanelTitle>Sets</PanelTitle>
 								<p className={cn('text-muted', 'text-[0.85rem]')}>weight, reps, or time</p>
 							</div>
 							<div className="hidden sm:grid grid-cols-[minmax(6rem,1.4fr)_2fr_auto_auto] gap-x-[0.9rem] gap-y-1.5 items-center py-[0.32rem] border-b border-line text-[0.72rem] uppercase tracking-[0.06em] text-muted pb-1.5">
@@ -713,7 +725,7 @@ function RunDetail() {
 									</div>
 								);
 							})}
-						</div>
+						</Panel>
 					)}
 
 					<GpsRepair
@@ -731,26 +743,26 @@ function RunDetail() {
 					/>
 
 					{r.route && routeId && (
-						<div className={panelClass('mb-4 p-0 overflow-hidden')}>
+						<Panel className="mb-4 p-0 overflow-hidden">
 							<div className="p-[1.1rem_1.2rem_0.6rem]">
-								<h3 className="m-0">Route</h3>
+								<PanelTitle className="m-0">Route</PanelTitle>
 							</div>
 							<RouteMap
 								routeId={routeId}
 								activityType={r.activity_type}
 								kmMarkers={analytics?.kmMarkers ?? null}
 							/>
-						</div>
+						</Panel>
 					)}
 
 					{bestEfforts && bestEfforts.length > 0 && (
-						<div className={panelClass('mb-4')}>
+						<Panel className="mb-4">
 							<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
-								<h3>Best efforts</h3>
+								<PanelTitle>Best efforts</PanelTitle>
 								<p className={cn('text-muted', 'text-[0.85rem]')}>Top 3 all-time for this distance</p>
 							</div>
 							<BestEffortBadges highlights={bestEfforts} />
-						</div>
+						</Panel>
 					)}
 
 					{analytics && (analytics.splits.length || analytics.hrZones) && (
@@ -763,9 +775,9 @@ function RunDetail() {
 					)}
 
 					{fuel.length > 0 && (
-						<div className={panelClass('mb-4')}>
+						<Panel className="mb-4">
 							<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.6rem]">
-								<h3>Fuel</h3>
+								<PanelTitle>Fuel</PanelTitle>
 								<Link to="/fuel" className={cn('text-muted', 'text-[0.85rem]')}>
 									Fuel log
 								</Link>
@@ -773,12 +785,12 @@ function RunDetail() {
 							{fuel.map((entry) => (
 								<FuelTryLine key={entry.id} entry={entry} showItem showPhase />
 							))}
-						</div>
+						</Panel>
 					)}
 
-					<div className={panelClass('mb-4')}>
+					<Panel className="mb-4">
 						<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.9rem]">
-							<h3>Notes &amp; conditions</h3>
+							<PanelTitle>Notes &amp; conditions</PanelTitle>
 							<p className={cn('text-muted', 'text-[0.85rem]')}>
 								{authed ? 'Tap a field to update it' : 'Conditions for this session'}
 							</p>
@@ -830,36 +842,43 @@ function RunDetail() {
 							{showsFeel(r.activity_type, 'wanted_faster') && (
 								<div className="flex flex-col gap-[0.28rem] min-w-0">
 									<span className={fieldLabel}>Wanted faster</span>
-									<div className="flex w-full gap-[0.3rem]" role="group" aria-label="Wanted faster">
-										{(['Y', 'N', ''] as const).map((opt) => {
-											const active =
-												(opt === 'Y' && r.wanted_faster === true) ||
-												(opt === 'N' && r.wanted_faster === false) ||
-												(opt === '' && r.wanted_faster == null);
-											return (
-												<button
-													key={opt || 'none'}
-													type="button"
-													disabled={!authed}
-													className={cn(
-														'flex-1 min-h-11 min-w-0 border rounded-lg p-[0.5rem_0.4rem] font-inherit text-[0.9rem]',
-														authed && 'cursor-pointer hover:border-accent active:border-accent',
-														active
-															? 'border-accent bg-accent/12 text-fg font-semibold'
-															: 'bg-white/[0.03] border-line text-muted'
-													)}
-													onClick={() => {
-														if (!authed) return;
-														void patchRun({
-															wanted_faster: opt === 'Y' ? true : opt === 'N' ? false : null
-														});
-													}}
-												>
-													{opt === 'Y' ? 'Yes' : opt === 'N' ? 'No' : '—'}
-												</button>
-											);
-										})}
-									</div>
+									{authed ? (
+										<div className="flex w-full gap-[0.3rem]" role="group" aria-label="Wanted faster">
+											{(['Y', 'N', ''] as const).map((opt) => {
+												const active =
+													(opt === 'Y' && r.wanted_faster === true) ||
+													(opt === 'N' && r.wanted_faster === false) ||
+													(opt === '' && r.wanted_faster == null);
+												return (
+													<button
+														key={opt || 'none'}
+														type="button"
+														className={cn(
+															'flex-1 min-h-11 min-w-0 border rounded-lg p-[0.5rem_0.4rem] font-inherit text-[0.9rem] cursor-pointer hover:border-accent active:border-accent',
+															active
+																? 'border-accent bg-accent/12 text-fg font-semibold'
+																: 'bg-white/[0.03] border-line text-muted'
+														)}
+														onClick={() => {
+															void patchRun({
+																wanted_faster: opt === 'Y' ? true : opt === 'N' ? false : null
+															});
+														}}
+													>
+														{opt === 'Y' ? 'Yes' : opt === 'N' ? 'No' : '—'}
+													</button>
+												);
+											})}
+										</div>
+									) : (
+										<span className="text-[0.9rem] text-muted">
+											{r.wanted_faster === true
+												? 'Yes'
+												: r.wanted_faster === false
+													? 'No'
+													: '—'}
+										</span>
+									)}
 								</div>
 							)}
 						</div>
@@ -894,7 +913,7 @@ function RunDetail() {
 								Started {r.start_time}
 							</p>
 						)}
-					</div>
+					</Panel>
 				</>
 			)}
 			<Dialog

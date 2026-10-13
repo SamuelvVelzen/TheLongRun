@@ -12,7 +12,8 @@ import {
 	type ClothingItem
 } from '$lib/wardrobe';
 import { clothingFormSchema, type ClothingFormValues } from '$lib/wardrobe-schema';
-import { Actions, buttonClass, Form, useAppForm } from './ui';
+import { Actions, Form, useAppForm } from './ui';
+import { buttonClass } from './ui/Button';
 import { ui } from './ui/tokens';
 
 function valuesFromItem(item: ClothingItem | null, category: ClothingCategory): ClothingFormValues {

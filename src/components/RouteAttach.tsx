@@ -1,4 +1,5 @@
-import { buttonClass, panelClass, fieldClass } from './ui';
+import { ConfirmDialog, Field, Panel, Select, errorMessage, useSnackbar } from './ui';
+import { buttonClass } from './ui/Button';
 import { activityLabel, normalizeActivityType } from '$lib/activity';
 import { useAuthed } from '$lib/auth';
 import { attachPlannedRoute, detachPlannedRoute } from '$lib/server/functions';
@@ -11,10 +12,6 @@ import type {
 import { cn } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
-import { ConfirmDialog } from './Dialog';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { Select } from './Select';
-
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function shortDate(iso: string | null): string {
@@ -74,7 +71,7 @@ export function RouteAttach({
 	}
 
 	return (
-		<div className={panelClass('mb-4 [&_>h3]:m-0')}>
+		<Panel className="mb-4 [&_>h3]:m-0">
 			<h3>Use this route</h3>
 			<p className={cn('text-muted', 'mt-[0.3rem] m-0')}>
 				Attach it to upcoming plan days — the same loop can cover Monday and later weeks — or
@@ -126,7 +123,7 @@ export function RouteAttach({
 						<p className={cn('text-muted', 'm-0 mb-[0.65rem] text-[0.92rem]')}>Not on a plan day yet.</p>
 					)}
 					{authed && planOptions.length > 0 && (
-						<label className={fieldClass}>
+						<Field as="label">
 							<span>Add a plan day</span>
 							<Select
 								disabled={busy}
@@ -161,7 +158,7 @@ export function RouteAttach({
 									}))
 								]}
 							/>
-						</label>
+						</Field>
 					)}
 				</section>
 
@@ -211,7 +208,7 @@ export function RouteAttach({
 					)}
 					{authed && activityOptions.length > 0 && (
 						<div className="grid gap-[0.65rem]">
-							<label className={fieldClass}>
+							<Field as="label">
 								<span>Find an activity</span>
 								<input
 									type="search"
@@ -220,8 +217,8 @@ export function RouteAttach({
 									disabled={busy}
 									onChange={(event) => setQuery(event.target.value)}
 								/>
-							</label>
-							<label className={fieldClass}>
+							</Field>
+							<Field as="label">
 								<span>Link an activity</span>
 								<Select
 									disabled={busy || !filteredActivities.length}
@@ -243,7 +240,7 @@ export function RouteAttach({
 										}))
 									]}
 								/>
-							</label>
+							</Field>
 						</div>
 					)}
 				</section>
@@ -265,6 +262,6 @@ export function RouteAttach({
 					await run(() => detachPlannedRoute({ data: { slug, id: pending.id } }));
 				}}
 			/>
-		</div>
+		</Panel>
 	);
 }

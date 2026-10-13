@@ -201,7 +201,7 @@ function iconBtn(label: string, title: string, svg: string): HTMLButtonElement {
 	const btn = document.createElement('button');
 	btn.type = 'button';
 	btn.className =
-		'map-chrome-btn inline-flex items-center justify-center size-11 min-w-11 min-h-11 p-0 rounded-[10px] border border-line bg-surface/90 text-fg cursor-pointer shadow-lift transition-colors duration-150 hover:border-accent/45 hover:text-accent-fg active:border-accent/45 active:text-accent-fg focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2';
+		'map-chrome-btn inline-flex items-center justify-center size-11 min-w-11 min-h-11 p-0 rounded-inset border border-line bg-surface/90 text-fg cursor-pointer shadow-lift transition-colors duration-150 hover:border-accent/45 hover:text-accent-fg active:border-accent/45 active:text-accent-fg focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2';
 	btn.title = title;
 	btn.setAttribute('aria-label', title);
 	btn.style.touchAction = 'manipulation';

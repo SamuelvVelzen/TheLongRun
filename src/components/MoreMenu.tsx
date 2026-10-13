@@ -1,6 +1,6 @@
 import { cn } from '$lib/ui';
 import type { MouseEvent, ReactNode } from 'react';
-import { buttonClass } from './ui';
+import { buttonClass } from './ui/Button';
 import { Icon } from './Icon';
 
 export type MoreMenuItem = {

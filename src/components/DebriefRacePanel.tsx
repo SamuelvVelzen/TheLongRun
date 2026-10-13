@@ -5,8 +5,8 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { Icon } from './Icon';
 import { MedalDetailsForm } from './MedalDetailsForm';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, Button, buttonClass, panelClass, formClass } from './ui';
+import { Actions, Button, Panel, errorMessage, useSnackbar } from './ui';
+import { buttonClass } from './ui/Button';
 
 export function DebriefRacePanel({
 	hint,
@@ -22,7 +22,7 @@ export function DebriefRacePanel({
 
 	if (hint.kind === 'race_no_goal') {
 		return (
-			<div className={panelClass('mt-3 p-[0.9rem_1rem] border-accent/35')}>
+			<Panel className="mt-3 p-[0.9rem_1rem] border-accent/35">
 				<p className="m-0 font-semibold">Race session</p>
 				<p className={cn('text-muted', 'm-[0.35rem_0_0] text-[0.9rem]')}>
 					This activity is marked as a race. Add it on{' '}
@@ -31,7 +31,7 @@ export function DebriefRacePanel({
 					</Link>{' '}
 					if you want a medal and time goal on the wall.
 				</p>
-			</div>
+			</Panel>
 		);
 	}
 
@@ -52,7 +52,7 @@ export function DebriefRacePanel({
 
 	if (!match.pinned) {
 		return (
-			<div className={panelClass('mt-3 p-[0.9rem_1rem] border-accent/35')}>
+			<Panel className="mt-3 p-[0.9rem_1rem] border-accent/35">
 				<p className="m-0 font-semibold">{match.goalName}</p>
 				<p className={cn('text-muted', 'm-[0.35rem_0_0] text-[0.9rem]')}>
 					This looks like your race
@@ -68,14 +68,14 @@ export function DebriefRacePanel({
 						Open Goals
 					</Link>
 				</Actions>
-			</div>
+			</Panel>
 		);
 	}
 
 	if (!match.missingMedalDetails) return null;
 
 	return (
-		<div className={panelClass(formClass, 'mt-3 border-accent/35')}>
+		<Panel form className="mt-3 border-accent/35">
 			<p className="m-0 font-semibold">{match.goalName} — medal details</p>
 			<p className={cn('text-muted', 'm-[0.35rem_0_0] text-[0.9rem]')}>
 				Bib and official results are not on Strava. Add them here or on the medal wall.
@@ -102,6 +102,6 @@ export function DebriefRacePanel({
 					</Link>
 				}
 			/>
-		</div>
+		</Panel>
 	);
 }

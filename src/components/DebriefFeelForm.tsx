@@ -18,8 +18,7 @@ import { DebriefActivityTitle } from './DebriefActivityTitle';
 import { DeleteButton } from './DeleteButton';
 import { FeelChips, WantedFasterChips } from './FeelChips';
 import { GearField } from './GearField';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { Field, formClass, FormGrid, formSectionTitleClass, panelClass, Textarea, useAppForm } from './ui';
+import { Field, FormGrid, Panel, PanelTitle, Textarea, errorMessage, useAppForm, useSnackbar } from './ui';
 
 const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'race', 'other'];
 const REFRESH_DEBOUNCE_MS = 1200;
@@ -287,11 +286,12 @@ export function DebriefFeelForm({
 	}, []);
 
 	return (
-		<div ref={panelRef} className={cn(panelClass('mt-3'), formClass)}>
+		<div ref={panelRef}>
+			<Panel form className="mt-3">
 			<div className="flex flex-wrap items-end justify-between gap-2 gap-y-1">
-				<h3 className={cn(formSectionTitleClass, 'flex-1 min-w-0 border-0 pb-0 mb-0')}>
+				<PanelTitle className="flex-1 min-w-0 border-0 pb-0 mb-0">
 					<DebriefActivityTitle run={run} link />
-				</h3>
+				</PanelTitle>
 				<form.Subscribe selector={(s) => s.values}>
 					{(formValues) => (
 						<DebriefFeelAutosave
@@ -514,6 +514,7 @@ export function DebriefFeelForm({
 					)}
 				</>
 			)}
+			</Panel>
 		</div>
 	);
 }

@@ -5,8 +5,7 @@ import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { FuelTryLine } from './FuelParts';
 import { Icon } from './Icon';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { Button, Checkbox, Dialog } from './ui';
+import { Button, Checkbox, Dialog, errorMessage, useSnackbar } from './ui';
 
 /** Food the coach spotted in the write-up — nothing is saved until confirmed here. */
 export function FuelSuggestionsDialog({

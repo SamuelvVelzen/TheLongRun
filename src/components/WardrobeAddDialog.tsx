@@ -1,5 +1,5 @@
 import type { ClothingItem } from '$lib/wardrobe';
-import { Dialog, dialogPanelMedalClass } from './ui';
+import { Dialog } from './ui';
 import { cn } from '$lib/ui';
 import { ClothingForm } from './WardrobeClothingForm';
 
@@ -17,9 +17,10 @@ export function WardrobeAddDialog({
 	return (
 		<Dialog
 			open={open}
+			size="medal"
 			title="Add clothing"
 			onClose={busy ? () => {} : onClose}
-			className={cn(dialogPanelMedalClass, 'sm:max-w-[min(38rem,100%)]!')}
+			className="sm:max-w-[min(38rem,100%)]!"
 		>
 			<ClothingForm
 				className="mt-0"

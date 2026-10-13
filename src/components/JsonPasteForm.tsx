@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from './Icon';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, Form, useAppForm } from './ui';
+import { Actions, Form, errorMessage, useAppForm, useSnackbar } from './ui';
 
 const jsonPasteSchema = z.object({
 	json: z.string().trim().min(1, 'Paste the JSON first.')

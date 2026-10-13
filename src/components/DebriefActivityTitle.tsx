@@ -1,7 +1,7 @@
 import { showsField } from '$lib/activity';
 import { Link } from '@tanstack/react-router';
 import { ActivityTag } from './Icon';
-import { runTitleClass } from './ui';
+import { RunTitle } from './ui';
 
 export type DebriefActivityTitleRun = {
 	slug: string;
@@ -28,7 +28,7 @@ export function DebriefActivityTitle({
 	].filter(Boolean);
 	const inner = (
 		<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-[0.15rem] align-middle">
-			<span className={runTitleClass}>{run.date}</span>
+			<RunTitle className="inline">{run.date}</RunTitle>
 			<ActivityTag type={run.activity_type ?? 'run'} />
 			{rest.length ? <span className="text-muted font-normal">{rest.join(' · ')}</span> : null}
 		</span>

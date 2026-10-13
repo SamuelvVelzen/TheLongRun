@@ -2,7 +2,7 @@ import { FUEL_PHASE_META, type FuelPhase } from '$lib/fuel';
 import type { FuelFormValues } from '$lib/fuel-schema';
 import { cn } from '$lib/ui';
 import { emptyFuelForm, FuelEntryForm } from './FuelEntryForm';
-import { Dialog, dialogPanelMedalClass } from './ui';
+import { Dialog } from './ui';
 
 export function FuelAddDialog({
 	open,
@@ -20,9 +20,10 @@ export function FuelAddDialog({
 	return (
 		<Dialog
 			open={open}
+			size="medal"
 			title={`Add · ${FUEL_PHASE_META[phase].label}`}
 			onClose={busy ? () => {} : onClose}
-			className={cn(dialogPanelMedalClass, 'sm:max-w-[min(38rem,100%)]!')}
+			className="sm:max-w-[min(38rem,100%)]!"
 		>
 			<FuelEntryForm
 				className="mt-0"

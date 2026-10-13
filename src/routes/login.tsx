@@ -1,8 +1,8 @@
-import { buttonClass } from '../components/ui';
+import { buttonClass } from '../components/ui/Button';
+import { PageHero } from '../components/ui';
 import { SignInLink } from '$lib/auth';
 import { appHead } from '$lib/title';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { PageHero } from '../components/PageHero';
 
 export const Route = createFileRoute('/login')({
 	head: () => appHead('Sign in'),

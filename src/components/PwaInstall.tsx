@@ -1,7 +1,7 @@
 import { cn } from '$lib/ui';
 import { useCallback, useEffect, useState } from 'react';
-import { Dialog } from './Dialog';
 import { Icon } from './Icon';
+import { Dialog } from './ui';
 
 type BeforeInstallPromptEvent = Event & {
 	prompt: () => Promise<void>;

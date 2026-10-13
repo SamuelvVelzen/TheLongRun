@@ -4,8 +4,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { Icon } from './Icon';
-import { SegmentedToggle } from './SegmentedToggle';
-import { Button, useAppForm } from './ui';
+import { Button, SegmentedToggle, useAppForm } from './ui';
 
 export type RangeSearch = { range?: RangeKind; from?: string; to?: string };
 

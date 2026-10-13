@@ -413,10 +413,10 @@ export function ActivityIcon({
 
 export function ActivityTag({ type, className }: { type: string; className?: string }) {
 	return (
-		<span className={tagClass(true, className)}>
+		<Tag accent>
 			<ActivityIcon type={type} />
 			{activityLabel(type)}
-		</span>
+		</Tag>
 	);
 }
 

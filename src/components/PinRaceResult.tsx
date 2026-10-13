@@ -5,8 +5,7 @@ import type { Goal } from '$lib/types';
 import { cn } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { Icon } from './Icon';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, Button, Form, useAppForm } from './ui';
+import { Actions, Button, Form, errorMessage, useAppForm, useSnackbar } from './ui';
 
 export type PinRaceCandidate = {
 	slug: string;

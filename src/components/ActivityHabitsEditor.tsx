@@ -7,8 +7,7 @@ import {
 import { cn } from '$lib/ui';
 import { useEffect } from 'react';
 import { Icon } from './Icon';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, Form, FormGrid, useAppForm } from './ui';
+import { Actions, Form, FormGrid, errorMessage, useAppForm, useSnackbar } from './ui';
 
 export function SportHabitsForm({
 	type,

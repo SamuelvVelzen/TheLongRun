@@ -1,7 +1,7 @@
 import { FUEL_OUTCOME_META, FUEL_PHASE_META, type FuelEntry, type FuelOutcome } from '$lib/fuel';
 import { cn } from '$lib/ui';
 import type { ReactNode } from 'react';
-import { statusPillClass } from './ui';
+import { StatusPill } from './ui';
 
 const OUTCOME_TONE: Record<FuelOutcome, string> = {
 	good: 'bg-accent/15 text-accent-fg',
@@ -10,7 +10,7 @@ const OUTCOME_TONE: Record<FuelOutcome, string> = {
 };
 
 export function FuelOutcomePill({ outcome }: { outcome: FuelOutcome }) {
-	return <span className={statusPillClass(OUTCOME_TONE[outcome])}>{FUEL_OUTCOME_META[outcome].label}</span>;
+	return <StatusPill className={OUTCOME_TONE[outcome]}>{FUEL_OUTCOME_META[outcome].label}</StatusPill>;
 }
 
 /** One try: item (optional) · phase (optional) · timing, outcome pill, note underneath. */

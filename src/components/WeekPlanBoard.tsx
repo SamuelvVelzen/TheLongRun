@@ -1,4 +1,4 @@
-import { statusPillClass } from './ui';
+import { StatusPill } from './ui';
 import { activityLabel } from '$lib/activity';
 import {
     sessionMeasureLabel,
@@ -40,54 +40,42 @@ function StatusBadge({
 }) {
 	if (done) {
 		return (
-			<span className={statusPillClass('text-ok border border-[rgba(125,255,168,0.35)] bg-ok/10')}>
+			<StatusPill className="text-ok border border-[rgba(125,255,168,0.35)] bg-ok/10">
 				<Icon name="check" size={11} />
 				Completed
-			</span>
+			</StatusPill>
 		);
 	}
 	if (skipped) {
 		return (
-			<span className={statusPillClass('text-muted border border-line bg-inset')}>
+			<StatusPill className="text-muted border border-line bg-inset">
 				<Icon name="skip" size={11} />
 				Skipped
-			</span>
+			</StatusPill>
 		);
 	}
 	if (unlogged) {
 		return (
-			<span
-				className={statusPillClass(
-					'text-muted border border-dashed border-line bg-inset'
-				)}
-			>
+			<StatusPill className="text-muted border border-dashed border-line bg-inset">
 				<Icon name="circle" size={11} />
 				No log
-			</span>
+			</StatusPill>
 		);
 	}
 	if (isNext) {
 		return (
-			<span
-				className={statusPillClass(
-					'text-accent-ink bg-accent border border-accent'
-				)}
-			>
+			<StatusPill className="text-accent-ink bg-accent border border-accent">
 				<Icon name={isToday ? 'sun' : 'arrow'} size={11} />
 				{isToday ? 'Today' : 'Next'}
-			</span>
+			</StatusPill>
 		);
 	}
 	if (isToday) {
 		return (
-			<span
-				className={statusPillClass(
-					'text-accent-fg border border-accent/40 bg-accent/8'
-				)}
-			>
+			<StatusPill className="text-accent-fg border border-accent/40 bg-accent/8">
 				<Icon name="sun" size={11} />
 				Today
-			</span>
+			</StatusPill>
 		);
 	}
 	return null;
@@ -95,14 +83,10 @@ function StatusBadge({
 
 function UnplannedBadge() {
 	return (
-		<span
-			className={statusPillClass(
-				'text-accent-fg border border-dashed border-accent/45 bg-accent/6'
-			)}
-		>
+		<StatusPill className="text-accent-fg border border-dashed border-accent/45 bg-accent/6">
 			<Icon name="unplanned" size={11} />
 			Unplanned
-		</span>
+		</StatusPill>
 	);
 }
 
@@ -118,7 +102,7 @@ function UnplannedRow({
 			to="/runs/$slug"
 			params={{ slug: item.slug }}
 			className={cn(
-				'flex flex-col gap-[0.2rem] min-w-0 text-inherit no-underline rounded-[10px] -mx-1 px-1 py-1 hover:bg-accent/6',
+				'flex flex-col gap-[0.2rem] min-w-0 text-inherit no-underline rounded-inset -mx-1 px-1 py-1 hover:bg-accent/6',
 				divided && 'pt-3 mt-0 border-t border-dashed border-line'
 			)}
 		>
@@ -160,8 +144,8 @@ function PlannedSessionRow({
 		session.skipped && 'opacity-55',
 		session.route &&
 			!session.done &&
-			'rounded-[10px] -mx-1 px-1 pb-1 border border-[color-mix(in_srgb,var(--color-accent)_28%,transparent)]',
-		logSlug && 'text-inherit no-underline rounded-[10px] -mx-1 px-1 py-1 hover:bg-accent/6'
+			'rounded-inset -mx-1 px-1 pb-1 border border-[color-mix(in_srgb,var(--color-accent)_28%,transparent)]',
+		logSlug && 'text-inherit no-underline rounded-inset -mx-1 px-1 py-1 hover:bg-accent/6'
 	);
 	const body = (
 		<>

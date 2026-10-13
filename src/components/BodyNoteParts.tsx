@@ -1,7 +1,7 @@
 import { BODY_NOTE_STATUS_META, capitalize, type BodyNote, type BodyNoteStatus } from '$lib/body-notes';
 import { cn } from '$lib/ui';
 import type { ReactNode } from 'react';
-import { statusPillClass } from './ui';
+import { StatusPill } from './ui';
 
 const STATUS_TONE: Record<BodyNoteStatus, string> = {
 	active: 'bg-warn/10 text-warn',
@@ -10,7 +10,7 @@ const STATUS_TONE: Record<BodyNoteStatus, string> = {
 };
 
 export function BodyStatusPill({ status }: { status: BodyNoteStatus }) {
-	return <span className={statusPillClass(STATUS_TONE[status])}>{BODY_NOTE_STATUS_META[status].label}</span>;
+	return <StatusPill className={STATUS_TONE[status]}>{BODY_NOTE_STATUS_META[status].label}</StatusPill>;
 }
 
 export function BodyNoteLine({
@@ -29,7 +29,9 @@ export function BodyNoteLine({
 			<div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
 				<strong className="font-display text-[1.02rem] tracking-[-0.02em]">{capitalize(note.area)}</strong>
 				<BodyStatusPill status={note.status} />
-				{note.tracked ? <span className={statusPillClass('text-muted border border-line')}>Scored</span> : null}
+				{note.tracked ? (
+					<StatusPill className="text-muted border border-line">Scored</StatusPill>
+				) : null}
 				{tag}
 			</div>
 			{note.trigger || note.helps ? (

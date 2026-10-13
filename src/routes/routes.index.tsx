@@ -1,17 +1,22 @@
 import {
 	Actions,
 	Button,
-	buttonClass,
-	panelClass,
-	fieldClass,
-	reqClass,
-	gridClass,
-	sectionTitleClass,
-	dropzoneClass,
-	runTitleClass,
-	runRowClass,
-	tagClass
+	ConfirmDialog,
+	Dropzone,
+	Field,
+	Grid,
+	IconLabelButton,
+	PageHero,
+	Panel,
+	RunRow,
+	RunTitle,
+	SectionTitle,
+	Tag,
+	errorMessage,
+	useSnackbar
 } from '../components/ui';
+import { buttonClass } from '../components/ui/Button';
+import { reqClass } from '../components/ui/Field';
 import { AuthGate, useAuthed } from '$lib/auth';
 import {
     createPlannedRoute,
@@ -26,13 +31,10 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { DeferredData } from '../components/DeferredData';
 import { DeleteButton } from '../components/DeleteButton';
-import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
 import { OpenRouteBadge } from '../components/OpenRouteBadge';
-import { PageHero } from '../components/PageHero';
 import { MapPinIcon } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
-import { errorMessage, useSnackbar } from '../components/Snackbar';
 import { WaypointEditor } from '../components/WaypointEditor';
 
 type RoutesSearch = { draw?: boolean };
@@ -202,7 +204,7 @@ function PlannedRoutes() {
 			{authed ? (
 			<div className="mb-5 grid gap-3">
 				{drawing ? (
-					<div className={panelClass()}>
+					<Panel>
 						<WaypointEditor
 							emptyHint="Tap to drop pins along the loop"
 							hint="Place pins in order. Tap a pin to remove it, or tap the line to add one between. Drag to adjust."
@@ -211,7 +213,7 @@ function PlannedRoutes() {
 							onClose={closeDraw}
 							onSave={saveDrawn}
 						>
-							<label className={fieldClass}>
+							<Field as="label">
 								<span className={reqClass}>Name</span>
 								<input
 									value={routeName}
@@ -221,18 +223,18 @@ function PlannedRoutes() {
 									disabled={busy}
 									onChange={(event) => setRouteName(event.target.value)}
 								/>
-							</label>
+							</Field>
 						</WaypointEditor>
-					</div>
+					</Panel>
 				) : (
-					<button
-						className={buttonClass({ className: 'justify-self-start' })}
-						type="button"
+					<IconLabelButton
+						label="Draw a route"
+						variant="primary"
+						size="default"
+						className="justify-self-start"
+						icon={<Icon name="map" size={16} />}
 						onClick={() => setDrawing(true)}
-					>
-						<Icon name="map" size={16} />
-						Draw a route
-					</button>
+					/>
 				)}
 				{drawing ? null : (
 					<label
@@ -275,7 +277,7 @@ function PlannedRoutes() {
 							{files.map((f) => (
 								<li
 									key={f.name}
-									className="flex items-center gap-[0.6rem] p-[0.5rem_0.7rem] border border-line rounded-[10px] bg-inset text-[0.9rem]"
+									className="flex items-center gap-[0.6rem] p-[0.5rem_0.7rem] border border-line rounded-inset bg-inset text-[0.9rem]"
 								>
 									<code className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
 										{f.name}
@@ -315,10 +317,10 @@ function PlannedRoutes() {
 									key={r.name}
 									className="flex flex-wrap items-center gap-[0.45rem] py-2 border-b border-line last:border-b-0"
 								>
-									<span className={tagClass(r.status === 'ok')}>
+									<Tag accent>
 										<Icon name={r.status === 'ok' ? 'check' : 'close'} size={12} />
 										{r.status}
-									</span>
+									</Tag>
 									<code>{r.name}</code>
 									{r.slug ? (
 										<>
@@ -380,7 +382,7 @@ function PlannedRoutesList({
 	return (
 		<>
 			<section className="mb-1" aria-labelledby="planned-routes-map">
-				<div className={sectionTitleClass('mt-2')}>
+				<SectionTitle className="mt-2">
 					<div>
 						<h2 id="planned-routes-map">Saved route map</h2>
 						<p>
@@ -389,7 +391,7 @@ function PlannedRoutesList({
 								: 'Draw or import a route to see it here'}
 						</p>
 					</div>
-				</div>
+				</SectionTitle>
 				<RoutesHeatmap
 					tracks={data.tracks}
 					meta={meta}
@@ -399,17 +401,17 @@ function PlannedRoutesList({
 				/>
 			</section>
 
-			<div className={sectionTitleClass()}>
+			<SectionTitle>
 				<div>
 					<h2>Saved routes</h2>
 					<p>{data.routes.length} total · open a route to attach it to a plan day</p>
 				</div>
-			</div>
-			<div className={gridClass()}>
+			</SectionTitle>
+			<Grid>
 				{data.routes.map((route) => (
 					<PlannedRouteRow key={route.slug} route={route} />
 				))}
-			</div>
+			</Grid>
 		</>
 	);
 }

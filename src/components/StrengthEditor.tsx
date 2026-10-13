@@ -1,4 +1,5 @@
-import { buttonClass, fieldClass } from './ui';
+import { ConfirmDialog, Field, SegmentedToggle } from './ui';
+import { buttonClass } from './ui/Button';
 import { useState } from 'react';
 import {
 	emptyStrengthSet,
@@ -9,9 +10,7 @@ import {
 	type StrengthKind
 } from '$lib/strength';
 import { cn } from '$lib/ui';
-import { ConfirmDialog } from './Dialog';
 import { DeleteButton } from './DeleteButton';
-import { SegmentedToggle } from './SegmentedToggle';
 
 const KIND_OPTIONS: { value: StrengthKind; label: string }[] = [
 	{ value: 'weighted', label: 'Weight' },
@@ -179,7 +178,7 @@ export function StrengthEditor({
 			<button type="button" className={buttonClass({ variant: 'ghost' })} onClick={addExercise}>
 				+ exercise
 			</button>
-			<label className={cn(fieldClass, 'mt-[0.7rem]')}>
+			<Field as="label" className="mt-[0.7rem]">
 				<span>Extra notes (optional)</span>
 				<textarea
 					rows={2}
@@ -190,7 +189,7 @@ export function StrengthEditor({
 						onChange(formatStrengthNotes(exercises, e.target.value));
 					}}
 				/>
-			</label>
+			</Field>
 			<ConfirmDialog
 				open={pending != null}
 				title={pending?.kind === 'set' ? 'Delete this set?' : 'Delete this exercise?'}

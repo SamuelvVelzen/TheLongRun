@@ -1,4 +1,5 @@
-import { buttonClass, Checkbox } from './ui';
+import { Checkbox } from './ui';
+import { buttonClass } from './ui/Button';
 import type { GpsContextTrack, GpsPoint, GpsWaypoint } from '$lib/gps-repair';
 import { previewGpsNetwork } from '$lib/server/functions';
 import { cn } from '$lib/ui';

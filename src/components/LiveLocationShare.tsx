@@ -30,10 +30,9 @@ import {
     useState,
     type MouseEventHandler
 } from 'react';
-import { Dialog } from './Dialog';
 import { Icon } from './Icon';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { buttonClass, snackActionClass } from './ui';
+import { Dialog, SnackAction, errorMessage, useSnackbar } from './ui';
+import { buttonClass } from './ui/Button';
 
 function currentPosition(): Promise<GeolocationPosition> {
 	return new Promise((resolve, reject) => {

@@ -18,7 +18,7 @@ import {
 import type { RouteTrack } from '$lib/types';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { SegmentedToggle } from './SegmentedToggle';
+import { SegmentedToggle } from './ui';
 
 /** Per-track hover/click metadata, keyed by route id. */
 export type RouteMeta = Record<

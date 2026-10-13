@@ -1,7 +1,7 @@
 import type { DateRange } from '$lib/date-range';
 import type { ReactNode } from 'react';
 import { DateRangeFilter } from './DateRangeFilter';
-import { FilterSheet, filterSummary } from './FilterSheet';
+import { FilterSheet, filterSummary } from './ui';
 import { PlaceFilter } from './PlaceFilter';
 import { SportFilter } from './SportFilter';
 

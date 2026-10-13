@@ -5,10 +5,20 @@ import { Link, useNavigate, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { BestEffortBadges } from './BestEffortBadges';
 import { DeleteButton } from './DeleteButton';
-import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
-import { errorMessage, useSnackbar } from './Snackbar';
-import { Actions, Button, Form, useAppForm, buttonClass, actionsClass, tagClass, dropzoneClass } from './ui';
+import {
+	Actions,
+	Button,
+	ConfirmDialog,
+	Dropzone,
+	Form,
+	InsetRow,
+	Tag,
+	errorMessage,
+	useAppForm,
+	useSnackbar
+} from './ui';
+import { buttonClass } from './ui/Button';
 
 export type GpxImportResult = {
 	name: string;
@@ -159,19 +169,18 @@ export function GpxImport({
 			{files.length > 0 && (
 				<ul className="list-none m-[0.9rem_0_0] p-0 grid gap-1.5">
 					{files.map((f) => (
-						<li
-							key={f.name}
-							className="flex items-center gap-[0.6rem] p-[0.5rem_0.7rem] border border-line rounded-[10px] bg-inset text-[0.9rem]"
-						>
-							<code className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-								{f.name}
-							</code>
-							<span className={'text-muted'}>{(f.size / 1024).toFixed(0)} KB</span>
-							<DeleteButton
-								label={`Delete ${f.name}`}
-								disabled={busy}
-								onClick={() => setPendingFile(f.name)}
-							/>
+						<li key={f.name} className="list-none">
+							<InsetRow>
+								<code className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+									{f.name}
+								</code>
+								<span className={'text-muted'}>{(f.size / 1024).toFixed(0)} KB</span>
+								<DeleteButton
+									label={`Delete ${f.name}`}
+									disabled={busy}
+									onClick={() => setPendingFile(f.name)}
+								/>
+							</InsetRow>
 						</li>
 					))}
 				</ul>
@@ -231,10 +240,10 @@ export function GpxImport({
 								key={r.name}
 								className="flex flex-wrap items-center gap-[0.45rem] py-2 border-b border-line last:border-b-0"
 							>
-								<span className={tagClass(r.status === 'ok' && true)}>
+								<Tag accent>
 									<Icon name={r.status === 'ok' ? 'check' : 'close'} size={12} />
 									{r.status}
-								</span>
+								</Tag>
 								<code>{r.name}</code>
 								{r.slug && (
 									<>
@@ -254,7 +263,7 @@ export function GpxImport({
 						))}
 					</ul>
 					{coachAfter && lastOk?.slug && (
-						<div className={actionsClass('mt-3')}>
+						<Actions className="mt-3">
 							<Link
 								className={buttonClass()}
 								to="/runs/$slug"
@@ -262,7 +271,7 @@ export function GpxImport({
 							>
 								Open activity
 							</Link>
-						</div>
+						</Actions>
 					)}
 				</div>
 			)}

@@ -1,4 +1,6 @@
-import { buttonClass, panelClass, fieldHintClass } from './ui';
+import { Panel } from './ui';
+import { buttonClass } from './ui/Button';
+import { fieldHintClass } from './ui/Field';
 import { formatDuration } from '$lib/format';
 import type { HrZoneBand } from '$lib/hr-zones';
 import type { KmSplit, RouteAnalytics } from '$lib/splits';
@@ -74,7 +76,7 @@ export function SplitsPanel({
 	if (!splits.length && !zones) return null;
 
 	return (
-		<div className={panelClass('p-[1.1rem_1.2rem_1.25rem] mb-4')}>
+		<Panel className="p-[1.1rem_1.2rem_1.25rem] mb-4">
 			{splits.length > 0 && (
 				<>
 					<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
@@ -234,7 +236,7 @@ export function SplitsPanel({
 					) : null}
 				</div>
 			)}
-		</div>
+		</Panel>
 	);
 }
 

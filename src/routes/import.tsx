@@ -1,15 +1,13 @@
-import { panelClass, formClass, tabBarClass } from '../components/ui';
 import type { ActivityType } from '$lib/activity';
 import { SignInPanel, useAuthed } from '$lib/auth';
 import { getLogDefaults } from '$lib/server/functions';
 import { appHead } from '$lib/title';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
 import { LogForm } from '../components/LogForm';
-import { PageHero } from '../components/PageHero';
-import { SegmentedToggle } from '../components/SegmentedToggle';
+import { PageHero, PageTabs, Panel } from '../components/ui';
 
 export type AddSearch = {
 	mode?: 'gpx' | 'manual';
@@ -61,28 +59,17 @@ function AddActivity() {
 				variant="quiet"
 				kicker="GPX file or type it in"
 				title="Add activity"
-				lead={
-					<p>
-						Import a <code>.gpx</code> from Strava, or log numbers by hand. After an activity, debrief in{' '}
-						<Link to="/coach" search={{ tab: 'debrief' }}>
-							Coach
-						</Link>
-						. After a race, pin the time on{' '}
-						<Link to="/goals">Goals</Link>.
-					</p>
-				}
+				lead={<p>GPX/TCX from your watch or Strava, or type it in.</p>}
 			/>
 
 			{!authed ? (
 				<SignInPanel title="Sign in to add an activity" />
 			) : (
 				<>
-					<div className={tabBarClass()}>
-						<SegmentedToggle
-							fill
-							aria-label="How to add"
-							value={mode}
-							options={[
+					<PageTabs
+						aria-label="How to add"
+						value={mode}
+						options={[
 								{
 									value: 'gpx',
 									label: (
@@ -105,14 +92,13 @@ function AddActivity() {
 									to: '/import',
 									search: { mode: 'manual' }
 								}
-							]}
-						/>
-					</div>
+						]}
+					/>
 
 					{mode === 'gpx' ? (
-						<div className={panelClass(formClass)}>
+						<Panel form>
 							<GpxImport coachAfter />
-						</div>
+						</Panel>
 					) : (
 						<DeferredData promise={page}>
 							{(data) => (

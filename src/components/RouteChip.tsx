@@ -1,4 +1,4 @@
-import { routeChipClass } from './ui';
+import { routeChipClass } from './ui/Chrome';
 import { cn } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 

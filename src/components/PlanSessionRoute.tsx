@@ -1,4 +1,5 @@
-import { buttonClass, fieldClass } from './ui';
+import { ConfirmDialog, Dialog, Field, Select, errorMessage, useSnackbar } from './ui';
+import { buttonClass } from './ui/Button';
 import { useAuthed } from '$lib/auth';
 import { sessionCanLinkRoute, type WeekSessionView } from '$lib/plan';
 import { attachPlannedRoute, detachPlannedRoute } from '$lib/server/functions';
@@ -6,10 +7,7 @@ import type { SessionRouteRef } from '$lib/types';
 import { cn } from '$lib/ui';
 import { Link, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
-import { ConfirmDialog, Dialog } from './Dialog';
 import { RouteChip } from './RouteChip';
-import { Select } from './Select';
-import { errorMessage, useSnackbar } from './Snackbar';
 
 function sortRoutesForSession(routes: SessionRouteRef[], targetKm: number | null) {
 	return [...routes].sort((a, b) => {
@@ -101,7 +99,7 @@ export function PlanSessionRoute({
 			)}
 			<Dialog open={showPicker} title="Add route to plan" onClose={closePicker}>
 				{choices.length ? (
-					<label className={fieldClass}>
+					<Field as="label">
 						<span>Route</span>
 						<Select
 							disabled={busy}
@@ -132,7 +130,7 @@ export function PlanSessionRoute({
 								}))
 							]}
 						/>
-					</label>
+					</Field>
 				) : (
 					<p className={cn('text-muted', 'm-0')}>
 						<Link className="text-accent-fg font-semibold" to="/routes">

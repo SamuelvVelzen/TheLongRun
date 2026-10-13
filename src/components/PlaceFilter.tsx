@@ -1,6 +1,6 @@
 import { cn } from '$lib/ui';
 import { useNavigate } from '@tanstack/react-router';
-import { Select } from './Select';
+import { Select } from './ui';
 
 type PlaceRun = { country?: string; province?: string; place?: string };
 

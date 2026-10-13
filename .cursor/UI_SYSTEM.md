@@ -2,7 +2,7 @@
 
 ## Imports
 
-- **`npm run lint`** runs Prettier and ESLint (`eslint.config.js`): React + TypeScript recommended rules, `import-x/first`, and blocks legacy shim imports (`Dialog`, `Snackbar`, `PageHero` outside `ui/`).
+- **`npm run lint`** runs Prettier and ESLint (`eslint.config.js`): React + TypeScript recommended rules, **Tailwind CSS** (`eslint-plugin-tailwindcss`, config from `src/app.css`), `import-x/first`, and blocks legacy shim imports (`Dialog`, `Snackbar`, `PageHero` outside `ui/`).
 - Use **`import { … } from '../components/ui'`** (or `./ui` under `src/components`).
 - Do **not** import `PageHero`, `Dialog`, `Snackbar`, etc. from `src/components/*.tsx` shims in app code.
 - The barrel exports **components and hooks only** — not `*Class` helpers. Styling helpers live inside `src/components/ui/*` and are not part of the public API.

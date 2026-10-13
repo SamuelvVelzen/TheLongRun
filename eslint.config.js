@@ -4,6 +4,7 @@ import importX from 'eslint-plugin-import-x';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
+import eslintPluginTailwindcss from 'eslint-plugin-tailwindcss';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -22,6 +23,37 @@ export default tseslint.config(
 	react.configs.flat.recommended,
 	react.configs.flat['jsx-runtime'],
 	eslintConfigPrettier,
+	eslintPluginTailwindcss.configs.recommended,
+	{
+		settings: {
+			tailwindcss: {
+				cssConfigPath: './src/app.css'
+			}
+		},
+		rules: {
+			'tailwindcss/no-custom-classname': [
+				'warn',
+				{
+					whitelist: [
+						'app-.*',
+						'confetti-.*',
+						'heatmap-.*',
+						'live-.*',
+						'route-map.*',
+						'route-legend',
+						'map-wrap',
+						'spark-.*',
+						'scroll-to-top',
+						'sticky-chrome',
+						'tab-bar',
+						'font-inherit',
+						'^current$',
+						'^done$'
+					]
+				}
+			]
+		}
+	},
 	{
 		files: ['**/*.{js,mjs,cjs,ts,tsx}'],
 		plugins: {

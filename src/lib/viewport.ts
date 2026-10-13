@@ -1,7 +1,7 @@
-/** Scrollport: inner `.app-main` on mobile, the window on desktop. */
+/** Scrollport: `[data-app-scroll]` on mobile, the window on desktop. */
 export function getAppScrollElement(): Window | HTMLElement | null {
 	if (typeof document === 'undefined') return null;
-	const main = document.querySelector<HTMLElement>('.app-main');
+	const main = document.querySelector<HTMLElement>('[data-app-scroll]');
 	if (main) {
 		const { overflowY } = getComputedStyle(main);
 		if (overflowY === 'auto' || overflowY === 'scroll') return main;

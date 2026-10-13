@@ -6,6 +6,7 @@ import {
     type GpsContextTrack,
     type GpsWaypoint
 } from '$lib/gps-repair';
+import { mapRoutePaneTall, mapWrap } from '$lib/map-layout';
 import { loadLeaflet } from '$lib/leaflet';
 import {
     addBasemap,
@@ -241,7 +242,8 @@ export function GpsWaypointMap({
 
 	return (
 		<div
-			className="route-map-wrap map-wrap relative rounded-box overflow-hidden border border-line bg-inset"
+			data-map-wrap
+			className={mapWrap}
 			ref={wrapRef}
 		>
 			<p className="absolute z-[2] left-[0.85rem] top-[0.85rem] m-0 px-[0.65rem] py-[0.35rem] rounded-full bg-[rgba(16,20,15,0.85)] border border-line text-muted text-[0.78rem] pointer-events-none max-sm:left-2 max-sm:top-2">
@@ -254,7 +256,8 @@ export function GpsWaypointMap({
 							}`}
 			</p>
 			<div
-				className="route-map h-[min(520px,62vh)] w-full z-0 max-sm:h-[58vh] max-sm:min-h-[320px]"
+				data-route-map
+				className={mapRoutePaneTall}
 				ref={containerRef}
 			/>
 		</div>

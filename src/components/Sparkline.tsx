@@ -148,12 +148,12 @@ export function Sparkline({
 				{geometry.path && (
 					<>
 						<path
-							className="spark-hit stroke-transparent [stroke-width:16] [stroke-linecap:round] [stroke-linejoin:round] pointer-events-[stroke]"
+							className="stroke-transparent [stroke-width:16] [stroke-linecap:round] [stroke-linejoin:round] [vector-effect:non-scaling-stroke] pointer-events-[stroke]"
 							d={geometry.path}
 							fill="none"
 						/>
 						<path
-							className="spark-line [stroke-width:1.75] [stroke-linecap:round] [stroke-linejoin:round] pointer-events-none"
+							className="[stroke-width:1.75] [stroke-linecap:round] [stroke-linejoin:round] [vector-effect:non-scaling-stroke] pointer-events-none"
 							d={geometry.path}
 							stroke={color}
 							fill="none"

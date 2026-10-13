@@ -3,6 +3,7 @@ import { registerPwa } from '$lib/pwa';
 import { getAuthState } from '$lib/server/functions';
 import { applyTheme, getTheme, themeInitScript } from '$lib/theme';
 import { appTitle } from '$lib/title';
+import { appHeader, appScroll, appShell, stickyChrome, tabBar } from '$lib/shell-layout';
 import { cn } from '$lib/ui';
 import { appCanScrollTo, getAppScrollElement, scrollAppTo } from '$lib/viewport';
 import {
@@ -131,8 +132,8 @@ function RootShell() {
 			<LiveLocationShare />
 			<ScrollRestore />
 				<ScrollToTop />
-				<div className="app-shell relative z-1 flex flex-1 flex-col w-[min(1120px,calc(100%-2rem))] min-h-dvh mx-auto pt-5 pr-[env(safe-area-inset-right,0px)] pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pl-[env(safe-area-inset-left,0px)] max-sm:w-full max-sm:h-dvh max-sm:min-h-0 max-sm:overflow-hidden max-sm:pt-0 max-sm:pb-0 max-sm:pl-0 max-sm:pr-0 sm:pt-2">
-					<header className="app-header sticky-chrome flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-2 sm:pt-[calc(0.75rem+env(safe-area-inset-top,0px))] sm:pb-3">
+				<div data-app-shell className={appShell}>
+					<header data-app-header className={cn(stickyChrome, appHeader)}>
 						<Link
 							to="/"
 							className="shrink-0 font-display font-extrabold text-[1.35rem] tracking-[-0.04em] max-sm:text-[1.15rem] max-sm:py-[0.15rem] [&_span]:text-accent-fg"
@@ -170,11 +171,12 @@ function RootShell() {
 							)}
 						</div>
 					</header>
-					<main className="app-main min-w-0 flex-1 max-sm:min-h-0">
+					<main data-app-scroll className={appScroll}>
 						<Outlet />
 					</main>
 					<nav
-						className="tab-bar hidden max-sm:flex flex-none items-stretch justify-around z-40 gap-[0.15rem] border-t border-line"
+						data-tab-bar
+						className={tabBar}
 						aria-label="Primary"
 					>
 						{tabs.map((tab) => (

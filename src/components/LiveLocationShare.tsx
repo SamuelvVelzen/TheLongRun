@@ -21,6 +21,7 @@ import { addBasemap, attachMapChrome, leafletMapOptions, type MapChromeHandle } 
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
 import { getLiveLocation, pingLiveLocation, stopLiveLocation } from '$lib/server/functions';
 import { setScreenWakeLock } from '$lib/wake-lock';
+import { liveShareHost, liveWatchCanvas, liveWatchMapShell, mapWrap } from '$lib/map-layout';
 import { cn } from '$lib/ui';
 import {
     useCallback,
@@ -183,10 +184,11 @@ function LiveLocationBroadcaster() {
 			</Dialog>
 			{sharing ? (
 				<div
-					className="live-share-host fixed z-[55] inset-x-0 bottom-[calc(1.15rem+var(--safe-bottom))] flex justify-center px-4 pointer-events-none max-sm:bottom-(--tab-bar-offset) max-sm:px-3"
+					data-live-share-host
+					className={liveShareHost}
 				>
 					<div
-						className="live-share-banner pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.65rem] pr-[0.45rem] pl-[0.9rem] rounded-[14px] border border-live/40 bg-surface shadow-lift"
+						className="pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.65rem] pr-[0.45rem] pl-[0.9rem] rounded-[14px] border border-live/40 bg-surface shadow-lift"
 						role="status"
 					>
 						<span className="size-2 shrink-0 rounded-full bg-live" aria-hidden="true" />
@@ -281,7 +283,8 @@ function LiveLocationWatch() {
 			</Dialog>
 			{!watching && !promptOpen ? (
 				<div
-					className="live-watch-host fixed z-[55] inset-x-0 bottom-[calc(1.15rem+var(--safe-bottom))] flex justify-center px-4 pointer-events-none max-sm:bottom-(--tab-bar-offset) max-sm:px-3"
+					data-live-watch-host
+					className={liveShareHost}
 				>
 					<div
 						className="pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.65rem] pr-[0.45rem] pl-[0.9rem] rounded-[14px] border border-live/40 bg-surface shadow-lift"
@@ -353,8 +356,8 @@ function LiveWatchMap({ ping, onClose }: { ping: LiveLocationPing; onClose: () =
 
 	return (
 		<OverlayPortal>
-			<div className="map-wrap live-watch-map bg-inset" ref={wrapRef}>
-				<div className="live-watch-canvas" ref={containerRef} />
+			<div data-map-wrap className={cn(mapWrap, liveWatchMapShell)} ref={wrapRef}>
+				<div data-route-map className={liveWatchCanvas} ref={containerRef} />
 			</div>
 		</OverlayPortal>
 	);

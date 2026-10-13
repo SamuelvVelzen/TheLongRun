@@ -39,11 +39,11 @@ export function Confetti({ active }: { active: boolean }) {
 	if (!show) return null;
 
 	return (
-		<div className="confetti-burst pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+		<div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
 			{pieces.map((p, i) => (
 				<span
 					key={i}
-					className="confetti-piece"
+					className="absolute top-[-0.5rem] rounded-[1px] opacity-0 animate-confetti-fall [animation-fill-mode:forwards]"
 					style={{
 						left: `${p.left}%`,
 						animationDelay: `${p.delay}s`,

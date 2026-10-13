@@ -157,7 +157,7 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
 	return (
 		<SnackbarContext.Provider value={api}>
 			{children}
-			<div className={ui.snackHost} aria-live="polite" aria-relevant="additions">
+			<div className={ui.snackHost} data-snack-host aria-live="polite" aria-relevant="additions">
 				{items.map((item) => (
 					<div
 						key={item.id}

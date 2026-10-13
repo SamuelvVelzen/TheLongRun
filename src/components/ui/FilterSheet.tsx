@@ -1,5 +1,6 @@
 import type { DateRange } from '$lib/date-range';
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
+import { stickyChrome, stickySectionBar } from '$lib/shell-layout';
 import { cn } from '$lib/ui';
 import { ui } from './tokens';
 import { useEffect, useId, useState, type ReactNode } from 'react';
@@ -67,10 +68,11 @@ export function FilterSheet({
 	return (
 		<div
 			className={cn(
-				ui.stickyBar,
-				'sticky-chrome flex items-center gap-3 py-2',
-				'max-sm:items-start max-sm:pt-0 max-sm:pb-2 max-sm:mb-3',
-				'sm:-mx-2 sm:px-2 sm:mb-4'
+				stickySectionBar,
+				stickyChrome,
+				'flex items-center gap-3',
+				'max-sm:items-start max-sm:mb-3',
+				'sm:mb-4'
 			)}
 		>
 			<div

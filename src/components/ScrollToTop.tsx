@@ -1,3 +1,4 @@
+import { scrollToTopBtn } from '$lib/shell-layout';
 import { cn } from '$lib/ui';
 import { getAppScrollElement, getAppScrollY, scrollAppTo } from '$lib/viewport';
 import { useCallback, useSyncExternalStore } from 'react';
@@ -30,18 +31,18 @@ export function ScrollToTop() {
 	return (
 		<button
 			type="button"
+			data-scroll-to-top
 			aria-label="Scroll to top"
 			title="Scroll to top"
 			tabIndex={visible ? 0 : -1}
 			aria-hidden={!visible}
 			onClick={scrollTop}
 			className={cn(
-				'scroll-to-top fixed z-30 inline-flex items-center justify-center p-0 rounded-full border border-line bg-surface/92 text-fg shadow-lift backdrop-blur-[10px] cursor-pointer',
+				scrollToTopBtn,
 				'size-11 min-h-11 min-w-11',
 				'right-[max(0.85rem,var(--safe-right))] bottom-[calc(1.15rem+var(--safe-bottom))]',
 				'max-sm:size-9 max-sm:min-h-9 max-sm:min-w-9',
 				'max-sm:left-[max(0.85rem,var(--safe-left))] max-sm:right-auto',
-				'max-sm:bottom-[calc(var(--tab-bar-offset)+0.65rem)]',
 				'transition-[opacity,transform,border-color,color,visibility] duration-200',
 				'hover:border-accent/45 hover:text-accent-fg active:border-accent/45 active:text-accent-fg',
 				visible

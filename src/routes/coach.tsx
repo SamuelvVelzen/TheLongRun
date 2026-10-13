@@ -717,8 +717,8 @@ function CoachPanels({
 
 			{tab === 'debrief' && (
 				<Panel className="mb-4">
-					<ol className="list-none m-0 p-0 flex flex-col gap-6 max-sm:gap-[1.15rem] [&>li>strong]:block [&>li>strong]:text-[1.05rem] [&_li.done>strong]:text-accent-fg">
-						<li className={runs.length ? 'done' : 'current'}>
+					<ol className="list-none m-0 p-0 flex flex-col gap-6 max-sm:gap-[1.15rem] [&>li>strong]:block [&>li>strong]:text-[1.05rem]">
+						<li className={runs.length ? '[&>strong]:text-accent-fg' : undefined}>
 							<strong>1. Import the GPX</strong>
 							{runs.length > 0 && (
 								<div className="mt-[0.45rem] mb-0 font-semibold max-sm:[overflow-wrap:anywhere]">
@@ -767,7 +767,7 @@ function CoachPanels({
 								.
 							</p>
 						</li>
-						<li className={runs.length ? (allWrote ? 'done' : 'current') : undefined}>
+						<li className={runs.length && allWrote ? '[&>strong]:text-accent-fg' : undefined}>
 							<strong>2. How it felt</strong>
 							{runs.length > 0 &&
 								runs.map((r) => (
@@ -800,7 +800,7 @@ function CoachPanels({
 								</p>
 							)}
 						</li>
-						<li className={runs.length && debriefPrompt ? 'current' : undefined}>
+						<li>
 							<strong>3. Copy the prompt</strong>
 							{debrief.error && !debriefPrompt && (
 								<p className={cn('text-muted', 'mt-[0.4rem]')}>{debrief.error}</p>

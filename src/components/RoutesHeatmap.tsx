@@ -6,7 +6,9 @@ import {
 	normalizeActivityType,
 	type ActivityType
 } from '$lib/activity';
+import { mapHeatmapLegend, mapHeatmapPane, mapPillTop, mapWrap } from '$lib/map-layout';
 import { loadLeaflet } from '$lib/leaflet';
+import { cn } from '$lib/ui';
 import {
 	addBasemap,
 	addRouteEndpoints,
@@ -170,17 +172,25 @@ export function RoutesHeatmap({
 	}
 
 	return (
-		<div className="heatmap-wrap map-wrap relative rounded-box overflow-hidden border border-line bg-inset" ref={wrapRef}>
+		<div data-map-wrap className={mapWrap} ref={wrapRef}>
 			{status && (
 				<p
-					className={`heatmap-status absolute z-[2] left-[0.85rem] top-[0.85rem] m-0 px-[0.65rem] py-[0.35rem] rounded-full bg-[rgba(16,20,15,0.85)] border border-line text-[0.85rem] ${failed ? 'text-[#ffd4c2] border-[rgba(255,138,91,0.4)]' : 'text-muted'}`}
+					data-map-pill-top
+					className={cn(
+						mapPillTop,
+						failed ? 'text-[#ffd4c2] border-[rgba(255,138,91,0.4)]' : 'text-muted'
+					)}
 				>
 					{status}
 				</p>
 			)}
 			{hasFocus && !status && (
+				<div
+					data-map-pill-top
+					className={cn(mapPillTop, 'p-0 border-0 bg-transparent')}
+				>
 				<SegmentedToggle
-					className="heatmap-view-toggle absolute z-[2] left-[0.85rem] top-[0.85rem] [&_button]:text-[0.72rem] [&_button]:font-semibold max-sm:[&_button]:min-w-11 max-sm:[&_button]:min-h-11 max-sm:[&_button]:h-11 max-sm:[&_button]:text-[0.8rem] max-sm:[&_button]:px-[0.9rem] max-sm:[&_button]:py-2"
+					className="[&_button]:text-[0.72rem] [&_button]:font-semibold max-sm:[&_button]:min-w-11 max-sm:[&_button]:min-h-11 max-sm:[&_button]:h-11 max-sm:[&_button]:text-[0.8rem] max-sm:[&_button]:px-[0.9rem] max-sm:[&_button]:py-2"
 					value={view}
 					aria-label="Map zoom"
 					onChange={(next) => {
@@ -193,12 +203,10 @@ export function RoutesHeatmap({
 						{ value: 'all', label: 'All' }
 					]}
 				/>
+				</div>
 			)}
 			{legendTypes.length > 0 && !status && (
-				<div
-					className="heatmap-legend absolute z-[2] right-[0.85rem] bottom-[0.85rem] flex flex-wrap items-center gap-x-2.5 gap-y-1 px-[0.55rem] py-[0.3rem] rounded-full bg-[rgba(16,20,15,0.85)] border border-line text-muted text-[0.72rem]"
-					aria-label="Activity colours"
-				>
+				<div data-map-pill-bottom className={mapHeatmapLegend} aria-label="Activity colours">
 					{legendTypes.map((type) => (
 						<span key={type} className="inline-flex items-center gap-1.5">
 							<span
@@ -210,7 +218,7 @@ export function RoutesHeatmap({
 					))}
 				</div>
 			)}
-			<div className="heatmap-map h-[min(360px,42vh)] w-full z-0 max-sm:h-[50vh] max-sm:min-h-[280px]" ref={containerRef}></div>
+			<div data-heatmap-map className={mapHeatmapPane} ref={containerRef}></div>
 		</div>
 	);
 }

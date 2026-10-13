@@ -25,36 +25,6 @@ export default tseslint.config(
 	eslintConfigPrettier,
 	eslintPluginTailwindcss.configs.recommended,
 	{
-		settings: {
-			tailwindcss: {
-				cssConfigPath: './src/app.css'
-			}
-		},
-		rules: {
-			'tailwindcss/no-custom-classname': [
-				'warn',
-				{
-					whitelist: [
-						'app-.*',
-						'confetti-.*',
-						'heatmap-.*',
-						'live-.*',
-						'route-map.*',
-						'route-legend',
-						'map-wrap',
-						'spark-.*',
-						'scroll-to-top',
-						'sticky-chrome',
-						'tab-bar',
-						'font-inherit',
-						'^current$',
-						'^done$'
-					]
-				}
-			]
-		}
-	},
-	{
 		files: ['**/*.{js,mjs,cjs,ts,tsx}'],
 		plugins: {
 			'react-hooks': reactHooks,
@@ -74,6 +44,9 @@ export default tseslint.config(
 		},
 		settings: {
 			react: { version: 'detect' },
+			tailwindcss: {
+				cssConfigPath: './src/app.css'
+			},
 			'import-x/resolver': {
 				typescript: {
 					project: './tsconfig.json',

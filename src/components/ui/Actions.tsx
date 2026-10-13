@@ -15,5 +15,11 @@ export function Actions({
 	className,
 	...props
 }: { sticky?: boolean } & HTMLAttributes<HTMLDivElement>) {
-	return <div className={actionsClass(sticky && ui.stickyActions, className)} {...props} />;
+	return (
+		<div
+			className={actionsClass(sticky, className)}
+			data-sticky-actions={sticky ? '' : undefined}
+			{...props}
+		/>
+	);
 }

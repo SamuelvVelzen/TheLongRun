@@ -323,7 +323,7 @@ function viewportBox(): { w: number; h: number; top: number; left: number } {
 function applyFsBox(wrap: HTMLElement, mapEl: HTMLElement, on: boolean, nativeFs: boolean) {
 	if (on) {
 		const { w, h, top, left } = viewportBox();
-		wrap.classList.add('is-fullscreen');
+		wrap.dataset.mapFullscreen = 'true';
 		document.documentElement.classList.add('map-fs-active');
 		document.body.classList.add('map-fs-active');
 
@@ -360,7 +360,7 @@ function applyFsBox(wrap: HTMLElement, mapEl: HTMLElement, on: boolean, nativeFs
 		mapEl.style.setProperty('max-width', 'none', 'important');
 		mapEl.style.setProperty('max-height', 'none', 'important');
 	} else {
-		wrap.classList.remove('is-fullscreen');
+		delete wrap.dataset.mapFullscreen;
 		document.documentElement.classList.remove('map-fs-active');
 		document.body.classList.remove('map-fs-active');
 

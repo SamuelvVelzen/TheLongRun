@@ -1,3 +1,4 @@
+import { stickySectionBar } from '$lib/shell-layout';
 import { cn } from '$lib/ui';
 import type { HTMLAttributes } from 'react';
 import { ui } from './tokens';
@@ -37,7 +38,7 @@ export function mapBadgeClass(...parts: Array<string | false | null | undefined>
 export const runTitleClass = ui.runTitle;
 export const feelBadgeClass = ui.feelBadge;
 export const routeChipClass = ui.routeChip;
-export const stickyBarClass = ui.stickyBar;
+export const stickyBarClass = stickySectionBar;
 
 export function SectionTitle({ className, ...props }: HTMLAttributes<HTMLElement>) {
 	return <section className={sectionTitleClass(className)} {...props} />;

@@ -18,6 +18,7 @@ import {
     readDebriefWriteups,
     writeDebriefWriteups
 } from '$lib/debrief-writeups';
+import type { BodySuggestion } from '$lib/body-notes';
 import type { FuelEntry } from '$lib/fuel';
 import type { GearContext, GearKind, GearWear } from '$lib/gear';
 import { formatHorizonShort } from '$lib/goals';
@@ -55,6 +56,7 @@ import { DebriefFeelForm } from '../components/DebriefFeelForm';
 import { DebriefRacePanel } from '../components/DebriefRacePanel';
 import { AiPromptFlow } from '../components/AiPromptFlow';
 import { DeferredData } from '../components/DeferredData';
+import { BodySuggestionsDialog } from '../components/BodySuggestionsDialog';
 import { FuelSuggestionsDialog } from '../components/FuelSuggestionsDialog';
 import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
@@ -63,7 +65,7 @@ import { PageHero } from '../components/PageHero';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { Select } from '../components/Select';
 import { errorMessage, useSnackbar } from '../components/Snackbar';
-import { Actions, actionsClass, Button, buttonClass, Field, fieldClass, Form, formClass, panelClass, tabBarClass, Textarea } from '../components/ui';
+import { Actions, actionsClass, Button, buttonClass, Checkbox, Field, fieldClass, Form, formClass, panelClass, tabBarClass, Textarea } from '../components/ui';
 import {
     rowsFrom,
     toPattern,
@@ -81,6 +83,7 @@ type CoachSearch = RangeSearch & {
 };
 
 const RANGE_KINDS: RangeKind[] = ['7d', '30d', 'all', 'custom'];
+const DEFAULT_BRIEF_RANGE: RangeKind = '30d';
 
 function withCoachSearch(search: CoachSearch, extra: Partial<CoachSearch> = {}): CoachSearch {
 	const slug = extra.slug !== undefined ? extra.slug : search.slug;
@@ -467,7 +470,9 @@ function CoachPanels({
 	const search = Route.useSearch();
 	const router = useRouter();
 	const snack = useSnackbar();
-	const range = dateRangeFromSearch(search);
+	const range = dateRangeFromSearch(
+		search.range || search.from || search.to ? search : { range: DEFAULT_BRIEF_RANGE }
+	);
 	const authed = useAuthed();
 	const tab = visibleTab(search.tab, authed);
 	const slug = search.slug ?? '';
@@ -504,6 +509,7 @@ function CoachPanels({
 		)
 	);
 	const [fuelSuggestions, setFuelSuggestions] = useState<FuelEntry[]>([]);
+	const [bodySuggestions, setBodySuggestions] = useState<BodySuggestion[]>([]);
 
 	const [usual, setUsual] = useState<SlotRow[]>(() => rowsFrom(initialSetup.pattern));
 	const [dayLimits, setDayLimits] = useState<DayLimit[]>(initialSetup.dayLimits);
@@ -825,35 +831,25 @@ function CoachPanels({
 							<span className={cn('text-muted', 'block mt-1')}>
 								{includePlan
 									? 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary, any scores it read from your write-up, and the rest of the week. Distance, time, elevation, and pace per km are already in the prompt — no screenshots.'
-									: 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary and any scores it read from your write-up. The prompt also tells the AI to return an updated week if remaining sessions should change — even with “Include this week’s plan” off. Distance, time, elevation, and pace per km are already in the prompt — no screenshots.'}{' '}
-								If you mention food or drink (coffee before, sweets every 5 km), the AI lists it too.
+									: 'Paste into your AI. It will give advice first (including any questions you asked), then JSON with a notes summary and any scores it read from your write-up. The prompt also tells the AI to return an updated week if remaining sessions should change — even with “New chat” off. Distance, time, elevation, and pace per km are already in the prompt — no screenshots.'}{' '}
+								If you mention food or drink (coffee before, sweets every 5 km), or a niggle that started or cleared up, the AI lists it too.
 							</span>
 							{debrief.error && !debriefPrompt && (
 								<p className={cn('text-muted', 'mt-[0.4rem]')}>{debrief.error}</p>
 							)}
 							{debriefPrompt && (
 								<div className={panelClass(formClass, 'mt-3')}>
-									<label className="flex items-start gap-3 cursor-pointer m-0 select-none">
-										<input
-											className="mt-1 size-5 shrink-0 accent-[var(--accent,#c8f25a)]"
-											type="checkbox"
-											checked={includePlan}
-											onChange={(e) => setIncludePlan(e.target.checked)}
-										/>
-										<span>
-											<span className="block text-fg font-semibold">Include this week’s plan</span>
-											<span className={cn('text-muted', 'block font-normal')}>
-												Turn on for a new chat so the coach sees this week’s sessions (and can
-												return an updated week). Leave off if you are continuing a chat that
-												already has the plan — that keeps the prompt smaller.
-											</span>
-										</span>
-									</label>
 									<AiPromptFlow
 										prompt={debriefPrompt}
 										promptEditable
 										onPromptChange={setDebriefPrompt}
 										promptRows={14}
+									/>
+									<Checkbox
+										checked={includePlan}
+										onChange={setIncludePlan}
+										label="New chat — include my plan and standing info"
+										hint="Turn on when you paste into a fresh chat: adds this week's sessions, body notes, habits, fuel log and the workout rules. Leave off when you continue the chat that has your week brief — the prompt stays much smaller."
 									/>
 								</div>
 							)}
@@ -864,7 +860,7 @@ function CoachPanels({
 								{includePlan
 									? 'A short notes summary for this activity plus the updated rest of the week. Days can change. Advice stays in the chat — only the JSON is saved.'
 									: 'A short notes summary for this activity, and an updated week if remaining sessions should change. Advice stays in the chat — only the JSON is saved.'}{' '}
-								Food it found is not saved straight away — you'll be asked first.
+								Food and body notes it found are not saved straight away — you'll be asked first.
 							</span>
 							{authed ? (
 								<JsonPasteForm
@@ -901,6 +897,10 @@ function CoachPanels({
 											bits.push('food found — review it');
 											setFuelSuggestions(res.fuelSuggestions);
 										}
+										if (res.bodySuggestions.length) {
+											bits.push('body notes found — review them');
+											setBodySuggestions(res.bodySuggestions);
+										}
 										const miss = res.feelingsMissing.length
 											? ` (${res.feelingsMissing.length} slug(s) not found)`
 											: '';
@@ -919,6 +919,10 @@ function CoachPanels({
 						suggestions={fuelSuggestions}
 						onClose={() => setFuelSuggestions([])}
 					/>
+					<BodySuggestionsDialog
+						suggestions={fuelSuggestions.length ? [] : bodySuggestions}
+						onClose={() => setBodySuggestions([])}
+					/>
 				</>
 			)}
 
@@ -932,12 +936,13 @@ function CoachPanels({
 						<div className={fieldClass}>
 							<span>History window</span>
 							<div className="flex flex-wrap items-center gap-x-6 gap-y-[0.55rem]">
-								<DateRangeFilter range={range} to="/coach" />
+								<DateRangeFilter range={range} to="/coach" defaultKind={DEFAULT_BRIEF_RANGE} />
 							</div>
 						</div>
 						<p className={cn('text-muted', 'mt-[0.4rem] mb-0')}>
-							Weekly volume and the activity table both cover {range.label.toLowerCase()}. Shorter
-							windows keep the prompt tighter.
+							The activity table covers {range.label.toLowerCase()}. Weekly volume (20 weeks), monthly
+							and yearly totals and PBs are always included, so a short window keeps the prompt small
+							without losing the long view.
 							{planData.activeGoal
 								? ` Generating week ${planData.generateWeek} of ${planData.calendar.weekCount} toward ${planData.activeGoal.name}.`
 								: planData.intentions.length

@@ -9,12 +9,20 @@ import { Button, useAppForm } from './ui';
 
 export type RangeSearch = { range?: RangeKind; from?: string; to?: string };
 
-/** Always returns all range keys (undefined clears them) so it can be merged over prior search. */
-export function rangeToSearch(kind: RangeKind, from?: string, to?: string): RangeSearch {
+/**
+ * Always returns all range keys (undefined clears them) so it can be merged over prior search.
+ * The page's default range is the bare URL; any other preset is written out.
+ */
+export function rangeToSearch(
+	kind: RangeKind,
+	from?: string,
+	to?: string,
+	defaultKind: RangeKind = 'all'
+): RangeSearch {
 	if (kind === 'custom') {
 		return { range: 'custom', from: from || undefined, to: to || undefined };
 	}
-	if (kind === 'all') return { range: undefined, from: undefined, to: undefined };
+	if (kind === defaultKind) return { range: undefined, from: undefined, to: undefined };
 	return { range: kind, from: undefined, to: undefined };
 }
 
@@ -24,7 +32,15 @@ const presets: { kind: RangeKind; label: string; shortLabel: string }[] = [
 	{ kind: '7d', label: '7 days', shortLabel: '7d' }
 ];
 
-export function DateRangeFilter({ range, to }: { range: DateRange; to: string }) {
+export function DateRangeFilter({
+	range,
+	to,
+	defaultKind = 'all'
+}: {
+	range: DateRange;
+	to: string;
+	defaultKind?: RangeKind;
+}) {
 	const navigate = useNavigate();
 	const [customOpen, setCustomOpen] = useState(false);
 	const form = useAppForm({
@@ -84,7 +100,7 @@ export function DateRangeFilter({ range, to }: { range: DateRange; to: string })
 						to,
 						search: (prev: Record<string, unknown>) => ({
 							...prev,
-							...rangeToSearch(preset.kind)
+							...rangeToSearch(preset.kind, undefined, undefined, defaultKind)
 						})
 					})),
 					{

@@ -27,6 +27,7 @@ import { RouteAttach } from '../components/RouteAttach';
 import {
 	Actions,
 	Button,
+	ChangeReporter,
 	ConfirmDialog,
 	Form,
 	IconLabelButton,
@@ -38,6 +39,8 @@ import {
 	RunTitle,
 	errorMessage,
 	useAppForm,
+	useDiscardGuard,
+	useLeaveGuard,
 	useSnackbar
 } from '../components/ui';
 import { buttonClass } from '../components/ui/Button';
@@ -62,6 +65,11 @@ function PlannedRouteDetail() {
 	const pathRef = useRef<WaypointEditorHandle>(null);
 	const [editing, setEditing] = useState(false);
 	const [pendingDelete, setPendingDelete] = useState(false);
+	/** False until the name/notes form actually differs from its defaults. */
+	const [formDirty, setFormDirty] = useState(false);
+	/** False until the pins or the follow-roads toggle differ from the saved route. */
+	const [pinsDirty, setPinsDirty] = useState(false);
+	const editDirty = formDirty || pinsDirty;
 	const form = useAppForm({
 		defaultValues: { name: route.name, notes: route.notes },
 		validators: {
@@ -106,6 +114,16 @@ function PlannedRouteDetail() {
 			}
 		}
 	});
+	const [requestCancel, discardGuard] = useDiscardGuard({
+		dirty: editDirty,
+		onDiscard: () => {
+			form.reset({ name: route.name, notes: route.notes });
+			setEditing(false);
+		},
+		title: 'Discard these changes?',
+		description: 'Your pin and text edits will be lost.'
+	});
+	const { guard: leaveGuard } = useLeaveGuard({ dirty: editing && editDirty });
 	const editPins = useMemo(
 		() => editablePinsFromPlannedRoute(route.geojson, route.waypoints),
 		[route.geojson, route.waypoints]
@@ -125,16 +143,13 @@ function PlannedRouteDetail() {
 	useEffect(() => {
 		if (editing) return;
 		form.reset({ name: route.name, notes: route.notes });
+		setFormDirty(false);
+		setPinsDirty(false);
 	}, [editing, route.name, route.notes]);
 
 	function startEditing() {
 		form.reset({ name: route.name, notes: route.notes });
 		setEditing(true);
-	}
-
-	function cancelEditing() {
-		form.reset({ name: route.name, notes: route.notes });
-		setEditing(false);
 	}
 
 	function remove() {
@@ -190,6 +205,9 @@ function PlannedRouteDetail() {
 
 	return (
 		<>
+			<form.Subscribe selector={(s) => s.isDirty}>
+				{(dirty) => <ChangeReporter value={dirty} onChange={setFormDirty} />}
+			</form.Subscribe>
 			{editing ? (
 				<Form
 					onSubmit={(e) => {
@@ -224,6 +242,7 @@ function PlannedRouteDetail() {
 							ref={pathRef}
 							embedded
 							initialWaypoints={editPins}
+							onDirtyChange={setPinsDirty}
 							contextTracks={editPins.length >= 2 ? [] : savedTrack}
 							emptyHint="Tap to drop pins along the loop"
 							hint="Place pins in order. Tap a pin to remove it, or tap the line to add one between. Drag to adjust."
@@ -246,7 +265,7 @@ function PlannedRouteDetail() {
 					<Actions sticky>
 						<form.Subscribe selector={(s) => s.isSubmitting}>
 							{(busy) => (
-								<Button variant="ghost" disabled={busy} onClick={cancelEditing}>
+								<Button variant="ghost" disabled={busy} onClick={requestCancel}>
 									Cancel
 								</Button>
 							)}
@@ -418,6 +437,8 @@ function PlannedRouteDetail() {
 					await router.navigate({ to: '/routes' });
 				}}
 			/>
+			{discardGuard}
+			{leaveGuard}
 		</>
 	);
 }

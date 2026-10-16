@@ -27,8 +27,8 @@ import {
 } from '$lib/strength';
 import { activityTitlePart, appHead } from '$lib/title';
 import { cn } from '$lib/ui';
-import { createFileRoute, Link, notFound, useBlocker, useRouter } from '@tanstack/react-router';
-import { useCallback, useRef, useState } from 'react';
+import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
+import { useEffect, useState } from 'react';
 import { ActivityForm } from '../components/ActivityForm';
 import { BestEffortBadges } from '../components/BestEffortBadges';
 import { EditButton, TrashIcon } from '../components/DeleteButton';
@@ -52,6 +52,7 @@ import {
 	Panel,
 	PanelTitle,
 	errorMessage,
+	useLeaveGuard,
 	useSnackbar
 } from '../components/ui';
 import { buttonClass } from '../components/ui/Button';
@@ -329,21 +330,12 @@ function RunDetail() {
 	const snack = useSnackbar();
 	const { edit: editFromSearch } = Route.useSearch();
 	const editing = authed && Boolean(editFromSearch);
-	const skipLeaveRef = useRef(false);
-	const shouldBlockLeave = useCallback(() => {
-		if (skipLeaveRef.current) {
-			skipLeaveRef.current = false;
-			return false;
-		}
-		return true;
-	}, []);
-	const leaveBlocker = useBlocker({
-		shouldBlockFn: shouldBlockLeave,
-		withResolver: true,
-		enableBeforeUnload: true,
-		disabled: !editing
-	});
-	const leaveOpen = leaveBlocker.status === 'blocked';
+	/** False until a field in the edit form actually differs from its default. */
+	const [formDirty, setFormDirty] = useState(false);
+	useEffect(() => {
+		if (!editing) setFormDirty(false);
+	}, [editing]);
+	const { guard: leaveGuard, allowNextLeave } = useLeaveGuard({ dirty: editing && formDirty });
 
 	async function onSaveHrMax(hrMax: number | null) {
 		await saveHrMax({ data: hrMax });
@@ -353,7 +345,7 @@ function RunDetail() {
 	const [pendingDelete, setPendingDelete] = useState(false);
 	const [feelAiOpen, setFeelAiOpen] = useState(false);
 	const [groupOpen, setGroupOpen] = useState(false);
-	const [groupPick, setGroupPick] = useState<string[]>([]);
+	const [groupPick, setGroupPick] = useState<number[]>([]);
 	const [downloading, setDownloading] = useState(false);
 
 	const viewGearKind = gearKindForActivity(r.activity_type);
@@ -415,7 +407,7 @@ function RunDetail() {
 	/** Full current values as an UpdateRunInput, so a quick-edit only overrides one field. */
 	function runToInput(): UpdateRunInput {
 		return {
-			slug: r.slug,
+			id: r.id,
 			date: r.date,
 			activity_type: r.activity_type || 'run',
 			session: r.session || 'other',
@@ -574,6 +566,7 @@ function RunDetail() {
 					habits={habits}
 					extraGear={[r.gear]}
 					runSlug={r.slug}
+					onDirtyChange={setFormDirty}
 					defaultValues={runToActivityForm({
 						...r,
 						before_notes: ritual.before,
@@ -587,8 +580,8 @@ function RunDetail() {
 					}
 					onSubmit={async (values) => {
 						try {
-							const res = await updateRun({ data: toUpdateRunInput(r.slug, values) });
-							skipLeaveRef.current = true;
+							const res = await updateRun({ data: toUpdateRunInput(r.id, values) });
+							allowNextLeave();
 							await router.invalidate();
 							await router.navigate({
 								to: '/runs/$slug',
@@ -777,6 +770,7 @@ function RunDetail() {
 					)}
 
 					<GpsRepair
+						runId={r.id}
 						slug={r.slug}
 						date={r.date}
 						activityType={r.activity_type}
@@ -986,7 +980,7 @@ function RunDetail() {
 							onClick={async () => {
 								try {
 									const res = await createActivityGroupFn({
-										data: { slugs: [r.slug, ...groupPick] }
+										data: { ids: [r.id, ...groupPick] }
 									});
 									setGroupOpen(false);
 									await router.invalidate();
@@ -1014,10 +1008,10 @@ function RunDetail() {
 							return sameA - sameB || b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug);
 						})
 						.map((opt) => {
-							const on = groupPick.includes(opt.slug);
+							const on = groupPick.includes(opt.id);
 							return (
 								<button
-									key={opt.slug}
+									key={opt.id}
 									type="button"
 									className={cn(
 										'flex items-center justify-between gap-3 min-h-11 px-3 py-2 rounded-xl border text-left',
@@ -1026,9 +1020,9 @@ function RunDetail() {
 									aria-pressed={on}
 									onClick={() =>
 										setGroupPick((prev) =>
-											prev.includes(opt.slug)
-												? prev.filter((s) => s !== opt.slug)
-												: [...prev, opt.slug]
+											prev.includes(opt.id)
+												? prev.filter((id) => id !== opt.id)
+												: [...prev, opt.id]
 										)
 									}
 								>
@@ -1051,22 +1045,14 @@ function RunDetail() {
 				</div>
 			</Dialog>
 			<FeelAiDialog open={feelAiOpen} run={r} onClose={() => setFeelAiOpen(false)} />
-			<ConfirmDialog
-				open={leaveOpen}
-				title="Are you sure?"
-				description="You'll lose any unsaved changes."
-				confirmLabel="Leave"
-				cancelLabel="Keep editing"
-				onClose={() => leaveBlocker.reset?.()}
-				onConfirm={() => leaveBlocker.proceed?.()}
-			/>
+			{leaveGuard}
 			<ConfirmDialog
 				open={pendingDelete}
 				title="Delete this activity?"
 				description={`${r.date}${r.day ? ` · ${r.day}` : ''}. This cannot be undone.`}
 				onClose={() => setPendingDelete(false)}
 				onConfirm={async () => {
-					await deleteRun({ data: r.slug });
+					await deleteRun({ data: r.id });
 					await router.invalidate();
 					router.navigate({ to: '/timeline' });
 				}}

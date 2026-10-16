@@ -67,17 +67,23 @@ function iconForPlanDate(date: string | null): 'sun' | 'calendar' | 'arrow' {
 function WeekProgressStrip({
 	view,
 	calendar,
-	coachSearch
+	coachSearch,
+	embedded = false
 }: {
 	view: WeekView;
 	calendar: PlanCalendar;
 	coachSearch: { tab: 'plan'; planWeek: number };
+	/** Inside week meta block (below week title). */
+	embedded?: boolean;
 }) {
 	const groups = weekDayGroupsCalendarOrder(view, calendar);
 
 	return (
 		<div
-			className="flex justify-between gap-0.5 mt-3 mb-2 max-sm:mt-2 max-sm:mb-1.5"
+			className={cn(
+				'flex justify-between gap-0.5',
+				embedded ? 'mt-2 mb-1 max-sm:mt-1.5 max-sm:mb-0.5' : 'mt-3 mb-2 max-sm:mt-2 max-sm:mb-1.5'
+			)}
 			role="list"
 			aria-label="This week Monday through Sunday"
 		>
@@ -122,17 +128,19 @@ function WeekProgressStrip({
 
 function WeekMetaBlock({
 	weekView,
+	calendar,
 	coachPlanSearch,
 	unloggedCount
 }: {
 	weekView: WeekView;
+	calendar: PlanCalendar;
 	coachPlanSearch: { tab: 'plan'; planWeek: number };
 	unloggedCount: number;
 }) {
 	const weekShort = [`Week ${weekView.week.week}`, weekView.week.phase].filter(Boolean).join(' · ');
 
 	return (
-		<div className="pt-2.5 border-t border-line/80 max-sm:pt-2">
+		<div className="mt-3 pt-2.5 border-t border-line/80 max-sm:mt-2.5 max-sm:pt-2">
 			<Link
 				to="/coach"
 				search={coachPlanSearch}
@@ -140,6 +148,12 @@ function WeekMetaBlock({
 			>
 				{weekShort}
 			</Link>
+			<WeekProgressStrip
+				view={weekView}
+				calendar={calendar}
+				coachSearch={coachPlanSearch}
+				embedded
+			/>
 			{weekView.week.focus ? (
 				<p
 					className={cn(
@@ -294,9 +308,9 @@ export function DashboardNextUp({
 					routes={planRoutes}
 					todayUnplanned={highlightHead.isToday ? todayUnplanned : []}
 				/>
-				<WeekProgressStrip view={weekView} calendar={calendar} coachSearch={coachPlanSearch} />
 				<WeekMetaBlock
 					weekView={weekView}
+					calendar={calendar}
 					coachPlanSearch={coachPlanSearch}
 					unloggedCount={unloggedCount}
 				/>
@@ -324,7 +338,6 @@ export function DashboardNextUp({
 							? 'Week complete — some sessions skipped'
 							: 'All planned sessions logged'}
 			</h2>
-			<WeekProgressStrip view={weekView} calendar={calendar} coachSearch={coachPlanSearch} />
 			{canPlanNext ? (
 				<Link
 					to="/coach"
@@ -354,6 +367,7 @@ export function DashboardNextUp({
 			)}
 			<WeekMetaBlock
 				weekView={weekView}
+				calendar={calendar}
 				coachPlanSearch={coachPlanSearch}
 				unloggedCount={unloggedCount}
 			/>

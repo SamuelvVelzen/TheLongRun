@@ -66,40 +66,33 @@ const headerLinks = [
 	{ href: '/goals', label: 'Goals', icon: 'trophy' }
 ] as const;
 
-const moreLinks = [
-	{ href: '/goals', label: 'Goals', icon: 'trophy' },
-	{ href: '/import', label: 'Add activity', icon: 'plus' },
-	{ href: '/gear', label: 'Gear', icon: 'gear' },
+const menuLinks = [
+	{ href: '/gear', label: 'Gear', icon: 'shoe' },
 	{ href: '/fuel', label: 'Fuel', icon: 'fuel' },
-	{ href: '/profile', label: 'Profile', icon: 'profile' }
-] as const;
-
-const desktopMoreLinks = [
-	{ href: '/gear', label: 'Gear', icon: 'gear' },
-	{ href: '/fuel', label: 'Fuel', icon: 'fuel' },
-	{ href: '/profile', label: 'Profile', icon: 'profile' }
+	{ href: '/profile', label: 'Settings', icon: 'gear' }
 ] as const;
 
 const tabs = [
 	{ href: '/', label: 'Home', icon: 'home', primary: false },
 	{ href: '/timeline', label: 'Timeline', icon: 'timeline', primary: false },
 	{ href: '/coach', label: 'Coach', icon: 'coach', primary: true },
-	{ href: '/routes', label: 'Routes', icon: 'routes', primary: false }
+	{ href: '/routes', label: 'Routes', icon: 'routes', primary: false },
+	{ href: '/goals', label: 'Goals', icon: 'trophy', primary: false }
 ] as const;
 
 const navLink =
 	'inline-flex items-center gap-1.5 min-h-11 px-3 py-[0.45rem] rounded-full text-muted whitespace-nowrap transition-colors duration-150 hover:text-fg hover:bg-panel data-[status=active]:text-fg! data-[status=active]:bg-panel!';
 const navCoach =
 	'inline-flex items-center gap-1.5 min-h-11 px-3 py-[0.45rem] rounded-full text-muted whitespace-nowrap transition-colors duration-150 hover:text-fg hover:bg-panel data-[status=active]:text-accent-ink! data-[status=active]:bg-accent!';
-const navAuth =
-	'inline-flex items-center justify-center size-11 shrink-0 rounded-full text-muted transition-colors duration-150 hover:text-fg hover:bg-panel';
-const navAdd =
-	'inline-flex items-center justify-center size-11 shrink-0 rounded-full bg-accent text-accent-ink transition-[opacity,box-shadow] duration-150 hover:opacity-90 data-[status=active]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_28%,transparent)]';
 const tabItem =
 	'group flex-1 flex flex-col items-center justify-center gap-[0.12rem] min-w-0 min-h-11 p-[0.2rem_0.15rem] rounded-xl text-muted bg-transparent cursor-pointer transition-colors duration-150 hover:text-fg active:text-fg data-[status=active]:text-accent-fg! data-[status=active]:hover:text-accent-fg';
 const tabItemPrimary = cn(tabItem, 'text-accent-fg');
 const tabMoreLink =
 	'flex items-center gap-[0.65rem] min-h-11 px-[0.9rem] py-[0.55rem] rounded-xl text-muted transition-colors duration-150 hover:text-fg hover:bg-panel data-[status=active]:text-fg! data-[status=active]:bg-panel! active:text-fg active:bg-panel';
+const tabMoreButton = cn(
+	tabMoreLink,
+	'flex w-full border-0 bg-transparent text-left cursor-pointer'
+);
 
 function closeDetails(e: MouseEvent<HTMLElement>) {
 	const details = e.currentTarget.closest('details');
@@ -121,7 +114,6 @@ function RootComponent() {
 
 function RootShell() {
 	const authed = useAuthed();
-	const extra = moreLinks.filter((l) => authed || l.href !== '/import');
 	useEffect(() => {
 		applyTheme(getTheme());
 		registerPwa();
@@ -133,7 +125,10 @@ function RootShell() {
 				<ScrollRestore />
 				<ScrollToTop />
 				<div data-app-shell className={appShell}>
-					<header data-app-header className={cn(stickyChrome, appHeader)}>
+					<header
+						data-app-header
+						className={cn(stickyChrome, appHeader, 'has-[details[open]]:z-50')}
+					>
 						<Link
 							to="/"
 							className="shrink-0 font-display font-extrabold text-[1.35rem] tracking-[-0.04em] max-sm:text-[1.15rem] max-sm:py-[0.15rem] [&_span]:text-accent-fg"
@@ -155,24 +150,25 @@ function RootShell() {
 									{l.label}
 								</Link>
 							))}
-							<DesktopMore />
+							<DesktopProfile />
 						</nav>
-						<div className="flex items-center gap-[0.35rem] shrink-0">
-							<ThemeToggle className={navAuth} />
-							{authed ? (
-								<Link
-									to="/import"
-									className={navAdd}
-									aria-label="Add activity"
-									title="Add activity"
-									activeOptions={{ includeSearch: false }}
-								>
-									<Icon name="plus" size={20} />
-								</Link>
-							) : (
-								<AuthNavIcon />
-							)}
-						</div>
+						<details className="relative group sm:hidden">
+							<summary
+								className="relative z-[42] inline-flex items-center justify-center size-11 shrink-0 rounded-full text-muted cursor-pointer list-none [&::-webkit-details-marker]:hidden transition-colors duration-150 hover:text-fg hover:bg-panel group-open:text-fg group-open:bg-panel"
+								aria-label="Profile"
+								title="Profile"
+							>
+								<Icon name="profile" size={22} />
+							</summary>
+							<div
+								className="fixed inset-0 z-40 cursor-pointer touch-none"
+								onClick={closeDetails}
+								aria-hidden="true"
+							/>
+							<div className="absolute right-0 top-[calc(100%+0.35rem)] z-[41] grid min-w-[13rem] gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift max-h-[calc(100dvh-var(--app-header-height)-1.25rem)] overflow-y-auto overscroll-contain">
+								<ProfileMenuItems authed={authed} mobile />
+							</div>
+						</details>
 					</header>
 					<main data-app-scroll className={appScroll}>
 						<Outlet />
@@ -199,59 +195,6 @@ function RootShell() {
 								</span>
 							</Link>
 						))}
-						<details className="relative flex-1 min-w-0 group">
-							<summary
-								className={cn(
-									tabItem,
-									'list-none w-full [&::-webkit-details-marker]:hidden group-has-[a[data-status=active]]:text-accent-fg'
-								)}
-							>
-								<span className="flex items-center justify-center size-6 leading-[0]">
-									<Icon name="more" size={22} />
-								</span>
-								<span className="text-[0.68rem] font-semibold tracking-[0.01em] leading-none whitespace-nowrap">
-									More
-								</span>
-							</summary>
-							<div
-								className="fixed inset-0 z-40 bg-black/45 cursor-pointer"
-								onClick={closeDetails}
-								aria-hidden="true"
-							/>
-							<div className="fixed left-3 right-3 bottom-(--tab-bar-offset) z-[41] grid gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">
-								{extra.map((l) => (
-									<Link
-										key={l.href}
-										to={l.href}
-										className={tabMoreLink}
-										activeOptions={{ includeSearch: false }}
-										onClick={closeDetails}
-									>
-										<Icon name={l.icon} size={18} />
-										{l.label}
-									</Link>
-								))}
-								{authed ? (
-									<Link
-										to="/routes"
-										search={{ draw: true }}
-										className={tabMoreLink}
-										onClick={closeDetails}
-									>
-										<Icon name="map" size={18} />
-										Plan route
-									</Link>
-								) : null}
-								<PwaInstall className={tabMoreLink} />
-								{authed ? (
-									<>
-										<LiveLocationMenuItem className={tabMoreLink} onClick={closeDetails} />
-										<div className="my-[0.15rem] border-t border-line" />
-										<SignOutLink className={destructiveNavLinkClass()} onClick={closeDetails} />
-									</>
-								) : null}
-							</div>
-						</details>
 					</nav>
 				</div>
 			</SnackbarProvider>
@@ -259,7 +202,55 @@ function RootShell() {
 	);
 }
 
-function DesktopMore() {
+function ProfileMenuItems({ authed, mobile = false }: { authed: boolean; mobile?: boolean }) {
+	return (
+		<>
+			{authed ? (
+				<Link
+					to="/import"
+					search={{ mode: 'manual' }}
+					className={tabMoreLink}
+					onClick={closeDetails}
+				>
+					<Icon name="plus" size={18} />
+					Add activity
+				</Link>
+			) : null}
+			{menuLinks.map((l) => (
+				<Link
+					key={l.href}
+					to={l.href}
+					className={tabMoreLink}
+					activeOptions={{ includeSearch: false }}
+					onClick={closeDetails}
+				>
+					<Icon name={l.icon} size={18} />
+					{l.label}
+				</Link>
+			))}
+			{authed ? (
+				<Link to="/routes" search={{ draw: true }} className={tabMoreLink} onClick={closeDetails}>
+					<Icon name="map" size={18} />
+					Plan route
+				</Link>
+			) : null}
+			{mobile ? <PwaInstall className={tabMoreLink} /> : null}
+			{authed ? <LiveLocationMenuItem className={tabMoreLink} onClick={closeDetails} /> : null}
+			<div className="my-[0.15rem] border-t border-line" />
+			<ThemeToggle className={tabMoreButton} showLabel onClick={closeDetails} />
+			{authed ? (
+				<SignOutLink className={destructiveNavLinkClass()} onClick={closeDetails} />
+			) : (
+				<SignInLink className={tabMoreLink} onClick={closeDetails}>
+					<Icon name="signIn" size={18} />
+					Sign in
+				</SignInLink>
+			)}
+		</>
+	);
+}
+
+function DesktopProfile() {
 	const authed = useAuthed();
 	return (
 		<details className="relative z-50 group">
@@ -271,40 +262,16 @@ function DesktopMore() {
 					'group-has-[a[data-status=active]]:text-fg group-has-[a[data-status=active]]:bg-panel'
 				)}
 			>
-				<Icon name="more" size={15} />
-				More
+				<Icon name="profile" size={15} />
+				Profile
 			</summary>
 			<div
 				className="fixed inset-0 z-40 cursor-pointer"
 				onClick={closeDetails}
 				aria-hidden="true"
 			/>
-			<div className="absolute right-0 top-[calc(100%+0.35rem)] z-[41] grid min-w-[13rem] gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">
-				{desktopMoreLinks.map((l) => (
-					<Link
-						key={l.href}
-						to={l.href}
-						className={tabMoreLink}
-						activeOptions={{ includeSearch: false }}
-						onClick={closeDetails}
-					>
-						<Icon name={l.icon} size={18} />
-						{l.label}
-					</Link>
-				))}
-				{authed ? (
-					<Link to="/routes" search={{ draw: true }} className={tabMoreLink} onClick={closeDetails}>
-						<Icon name="map" size={18} />
-						Plan route
-					</Link>
-				) : null}
-				{authed ? (
-					<>
-						<LiveLocationMenuItem className={tabMoreLink} onClick={closeDetails} />
-						<div className="my-[0.15rem] border-t border-line" />
-						<SignOutLink className={destructiveNavLinkClass()} onClick={closeDetails} />
-					</>
-				) : null}
+			<div className="absolute right-0 top-[calc(100%+0.35rem)] z-[41] grid min-w-[13rem] gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift max-h-[calc(100dvh-var(--app-header-height)-1.25rem)] overflow-y-auto overscroll-contain">
+				<ProfileMenuItems authed={authed} />
 			</div>
 		</details>
 	);
@@ -340,14 +307,6 @@ function SignOutLink({
 			<Icon name="signOut" size={18} />
 			Sign out
 		</a>
-	);
-}
-
-function AuthNavIcon() {
-	return (
-		<SignInLink className={navAuth} aria-label="Sign in">
-			<Icon name="signIn" size={22} />
-		</SignInLink>
 	);
 }
 

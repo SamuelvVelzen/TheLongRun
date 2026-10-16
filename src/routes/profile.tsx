@@ -20,7 +20,7 @@ import {
 
 export const Route = createFileRoute('/profile')({
 	loader: () => ({ page: getProfileData() }),
-	head: () => appHead('Profile'),
+	head: () => appHead('Settings'),
 	component: ProfilePage
 });
 
@@ -29,8 +29,8 @@ function ProfilePage() {
 	const authed = useAuthed();
 	return (
 		<>
-			<PageHero variant="quiet" kicker="Standing notes" title="Profile" />
-			{!authed ? <SignInPanel title="Sign in to edit profile" /> : null}
+			<PageHero variant="quiet" kicker="Profile" title="Settings" />
+			{!authed ? <SignInPanel title="Sign in to edit settings" /> : null}
 			<DeferredData promise={page}>
 				{(data) => (
 					<>

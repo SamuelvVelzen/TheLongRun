@@ -1,6 +1,8 @@
 import { StatusPill } from './ui';
 import { activityLabel } from '$lib/activity';
 import {
+	planDayKicker,
+	planDaySubline,
 	sessionMeasureLabel,
 	weekDayGroups,
 	type UnplannedActivity,
@@ -14,16 +16,7 @@ import { useState } from 'react';
 import { ActivityIcon, Icon } from './Icon';
 import { PlanSessionBody } from './PlanSessionBody';
 import { PlanSessionMenu } from './PlanSessionMenu';
-import { PlanSessionRoute } from './PlanSessionRoute';
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function shortDate(iso: string | null): string {
-	if (!iso) return '';
-	const d = new Date(`${iso}T12:00:00`);
-	if (Number.isNaN(d.getTime())) return iso.slice(5);
-	return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
-}
+import { PlanSessionRoute, PlanSessionRouteOpenLink } from './PlanSessionRoute';
 
 function StatusBadge({
 	done,
@@ -118,39 +111,166 @@ export function UnplannedRow({ item, divided }: { item: UnplannedActivity; divid
 	);
 }
 
+function sessionSportLine(session: WeekSessionView): string {
+	return [activityLabel(session.activity_type ?? 'run'), sessionMeasureLabel(session)]
+		.filter(Boolean)
+		.join(' · ');
+}
+
 export function PlannedSessionRow({
 	session,
 	week,
 	routes,
-	divided
+	divided,
+	layout = 'board',
+	coachPlanWeek,
+	sessionDate = null,
+	headingId,
+	surface = 'coach'
 }: {
 	session: WeekSessionView;
 	week: number;
 	routes: SessionRouteRef[];
 	divided: boolean;
+	layout?: 'board' | 'compact';
+	coachPlanWeek?: number;
+	/** Compact header kicker; calendar date omitted when `session.isToday`. */
+	sessionDate?: string | null;
+	headingId?: string;
+	surface?: 'coach' | 'nextUp';
 }) {
 	const [routePickerOpen, setRoutePickerOpen] = useState(false);
+	const [confirmUnlink, setConfirmUnlink] = useState(false);
 	const logSlug = session.done ? session.logSlug : null;
+	const linked = Boolean(session.route && !session.done);
+	const compact = layout === 'compact';
+	const sportLine = sessionSportLine(session);
 	const className = cn(
-		'flex flex-col gap-[0.2rem] min-w-0',
-		divided && 'pt-3 border-t border-line',
+		'flex flex-col min-w-0',
+		compact ? 'gap-1' : 'gap-[0.2rem]',
+		divided && !compact && 'pt-3 border-t border-line',
+		divided && compact && 'pt-2 border-t border-line/80',
 		session.done && 'opacity-80',
 		session.skipped && 'opacity-55',
-		session.route &&
-			!session.done &&
-			'rounded-inset -mx-1 px-1 pb-1 border border-[color-mix(in_srgb,var(--color-accent)_28%,transparent)]',
 		logSlug && 'text-inherit no-underline rounded-inset -mx-1 px-1 py-1 hover:bg-accent/6'
 	);
-	const body = (
+	const menu = (
+		<PlanSessionMenu
+			week={week}
+			session={session}
+			linked={linked}
+			onAddRoute={() => setRoutePickerOpen(true)}
+			onUnlinkRoute={linked ? () => setConfirmUnlink(true) : undefined}
+			coachPlanWeek={coachPlanWeek}
+		/>
+	);
+	const statusOnly =
+		session.done || session.skipped || session.unlogged
+			? (
+					<StatusBadge
+						done={session.done}
+						skipped={session.skipped}
+						unlogged={session.unlogged}
+						isNext={false}
+						isToday={false}
+					/>
+				)
+			: null;
+
+	const routeDialogs = (
+		<PlanSessionRoute
+			week={week}
+			session={session}
+			routes={routes}
+			pickerOpen={routePickerOpen}
+			onPickerClose={() => setRoutePickerOpen(false)}
+			confirmUnlink={confirmUnlink}
+			onConfirmUnlinkChange={setConfirmUnlink}
+			variant="none"
+		/>
+	);
+	const routeToolbar =
+		linked && session.route ? (
+			<PlanSessionRouteOpenLink
+				route={session.route}
+				compact={compact}
+				onClick={(e) => e.stopPropagation()}
+			/>
+		) : null;
+	const toolbar = (
+		<div className="flex items-center gap-0.5 shrink-0 self-start -mt-0.5">
+			{statusOnly}
+			{routeToolbar}
+			{menu}
+		</div>
+	);
+
+	const body = compact ? (
 		<>
-			<div className="flex items-center justify-between gap-2 min-w-0">
-				<span className="inline-flex items-center gap-1 text-[0.78rem] font-semibold text-muted min-w-0 [overflow-wrap:anywhere]">
+			<div className="flex items-start justify-between gap-2 min-w-0">
+				<div className="min-w-0 flex-1">
+					{sessionDate ? (
+						<p className="m-0 text-[0.7rem] tracking-[0.06em] uppercase font-bold text-accent-fg leading-snug">
+							{planDayKicker(sessionDate)}
+							{!session.isToday ? (
+								<span className="text-muted font-semibold normal-case tracking-normal text-[0.78rem]">
+									{' · '}
+									{planDaySubline(sessionDate)}
+								</span>
+							) : null}
+						</p>
+					) : null}
+					{headingId ? (
+						<h2
+							id={headingId}
+							className={cn(
+								'm-0 font-display font-[750] tracking-[-0.03em] leading-[1.2] [overflow-wrap:anywhere]',
+								sessionDate ? 'mt-0.5 text-[1.25rem] max-sm:text-[1.1rem]' : 'text-[1.02rem]'
+							)}
+						>
+							{session.label}
+							{sportLine ? (
+								<span className="text-muted font-semibold text-[0.85rem] max-sm:text-[0.8rem]">
+									{' · '}
+									{sportLine}
+								</span>
+							) : null}
+						</h2>
+					) : (
+						<p
+							className={cn(
+								'm-0 font-display font-[750] tracking-[-0.03em] leading-[1.2] [overflow-wrap:anywhere]',
+								sessionDate ? 'mt-0.5 text-[1.25rem] max-sm:text-[1.1rem]' : 'text-[1.02rem]'
+							)}
+						>
+							{session.label}
+							{sportLine ? (
+								<span className="text-muted font-semibold text-[0.85rem] max-sm:text-[0.8rem]">
+									{' · '}
+									{sportLine}
+								</span>
+							) : null}
+						</p>
+					)}
+				</div>
+				{toolbar}
+			</div>
+			<PlanSessionBody
+				session={session}
+				compact
+				surface={surface}
+				className="[overflow-wrap:anywhere]"
+			/>
+			{routeDialogs}
+		</>
+	) : (
+		<>
+			<div className="flex items-start justify-between gap-2 min-w-0">
+				<span className="inline-flex items-center gap-1 text-[0.78rem] font-semibold text-muted min-w-0 [overflow-wrap:anywhere] pt-0.5">
 					<ActivityIcon type={session.activity_type ?? 'run'} size={13} />
-					{[activityLabel(session.activity_type ?? 'run'), sessionMeasureLabel(session)]
-						.filter(Boolean)
-						.join(' · ')}
+					{sportLine}
 				</span>
-				<div className="flex items-center gap-0.5 shrink-0">
+				<div className="flex items-center gap-0.5 shrink-0 self-start">
 					<StatusBadge
 						done={session.done}
 						skipped={session.skipped}
@@ -158,21 +278,15 @@ export function PlannedSessionRow({
 						isNext={session.isNext}
 						isToday={session.isToday}
 					/>
-					<PlanSessionMenu
-						week={week}
-						session={session}
-						linked={Boolean(session.route && !session.done)}
-						onAddRoute={() => setRoutePickerOpen(true)}
-					/>
+					{routeToolbar}
+					{menu}
 				</div>
 			</div>
 			<strong className="font-display text-[1.02rem] font-bold tracking-[-0.02em] leading-[1.25] [overflow-wrap:anywhere]">
 				{session.label}
 			</strong>
-			<PlanSessionBody
-				session={session}
-				className="text-[0.9rem] leading-[1.45] text-fg/90 [overflow-wrap:anywhere]"
-			/>
+			<PlanSessionBody session={session} className="[overflow-wrap:anywhere]" />
+			{routeDialogs}
 		</>
 	);
 	if (logSlug) {
@@ -185,13 +299,6 @@ export function PlannedSessionRow({
 	return (
 		<div className={className}>
 			{body}
-			<PlanSessionRoute
-				week={week}
-				session={session}
-				routes={routes}
-				pickerOpen={routePickerOpen}
-				onPickerClose={() => setRoutePickerOpen(false)}
-			/>
 		</div>
 	);
 }
@@ -245,7 +352,7 @@ export function WeekPlanBoard({
 					)}
 				</p>
 			</div>
-			<div className="grid grid-cols-1 gap-3 min-[720px]:grid-cols-2">
+			<div className="grid grid-cols-1 gap-3 min-[720px]:grid-cols-2 items-start">
 				{visibleDays.map((group) => {
 					const onlyUnplanned = group.sessions.length === 0 && group.unplanned.length > 0;
 					const nextHere = group.sessions.some((s) => s.isNext);
@@ -253,7 +360,7 @@ export function WeekPlanBoard({
 						<article
 							key={group.day}
 							className={cn(
-								'flex flex-col gap-3 min-w-0 p-[0.85rem_0.95rem] rounded-[14px] border',
+								'flex flex-col gap-3 min-w-0 h-fit self-start p-[0.85rem_0.95rem] rounded-[14px] border',
 								nextHere
 									? 'border-[color-mix(in_srgb,var(--color-accent)_40%,var(--color-line))] bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))]'
 									: onlyUnplanned
@@ -261,23 +368,22 @@ export function WeekPlanBoard({
 										: 'border-line bg-[color-mix(in_srgb,var(--color-panel)_55%,transparent)]'
 							)}
 						>
-							<header className="flex items-baseline justify-between gap-2">
-								<div>
-									<p className="m-0 text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent-fg">
-										{group.day}
+							{group.sessions.length + group.unplanned.length > 1 && (
+								<header className="flex items-baseline justify-between gap-2">
+									<p className="m-0 text-[0.7rem] tracking-[0.06em] uppercase font-bold text-accent-fg leading-snug">
+										{group.date ? planDayKicker(group.date) : group.day}
+										{group.date && !group.isToday ? (
+											<span className="text-muted font-semibold normal-case tracking-normal text-[0.78rem]">
+												{' · '}
+												{planDaySubline(group.date)}
+											</span>
+										) : null}
 									</p>
-									{group.date && (
-										<p className={cn('text-muted', 'm-0 mt-[0.15rem] text-[0.82rem]')}>
-											{shortDate(group.date)}
-										</p>
-									)}
-								</div>
-								{group.sessions.length + group.unplanned.length > 1 && (
-									<span className={cn('text-muted', 'text-[0.78rem]')}>
+									<span className={cn('text-muted', 'text-[0.78rem] shrink-0')}>
 										{group.sessions.length + group.unplanned.length} sessions
 									</span>
-								)}
-							</header>
+								</header>
+							)}
 							<div className="flex flex-col gap-3">
 								{group.sessions.map((session, i) => (
 									<PlannedSessionRow
@@ -286,6 +392,12 @@ export function WeekPlanBoard({
 										week={view.week.week}
 										routes={routes}
 										divided={i > 0}
+										layout="compact"
+										sessionDate={
+											group.sessions.length + group.unplanned.length === 1
+												? group.date
+												: null
+										}
 									/>
 								))}
 								{group.unplanned.map((item, i) => (

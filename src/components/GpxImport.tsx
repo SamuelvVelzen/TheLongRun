@@ -1,16 +1,22 @@
-import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
+import {
+	ACTIVITY_TYPES,
+	activityLabel,
+	importActivityType,
+	importDetectionSummary,
+	type ActivityType
+} from '$lib/activity';
+import { parseActivityFile, type ParsedGpx } from '$lib/activity-file';
 import { importGpx } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import { Link, useNavigate, useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { BestEffortBadges } from './BestEffortBadges';
 import { DeleteButton } from './DeleteButton';
-import { Icon } from './Icon';
+import { ActivityTag, Icon, sportChipLabel } from './Icon';
 import {
 	Actions,
 	Button,
 	ConfirmDialog,
-	Dropzone,
 	Form,
 	InsetRow,
 	Tag,
@@ -32,6 +38,52 @@ export type GpxImportResult = {
 	highlights?: import('$lib/best-efforts').EffortHighlight[];
 };
 
+type FilePreview = {
+	detectedRaw: string;
+	resolved: ActivityType;
+	date: string;
+	startClock: string;
+	distanceKm: number | null;
+	pointCount: number;
+	warn?: string;
+};
+
+function previewFromXml(xml: string): { preview?: FilePreview; error?: string } {
+	try {
+		const parsed = parseActivityFile(xml);
+		const warn = previewWarn(parsed);
+		if (!parsed.date) {
+			if (parsed.points.length >= 2) {
+				return {
+					error:
+						'Track without timestamps — looks like a planned route. Save it from Routes instead.'
+				};
+			}
+			return { error: 'No date or time found in this file.' };
+		}
+		return {
+			preview: {
+				detectedRaw: parsed.detectedType,
+				resolved: importActivityType(parsed.detectedType),
+				date: parsed.date,
+				startClock: parsed.startClock,
+				distanceKm: parsed.distanceKm,
+				pointCount: parsed.points.length,
+				warn
+			}
+		};
+	} catch {
+		return { error: 'Could not read this file.' };
+	}
+}
+
+function previewWarn(parsed: ParsedGpx): string | undefined {
+	if (parsed.points.length < 2) {
+		return 'No GPS track — you can still import duration and distance if the file has them.';
+	}
+	return undefined;
+}
+
 export function GpxImport({
 	onImported,
 	coachAfter,
@@ -45,6 +97,10 @@ export function GpxImport({
 	const router = useRouter();
 	const snack = useSnackbar();
 	const [files, setFiles] = useState<File[]>([]);
+	const [previews, setPreviews] = useState<Record<string, FilePreview>>({});
+	const [previewErrors, setPreviewErrors] = useState<Record<string, string>>({});
+	const [perFileType, setPerFileType] = useState<Record<string, ActivityType>>({});
+	const [previewing, setPreviewing] = useState(false);
 	const [dragOver, setDragOver] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [progress, setProgress] = useState('');
@@ -61,6 +117,35 @@ export function GpxImport({
 		onDirtyChange?.(files.length > 0);
 	}, [files.length, onDirtyChange]);
 
+	useEffect(() => {
+		if (!files.length) {
+			setPreviews({});
+			setPreviewErrors({});
+			return;
+		}
+		let cancelled = false;
+		setPreviewing(true);
+		void (async () => {
+			const nextPreview: Record<string, FilePreview> = {};
+			const nextErr: Record<string, string> = {};
+			for (const f of files) {
+				const xml = await f.text();
+				if (cancelled) return;
+				const { preview, error } = previewFromXml(xml);
+				if (preview) nextPreview[f.name] = preview;
+				else if (error) nextErr[f.name] = error;
+			}
+			if (!cancelled) {
+				setPreviews(nextPreview);
+				setPreviewErrors(nextErr);
+				setPreviewing(false);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [files]);
+
 	function addFiles(list: FileList | null) {
 		if (!list) return;
 		const tracks = Array.from(list).filter((f) => /\.(gpx|tcx)$/i.test(f.name));
@@ -72,18 +157,40 @@ export function GpxImport({
 
 	function removeFile(name: string) {
 		setFiles((prev) => prev.filter((f) => f.name !== name));
+		setPerFileType((prev) => {
+			const next = { ...prev };
+			delete next[name];
+			return next;
+		});
 	}
 
-	async function runImport(activityType: string) {
+	function effectiveType(name: string, globalOverride: string): ActivityType {
+		const global = globalOverride.trim();
+		if (global) return importActivityType(global);
+		const picked = perFileType[name];
+		if (picked) return picked;
+		return previews[name]?.resolved ?? 'run';
+	}
+
+	async function runImport(globalActivityType: string) {
 		if (!files.length) return;
 		setBusy(true);
 		setResults([]);
 		const out: GpxImportResult[] = [];
 		for (let i = 0; i < files.length; i++) {
 			const f = files[i]!;
+			if (previewErrors[f.name]) {
+				out.push({
+					name: f.name,
+					status: 'error',
+					message: previewErrors[f.name]
+				});
+				continue;
+			}
 			setProgress(`Importing ${i + 1} / ${files.length}: ${f.name}`);
 			try {
 				const xml = await f.text();
+				const activityType = effectiveType(f.name, globalActivityType);
 				const res = await importGpx({ data: { xml, activityType } });
 				out.push({
 					name: f.name,
@@ -106,6 +213,9 @@ export function GpxImport({
 		setProgress('');
 		setBusy(false);
 		setFiles([]);
+		setPreviews({});
+		setPreviewErrors({});
+		setPerFileType({});
 		const ok = out.filter((r) => r.status === 'ok');
 		const fail = out.filter((r) => r.status === 'error');
 		const continueSlug = [...ok].reverse().find((r) => r.slug)?.slug;
@@ -134,7 +244,6 @@ export function GpxImport({
 			snack.error(fail[0]?.message ?? 'Import failed');
 		}
 		if (ok.length) {
-			// Update route search (Coach debrief slug) before invalidating cached loaders.
 			onImported?.(ok);
 			void router.invalidate();
 		}
@@ -142,6 +251,7 @@ export function GpxImport({
 
 	const okCount = results.filter((r) => r.status === 'ok').length;
 	const lastOk = [...results].reverse().find((r) => r.status === 'ok' && r.slug);
+	const hasPreviewBlockers = files.some((f) => previewErrors[f.name]);
 
 	return (
 		<>
@@ -166,9 +276,13 @@ export function GpxImport({
 					onChange={(e) => addFiles(e.target.files)}
 				/>
 				<Icon name="upload" size={34} />
-				<strong>Choose a GPX or TCX</strong>
+				<strong>Choose GPX or TCX files</strong>
 				<span className={'text-muted'}>
-					TCX from your watch keeps race distance (Strava GPX is GPS-only) — multiple files OK
+					Open GPS exchange format from a watch app, Strava export, Komoot, etc. — multiple
+					files OK
+				</span>
+				<span className={cn('text-muted', 'block text-[0.88rem]')}>
+					TCX often keeps watch distance; plain GPX is usually GPS-only.
 				</span>
 				<span className={cn('text-muted', 'hidden [@media(hover:hover)_and_(pointer:fine)]:block')}>
 					You can also drop files here
@@ -176,22 +290,76 @@ export function GpxImport({
 			</label>
 
 			{files.length > 0 && (
-				<ul className="list-none m-[0.9rem_0_0] p-0 grid gap-1.5">
-					{files.map((f) => (
-						<li key={f.name} className="list-none">
-							<InsetRow>
-								<code className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-									{f.name}
-								</code>
-								<span className={'text-muted'}>{(f.size / 1024).toFixed(0)} KB</span>
-								<DeleteButton
-									label={`Delete ${f.name}`}
-									disabled={busy}
-									onClick={() => setPendingFile(f.name)}
-								/>
-							</InsetRow>
-						</li>
-					))}
+				<ul className="list-none m-[0.9rem_0_0] p-0 grid gap-3">
+					{files.map((f) => {
+						const preview = previews[f.name];
+						const err = previewErrors[f.name];
+						const chosen = perFileType[f.name] ?? preview?.resolved ?? 'run';
+						return (
+							<li key={f.name} className="list-none">
+								<InsetRow className="flex-col! items-stretch! gap-2">
+									<div className="flex flex-wrap items-center gap-2 min-w-0">
+										<code className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+											{f.name}
+										</code>
+										<span className={'text-muted'}>{(f.size / 1024).toFixed(0)} KB</span>
+										<DeleteButton
+											label={`Delete ${f.name}`}
+											disabled={busy}
+											onClick={() => setPendingFile(f.name)}
+										/>
+									</div>
+									{previewing && !preview && !err && (
+										<p className={cn('text-muted', 'm-0 text-[0.88rem]')}>Reading file…</p>
+									)}
+									{err && <p className={cn('text-muted', 'm-0 text-[0.88rem]')}>{err}</p>}
+									{preview && (
+										<>
+											<p className={cn('text-muted', 'm-0 text-[0.88rem]')}>
+												{preview.date}
+												{preview.startClock ? ` · ${preview.startClock}` : ''}
+												{preview.distanceKm != null ? ` · ${preview.distanceKm} km` : ''}
+												{preview.pointCount > 0
+													? ` · ${preview.pointCount} pts`
+													: ' · no GPS track'}
+											</p>
+											<p className={cn('text-muted', 'm-0 text-[0.88rem]')}>
+												{importDetectionSummary(preview.detectedRaw, preview.resolved)}
+											</p>
+											{preview.warn && (
+												<p className={cn('text-muted', 'm-0 text-[0.82rem]')}>{preview.warn}</p>
+											)}
+											<div className="flex flex-wrap items-center gap-1.5">
+												<span className={cn('text-muted', 'text-[0.82rem]')}>Log as</span>
+												{ACTIVITY_TYPES.map((t) => (
+													<button
+														key={t}
+														type="button"
+														disabled={busy}
+														className={cn(
+															buttonClass({
+																variant: chosen === t ? 'primary' : 'ghost',
+																size: 'sm'
+															}),
+															'gap-1.5!'
+														)}
+														onClick={() =>
+															setPerFileType((prev) => ({ ...prev, [f.name]: t }))
+														}
+													>
+														{sportChipLabel(t, activityLabel(t))}
+													</button>
+												))}
+											</div>
+											{chosen !== preview.resolved && (
+												<ActivityTag type={chosen} className="self-start" />
+											)}
+										</>
+									)}
+								</InsetRow>
+							</li>
+						);
+					})}
 				</ul>
 			)}
 
@@ -199,7 +367,7 @@ export function GpxImport({
 				onSubmit={(e) => {
 					e.preventDefault();
 					e.stopPropagation();
-					if (!files.length) return;
+					if (!files.length || hasPreviewBlockers) return;
 					void form.handleSubmit();
 				}}
 			>
@@ -207,10 +375,11 @@ export function GpxImport({
 					name="activityType"
 					children={(field) => (
 						<field.SelectField
-							label="Activity type"
-							placeholder="Auto-detect from file"
+							label="Same type for every file"
+							placeholder="Use detection above (per file)"
+							hint="Optional — overrides the per-file buttons"
 							options={[
-								{ value: '', label: 'Auto-detect from file' },
+								{ value: '', label: 'Per file (from detection)' },
 								...ACTIVITY_TYPES.map((t) => ({
 									value: t,
 									label: activityLabel(t)
@@ -223,7 +392,13 @@ export function GpxImport({
 				<Actions>
 					<form.Subscribe selector={(s) => s.isSubmitting}>
 						{(submitting) => (
-							<Button type="submit" variant="primary" disabled={submitting || files.length === 0}>
+							<Button
+								type="submit"
+								variant="primary"
+								disabled={
+									submitting || files.length === 0 || previewing || hasPreviewBlockers
+								}
+							>
 								{submitting ? (
 									progress || 'Importing…'
 								) : (

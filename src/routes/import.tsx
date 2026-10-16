@@ -69,9 +69,13 @@ function AddActivity() {
 		<>
 			<PageHero
 				variant="quiet"
-				kicker="GPX file or type it in"
+				kicker="Track file or type it in"
 				title="Add activity"
-				lead={<p>GPX/TCX from your watch or Strava, or type it in.</p>}
+				lead={
+					<p>
+						Upload GPX or TCX (from a watch export, Strava, Komoot, etc.) or log manually.
+					</p>
+				}
 			/>
 
 			{!authed ? (
@@ -87,7 +91,7 @@ function AddActivity() {
 								label: (
 									<>
 										<Icon name="upload" size={15} />
-										GPX file
+										GPX / TCX
 									</>
 								),
 								to: '/import',

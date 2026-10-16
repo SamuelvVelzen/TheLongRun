@@ -15,6 +15,7 @@ export type AddSearch = {
 	type?: 'strength';
 	date?: string;
 	time?: string;
+	start?: string;
 	notes?: string;
 };
 
@@ -29,6 +30,11 @@ function durationParam(v: unknown): string | undefined {
 	return /^[\d:.]+$/.test(s) ? s : undefined;
 }
 
+function clockParam(v: unknown): string | undefined {
+	const s = String(v ?? '').trim();
+	return /^\d{2}:\d{2}$/.test(s) ? s : undefined;
+}
+
 export const Route = createFileRoute('/import')({
 	validateSearch: (s: Record<string, unknown>): AddSearch => {
 		const type = s.type === 'strength' ? 'strength' : undefined;
@@ -38,6 +44,7 @@ export const Route = createFileRoute('/import')({
 			type,
 			date: isoDateParam(s.date),
 			time: durationParam(s.time),
+			start: clockParam(s.start),
 			notes: notes || undefined
 		};
 	},
@@ -120,6 +127,7 @@ function AddActivity() {
 													activityType: prefillType,
 													date: search.date,
 													time: search.time,
+													start: search.start,
 													notes: search.notes
 												}
 											: undefined

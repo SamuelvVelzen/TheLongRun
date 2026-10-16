@@ -24,12 +24,17 @@ export function canLogPlannedStrength(
 	return true;
 }
 
-export function plannedStrengthLogSearch(session: StrengthLogSession) {
+export function plannedStrengthLogSearch(session: StrengthLogSession, now = new Date()) {
 	const log = strengthLogFromPlan(session.detail, session.exercises);
+	const clock =
+		String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+	// Log it on the moment the button is pressed, not the planned day — the lift
+	// prescription comes from the plan; when it actually happened is "now".
 	return {
 		mode: 'manual' as const,
 		type: 'strength' as const,
-		date: session.date || undefined,
+		date: isoDateLocal(now),
+		start: clock,
 		time: log.time || undefined,
 		notes: log.notes || undefined
 	};

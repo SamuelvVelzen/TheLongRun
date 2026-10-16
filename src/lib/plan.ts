@@ -33,7 +33,59 @@ const WEEKDAYS = [
 	'Sunday'
 ] as const;
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmtWeekdayShortEn = new Intl.DateTimeFormat('en-GB', { weekday: 'short' });
+const fmtMonthShortNl = new Intl.DateTimeFormat('nl-NL', { month: 'short' });
+const fmtMonthShortEn = new Intl.DateTimeFormat('en-GB', { month: 'short' });
+
+function formatPlanWeekdayShort(d: Date): string {
+	return fmtWeekdayShortEn.format(d).toLowerCase();
+}
+
+function formatPlanMonthNl(d: Date): string {
+	return fmtMonthShortNl.format(d).replace(/\.$/, '').toLowerCase();
+}
+
+function formatPlanMonthEn(d: Date): string {
+	return fmtMonthShortEn.format(d);
+}
+
+function addDaysIso(iso: string, days: number): string {
+	const d = new Date(`${iso}T12:00:00`);
+	if (Number.isNaN(d.getTime())) return iso;
+	d.setDate(d.getDate() + days);
+	return isoDateLocal(d);
+}
+
+/** Green kicker line: `Today`, `Tomorrow`, or weekday name. */
+export function planDayKicker(iso: string | null, today = new Date()): string {
+	if (!iso) return '';
+	const todayIso = isoDateLocal(today);
+	const tomorrowIso = addDaysIso(todayIso, 1);
+	if (iso === todayIso) return 'Today';
+	if (iso === tomorrowIso) return 'Tomorrow';
+	const d = new Date(`${iso}T12:00:00`);
+	if (Number.isNaN(d.getTime())) return iso;
+	return new Intl.DateTimeFormat('en-GB', { weekday: 'long' }).format(d);
+}
+
+/** Muted line under kicker: `fri, 16 okt` */
+export function planDaySubline(iso: string | null): string {
+	if (!iso) return '';
+	const d = new Date(`${iso}T12:00:00`);
+	if (Number.isNaN(d.getTime())) return iso;
+	return `${formatPlanWeekdayShort(d)}, ${d.getDate()} ${formatPlanMonthNl(d)}`;
+}
+
+/** e.g. `today fri, 16 okt` · `tomorrow sat, 17 okt` · `wed, 22 okt` */
+export function planDayHeading(iso: string | null, today = new Date()): string {
+	const sub = planDaySubline(iso);
+	if (!sub) return '';
+	const todayIso = isoDateLocal(today);
+	const tomorrowIso = addDaysIso(todayIso, 1);
+	if (iso === todayIso) return `today ${sub}`;
+	if (iso === tomorrowIso) return `tomorrow ${sub}`;
+	return sub;
+}
 
 export function mondayIso(isoOrDate: string | Date): string {
 	const d =
@@ -112,7 +164,7 @@ export function planWeekDateRange(week: number, cal: PlanCalendar): string {
 	const start = new Date(`${planWeekStartIso(week, cal)}T12:00:00`);
 	const end = new Date(start);
 	end.setDate(end.getDate() + 6);
-	const f = (d: Date) => `${String(d.getDate()).padStart(2, '0')} ${MONTHS[d.getMonth()]}`;
+	const f = (d: Date) => `${String(d.getDate()).padStart(2, '0')} ${formatPlanMonthEn(d)}`;
 	return `${f(start)}–${f(end)} ${end.getFullYear()}`;
 }
 
@@ -122,15 +174,15 @@ export function planWeekDateRangeShort(week: number, cal: PlanCalendar): string 
 	const end = new Date(start);
 	end.setDate(end.getDate() + 6);
 	if (start.getMonth() === end.getMonth()) {
-		return `${start.getDate()}–${end.getDate()} ${MONTHS[end.getMonth()]}`;
+		return `${start.getDate()}–${end.getDate()} ${formatPlanMonthEn(end)}`;
 	}
-	return `${start.getDate()} ${MONTHS[start.getMonth()]}–${end.getDate()} ${MONTHS[end.getMonth()]}`;
+	return `${start.getDate()} ${formatPlanMonthEn(start)}–${end.getDate()} ${formatPlanMonthEn(end)}`;
 }
 
 function dayMonthLabel(iso: string): string {
 	const d = new Date(`${iso}T12:00:00`);
 	if (Number.isNaN(d.getTime())) return '';
-	return `${String(d.getDate()).padStart(2, '0')} ${MONTHS[d.getMonth()]}`;
+	return `${String(d.getDate()).padStart(2, '0')} ${formatPlanMonthEn(d)}`;
 }
 
 export function weekBelongsToCalendar(week: PlanWeek, cal: PlanCalendar): boolean {
@@ -492,6 +544,39 @@ export function weekDayGroups(view: WeekView, today = new Date()): WeekDayGroup[
 	}
 	if (rotateFrom <= 0) return groups;
 	return [...groups.slice(rotateFrom), ...groups.slice(0, rotateFrom)];
+}
+
+/** Monday–Sunday groups for the plan week, including empty days. */
+export function weekDayGroupsCalendarOrder(
+	view: WeekView,
+	cal: PlanCalendar,
+	today = new Date()
+): WeekDayGroup[] {
+	const byDay = new Map<string, { sessions: WeekSessionView[]; unplanned: UnplannedActivity[] }>();
+	const bucket = (day: string) => {
+		const key = canonicalWeekday(day);
+		let g = byDay.get(key);
+		if (!g) {
+			g = { sessions: [], unplanned: [] };
+			byDay.set(key, g);
+		}
+		return g;
+	};
+	for (const s of view.sessions) bucket(s.day).sessions.push(s);
+	for (const u of view.unplanned) bucket(u.day).unplanned.push(u);
+	const weekStart = planWeekStartIso(view.week.week, cal);
+	const todayIso = isoDateLocal(today);
+	return WEEKDAYS.map((day) => {
+		const g = byDay.get(day);
+		const date = g?.sessions[0]?.date ?? g?.unplanned[0]?.date ?? dateForSessionDay(weekStart, day);
+		return {
+			day,
+			date,
+			isToday: date === todayIso,
+			sessions: g?.sessions ?? [],
+			unplanned: g?.unplanned ?? []
+		};
+	});
 }
 
 export function formatUnplannedBrief(items: UnplannedActivity[]): string {

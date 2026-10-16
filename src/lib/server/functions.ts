@@ -5,6 +5,7 @@ import {
 	activityPlural,
 	importActivityType,
 	metricText,
+	resolveImportActivityType,
 	normalizeActivityType,
 	showsFeel,
 	showsField
@@ -1891,7 +1892,7 @@ export const importGpx = createServerFn({ method: 'POST' })
 			throw new Error('Could not read a date/time from that GPX file.');
 		}
 
-		const activity_type = importActivityType(data.activityType || parsed.detectedType);
+		const activity_type = resolveImportActivityType(data.activityType, parsed.detectedType);
 		const day = dayFromIsoDate(parsed.date);
 		const { calendar } = await loadTrainingContext();
 		const week = weekNumberForDate(parsed.date, calendar);

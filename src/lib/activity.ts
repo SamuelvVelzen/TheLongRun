@@ -6,6 +6,7 @@ import {
 	ACTIVITY_MAP_COLORS,
 	activityDef,
 	coerceActivityType,
+	importAliasMatch,
 	type ActivityField,
 	type ActivityType,
 	type FeelField
@@ -30,9 +31,31 @@ export function normalizeActivityType(v: string | null | undefined): ActivityTyp
 	return coerceActivityType(v);
 }
 
-/** GPX/TCX/Strava sport labels — same coercion as stored types (`ride` → bike, migration 0006). */
+/** GPX/TCX sport labels — same coercion as stored types (`ride` → bike, migration 0006). */
 export function importActivityType(v: string | null | undefined): ActivityType {
 	return normalizeActivityType(v);
+}
+
+/** Explicit picker wins; otherwise use the sport string from the file. */
+export function resolveImportActivityType(
+	override: string | null | undefined,
+	detectedRaw: string | null | undefined
+): ActivityType {
+	const pick = override?.trim();
+	if (pick) return importActivityType(pick);
+	return importActivityType(detectedRaw);
+}
+
+/** Short line for the import review UI. */
+export function importDetectionSummary(detectedRaw: string, resolved: ActivityType): string {
+	const raw = detectedRaw.trim();
+	if (!raw) {
+		return `No sport in file — will log as ${activityLabel(resolved)}. Tap a type below if that’s wrong.`;
+	}
+	if (importAliasMatch(raw)) {
+		return `“${raw}” → ${activityLabel(resolved)}`;
+	}
+	return `“${raw}” — will log as ${activityLabel(resolved)}. Tap below if that’s wrong.`;
 }
 
 export function activityMapColor(type: string | null | undefined): string {

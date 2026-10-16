@@ -61,7 +61,18 @@ export const ACTIVITY_DEFS = {
 			energy: true,
 			wanted_faster: true
 		},
-		importAliases: ['run', 'running', 'jog', 'jogging', 'trailrun', 'trailrunning'],
+		importAliases: [
+			'run',
+			'running',
+			'jog',
+			'jogging',
+			'trailrun',
+			'trailrunning',
+			'treadmill',
+			'track',
+			'roadrun',
+			'roadrunning'
+		],
 		gpxType: 'running',
 		tcxSport: 'Running',
 		habitPlaceholder: {
@@ -93,7 +104,7 @@ export const ACTIVITY_DEFS = {
 			energy: true,
 			wanted_faster: false
 		},
-		importAliases: ['walk', 'walking', 'hike', 'hiking'],
+		importAliases: ['walk', 'walking', 'hike', 'hiking', 'trekking', 'snowshoeing'],
 		gpxType: 'walking',
 		tcxSport: 'Walking',
 		habitPlaceholder: {
@@ -132,8 +143,13 @@ export const ACTIVITY_DEFS = {
 			'bicycle',
 			'cycle',
 			'ebikeride',
+			'ebike',
 			'riding',
-			'ride'
+			'ride',
+			'mtb',
+			'mountainbike',
+			'mountainbiking',
+			'handcycling'
 		],
 		gpxType: 'cycling',
 		tcxSport: 'Biking',
@@ -174,7 +190,9 @@ export const ACTIVITY_DEFS = {
 			'weightlifting',
 			'gym',
 			'workout',
-			'crossfit'
+			'crossfit',
+			'training',
+			'fitness'
 		],
 		gpxType: 'workout',
 		tcxSport: 'Other',
@@ -213,6 +231,13 @@ export function coerceActivityType(v: string | null | undefined): ActivityType {
 	const t = normalizeImportToken(v);
 	if (!t) return 'run';
 	return IMPORT_ALIAS_TO_TYPE.get(t) ?? 'run';
+}
+
+/** When the file sport string matched a known alias (before defaulting to run). */
+export function importAliasMatch(v: string | null | undefined): ActivityType | null {
+	const t = normalizeImportToken(v);
+	if (!t) return null;
+	return IMPORT_ALIAS_TO_TYPE.get(t) ?? null;
 }
 
 export function activityDef(type: string | null | undefined): ActivityDef {

@@ -25,6 +25,7 @@ import {
 import '../app.css';
 import { Icon } from '../components/Icon';
 import { LiveLocationMenuItem, LiveLocationShare } from '../components/LiveLocationShare';
+import { NetworkStatus } from '../components/NetworkStatus';
 import { PwaInstall } from '../components/PwaInstall';
 import { ScrollToTop } from '../components/ScrollToTop';
 import { destructiveNavLinkClass, SnackbarProvider } from '../components/ui';
@@ -170,6 +171,7 @@ function RootShell() {
 							</div>
 						</details>
 					</header>
+					<NetworkStatus />
 					<main data-app-scroll className={appScroll}>
 						<Outlet />
 					</main>

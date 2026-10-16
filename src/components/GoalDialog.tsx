@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import type { Goal } from '$lib/types';
 import { cn } from '$lib/ui';
 import { GoalForm } from './GoalForm';
-import { Dialog } from './ui';
+import { Dialog, useDiscardGuard } from './ui';
 
 export type GoalDialogVariant = 'race' | 'lookahead';
 
@@ -72,26 +73,37 @@ export function GoalDialog({
 	const title = goalDialogTitle(variant, mode, { goalName: initial?.name, hasActiveGoal });
 	const description = goalDialogDescription(variant, mode, { hasActiveGoal });
 	const submitLabel = goalDialogSubmitLabel(variant, mode, { hasActiveGoal, isActiveGoal });
+	const [formDirty, setFormDirty] = useState(false);
+	const [requestClose, discardGuard] = useDiscardGuard({
+		dirty: formDirty,
+		onDiscard: onClose,
+		title: 'Discard these changes?',
+		description: 'Your changes to this goal will be lost.'
+	});
 
 	return (
-		<Dialog
-			open={open}
-			title={title}
-			onClose={onClose}
-			size="medal"
-			className="sm:max-w-[min(42rem,100%)]!"
-		>
-			<p className={cn('text-muted', 'm-0')}>{description}</p>
-			{open ? (
-				<GoalForm
-					key={initial?.id ?? (variant === 'lookahead' ? 'new-look' : 'new-race')}
-					initial={mode === 'edit' ? initial : null}
-					fixedKind={fixedKind}
-					submitLabel={submitLabel}
-					onCancel={onClose}
-					onSaved={onSaved}
-				/>
-			) : null}
-		</Dialog>
+		<>
+			<Dialog
+				open={open}
+				title={title}
+				onClose={requestClose}
+				size="medal"
+				className="sm:max-w-[min(42rem,100%)]!"
+			>
+				<p className={cn('text-muted', 'm-0')}>{description}</p>
+				{open ? (
+					<GoalForm
+						key={initial?.id ?? (variant === 'lookahead' ? 'new-look' : 'new-race')}
+						initial={mode === 'edit' ? initial : null}
+						fixedKind={fixedKind}
+						submitLabel={submitLabel}
+						onCancel={requestClose}
+						onSaved={onSaved}
+						onDirtyChange={setFormDirty}
+					/>
+				) : null}
+			</Dialog>
+			{discardGuard}
+		</>
 	);
 }

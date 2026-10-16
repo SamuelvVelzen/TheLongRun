@@ -8,7 +8,7 @@ import { AiPromptFlow } from './AiPromptFlow';
 import { BodyNoteLine } from './BodyNoteParts';
 import { Icon } from './Icon';
 import { JsonPasteForm } from './JsonPasteForm';
-import { Button, Checkbox, Dialog } from './ui';
+import { Button, Checkbox, Dialog, useDiscardGuard } from './ui';
 
 export function BodyNotesAiDialog({
 	open,
@@ -50,98 +50,109 @@ export function BodyNotesAiDialog({
 	}
 
 	const count = picked.size;
+	const dirty = changes.length > 0 || extra !== '';
+	const [requestClose, discardGuard] = useDiscardGuard({
+		dirty,
+		busy,
+		onDiscard: onClose,
+		title: 'Discard this import?',
+		description: 'Your pasted reply and picks will be lost.'
+	});
 
 	return (
-		<Dialog
-			open={open}
-			title="Import body notes with AI"
-			className="sm:max-w-[38rem]"
-			onClose={busy ? () => {} : onClose}
-			actions={
-				changes.length ? (
+		<>
+			<Dialog
+				open={open}
+				title="Import body notes with AI"
+				className="sm:max-w-[38rem]"
+				onClose={requestClose}
+				actions={
+					changes.length ? (
+						<>
+							<Button variant="ghost" disabled={busy} onClick={() => setChanges([])}>
+								Back
+							</Button>
+							<Button variant="primary" disabled={busy || count === 0} onClick={() => void save()}>
+								<Icon name="check" size={16} />
+								{busy ? 'Saving…' : `Save ${count}`}
+							</Button>
+						</>
+					) : undefined
+				}
+			>
+				{changes.length ? (
 					<>
-						<Button variant="ghost" disabled={busy} onClick={() => setChanges([])}>
-							Back
-						</Button>
-						<Button variant="primary" disabled={busy || count === 0} onClick={() => void save()}>
-							<Icon name="check" size={16} />
-							{busy ? 'Saving…' : `Save ${count}`}
-						</Button>
+						<p className={cn('text-muted', 'm-0')}>Untick anything you don't want to keep.</p>
+						<div className="grid gap-1">
+							{changes.map((c) => (
+								<Checkbox
+									key={c.note.id}
+									className="py-2"
+									checked={picked.has(c.note.id)}
+									disabled={busy}
+									onChange={(on) =>
+										setPicked((prev) => {
+											const next = new Set(prev);
+											if (on) next.add(c.note.id);
+											else next.delete(c.note.id);
+											return next;
+										})
+									}
+									label={
+										<BodyNoteLine
+											note={c.note}
+											hideUpdated
+											tag={
+												<span
+													className={
+														c.existing
+															? 'text-muted border border-line'
+															: 'bg-accent/15 text-accent-fg'
+													}
+												>
+													{c.existing ? 'Update' : 'New'}
+												</span>
+											}
+										/>
+									}
+								/>
+							))}
+						</div>
 					</>
-				) : undefined
-			}
-		>
-			{changes.length ? (
-				<>
-					<p className={cn('text-muted', 'm-0')}>Untick anything you don't want to keep.</p>
-					<div className="grid gap-1">
-						{changes.map((c) => (
-							<Checkbox
-								key={c.note.id}
-								className="py-2"
-								checked={picked.has(c.note.id)}
-								disabled={busy}
-								onChange={(on) =>
-									setPicked((prev) => {
-										const next = new Set(prev);
-										if (on) next.add(c.note.id);
-										else next.delete(c.note.id);
-										return next;
-									})
+				) : (
+					<AiPromptFlow
+						intro={
+							<p className="m-0">
+								List niggles, injuries, or what cleared up. Copy the prompt into your AI, paste JSON
+								back — you choose what to save.
+							</p>
+						}
+						extraLabel="Extra for the prompt"
+						extra={extra}
+						onExtraChange={setExtra}
+						extraPlaceholder="Shins sore on pavement, left knee fine on trails now, old Achilles resolved…"
+						prompt={prompt}
+						result={
+							<JsonPasteForm
+								description={
+									<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Paste the AI's reply</p>
 								}
-								label={
-									<BodyNoteLine
-										note={c.note}
-										hideUpdated
-										tag={
-											<span
-												className={
-													c.existing
-														? 'text-muted border border-line'
-														: 'bg-accent/15 text-accent-fg'
-												}
-											>
-												{c.existing ? 'Update' : 'New'}
-											</span>
-										}
-									/>
-								}
+								rows={5}
+								placeholder='{ "body": [ { "area": "shins", "status": "monitoring", "trigger": "hard surfaces", "helps": "trails" } ] }'
+								submitLabel="Check reply"
+								submitIcon="check"
+								errorLabel="Could not read that reply."
+								onSubmit={(text) => {
+									const next = planBodyNotesImport(body, parseBodyNotesReplyText(text));
+									setChanges(next);
+									setPicked(new Set(next.map((c) => c.note.id)));
+								}}
 							/>
-						))}
-					</div>
-				</>
-			) : (
-				<AiPromptFlow
-					intro={
-						<p className="m-0">
-							List niggles, injuries, or what cleared up. Copy the prompt into your AI, paste JSON
-							back — you choose what to save.
-						</p>
-					}
-					extraLabel="Extra for the prompt"
-					extra={extra}
-					onExtraChange={setExtra}
-					extraPlaceholder="Shins sore on pavement, left knee fine on trails now, old Achilles resolved…"
-					prompt={prompt}
-					result={
-						<JsonPasteForm
-							description={
-								<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Paste the AI's reply</p>
-							}
-							rows={5}
-							placeholder='{ "body": [ { "area": "shins", "status": "monitoring", "trigger": "hard surfaces", "helps": "trails" } ] }'
-							submitLabel="Check reply"
-							submitIcon="check"
-							errorLabel="Could not read that reply."
-							onSubmit={(text) => {
-								const next = planBodyNotesImport(body, parseBodyNotesReplyText(text));
-								setChanges(next);
-								setPicked(new Set(next.map((c) => c.note.id)));
-							}}
-						/>
-					}
-				/>
-			)}
-		</Dialog>
+						}
+					/>
+				)}
+			</Dialog>
+			{discardGuard}
+		</>
 	);
 }

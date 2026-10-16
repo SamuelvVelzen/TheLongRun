@@ -11,6 +11,7 @@ import { Icon, sportChipLabel } from './Icon';
 import {
 	Actions,
 	Button,
+	ChangeReporter,
 	Form,
 	FormGrid,
 	FormSection,
@@ -25,13 +26,15 @@ export function GoalForm({
 	fixedKind,
 	submitLabel,
 	onCancel,
-	onSaved
+	onSaved,
+	onDirtyChange
 }: {
 	initial: Goal | null;
 	fixedKind: 'race' | 'intention';
 	submitLabel: string;
 	onCancel: () => void;
 	onSaved: () => void | Promise<void>;
+	onDirtyChange?: (dirty: boolean) => void;
 }) {
 	const snack = useSnackbar();
 	const draft = initial ?? emptyGoalDraft();
@@ -118,6 +121,11 @@ export function GoalForm({
 				void form.handleSubmit();
 			}}
 		>
+			{onDirtyChange ? (
+				<form.Subscribe selector={(s) => s.isDirty}>
+					{(dirty) => <ChangeReporter value={dirty} onChange={onDirtyChange} />}
+				</form.Subscribe>
+			) : null}
 			<form.AppField
 				name="name"
 				children={(field) => (

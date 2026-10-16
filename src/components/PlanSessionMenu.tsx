@@ -4,7 +4,11 @@ import { setPlanSessionSkipped } from '$lib/server/functions';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { Icon } from './Icon';
-import { plannedSessionLogSearch } from './LogPlannedStrength';
+import {
+	canLogPlannedStrength,
+	plannedSessionLogSearch,
+	plannedStrengthLogSearch
+} from './LogPlannedStrength';
 import { MoreMenu, type MoreMenuItem } from './MoreMenu';
 import { errorMessage, useSnackbar } from './ui';
 
@@ -12,12 +16,17 @@ export function PlanSessionMenu({
 	week,
 	session,
 	linked,
-	onAddRoute
+	onAddRoute,
+	onUnlinkRoute,
+	coachPlanWeek
 }: {
 	week: number;
 	session: WeekSessionView;
 	linked: boolean;
 	onAddRoute: () => void;
+	onUnlinkRoute?: () => void;
+	/** Adds “Full week in Coach” to the menu (dashboard next up). */
+	coachPlanWeek?: number;
 }) {
 	const authed = useAuthed();
 	const router = useRouter();
@@ -33,6 +42,7 @@ export function PlanSessionMenu({
 	const canUndoSkip = storedSkip;
 	const canLog = !session.skipped && !rest;
 	const canAddRoute = !session.skipped && !linked && sessionCanLinkRoute(session);
+	const canUnlink = linked && Boolean(onUnlinkRoute) && session.route?.link_id != null;
 
 	async function persistSkipped(skipped: boolean) {
 		await setPlanSessionSkipped({
@@ -81,6 +91,38 @@ export function PlanSessionMenu({
 	}
 
 	const items: MoreMenuItem[] = [
+		...(canLog
+			? [
+					{
+						label: canLogPlannedStrength(session) ? 'Log as planned' : 'Log activity',
+						icon: <Icon name="plus" size={16} />,
+						onClick: () => {
+							void navigate({
+								to: '/import',
+								search: canLogPlannedStrength(session)
+									? plannedStrengthLogSearch(session)
+									: plannedSessionLogSearch(session)
+							});
+						},
+						disabled: busy
+					}
+				]
+			: []),
+		...(coachPlanWeek != null
+			? [
+					{
+						label: 'Full week in Coach',
+						icon: <Icon name="board" size={16} />,
+						onClick: () => {
+							void navigate({
+								to: '/coach',
+								search: { tab: 'plan', planWeek: coachPlanWeek }
+							});
+						},
+						disabled: busy
+					}
+				]
+			: []),
 		...(canSkip
 			? [
 					{
@@ -101,24 +143,22 @@ export function PlanSessionMenu({
 					}
 				]
 			: []),
-		...(canLog
-			? [
-					{
-						label: 'Log activity',
-						icon: <Icon name="plus" size={16} />,
-						onClick: () => {
-							void navigate({ to: '/import', search: plannedSessionLogSearch(session) });
-						},
-						disabled: busy
-					}
-				]
-			: []),
 		...(canAddRoute
 			? [
 					{
 						label: 'Add route to plan',
 						icon: <Icon name="routes" size={16} />,
 						onClick: onAddRoute,
+						disabled: busy
+					}
+				]
+			: []),
+		...(canUnlink
+			? [
+					{
+						label: 'Unlink route',
+						icon: <Icon name="routes" size={16} />,
+						onClick: () => onUnlinkRoute?.(),
 						disabled: busy
 					}
 				]

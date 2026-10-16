@@ -17,14 +17,7 @@ import {
 } from '$lib/date-range';
 import { formatHorizonShort } from '$lib/goals';
 import { collapseRuns, groupedSessionTitle } from '$lib/group';
-import {
-	buildDashboardStats,
-	daysUntil,
-	sessionMeasureLabel,
-	weekToPlan,
-	weekViewIsClosed,
-	type DashboardStats
-} from '$lib/plan';
+import { buildDashboardStats, daysUntil, type DashboardStats } from '$lib/plan';
 import { getDashboardData } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import { buildTrainingTrends } from '$lib/trends';
@@ -35,8 +28,8 @@ import { ActivityFilters } from '../components/ActivityFilters';
 import { rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
 import { FeelBadge } from '../components/FeelBadge';
-import { ActivityIcon, ActivityMark, Icon } from '../components/Icon';
-import { LogPlannedStrengthLink } from '../components/LogPlannedStrength';
+import { ActivityMark, Icon } from '../components/Icon';
+import { DashboardNextUp } from '../components/DashboardNextUp';
 import {
 	PageHero,
 	Actions,
@@ -48,8 +41,6 @@ import {
 	RunTitle,
 	SectionTitle
 } from '../components/ui';
-import { PlanSessionBody } from '../components/PlanSessionBody';
-import { RouteChip } from '../components/RouteChip';
 import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
 import {
 	matchesSportFilter,
@@ -69,11 +60,6 @@ type DashSearch = RangeSearch & {
 	place?: string;
 };
 
-const nextUpBase =
-	'mt-5 p-[1rem_1.1rem_1.05rem] border border-line rounded-xl max-sm:mt-0 max-sm:p-[0.85rem_0.9rem_0.9rem] [&_h2]:text-[1.45rem] [&_h2]:font-[750] [&_h2]:tracking-[-0.03em] [&_h2]:m-0 [&_h2]:mb-[0.35rem] [&_h2]:[overflow-wrap:anywhere] [&_p]:m-0 [&_p]:leading-[1.45] max-sm:[&_h2]:text-[1.2rem]';
-const nextUp = cn(nextUpBase, 'bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))]');
-const nextUpDone = cn(nextUpBase, 'bg-panel');
-const nextUpKicker = 'text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent-fg m-0 mb-1';
 const statsItem =
 	'py-[0.15rem] pr-[0.85rem] border-r border-line min-w-0 last:border-r-0 last:pr-0 not-first:pl-[0.85rem] max-sm:[&:nth-child(3n)]:border-r-0 max-sm:[&:nth-child(3n)]:pr-0 max-sm:[&:nth-child(3n+1)]:pl-0 max-sm:[&:nth-child(n+4)]:border-t max-sm:[&:nth-child(n+4)]:pt-3';
 const statsLabel = 'block text-[0.78rem] tracking-[0.02em]';
@@ -210,29 +196,6 @@ function DashboardBody({
 	const filteredEmpty = totalAllTime > 0 && stats.runCount === 0;
 	const rangeActive = range.kind !== 'all';
 	const timelineSearch = rangeToSearch(range.kind, range.from ?? undefined, range.to ?? undefined);
-	const highlightSessions = data.weekView?.next?.isToday
-		? data.weekView.sessions.filter((s) => s.isToday)
-		: data.weekView?.next
-			? [data.weekView.next]
-			: [];
-	const highlightHead = highlightSessions[0];
-	const laterWeek = data.weekView != null && data.weekView.week.week > weekToPlan(data.calendar);
-	const currentWeekNum = weekToPlan(data.calendar);
-	const nextWeekNum = currentWeekNum + 1;
-	const canPlanNext =
-		data.weekView != null &&
-		data.weekView.week.week === currentWeekNum &&
-		weekViewIsClosed(data.weekView) &&
-		nextWeekNum <= data.calendar.weekCount;
-	const coachPlanSearch = {
-		tab: 'plan' as const,
-		planWeek: data.weekView?.week.week
-	};
-	const coachNextWeekSearch = {
-		tab: 'generate' as const,
-		planWeek: nextWeekNum
-	};
-
 	return (
 		<>
 			<ActivityFilters
@@ -293,156 +256,17 @@ function DashboardBody({
 				}
 			/>
 
-			{highlightHead && data.weekView && (
-				<section className={nextUp} aria-labelledby="next-up-heading">
-					<p className={cn(nextUpKicker, 'inline-flex items-center gap-1.5')}>
-						<Icon
-							name={highlightHead.isToday ? 'sun' : laterWeek ? 'calendar' : 'arrow'}
-							size={13}
-						/>
-						{highlightHead.isToday ? 'Today' : laterWeek ? 'Next week' : 'Next up'}
-					</p>
-					{highlightSessions.length === 1 ? (
-						<>
-							<h2 id="next-up-heading">
-								{highlightHead.day}
-								{highlightHead.date ? ` · ${highlightHead.date.slice(5)}` : ''} ·{' '}
-								{highlightHead.label}
-							</h2>
-							<p>
-								{highlightHead.distance_km != null && `${highlightHead.distance_km} km · `}
-								{highlightHead.detail}
-							</p>
-							{highlightHead.route && (
-								<RouteChip
-									slug={highlightHead.route.slug}
-									name={highlightHead.route.name}
-									distanceKm={highlightHead.route.distance_km}
-								/>
-							)}
-							<LogPlannedStrengthLink
-								session={highlightHead}
-								className={buttonClass({ variant: 'ghost', size: 'sm', className: 'mt-3' })}
-							/>
-						</>
-					) : (
-						<>
-							<h2 id="next-up-heading">
-								{highlightHead.day}
-								{highlightHead.date ? ` · ${highlightHead.date.slice(5)}` : ''}
-							</h2>
-							<div className="grid gap-3 mt-[0.45rem]">
-								{highlightSessions.map((session, i) => {
-									const logSlug = session.done ? session.logSlug : null;
-									const className = cn(
-										i > 0 && 'pt-3 border-t border-line',
-										session.done && 'opacity-80',
-										session.skipped && 'opacity-55',
-										logSlug &&
-											'text-inherit no-underline rounded-inset -mx-1 px-1 py-1 hover:bg-accent/6'
-									);
-									const body = (
-										<>
-											<p className="m-0 inline-flex items-center gap-1.5 text-[0.82rem] font-semibold text-muted">
-												<ActivityIcon type={session.activity_type ?? 'run'} size={13} />
-												{[
-													activityLabel(session.activity_type ?? 'run'),
-													sessionMeasureLabel(session),
-													session.done ? 'completed' : session.isNext ? 'next' : ''
-												]
-													.filter(Boolean)
-													.join(' · ')}
-											</p>
-											<strong className="block font-display text-[1.15rem] tracking-[-0.02em]">
-												{session.label}
-											</strong>
-											<PlanSessionBody session={session} className="mt-[0.2rem]" />
-										</>
-									);
-									if (logSlug) {
-										return (
-											<Link
-												key={`${session.day}-${session.label}-${i}`}
-												to="/runs/$slug"
-												params={{ slug: logSlug }}
-												className={className}
-											>
-												{body}
-											</Link>
-										);
-									}
-									return (
-										<div key={`${session.day}-${session.label}-${i}`} className={className}>
-											{body}
-											{session.route && !session.done && (
-												<RouteChip
-													slug={session.route.slug}
-													name={session.route.name}
-													distanceKm={session.route.distance_km}
-												/>
-											)}
-											<LogPlannedStrengthLink session={session} />
-										</div>
-									);
-								})}
-							</div>
-						</>
-					)}
-					<p className={cn('text-muted', 'mt-[0.4rem]')}>
-						<Link className="text-accent-fg font-semibold" to="/coach" search={coachPlanSearch}>
-							Full week in Coach
-						</Link>
-						<span aria-hidden="true"> · </span>
-						Week {data.weekView.week.week} · {data.weekView.week.phase}
-						{data.weekView.week.focus ? ` · ${data.weekView.week.focus}` : ''}
-						{data.weekView.unplanned.length
-							? ` · ${data.weekView.unplanned.length} unplanned logged`
-							: ''}
-					</p>
-				</section>
-			)}
-			{data.weekView && !data.weekView.next && (
-				<section className={canPlanNext ? nextUp : nextUpDone} aria-labelledby="next-up-heading">
-					<p className={cn(nextUpKicker, 'inline-flex items-center gap-1.5')}>
-						<Icon name={canPlanNext ? 'calendar' : 'check'} size={13} />
-						{canPlanNext ? 'Next week' : 'This week'}
-					</p>
-					<h2 id="next-up-heading">
-						{data.weekView.sessions.some((s) => s.unlogged)
-							? 'Some sessions not logged yet'
-							: canPlanNext
-								? 'Plan next week'
-								: data.weekView.sessions.some((s) => s.skipped)
-									? 'Week complete — some sessions skipped'
-									: 'All planned sessions logged'}
-					</h2>
-					<p className={cn('text-muted', 'mt-[0.4rem]')}>
-						Week {data.weekView.week.week} · {data.weekView.week.phase}
-						{canPlanNext ? ' is done' : ''}
-						{canPlanNext && data.weekView.sessions.some((s) => s.skipped)
-							? ' · some sessions skipped'
-							: ''}
-						{data.weekView.unplanned.length
-							? ` · ${data.weekView.unplanned.length} unplanned logged`
-							: ''}
-						.{' '}
-						{canPlanNext ? (
-							<Link
-								className="text-accent-fg font-semibold"
-								to="/coach"
-								search={coachNextWeekSearch}
-							>
-								Plan week {nextWeekNum} in Coach
-							</Link>
-						) : (
-							<Link className="text-accent-fg font-semibold" to="/coach" search={coachPlanSearch}>
-								See the week in Coach
-							</Link>
-						)}
-						.
-					</p>
-				</section>
-			)}
+			{data.weekView ? (
+				<div className="mt-5 max-sm:mt-0">
+					<DashboardNextUp
+						weekView={data.weekView}
+						calendar={data.calendar}
+						planRoutes={data.planRoutes}
+						activeGoal={data.activeGoal}
+						raceDays={raceDays}
+					/>
+				</div>
+			) : null}
 
 			{filteredEmpty ? (
 				<EmptyState
@@ -497,9 +321,11 @@ function DashboardBody({
 								<Link className="text-[0.78rem] text-accent-fg font-semibold" to="/goals">
 									{data.activeGoal && raceDays != null && raceDays < 0
 										? 'Pin result'
-										: data.nextIntention && !data.activeGoal
-											? data.nextIntention.name
-											: 'Goals'}
+										: data.activeGoal && raceDays != null
+											? 'Days'
+											: data.nextIntention && !data.activeGoal
+												? data.nextIntention.name
+												: 'Goals'}
 								</Link>
 							) : null}
 						</div>

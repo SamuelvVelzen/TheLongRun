@@ -90,7 +90,7 @@ function UnplannedBadge() {
 	);
 }
 
-function UnplannedRow({ item, divided }: { item: UnplannedActivity; divided: boolean }) {
+export function UnplannedRow({ item, divided }: { item: UnplannedActivity; divided: boolean }) {
 	return (
 		<Link
 			to="/runs/$slug"
@@ -118,7 +118,7 @@ function UnplannedRow({ item, divided }: { item: UnplannedActivity; divided: boo
 	);
 }
 
-function PlannedSessionRow({
+export function PlannedSessionRow({
 	session,
 	week,
 	routes,

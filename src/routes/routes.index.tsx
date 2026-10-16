@@ -13,6 +13,8 @@ import {
 	SectionTitle,
 	Tag,
 	errorMessage,
+	useDiscardGuard,
+	useLeaveGuard,
 	useSnackbar
 } from '../components/ui';
 import { buttonClass } from '../components/ui/Button';
@@ -82,15 +84,32 @@ function PlannedRoutes() {
 	const [progress, setProgress] = useState('');
 	const [results, setResults] = useState<PlannedRouteImportResult[]>([]);
 	const [pendingFile, setPendingFile] = useState<string | null>(null);
+	const [pinsDirty, setPinsDirty] = useState(false);
 
 	useEffect(() => {
 		if (draw) setDrawing(true);
 	}, [draw]);
 
-	function closeDraw() {
-		setDrawing(false);
-		if (draw) void router.navigate({ to: '/routes', search: {} });
-	}
+	useEffect(() => {
+		if (!drawing) setPinsDirty(false);
+	}, [drawing]);
+
+	const drawDirty = authed && drawing && (pinsDirty || routeName.trim() !== '');
+
+	const { guard: leaveGuard, allowNextLeave } = useLeaveGuard({ dirty: drawDirty });
+
+	const [requestCloseDraw, discardGuard] = useDiscardGuard({
+		dirty: drawDirty,
+		onDiscard: () => {
+			setDrawing(false);
+			if (draw) {
+				allowNextLeave();
+				void router.navigate({ to: '/routes', search: {} });
+			}
+		},
+		title: 'Discard this draft route?',
+		description: 'Your pins and the name will be lost.'
+	});
 
 	function addFiles(list: FileList | null) {
 		const tracks = routeImportFiles(list);
@@ -181,8 +200,11 @@ function PlannedRoutes() {
 			});
 			snack.success(`Saved ${result.name}`);
 			setRouteName('');
+			setPinsDirty(false);
 			setDrawing(false);
+			allowNextLeave();
 			await refreshRoutesList(router);
+			allowNextLeave();
 			await router.navigate({ to: '/routes/$slug', params: { slug: result.slug } });
 		} catch (error) {
 			snack.error(errorMessage(error, 'Could not save route'));
@@ -213,7 +235,8 @@ function PlannedRoutes() {
 								hint="Place pins in order. Tap a pin to remove it, or tap the line to add one between. Drag to adjust."
 								saveLabel="Save route"
 								busy={busy}
-								onClose={closeDraw}
+								onDirtyChange={setPinsDirty}
+								onClose={requestCloseDraw}
 								onSave={saveDrawn}
 							>
 								<Field as="label">
@@ -358,6 +381,8 @@ function PlannedRoutes() {
 					/>
 				</div>
 			) : null}
+			{leaveGuard}
+			{discardGuard}
 			<DeferredData promise={page}>{(data) => <PlannedRoutesList data={data} />}</DeferredData>
 		</>
 	);

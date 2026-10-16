@@ -32,6 +32,7 @@ import { useCallback, useRef, useState } from 'react';
 import { ActivityForm } from '../components/ActivityForm';
 import { BestEffortBadges } from '../components/BestEffortBadges';
 import { EditButton, TrashIcon } from '../components/DeleteButton';
+import { FeelAiDialog } from '../components/FeelAiDialog';
 import { GearField } from '../components/GearField';
 import { FuelTryLine } from '../components/FuelParts';
 import { exportActivityGpx, GpsRepair } from '../components/GpsRepair';
@@ -350,6 +351,7 @@ function RunDetail() {
 	}
 
 	const [pendingDelete, setPendingDelete] = useState(false);
+	const [feelAiOpen, setFeelAiOpen] = useState(false);
 	const [groupOpen, setGroupOpen] = useState(false);
 	const [groupPick, setGroupPick] = useState<string[]>([]);
 	const [downloading, setDownloading] = useState(false);
@@ -504,6 +506,15 @@ function RunDetail() {
 							{authed && <EditButton label="Edit activity" onClick={startEditing} />}
 							<MoreMenu
 								items={[
+									...(authed
+										? [
+												{
+													label: 'Feel with AI',
+													icon: <Icon name="sparkle" size={16} />,
+													onClick: () => setFeelAiOpen(true)
+												}
+											]
+										: []),
 									...(gps.issues.length === 0 && routeId
 										? [
 												{
@@ -1039,6 +1050,7 @@ function RunDetail() {
 						})}
 				</div>
 			</Dialog>
+			<FeelAiDialog open={feelAiOpen} run={r} onClose={() => setFeelAiOpen(false)} />
 			<ConfirmDialog
 				open={leaveOpen}
 				title="Are you sure?"

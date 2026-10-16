@@ -27,6 +27,7 @@ function toBoolOrNull(value: unknown): boolean | null {
 /** Map a DB row to a RunRecord. */
 function rowToRun(row: Record<string, unknown>): RunRecord {
 	return {
+		id: Number(row.id ?? 0) || 0,
 		slug: toStr(row.slug),
 		date: toStr(row.date),
 		week: toNum(row.week),
@@ -67,8 +68,8 @@ function rowToRun(row: Record<string, unknown>): RunRecord {
 	};
 }
 
-/** Full record used by the internal upsert (everything except the derived slug helpers). */
-type RunColumns = Omit<RunRecord, 'filepath'>;
+/** Full record used by the insert / replace helpers (no id — the DB owns it). */
+type RunColumns = Omit<RunRecord, 'filepath' | 'id'>;
 
 function effortsJson(efforts: BestEffort[] | undefined | null): string {
 	return JSON.stringify(efforts ?? []);
@@ -78,11 +79,10 @@ function bodyScoresJson(scores: BodyScore[] | undefined | null): string {
 	return JSON.stringify(parseBodyScores(scores ?? []));
 }
 
-async function upsertRun(r: RunColumns): Promise<RunRecord> {
+async function insertRun(r: RunColumns): Promise<RunRecord> {
 	const sql = getSql();
 	const efforts = effortsJson(r.best_efforts);
 	const bodyScores = bodyScoresJson(r.body_scores);
-	const shins = worstBodyScore(r.body_scores ?? []);
 	const rows = (await sql`
 		INSERT INTO runs (
 			slug, date, week, day, activity_type, session, effort, shins, legs, energy, weather, surface,
@@ -91,7 +91,7 @@ async function upsertRun(r: RunColumns): Promise<RunRecord> {
 			strava_id, route, notes, before_notes, after_notes, country, province, place, best_efforts,
 			body_scores
 		) VALUES (
-			${r.slug}, ${r.date}, ${r.week}, ${r.day}, ${r.activity_type}, ${r.session}, ${r.effort}, ${shins},
+			${r.slug}, ${r.date}, ${r.week}, ${r.day}, ${r.activity_type}, ${r.session}, ${r.effort}, ${worstBodyScore(r.body_scores ?? [])},
 			${r.legs}, ${r.energy}, ${r.weather}, ${r.surface}, ${r.wanted_faster}, ${r.distance_km},
 			${r.start_time}, ${r.time}, ${r.elapsed_time}, ${r.avg_pace}, ${r.avg_hr}, ${r.max_hr},
 			${r.elev_gain}, ${r.calories}, ${r.kilojoules}, ${r.max_speed}, ${r.cadence}, ${r.gear},
@@ -99,20 +99,6 @@ async function upsertRun(r: RunColumns): Promise<RunRecord> {
 			${r.before_notes}, ${r.after_notes}, ${r.country},
 			${r.province}, ${r.place}, ${efforts}, ${bodyScores}
 		)
-		ON CONFLICT (slug) DO UPDATE SET
-			date = EXCLUDED.date, week = EXCLUDED.week, day = EXCLUDED.day,
-			activity_type = EXCLUDED.activity_type, session = EXCLUDED.session,
-			effort = EXCLUDED.effort, shins = EXCLUDED.shins, legs = EXCLUDED.legs, energy = EXCLUDED.energy,
-			weather = EXCLUDED.weather, surface = EXCLUDED.surface, wanted_faster = EXCLUDED.wanted_faster,
-			distance_km = EXCLUDED.distance_km, start_time = EXCLUDED.start_time, "time" = EXCLUDED."time",
-			elapsed_time = EXCLUDED.elapsed_time, avg_pace = EXCLUDED.avg_pace, avg_hr = EXCLUDED.avg_hr,
-			max_hr = EXCLUDED.max_hr, elev_gain = EXCLUDED.elev_gain, calories = EXCLUDED.calories,
-			kilojoules = EXCLUDED.kilojoules, max_speed = EXCLUDED.max_speed, cadence = EXCLUDED.cadence,
-			shoes = EXCLUDED.shoes, summary_image = EXCLUDED.summary_image, splits_image = EXCLUDED.splits_image,
-			strava_id = EXCLUDED.strava_id, route = EXCLUDED.route, notes = EXCLUDED.notes,
-			before_notes = EXCLUDED.before_notes, after_notes = EXCLUDED.after_notes,
-			country = EXCLUDED.country, province = EXCLUDED.province, place = EXCLUDED.place,
-			best_efforts = EXCLUDED.best_efforts, body_scores = EXCLUDED.body_scores
 		RETURNING *
 	`) as Record<string, unknown>[];
 	return rowToRun(rows[0]!);
@@ -135,6 +121,17 @@ export async function getMaxHrAllTime(): Promise<number | null> {
 	return m != null && Number.isFinite(Number(m)) ? Number(m) : null;
 }
 
+/** Identity lookup — the stable way to reference an activity. */
+export async function getRunById(id: number): Promise<RunRecord | null> {
+	const sql = getSql();
+	const rows = (await sql`SELECT * FROM runs WHERE id = ${id} LIMIT 1`) as Record<
+		string,
+		unknown
+	>[];
+	return rows.length ? rowToRun(rows[0]!) : null;
+}
+
+/** URL lookup by the frozen slug label (`/runs/$slug`). */
 export async function getRun(slug: string): Promise<RunRecord | null> {
 	const sql = getSql();
 	const rows = (await sql`SELECT * FROM runs WHERE slug = ${slug} LIMIT 1`) as Record<
@@ -144,9 +141,28 @@ export async function getRun(slug: string): Promise<RunRecord | null> {
 	return rows.length ? rowToRun(rows[0]!) : null;
 }
 
+/** Mint the frozen URL label for a new activity: `2026-10-15-thursday`, `-2`, `-3`, … */
 export function runSlug(date: string, day: string) {
 	const d = day.toLowerCase().replace(/\s+/g, '-');
 	return `${date}-${d}`;
+}
+
+async function nextFreeSlug(base: string): Promise<string> {
+	const sql = getSql();
+	const rows = (await sql`SELECT id FROM runs WHERE slug = ${base} LIMIT 1`) as Record<
+		string,
+		unknown
+	>[];
+	if (!rows.length) return base;
+	for (let i = 2; i < 50; i++) {
+		const candidate = `${base}-${i}`;
+		const taken = (await sql`SELECT id FROM runs WHERE slug = ${candidate} LIMIT 1`) as Record<
+			string,
+			unknown
+		>[];
+		if (!taken.length) return candidate;
+	}
+	return `${base}-${Date.now()}`;
 }
 
 export interface SaveRunInput {
@@ -188,162 +204,9 @@ export interface SaveRunInput {
 	best_efforts?: BestEffort[];
 }
 
-export async function findRunByStravaId(stravaId: string): Promise<RunRecord | null> {
-	if (!stravaId) return null;
-	const sql = getSql();
-	const rows = (await sql`
-		SELECT * FROM runs WHERE strava_id = ${stravaId} ORDER BY date DESC LIMIT 1
-	`) as Record<string, unknown>[];
-	return rows.length ? rowToRun(rows[0]!) : null;
-}
-
-/** Point a run at a route track (used when import attaches/refreshes a map). */
-export async function setRunRoute(slug: string, route: string): Promise<void> {
-	const sql = getSql();
-	await sql`UPDATE runs SET route = ${route} WHERE slug = ${slug}`;
-}
-
-export async function setRunBestEfforts(slug: string, efforts: BestEffort[]): Promise<void> {
-	const sql = getSql();
-	const json = effortsJson(efforts);
-	await sql`UPDATE runs SET best_efforts = ${json} WHERE slug = ${slug}`;
-}
-
-/** Refresh device/GPS metrics when re-importing a track onto an existing activity. */
-export async function setRunImportMetrics(
-	slug: string,
-	metrics: {
-		distance_km: number | null;
-		time: string;
-		elapsed_time: string;
-		avg_pace: string;
-		avg_hr: number | null;
-		max_hr: number | null;
-		elev_gain: number | null;
-		max_speed: number | null;
-	}
-): Promise<void> {
-	const sql = getSql();
-	await sql`
-		UPDATE runs SET
-			distance_km = ${metrics.distance_km},
-			"time" = ${metrics.time},
-			elapsed_time = ${metrics.elapsed_time},
-			avg_pace = ${metrics.avg_pace},
-			avg_hr = ${metrics.avg_hr},
-			max_hr = ${metrics.max_hr},
-			elev_gain = ${metrics.elev_gain},
-			max_speed = ${metrics.max_speed}
-		WHERE slug = ${slug}
-	`;
-}
-
-export type FeelingsPatch = {
-	effort?: number | null;
-	/** Replaces the whole list. */
-	body_scores?: BodyScore[];
-	legs?: number | null;
-	energy?: number | null;
-	wanted_faster?: boolean | null;
-	surface?: string;
-	notes?: string;
-	/** Run session kind — easy / quality / long / race / … */
-	session?: string;
-	cadence?: number | null;
-	gear?: string;
-	before_notes?: string;
-	after_notes?: string;
-};
-
-/**
- * Update only the subjective "feel" columns of a run, leaving device data untouched. Fields not
- * present in the patch keep their current value. Strength lift logs in notes are kept; a notes
- * patch becomes the extra commentary. Returns false if the slug does not exist.
- */
-export async function updateRunFeelings(slug: string, p: FeelingsPatch): Promise<boolean> {
-	const run = await getRun(slug);
-	if (!run) return false;
-	const pick = <T>(v: T | undefined, cur: T): T => (v === undefined ? cur : v);
-	let notes = pick(p.notes, run.notes);
-	if (p.notes !== undefined && normalizeActivityType(run.activity_type) === 'strength') {
-		const parsed = parseStrengthNotes(run.notes);
-		notes = formatStrengthNotes(parsed.exercises, p.notes);
-	}
-	const merged = {
-		effort: pick(p.effort, run.effort),
-		body_scores: parseBodyScores(pick(p.body_scores, run.body_scores)),
-		legs: pick(p.legs, run.legs),
-		energy: pick(p.energy, run.energy),
-		wanted_faster: pick(p.wanted_faster, run.wanted_faster),
-		surface: pick(p.surface, run.surface),
-		notes,
-		session: p.session !== undefined ? p.session.trim() : run.session,
-		cadence: pick(p.cadence, run.cadence),
-		gear: p.gear !== undefined ? p.gear.trim() : run.gear,
-		before_notes: p.before_notes !== undefined ? p.before_notes.trim() : run.before_notes,
-		after_notes: p.after_notes !== undefined ? p.after_notes.trim() : run.after_notes
-	};
-	const sql = getSql();
-	await sql`
-		UPDATE runs SET
-			effort = ${merged.effort},
-			shins = ${worstBodyScore(merged.body_scores)},
-			body_scores = ${JSON.stringify(merged.body_scores)},
-			legs = ${merged.legs},
-			energy = ${merged.energy},
-			wanted_faster = ${merged.wanted_faster},
-			surface = ${merged.surface},
-			notes = ${merged.notes},
-			session = ${merged.session},
-			cadence = ${merged.cadence},
-			shoes = ${merged.gear},
-			before_notes = ${merged.before_notes},
-			after_notes = ${merged.after_notes}
-		WHERE slug = ${slug}
-	`;
-	return true;
-}
-
-export async function findRunsByDate(date: string): Promise<RunRecord[]> {
-	const sql = getSql();
-	const rows = (await sql`SELECT * FROM runs WHERE date = ${date} ORDER BY slug`) as Record<
-		string,
-		unknown
-	>[];
-	return rows.map(rowToRun);
-}
-
-/** Route ids that have a stored GeoJSON track (used to derive has_map without per-run queries). */
-export async function listRouteIds(): Promise<Set<string>> {
-	const sql = getSql();
-	const rows = (await sql`SELECT id FROM routes`) as Record<string, unknown>[];
-	return new Set(rows.map((r) => toStr(r.id)));
-}
-
-/** True when a run has a map: an explicit route link, or a stored track keyed by strava_id. */
-export function runHasMap(
-	run: Pick<RunRecord, 'route' | 'strava_id'>,
-	routeIds: Set<string>
-): boolean {
-	if ((run.route ?? '').trim()) return true;
-	if (run.strava_id && routeIds.has(run.strava_id)) return true;
-	return false;
-}
-
-/** First unused slug: base, then base-2, base-3… so same-day activities never overwrite. */
-async function nextFreeSlug(base: string): Promise<string> {
-	if (!(await getRun(base))) return base;
-	for (let i = 2; i < 50; i++) {
-		const candidate = `${base}-${i}`;
-		if (!(await getRun(candidate))) return candidate;
-	}
-	return `${base}-${Date.now()}`;
-}
-
 export async function saveRun(input: SaveRunInput): Promise<RunRecord> {
-	const slug = await nextFreeSlug(runSlug(input.date, input.day));
-	return upsertRun({
-		slug,
+	return insertRun({
+		slug: await nextFreeSlug(runSlug(input.date, input.day)),
 		date: input.date,
 		week: input.week,
 		day: input.day,
@@ -383,8 +246,13 @@ export async function saveRun(input: SaveRunInput): Promise<RunRecord> {
 	});
 }
 
-function isSafeSlug(slug: string): boolean {
-	return Boolean(slug) && !slug.includes('..') && !slug.includes('/') && !slug.includes('\\');
+export async function findRunByStravaId(stravaId: string): Promise<RunRecord | null> {
+	if (!stravaId) return null;
+	const sql = getSql();
+	const rows = (await sql`
+		SELECT * FROM runs WHERE strava_id = ${stravaId} ORDER BY date DESC LIMIT 1
+	`) as Record<string, unknown>[];
+	return rows.length ? rowToRun(rows[0]!) : null;
 }
 
 /** Route ids linked to a run (explicit `route` field and/or `{strava_id}.json`). */
@@ -399,64 +267,153 @@ function routeIdsForRun(run: Pick<RunRecord, 'route' | 'strava_id'>): string[] {
 	return [...ids];
 }
 
-/** Delete a run and its linked route track(s). */
-export async function deleteRun(slug: string): Promise<boolean> {
-	if (!isSafeSlug(slug)) return false;
-	const run = await getRun(slug);
-	if (!run) return false;
-
+/** Point a run at a route track (used when import attaches/refreshes a map). */
+export async function setRunRoute(id: number, route: string): Promise<void> {
 	const sql = getSql();
-	const { pruneGroupsForSlug } = await import('./groups');
-	await pruneGroupsForSlug(slug);
-	await sql`DELETE FROM runs WHERE slug = ${slug}`;
+	await sql`UPDATE runs SET route = ${route} WHERE id = ${id}`;
+}
 
-	for (const id of routeIdsForRun(run)) {
-		await sql`DELETE FROM routes WHERE id = ${id}`;
+export async function setRunBestEfforts(id: number, efforts: BestEffort[]): Promise<void> {
+	const sql = getSql();
+	const json = effortsJson(efforts);
+	await sql`UPDATE runs SET best_efforts = ${json} WHERE id = ${id}`;
+}
+
+/** Refresh device/GPS metrics when re-importing a track onto an existing activity. */
+export async function setRunImportMetrics(
+	id: number,
+	metrics: {
+		distance_km: number | null;
+		time: string;
+		elapsed_time: string;
+		avg_pace: string;
+		avg_hr: number | null;
+		max_hr: number | null;
+		elev_gain: number | null;
+		max_speed: number | null;
 	}
+): Promise<void> {
+	const sql = getSql();
+	await sql`
+		UPDATE runs SET
+			distance_km = ${metrics.distance_km},
+			"time" = ${metrics.time},
+			elapsed_time = ${metrics.elapsed_time},
+			avg_pace = ${metrics.avg_pace},
+			avg_hr = ${metrics.avg_hr},
+			max_hr = ${metrics.max_hr},
+			elev_gain = ${metrics.elev_gain},
+			max_speed = ${metrics.max_speed}
+		WHERE id = ${id}
+	`;
+}
+
+export type FeelingsPatch = {
+	effort?: number | null;
+	/** Replaces the whole list. */
+	body_scores?: BodyScore[];
+	legs?: number | null;
+	energy?: number | null;
+	wanted_faster?: boolean | null;
+	surface?: string;
+	notes?: string;
+	/** Run session kind — easy / quality / long / race / … */
+	session?: string;
+	cadence?: number | null;
+	gear?: string;
+	before_notes?: string;
+	after_notes?: string;
+};
+
+/**
+ * Update only the subjective "feel" columns of a run, leaving device data untouched. Fields not
+ * present in the patch keep their current value. Strength lift logs in notes are kept; a notes
+ * patch becomes the extra commentary. Returns false if the id does not exist.
+ */
+export async function updateRunFeelings(id: number, p: FeelingsPatch): Promise<boolean> {
+	const run = await getRunById(id);
+	if (!run) return false;
+	const pick = <T>(v: T | undefined, cur: T): T => (v === undefined ? cur : v);
+	let notes = pick(p.notes, run.notes);
+	if (p.notes !== undefined && normalizeActivityType(run.activity_type) === 'strength') {
+		const parsed = parseStrengthNotes(run.notes);
+		notes = formatStrengthNotes(parsed.exercises, p.notes);
+	}
+	const merged = {
+		effort: pick(p.effort, run.effort),
+		body_scores: parseBodyScores(pick(p.body_scores, run.body_scores)),
+		legs: pick(p.legs, run.legs),
+		energy: pick(p.energy, run.energy),
+		wanted_faster: pick(p.wanted_faster, run.wanted_faster),
+		surface: pick(p.surface, run.surface),
+		notes,
+		session: p.session !== undefined ? p.session.trim() : run.session,
+		cadence: pick(p.cadence, run.cadence),
+		gear: p.gear !== undefined ? p.gear.trim() : run.gear,
+		before_notes: p.before_notes !== undefined ? p.before_notes.trim() : run.before_notes,
+		after_notes: p.after_notes !== undefined ? p.after_notes.trim() : run.after_notes
+	};
+	const sql = getSql();
+	await sql`
+		UPDATE runs SET
+			effort = ${merged.effort},
+			shins = ${worstBodyScore(merged.body_scores)},
+			body_scores = ${JSON.stringify(merged.body_scores)},
+			legs = ${merged.legs},
+			energy = ${merged.energy},
+			wanted_faster = ${merged.wanted_faster},
+			surface = ${merged.surface},
+			notes = ${merged.notes},
+			session = ${merged.session},
+			cadence = ${merged.cadence},
+			shoes = ${merged.gear},
+			before_notes = ${merged.before_notes},
+			after_notes = ${merged.after_notes}
+		WHERE id = ${id}
+	`;
 	return true;
 }
 
-/** Overwrite an existing run (keeps slug). */
-export async function writeRun(run: RunRecord): Promise<RunRecord> {
-	return upsertRun({
-		slug: run.slug,
-		date: run.date,
-		week: run.week,
-		day: run.day,
-		activity_type: run.activity_type || 'run',
-		session: run.session,
-		effort: run.effort,
-		body_scores: run.body_scores ?? [],
-		legs: run.legs,
-		energy: run.energy,
-		weather: run.weather,
-		surface: run.surface,
-		wanted_faster: run.wanted_faster,
-		distance_km: run.distance_km,
-		start_time: normalizeStartTime(run.start_time || ''),
-		time: run.time,
-		elapsed_time: run.elapsed_time || '',
-		avg_pace: run.avg_pace,
-		avg_hr: run.avg_hr,
-		max_hr: run.max_hr,
-		elev_gain: run.elev_gain,
-		calories: run.calories,
-		kilojoules: run.kilojoules,
-		max_speed: run.max_speed,
-		cadence: run.cadence,
-		gear: run.gear,
-		summary_image: run.summary_image,
-		splits_image: run.splits_image,
-		strava_id: run.strava_id || '',
-		route: run.route || '',
-		notes: run.notes?.trim() ?? '',
-		before_notes: run.before_notes?.trim() ?? '',
-		after_notes: run.after_notes?.trim() ?? '',
-		country: run.country || '',
-		province: run.province || '',
-		place: run.place || '',
-		best_efforts: run.best_efforts ?? []
-	});
+export async function findRunsByDate(date: string): Promise<RunRecord[]> {
+	const sql = getSql();
+	const rows = (await sql`SELECT * FROM runs WHERE date = ${date} ORDER BY slug`) as Record<
+		string,
+		unknown
+	>[];
+	return rows.map(rowToRun);
+}
+
+/** Route ids that have a stored GeoJSON track (used to derive has_map without per-run queries). */
+export async function listRouteIds(): Promise<Set<string>> {
+	const sql = getSql();
+	const rows = (await sql`SELECT id FROM routes`) as Record<string, unknown>[];
+	return new Set(rows.map((r) => toStr(r.id)));
+}
+
+/** True when a run has a map: an explicit route link, or a stored track keyed by strava_id. */
+export function runHasMap(
+	run: Pick<RunRecord, 'route' | 'strava_id'>,
+	routeIds: Set<string>
+): boolean {
+	if ((run.route ?? '').trim()) return true;
+	if (run.strava_id && routeIds.has(run.strava_id)) return true;
+	return false;
+}
+
+/** Delete a run (by id) and its linked route track(s). */
+export async function deleteRun(id: number): Promise<boolean> {
+	const run = await getRunById(id);
+	if (!run) return false;
+
+	const sql = getSql();
+	const { pruneGroupsForRun } = await import('./groups');
+	await pruneGroupsForRun(id);
+	await sql`DELETE FROM runs WHERE id = ${id}`;
+
+	for (const routeId of routeIdsForRun(run)) {
+		await sql`DELETE FROM routes WHERE id = ${routeId}`;
+	}
+	return true;
 }
 
 /** Editable fields for an existing run (preserves images, strava_id, route, FIT extras). */
@@ -488,12 +445,12 @@ export type UpdateRunFields = {
 };
 
 /**
- * Update a run in place. Same-day extras keep their `-2`/`-3` slug; a date change mints a
- * free slug instead of colliding. Routes/images/strava_id stay on the record.
+ * Update a run in place. Identity (id) and the frozen slug label stay put, so a date
+ * change never moves bookmarks, drafts, or group membership anymore.
+ * Routes/images/strava_id/device extras stay on the record.
  */
-export async function updateRun(slug: string, fields: UpdateRunFields): Promise<RunRecord> {
-	if (!isSafeSlug(slug)) throw new Error('Invalid run slug.');
-	const existing = await getRun(slug);
+export async function updateRun(id: number, fields: UpdateRunFields): Promise<RunRecord> {
+	const existing = await getRunById(id);
 	if (!existing) throw new Error('Run not found.');
 
 	const date = fields.date.trim();
@@ -501,56 +458,26 @@ export async function updateRun(slug: string, fields: UpdateRunFields): Promise<
 	const session = fields.session.trim();
 	if (!date || !day || !session) throw new Error('Date, day and session are required.');
 
-	const baseSlug = runSlug(date, day);
-	if (!isSafeSlug(baseSlug)) throw new Error('Invalid date or day for slug.');
-	const newSlug = existing.date === date ? slug : await nextFreeSlug(baseSlug);
+	const sql = getSql();
+	const efforts = effortsJson(existing.best_efforts);
+	const bodyScores = bodyScoresJson(fields.body_scores);
+	await sql`
+		UPDATE runs SET
+			date = ${date}, week = ${fields.week}, day = ${day},
+			activity_type = ${fields.activity_type || 'run'}, session = ${session},
+			effort = ${fields.effort}, shins = ${worstBodyScore(fields.body_scores)},
+			legs = ${fields.legs}, energy = ${fields.energy}, weather = ${fields.weather},
+			surface = ${fields.surface}, wanted_faster = ${fields.wanted_faster},
+			distance_km = ${fields.distance_km}, start_time = ${normalizeStartTime(fields.start_time)},
+			"time" = ${fields.time}, avg_pace = ${fields.avg_pace}, avg_hr = ${fields.avg_hr},
+			max_hr = ${fields.max_hr}, elev_gain = ${fields.elev_gain}, cadence = ${fields.cadence},
+			shoes = ${fields.gear}, notes = ${fields.notes},
+			before_notes = ${fields.before_notes}, after_notes = ${fields.after_notes},
+			best_efforts = ${efforts}, body_scores = ${bodyScores}
+		WHERE id = ${id}
+	`;
 
-	const saved = await upsertRun({
-		slug: newSlug,
-		date,
-		week: fields.week,
-		day,
-		activity_type: fields.activity_type || 'run',
-		session,
-		effort: fields.effort,
-		body_scores: fields.body_scores,
-		legs: fields.legs,
-		energy: fields.energy,
-		weather: fields.weather,
-		surface: fields.surface,
-		wanted_faster: fields.wanted_faster,
-		distance_km: fields.distance_km,
-		start_time: normalizeStartTime(fields.start_time),
-		time: fields.time,
-		elapsed_time: existing.elapsed_time,
-		avg_pace: fields.avg_pace,
-		avg_hr: fields.avg_hr,
-		max_hr: fields.max_hr,
-		elev_gain: fields.elev_gain,
-		calories: existing.calories,
-		kilojoules: existing.kilojoules,
-		max_speed: existing.max_speed,
-		cadence: fields.cadence,
-		gear: fields.gear,
-		summary_image: existing.summary_image,
-		splits_image: existing.splits_image,
-		strava_id: existing.strava_id,
-		route: existing.route,
-		notes: fields.notes,
-		before_notes: fields.before_notes,
-		after_notes: fields.after_notes,
-		country: existing.country,
-		province: existing.province,
-		place: existing.place,
-		best_efforts: existing.best_efforts ?? []
-	});
-
-	if (newSlug !== slug) {
-		const { repointGroupMember } = await import('./groups');
-		await repointGroupMember(slug, newSlug);
-		const sql = getSql();
-		await sql`DELETE FROM runs WHERE slug = ${slug}`;
-	}
-
+	const saved = await getRunById(id);
+	if (!saved) throw new Error('Run not found after update.');
 	return saved;
 }

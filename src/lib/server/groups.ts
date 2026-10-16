@@ -5,7 +5,7 @@ import type { TrackSample } from '$lib/splits';
 import type { ActivityGroupInfo, RunRecord } from '$lib/types';
 import { getSql } from './db';
 import { getRouteGeoJson, routeIdForRun } from './route-analytics';
-import { getRun } from './runs';
+import { getRunById } from './runs';
 
 export type { ActivityGroupInfo };
 
@@ -26,9 +26,9 @@ export async function listActivityGroups(): Promise<ActivityGroupInfo[]> {
 	>[];
 	if (!groups.length) return [];
 	const members = (await sql`
-		SELECT group_id, activity_slug, sort_order
+		SELECT group_id, activity_id, sort_order
 		FROM activity_group_members
-		ORDER BY sort_order ASC, activity_slug ASC
+		ORDER BY sort_order ASC, activity_id ASC
 	`) as Record<string, unknown>[];
 	const byId = new Map<string, ActivityGroupInfo>();
 	for (const row of groups) {
@@ -37,15 +37,15 @@ export async function listActivityGroups(): Promise<ActivityGroupInfo[]> {
 			id,
 			name: toStr(row.name),
 			created_on: toStr(row.created_on),
-			member_slugs: [],
+			member_ids: [],
 			best_efforts: []
 		});
 	}
 	for (const row of members) {
 		const g = byId.get(toStr(row.group_id));
-		if (g) g.member_slugs.push(toStr(row.activity_slug));
+		if (g) g.member_ids.push(toNum(row.activity_id));
 	}
-	return [...byId.values()].filter((g) => g.member_slugs.length >= 2);
+	return [...byId.values()].filter((g) => g.member_ids.length >= 2);
 }
 
 export async function getActivityGroup(id: string): Promise<ActivityGroupInfo | null> {
@@ -58,47 +58,46 @@ export async function getActivityGroup(id: string): Promise<ActivityGroupInfo | 
 		>[];
 	if (!rows.length) return null;
 	const members = (await sql`
-		SELECT activity_slug FROM activity_group_members
+		SELECT activity_id FROM activity_group_members
 		WHERE group_id = ${id}
-		ORDER BY sort_order ASC, activity_slug ASC
-	`) as { activity_slug: string }[];
+		ORDER BY sort_order ASC, activity_id ASC
+	`) as { activity_id: number }[];
 	return {
 		id: toStr(rows[0]!.id),
 		name: toStr(rows[0]!.name),
 		created_on: toStr(rows[0]!.created_on),
-		member_slugs: members.map((m) => toStr(m.activity_slug)),
+		member_ids: members.map((m) => toNum(m.activity_id)),
 		best_efforts: []
 	};
 }
 
-export async function membershipForSlug(slug: string): Promise<ActivityGroupInfo | null> {
-	if (!slug) return null;
+export async function membershipForRun(id: number): Promise<ActivityGroupInfo | null> {
+	if (!id) return null;
 	const sql = getSql();
 	const rows = (await sql`
-		SELECT group_id FROM activity_group_members WHERE activity_slug = ${slug} LIMIT 1
+		SELECT group_id FROM activity_group_members WHERE activity_id = ${id} LIMIT 1
 	`) as { group_id: string }[];
 	if (!rows.length) return null;
 	return getActivityGroup(toStr(rows[0]!.group_id));
 }
 
-async function slugsAlreadyGrouped(slugs: string[]): Promise<string[]> {
-	if (!slugs.length) return [];
+async function idsAlreadyGrouped(ids: number[]): Promise<number[]> {
+	if (!ids.length) return [];
 	const sql = getSql();
-	const rows = (await sql`SELECT activity_slug FROM activity_group_members`) as {
-		activity_slug: string;
+	const rows = (await sql`SELECT activity_id FROM activity_group_members`) as {
+		activity_id: number;
 	}[];
-	const have = new Set(rows.map((r) => toStr(r.activity_slug)));
-	return slugs.filter((s) => have.has(s));
+	const have = new Set(rows.map((r) => toNum(r.activity_id)));
+	return ids.filter((id) => have.has(id));
 }
 
 async function rewriteSortOrder(groupId: string, runs: RunRecord[]): Promise<void> {
 	const sql = getSql();
 	const ordered = sortGroupMembers(runs);
 	for (let i = 0; i < ordered.length; i++) {
-		const slug = ordered[i]!.slug;
 		await sql`
 			UPDATE activity_group_members SET sort_order = ${i}
-			WHERE group_id = ${groupId} AND activity_slug = ${slug}
+			WHERE group_id = ${groupId} AND activity_id = ${ordered[i]!.id}
 		`;
 	}
 }
@@ -113,33 +112,24 @@ async function pruneGroup(id: string): Promise<void> {
 	await sql`DELETE FROM activity_groups WHERE id = ${id}`;
 }
 
-export async function pruneGroupsForSlug(slug: string): Promise<void> {
+export async function pruneGroupsForRun(id: number): Promise<void> {
 	const sql = getSql();
 	const rows = (await sql`
-		SELECT group_id FROM activity_group_members WHERE activity_slug = ${slug}
+		SELECT group_id FROM activity_group_members WHERE activity_id = ${id}
 	`) as { group_id: string }[];
-	await sql`DELETE FROM activity_group_members WHERE activity_slug = ${slug}`;
+	await sql`DELETE FROM activity_group_members WHERE activity_id = ${id}`;
 	for (const row of rows) await pruneGroup(toStr(row.group_id));
 }
 
-export async function repointGroupMember(oldSlug: string, newSlug: string): Promise<void> {
-	if (!oldSlug || !newSlug || oldSlug === newSlug) return;
-	const sql = getSql();
-	await sql`
-		UPDATE activity_group_members SET activity_slug = ${newSlug}
-		WHERE activity_slug = ${oldSlug}
-	`;
-}
-
-export async function createActivityGroup(slugs: string[], name = ''): Promise<ActivityGroupInfo> {
-	const unique = [...new Set(slugs.map((s) => s.trim()).filter(Boolean))];
+export async function createActivityGroup(ids: number[], name = ''): Promise<ActivityGroupInfo> {
+	const unique = [...new Set(ids.map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0))];
 	if (unique.length < 2) throw new Error('Pick at least two activities to group.');
-	const taken = await slugsAlreadyGrouped(unique);
+	const taken = await idsAlreadyGrouped(unique);
 	if (taken.length) throw new Error('One of those activities is already in a group.');
 
 	const runs: RunRecord[] = [];
-	for (const slug of unique) {
-		const run = await getRun(slug);
+	for (const id of unique) {
+		const run = await getRunById(id);
 		if (!run) throw new Error('Activity not found.');
 		runs.push(run);
 	}
@@ -153,49 +143,52 @@ export async function createActivityGroup(slugs: string[], name = ''): Promise<A
 	`;
 	for (let i = 0; i < ordered.length; i++) {
 		await sql`
-			INSERT INTO activity_group_members (group_id, activity_slug, sort_order)
-			VALUES (${id}, ${ordered[i]!.slug}, ${i})
+			INSERT INTO activity_group_members (group_id, activity_id, sort_order)
+			VALUES (${id}, ${ordered[i]!.id}, ${i})
 		`;
 	}
 	return {
 		id,
 		name: name.trim(),
 		created_on,
-		member_slugs: ordered.map((r) => r.slug),
+		member_ids: ordered.map((r) => r.id),
 		best_efforts: []
 	};
 }
 
 export async function addActivityToGroup(
 	groupId: string,
-	slug: string
+	runId: number
 ): Promise<ActivityGroupInfo> {
 	const group = await getActivityGroup(groupId);
 	if (!group) throw new Error('Group not found.');
-	const run = await getRun(slug);
+	const run = await getRunById(runId);
 	if (!run) throw new Error('Activity not found.');
-	const taken = await slugsAlreadyGrouped([slug]);
+	const taken = await idsAlreadyGrouped([runId]);
 	if (taken.length) throw new Error('That activity is already in a group.');
 	const sql = getSql();
 	await sql`
-		INSERT INTO activity_group_members (group_id, activity_slug, sort_order)
-		VALUES (${groupId}, ${slug}, ${group.member_slugs.length})
+		INSERT INTO activity_group_members (group_id, activity_id, sort_order)
+		VALUES (${groupId}, ${runId}, ${group.member_ids.length})
 	`;
 	const next = await getActivityGroup(groupId);
 	if (!next) throw new Error('Group not found.');
 	const members: RunRecord[] = [];
-	for (const s of next.member_slugs) {
-		const r = await getRun(s);
+	for (const id of next.member_ids) {
+		const r = await getRunById(id);
 		if (r) members.push(r);
 	}
 	await rewriteSortOrder(groupId, members);
 	return (await getActivityGroup(groupId))!;
 }
 
-export async function removeActivityFromGroup(groupId: string, slug: string): Promise<void> {
+export async function removeActivityFromGroup(
+	groupId: string,
+	runId: number
+): Promise<void> {
 	const sql = getSql();
 	await sql`
-		DELETE FROM activity_group_members WHERE group_id = ${groupId} AND activity_slug = ${slug}
+		DELETE FROM activity_group_members WHERE group_id = ${groupId} AND activity_id = ${runId}
 	`;
 	await pruneGroup(groupId);
 }
@@ -238,11 +231,11 @@ export async function enrichAllGroupEfforts(
 	groups: ActivityGroupInfo[],
 	runs: RunRecord[]
 ): Promise<ActivityGroupInfo[]> {
-	const bySlug = new Map(runs.map((r) => [r.slug, r] as const));
+	const byId = new Map(runs.map((r) => [r.id, r] as const));
 	const out: ActivityGroupInfo[] = [];
 	for (const g of groups) {
-		const members = g.member_slugs
-			.map((s) => bySlug.get(s))
+		const members = g.member_ids
+			.map((id) => byId.get(id))
 			.filter((r): r is RunRecord => r != null);
 		out.push(await enrichGroupEfforts(g, members));
 	}

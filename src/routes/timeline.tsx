@@ -281,7 +281,7 @@ function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; groups: Acti
 	const [pending, setPending] = useState<RunWithMap | null>(null);
 	const [pendingMass, setPendingMass] = useState(false);
 	const [selectMode, setSelectMode] = useState<'group' | 'delete' | 'export' | null>(null);
-	const [picked, setPicked] = useState<string[]>([]);
+	const [picked, setPicked] = useState<number[]>([]);
 	const [exporting, setExporting] = useState(false);
 	const selecting = selectMode != null;
 
@@ -308,7 +308,7 @@ function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; groups: Acti
 	const boardSport = !selected.includes('run') && selected.includes('walk') ? 'walk' : 'run';
 	const showBoard = sportIsAll(sport) || selected.includes('run') || selected.includes('walk');
 	const boardOwners = useMemo(
-		() => effortOwnersForBoard(allRuns, groups, new Map(allRuns.map((r) => [r.slug, r]))),
+		() => effortOwnersForBoard(allRuns, groups, new Map(allRuns.map((r) => [r.id, r]))),
 		[allRuns, groups]
 	);
 	const board = showBoard ? buildBestEffortBoard(boardOwners, boardSport) : [];
@@ -340,15 +340,15 @@ function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; groups: Acti
 		}
 	}
 
-	function togglePick(slug: string) {
-		setPicked((prev) => (prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]));
+	function togglePick(id: number) {
+		setPicked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 	}
 
-	function toggleGroupPick(slugs: string[]) {
+	function toggleGroupPick(ids: number[]) {
 		setPicked((prev) => {
-			const allOn = slugs.every((s) => prev.includes(s));
-			if (allOn) return prev.filter((s) => !slugs.includes(s));
-			return [...new Set([...prev, ...slugs])];
+			const allOn = ids.every((id) => prev.includes(id));
+			if (allOn) return prev.filter((id) => !ids.includes(id));
+			return [...new Set([...prev, ...ids])];
 		});
 	}
 
@@ -360,7 +360,7 @@ function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; groups: Acti
 	async function groupPicked() {
 		if (picked.length < 2) return;
 		try {
-			const res = await createActivityGroupFn({ data: { slugs: picked } });
+			const res = await createActivityGroupFn({ data: { ids: picked } });
 			clearSelect();
 			await router.invalidate();
 			await router.navigate({ to: '/groups/$id', params: { id: res.id } });
@@ -372,7 +372,7 @@ function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; groups: Acti
 	async function deletePicked() {
 		if (!picked.length) return;
 		try {
-			await deleteRunsFn({ data: { slugs: picked } });
+			await deleteRunsFn({ data: { ids: picked } });
 			clearSelect();
 			await router.invalidate();
 		} catch (err) {
@@ -385,7 +385,7 @@ function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; groups: Acti
 		if (!picked.length || exporting) return;
 		setExporting(true);
 		try {
-			const file = await exportActivitiesFn({ data: { slugs: picked } });
+			const file = await exportActivitiesFn({ data: { ids: picked } });
 			if (file.encoding === 'utf8') {
 				const blob = new Blob([file.body], { type: file.mime });
 				await shareOrDownload({ filename: file.filename, blob, title: file.filename });
@@ -512,17 +512,17 @@ function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; groups: Acti
 												type="button"
 												className={selectRow}
 												style={{ animationDelay: `${i * 35}ms` }}
-												aria-pressed={item.members.every((m) => picked.includes(m.slug))}
+												aria-pressed={item.members.every((m) => picked.includes(m.id))}
 												aria-label={`Select grouped session ${item.stats.date}`}
-												onClick={() => toggleGroupPick(item.members.map((m) => m.slug))}
+												onClick={() => toggleGroupPick(item.members.map((m) => m.id))}
 											>
 												<div className={railClass}>
-													<SelectCheck on={item.members.every((m) => picked.includes(m.slug))} />
+													<SelectCheck on={item.members.every((m) => picked.includes(m.id))} />
 												</div>
 												<div
 													className={cn(
 														'relative p-4 px-[1.1rem] border rounded-[14px] transition-[border-color,background-color,transform] duration-150 max-sm:p-[0.85rem_0.95rem]',
-														item.members.every((m) => picked.includes(m.slug))
+														item.members.every((m) => picked.includes(m.id))
 															? 'border-accent bg-accent/10'
 															: 'border-accent/35 bg-accent/4'
 													)}
@@ -634,17 +634,17 @@ function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; groups: Acti
 											type="button"
 											className={selectRow}
 											style={{ animationDelay: `${i * 35}ms` }}
-											aria-pressed={picked.includes(item.run.slug)}
+											aria-pressed={picked.includes(item.run.id)}
 											aria-label={`Select ${item.run.date}`}
-											onClick={() => togglePick(item.run.slug)}
+											onClick={() => togglePick(item.run.id)}
 										>
 											<div className={railClass}>
-												<SelectCheck on={picked.includes(item.run.slug)} />
+												<SelectCheck on={picked.includes(item.run.id)} />
 											</div>
 											<div
 												className={cn(
 													'relative p-4 px-[1.1rem] border rounded-[14px] transition-[border-color,background-color,transform] duration-150 max-sm:p-[0.85rem_0.95rem]',
-													picked.includes(item.run.slug)
+													picked.includes(item.run.id)
 														? 'border-accent bg-accent/10'
 														: 'border-line bg-white/[0.02]'
 												)}
@@ -759,7 +759,7 @@ function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; groups: Acti
 				onClose={() => setPending(null)}
 				onConfirm={async () => {
 					if (!pending) return;
-					await deleteRun({ data: pending.slug });
+					await deleteRun({ data: pending.id });
 					await router.invalidate();
 				}}
 			/>

@@ -282,6 +282,7 @@ export function computeBestEffortsFromSplits(splits: KmSplit[]): BestEffort[] {
 }
 
 export type EffortOwner = {
+	id: number;
 	slug: string;
 	date: string;
 	activity_type: string;

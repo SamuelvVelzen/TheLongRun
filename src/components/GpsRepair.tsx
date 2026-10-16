@@ -42,6 +42,7 @@ export async function exportActivityGpx(date: string, activityType: string, rout
 }
 
 export function GpsRepair({
+	runId,
 	slug,
 	gps,
 	plannedRoute,
@@ -52,6 +53,7 @@ export function GpsRepair({
 	authed,
 	groupedSessionId
 }: {
+	runId: number;
 	slug: string;
 	date: string;
 	activityType: string;
@@ -79,7 +81,7 @@ export function GpsRepair({
 			setBusy(true);
 			try {
 				const result = await repairRunGps({
-					data: { slug, planned_slug: value.plannedSlug }
+					data: { id: runId, planned_slug: value.plannedSlug }
 				});
 				snack.success(`Saved a ${result.points}-point GPS track.`);
 				await router.invalidate();
@@ -107,7 +109,7 @@ export function GpsRepair({
 		try {
 			const result = await repairRunGps({
 				data: {
-					slug,
+					id: runId,
 					waypoints: data.waypoints,
 					follow_network: data.followNetwork,
 					network_coords:

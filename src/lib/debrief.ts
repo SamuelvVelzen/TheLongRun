@@ -12,6 +12,7 @@ export const DEBRIEF_HABITS_TOKEN = '<<<DEBRIEF_HABITS>>>';
 export const DEBRIEF_WRITEUP_PLACEHOLDER = '(nothing written yet.)';
 
 export type DebriefWriteupRun = {
+	id: number;
 	slug: string;
 	date: string;
 	day?: string | null;

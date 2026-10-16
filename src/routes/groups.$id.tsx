@@ -70,9 +70,9 @@ function GroupDetail() {
 	const router = useRouter();
 	const snack = useSnackbar();
 	const [pendingUngroup, setPendingUngroup] = useState(false);
-	const [removeSlug, setRemoveSlug] = useState<string | null>(null);
+	const [removeId, setRemoveId] = useState<number | null>(null);
 	const [addOpen, setAddOpen] = useState(false);
-	const [addPick, setAddPick] = useState<string | null>(null);
+	const [addPick, setAddPick] = useState<number | null>(null);
 	const [exporting, setExporting] = useState(false);
 
 	const title = groupedSessionTitle(group, members.length, stats.date);
@@ -80,7 +80,7 @@ function GroupDetail() {
 	const metricSub =
 		metric.unit === '' ? 'duration' : metric.unit === 'km/h' ? 'avg km/h' : 'pace /km';
 	const boardOwners = useMemo(
-		() => effortOwnersForBoard(allRuns, groups, new Map(allRuns.map((r) => [r.slug, r]))),
+		() => effortOwnersForBoard(allRuns, groups, new Map(allRuns.map((r) => [r.id, r]))),
 		[allRuns, groups]
 	);
 	const highlights = groupHighlights(group, stats, boardOwners);
@@ -88,8 +88,8 @@ function GroupDetail() {
 	const canCombinedExport = !stats.mixed && withTrack.length > 0;
 	const canZipExport = withTrack.length > 0;
 
-	const groupedSlugs = new Set(groups.flatMap((g) => g.member_slugs));
-	const addOptions = allRuns.filter((r) => !groupedSlugs.has(r.slug));
+	const groupedIds = new Set(groups.flatMap((g) => g.member_ids));
+	const addOptions = allRuns.filter((r) => !groupedIds.has(r.id));
 
 	async function onExport(kind: 'gpx' | 'tcx' | 'zip') {
 		setExporting(true);
@@ -249,7 +249,7 @@ function GroupDetail() {
 								<button
 									type="button"
 									className={buttonClass({ variant: 'ghost', size: 'sm' })}
-									onClick={() => setRemoveSlug(run.slug)}
+									onClick={() => setRemoveId(run.id)}
 								>
 									Remove
 								</button>
@@ -328,7 +328,7 @@ function GroupDetail() {
 							onClick={async () => {
 								if (!addPick) return;
 								try {
-									await addToActivityGroupFn({ data: { groupId: group.id, slug: addPick } });
+									await addToActivityGroupFn({ data: { groupId: group.id, id: addPick } });
 									setAddOpen(false);
 									setAddPick(null);
 									await router.invalidate();
@@ -346,14 +346,14 @@ function GroupDetail() {
 					{addOptions.length ? (
 						addOptions.map((opt) => (
 							<button
-								key={opt.slug}
+								key={opt.id}
 								type="button"
 								className={cn(
 									'flex items-center justify-between gap-3 min-h-11 px-3 py-2 rounded-xl border text-left',
-									addPick === opt.slug ? 'border-accent bg-accent/10' : 'border-line'
+									addPick === opt.id ? 'border-accent bg-accent/10' : 'border-line'
 								)}
-								aria-pressed={addPick === opt.slug}
-								onClick={() => setAddPick(opt.slug)}
+								aria-pressed={addPick === opt.id}
+								onClick={() => setAddPick(opt.id)}
 							>
 								<span>
 									<strong>{opt.date}</strong>
@@ -388,15 +388,15 @@ function GroupDetail() {
 				}}
 			/>
 			<ConfirmDialog
-				open={removeSlug != null}
+				open={removeId != null}
 				title="Remove this part?"
 				description="It stays in your log as its own activity."
 				confirmLabel="Remove"
-				onClose={() => setRemoveSlug(null)}
+				onClose={() => setRemoveId(null)}
 				onConfirm={async () => {
-					if (!removeSlug) return;
-					const still = members.filter((m) => m.slug !== removeSlug);
-					await removeFromActivityGroupFn({ data: { groupId: group.id, slug: removeSlug } });
+					if (removeId == null) return;
+					const still = members.filter((m) => m.id !== removeId);
+					await removeFromActivityGroupFn({ data: { groupId: group.id, id: removeId } });
 					if (still.length < 2) {
 						await router.navigate({ to: '/timeline' });
 						return;

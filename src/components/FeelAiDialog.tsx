@@ -72,7 +72,7 @@ export function FeelAiDialog({
 		setBusy(true);
 		setFailed(false);
 		setDebrief(null);
-		getDebriefPrompt({ data: { slug: run.slug, includePlan } }).then(
+		getDebriefPrompt({ data: { id: String(run.id), includePlan } }).then(
 			(next) => {
 				if (!cancelled) {
 					setDebrief(next);
@@ -129,7 +129,7 @@ export function FeelAiDialog({
 		const h = habitDrafts[run.slug];
 		if (h) {
 			await saveActivityFeel({
-				data: { slug: run.slug, before_notes: h.before, after_notes: h.after }
+				data: { id: run.id, before_notes: h.before, after_notes: h.after }
 			});
 		}
 		const res = await saveDebrief({ data: json });
@@ -152,7 +152,7 @@ export function FeelAiDialog({
 			setBodySuggestions(res.bodySuggestions);
 		}
 		const miss = res.feelingsMissing.length
-			? ` (${res.feelingsMissing.length} slug(s) not found)`
+			? ` (${res.feelingsMissing.length} id(s) not found)`
 			: '';
 		snack.success(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
 		if (res.feelingsUpdatedSlugs.length) {
@@ -198,8 +198,8 @@ export function FeelAiDialog({
 							rows={5}
 							placeholder={
 								includePlan
-									? '{ "feelings": { "slug": "…", "notes": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
-									: '{ "feelings": { "slug": "…", "notes": "…" } }'
+									? '{ "feelings": { "id": 42, "notes": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
+									: '{ "feelings": { "id": 42, "notes": "…" } }'
 							}
 							submitLabel="Save reply"
 							submitIcon="check"

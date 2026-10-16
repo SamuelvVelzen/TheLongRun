@@ -52,6 +52,7 @@ const debriefFeelSchema = z.object({
 type FeelFormValues = z.infer<typeof debriefFeelSchema>;
 
 export type DebriefFeelRun = {
+	id: number;
 	slug: string;
 	date: string;
 	day?: string | null;
@@ -90,7 +91,7 @@ function feelValuesFromRun(run: DebriefFeelRun, bodyAreas: BodyArea[]): FeelForm
 }
 
 function buildFeelSavePayload({
-	slug,
+	id,
 	activityType,
 	writeup,
 	habitDraft,
@@ -98,7 +99,7 @@ function buildFeelSavePayload({
 	detailsOpen,
 	scoresOpen
 }: {
-	slug: string;
+	id: number;
 	activityType: ReturnType<typeof normalizeActivityType>;
 	writeup: string;
 	habitDraft: HabitPair;
@@ -108,7 +109,7 @@ function buildFeelSavePayload({
 }) {
 	const writeupNotes = writeup.trim();
 	return {
-		slug,
+		id,
 		before_notes: habitDraft.before,
 		after_notes: habitDraft.after,
 		...(writeupNotes ? { notes: writeupNotes } : {}),
@@ -164,7 +165,7 @@ function DebriefFeelAutosave({
 	const saving = useRef(false);
 
 	const payload = buildFeelSavePayload({
-		slug: run.slug,
+		id: run.id,
 		activityType,
 		writeup,
 		habitDraft,

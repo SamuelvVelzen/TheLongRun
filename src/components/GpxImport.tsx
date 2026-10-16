@@ -24,6 +24,7 @@ import { dropzoneClass } from './ui/Chrome';
 export type GpxImportResult = {
 	name: string;
 	status: 'ok' | 'error';
+	id?: number;
 	slug?: string;
 	distanceKm?: number | null;
 	message?: string;
@@ -87,6 +88,7 @@ export function GpxImport({
 				out.push({
 					name: f.name,
 					status: 'ok',
+					id: res.id,
 					slug: res.slug,
 					distanceKm: res.distance_km,
 					duplicate: res.duplicate,
@@ -271,10 +273,14 @@ export function GpxImport({
 							</li>
 						))}
 					</ul>
-					{coachAfter && lastOk?.slug && (
+					{coachAfter && lastOk?.id != null && (
 						<Actions className="mt-3">
-							<Link className={buttonClass()} to="/runs/$slug" params={{ slug: lastOk.slug }}>
-								Open activity
+							<Link
+								className={buttonClass()}
+								to="/coach"
+								search={{ tab: 'debrief', id: String(lastOk.id) }}
+							>
+								Continue debrief
 							</Link>
 						</Actions>
 					)}

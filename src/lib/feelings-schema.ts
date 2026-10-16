@@ -53,6 +53,12 @@ function toCadence(v: unknown): unknown {
 	return Math.round(n);
 }
 
+function toActivityId(v: unknown): unknown {
+	if (typeof v === 'number' && Number.isFinite(v)) return Math.round(v);
+	if (typeof v === 'string' && /^\d+$/.test(v.trim())) return Number(v.trim());
+	return v;
+}
+
 /** `{ "Shins": 3 }` or `[{ "area": "Shins", "score": 3 }]` → entry list; blank scores are dropped. */
 function toBodyScoreEntries(v: unknown): unknown {
 	if (v == null) return undefined;
@@ -84,27 +90,39 @@ const aiBodyScoreSchema = z.object({
 	score: z.number().int().min(0).max(10)
 });
 
-export const feelingsActivitySchema = z.object({
-	slug: z.string().trim().min(1, 'needs a "slug"'),
-	effort: scoreField(1, 10),
-	body_scores: z.preprocess(toBodyScoreEntries, z.array(aiBodyScoreSchema).optional()),
-	/** Legacy single pain score — the server maps it onto the first open body note. */
-	shins: scoreField(0, 10),
-	legs: scoreField(0, 10),
-	energy: scoreField(1, 10),
-	wanted_faster: opt(z.preprocess(toWantedFaster, z.union([z.boolean(), z.null()]))),
-	surface: opt(z.string().trim().max(MAX_SURFACE)),
-	notes: opt(z.string().trim().max(MAX_NOTES)),
-	session: opt(z.string().trim().max(MAX_SESSION)),
-	cadence: opt(z.preprocess(toCadence, z.union([z.number().int().positive(), z.null()]))),
-	gear: opt(z.string().trim().max(MAX_GEAR))
-});
+export const feelingsActivitySchema = z
+	.object({
+		id: opt(z.preprocess(toActivityId, z.number().int().positive())),
+		/** Legacy — resolved to `id` on save when present without id. */
+		slug: opt(z.string().trim().min(1)),
+		effort: scoreField(1, 10),
+		body_scores: z.preprocess(toBodyScoreEntries, z.array(aiBodyScoreSchema).optional()),
+		/** Legacy single pain score — the server maps it onto the first open body note. */
+		shins: scoreField(0, 10),
+		legs: scoreField(0, 10),
+		energy: scoreField(1, 10),
+		wanted_faster: opt(z.preprocess(toWantedFaster, z.union([z.boolean(), z.null()]))),
+		surface: opt(z.string().trim().max(MAX_SURFACE)),
+		notes: opt(z.string().trim().max(MAX_NOTES)),
+		session: opt(z.string().trim().max(MAX_SESSION)),
+		cadence: opt(z.preprocess(toCadence, z.union([z.number().int().positive(), z.null()]))),
+		gear: opt(z.string().trim().max(MAX_GEAR))
+	})
+	.superRefine((row, ctx) => {
+		if (row.id == null && !row.slug) {
+			ctx.addIssue({
+				code: 'custom',
+				message: 'needs an "id" (activity number from the prompt)',
+				path: ['id']
+			});
+		}
+	});
 
 export type ParsedFeelingsActivity = z.output<typeof feelingsActivitySchema>;
 
 /**
  * Pull activity rows from common AI shapes: bare array, `{ activities }`, `{ feelings }`,
- * debrief `{ feelings: { slug, … } }`, or `{ feelings: { activities: [...] } }`.
+ * debrief `{ feelings: { id, … } }`, or `{ feelings: { activities: [...] } }`.
  */
 export function feelingsList(input: unknown): unknown[] | null {
 	if (Array.isArray(input)) return input;
@@ -115,15 +133,18 @@ export function feelingsList(input: unknown): unknown[] | null {
 	if (o.feelings && typeof o.feelings === 'object' && !Array.isArray(o.feelings)) {
 		const f = o.feelings as Record<string, unknown>;
 		if (Array.isArray(f.activities)) return f.activities;
-		if (typeof f.slug === 'string') return [o.feelings];
+		if (typeof f.id === 'number' || typeof f.id === 'string' || typeof f.slug === 'string')
+			return [o.feelings];
 	}
 	return null;
 }
 
 function describeActivity(raw: unknown, index: number): string {
-	if (raw && typeof raw === 'object' && typeof (raw as { slug?: unknown }).slug === 'string') {
-		const slug = (raw as { slug: string }).slug.trim();
-		if (slug) return `Activity ${slug}`;
+	if (raw && typeof raw === 'object') {
+		const o = raw as { id?: unknown; slug?: unknown };
+		if (typeof o.id === 'number' && Number.isFinite(o.id)) return `Activity #${o.id}`;
+		if (typeof o.id === 'string' && /^\d+$/.test(o.id.trim())) return `Activity #${o.id.trim()}`;
+		if (typeof o.slug === 'string' && o.slug.trim()) return `Activity ${o.slug.trim()}`;
 	}
 	return `Activity #${index + 1}`;
 }
@@ -144,7 +165,7 @@ function formatFeelingsIssues(error: z.ZodError, list: unknown[], max = 8): stri
 /** Strict — throws with readable paths. Used by saveFeelings. */
 export function parseFeelingsReply(input: unknown): ParsedFeelingsActivity[] {
 	const list = feelingsList(input);
-	if (!list?.length) throw new Error('No activities with a "slug" were found in that JSON.');
+	if (!list?.length) throw new Error('No activities with an "id" were found in that JSON.');
 	const parsed = z.array(feelingsActivitySchema).safeParse(list);
 	if (!parsed.success) throw new Error(formatFeelingsIssues(parsed.error, list));
 	return parsed.data;
@@ -167,7 +188,7 @@ export function parseFeelingsSuggestions(input: unknown): ParsedFeelingsActivity
  * the profile's notes to resolve, so the caller maps `body_scores` / `shins` itself.
  */
 export function feelingsRowToPatch(row: ParsedFeelingsActivity): Record<string, unknown> {
-	const { slug: _slug, body_scores: _body, shins: _shins, ...rest } = row;
+	const { id: _id, slug: _slug, body_scores: _body, shins: _shins, ...rest } = row;
 	const patch: Record<string, unknown> = {};
 	for (const [k, v] of Object.entries(rest)) {
 		if (v !== undefined) patch[k] = v;

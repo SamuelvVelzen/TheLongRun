@@ -176,10 +176,10 @@ export function groupTypeCaption(stats: CombinedRunStats): string {
 	return stats.types.map((t) => activityLabel(t)).join(' + ');
 }
 
-export function groupMembership(groups: ActivityGroupInfo[]): Map<string, ActivityGroupInfo> {
-	const map = new Map<string, ActivityGroupInfo>();
+export function groupMembership(groups: ActivityGroupInfo[]): Map<number, ActivityGroupInfo> {
+	const map = new Map<number, ActivityGroupInfo>();
 	for (const g of groups) {
-		for (const slug of g.member_slugs) map.set(slug, g);
+		for (const id of g.member_ids) map.set(id, g);
 	}
 	return map;
 }
@@ -193,21 +193,21 @@ export function collapseRuns(
 	all: RunWithMap[],
 	groups: ActivityGroupInfo[]
 ): TimelineItem[] {
-	const allBySlug = new Map(all.map((r) => [r.slug, r] as const));
+	const allById = new Map(all.map((r) => [r.id, r] as const));
 	const membership = groupMembership(groups);
 	const emitted = new Set<string>();
 	const items: TimelineItem[] = [];
 
 	for (const run of visible) {
-		const group = membership.get(run.slug);
+		const group = membership.get(run.id);
 		if (!group) {
 			items.push({ kind: 'run', run });
 			continue;
 		}
 		if (emitted.has(group.id)) continue;
 		emitted.add(group.id);
-		const members = group.member_slugs
-			.map((slug) => allBySlug.get(slug))
+		const members = group.member_ids
+			.map((id) => allById.get(id))
 			.filter((r): r is RunWithMap => r != null);
 		if (members.length < 2) {
 			items.push({ kind: 'run', run });
@@ -226,13 +226,13 @@ export function collapseRuns(
 export function effortOwnersForBoard(
 	runs: EffortOwner[],
 	groups: ActivityGroupInfo[],
-	runBySlug: Map<string, EffortOwner>
+	runById: Map<number, EffortOwner>
 ): EffortOwner[] {
-	const grouped = new Set(groups.flatMap((g) => g.member_slugs));
-	const out: EffortOwner[] = runs.filter((r) => !grouped.has(r.slug));
+	const grouped = new Set(groups.flatMap((g) => g.member_ids));
+	const out: EffortOwner[] = runs.filter((r) => !grouped.has(r.id));
 	for (const g of groups) {
-		const members = g.member_slugs
-			.map((slug) => runBySlug.get(slug))
+		const members = g.member_ids
+			.map((id) => runById.get(id))
 			.filter((r): r is EffortOwner => r != null);
 		if (members.length < 2) {
 			out.push(...members);
@@ -244,6 +244,7 @@ export function effortOwnersForBoard(
 			continue;
 		}
 		out.push({
+			id: members[0]!.id,
 			slug: groupOwnerSlug(g.id),
 			date:
 				members

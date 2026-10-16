@@ -16,6 +16,7 @@ export type LogFormPrefill = {
 	activityType?: ActivityType;
 	date?: string;
 	time?: string;
+	start?: string;
 	notes?: string;
 };
 
@@ -79,6 +80,7 @@ export function LogForm({
 				activity_type: activityType,
 				session: defaultSession,
 				time: prefill?.time || '',
+				start_time: prefill?.start || '',
 				gear: gearKind ? gear[gearKind].active : '',
 				notes,
 				before_notes: ritual.before,
@@ -101,7 +103,7 @@ export function LogForm({
 						onIntentionalLeave?.();
 						router.navigate({
 							to: '/coach',
-							search: { tab: 'debrief', slug: res.slug },
+							search: { tab: 'debrief', id: String(res.id) },
 							replace: true,
 							resetScroll: false
 						});

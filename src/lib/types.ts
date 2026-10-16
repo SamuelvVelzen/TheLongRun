@@ -7,6 +7,9 @@ export type SessionType =
 	'easy' | 'quality' | 'tempo' | 'long' | 'steady' | 'shakeout' | 'race' | 'other';
 
 export interface RunRecord {
+	/** Stable numeric identity (DB `runs.id`). Never changes, even when the date does. */
+	id: number;
+	/** Frozen URL label (unique, minted once from the creation date). Never rewritten. */
 	slug: string;
 	date: string;
 	week: number | null;
@@ -244,7 +247,7 @@ export type ActivityGroupInfo = {
 	id: string;
 	name: string;
 	created_on: string;
-	member_slugs: string[];
+	member_ids: number[];
 	/** Combined rolling efforts for same-type run/walk groups; empty otherwise. */
 	best_efforts: BestEffort[];
 };

@@ -262,8 +262,6 @@ function DashboardBody({
 						weekView={data.weekView}
 						calendar={data.calendar}
 						planRoutes={data.planRoutes}
-						activeGoal={data.activeGoal}
-						raceDays={raceDays}
 					/>
 				</div>
 			) : null}

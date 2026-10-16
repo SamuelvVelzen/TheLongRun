@@ -1,46 +1,51 @@
-import type { Goal } from '$lib/types';
 import {
 	isRestLike,
+	planDayKicker,
+	planDaySubline,
 	weekDayGroups,
+	weekDayGroupsCalendarOrder,
 	weekToPlan,
 	weekViewIsClosed,
 	type PlanCalendar,
-	type WeekSessionView,
+	type WeekDayGroup,
 	type WeekView
 } from '$lib/plan';
 import type { SessionRouteRef } from '$lib/types';
 import { cn } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 import { Icon } from './Icon';
-import {
-	canLogPlannedStrength,
-	plannedSessionLogSearch,
-	plannedStrengthLogSearch
-} from './LogPlannedStrength';
 import { PlannedSessionRow, UnplannedRow } from './WeekPlanBoard';
 import { buttonClass } from './ui/Button';
-import { IconLabelLink } from './ui';
 
 const nextUpBase =
-	'p-[1rem_1.1rem_1.05rem] border border-line rounded-xl max-sm:p-[0.85rem_0.9rem_0.9rem]';
+	'p-[0.9rem_1rem] border border-line rounded-xl max-sm:p-[0.7rem_0.8rem]';
 const nextUp = cn(nextUpBase, 'bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))]');
 const nextUpDone = cn(nextUpBase, 'bg-panel');
-const nextUpKicker = 'text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent-fg m-0 mb-1';
-const sectionGap = 'mb-8 max-sm:mb-7';
+const nextUpKicker = 'text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent-fg m-0';
+const dateSubline = 'text-muted m-0 mt-0.5 mb-1.5 text-[0.82rem] max-sm:text-[0.78rem]';
+const sectionGap = 'mb-7 max-sm:mb-6';
 
-const DAY_SHORT = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'] as const;
+const fmtDayChip = new Intl.DateTimeFormat('en-GB', { weekday: 'short' });
 
-function dayShortLabel(day: string): string {
+const DAY_CHIP = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'] as const;
+
+function dayChipLabel(day: string, date: string | null): string {
+	if (date) {
+		const d = new Date(`${date}T12:00:00`);
+		if (!Number.isNaN(d.getTime())) {
+			return fmtDayChip.format(d).slice(0, 2);
+		}
+	}
 	const i = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].findIndex(
 		(d) => d.toLowerCase() === day.trim().toLowerCase()
 	);
-	return i >= 0 ? DAY_SHORT[i] : day.slice(0, 2);
+	return i >= 0 ? DAY_CHIP[i] : day.slice(0, 2);
 }
 
-type DayStripState = 'empty' | 'rest' | 'done' | 'next' | 'unlogged' | 'upcoming' | 'today';
+type DayStripState = 'rest' | 'done' | 'next' | 'unlogged' | 'upcoming' | 'today' | 'idle';
 
-function dayStripState(group: ReturnType<typeof weekDayGroups>[number]): DayStripState {
-	if (!group.sessions.length && !group.unplanned.length) return 'empty';
+function dayStripState(group: WeekDayGroup): DayStripState {
+	if (!group.sessions.length && !group.unplanned.length) return 'idle';
 	if (group.unplanned.length && !group.sessions.length) return 'unlogged';
 	const workouts = group.sessions.filter((s) => !isRestLike(s.label));
 	if (!workouts.length) return 'rest';
@@ -51,25 +56,34 @@ function dayStripState(group: ReturnType<typeof weekDayGroups>[number]): DayStri
 	return 'upcoming';
 }
 
+function iconForPlanDate(date: string | null): 'sun' | 'calendar' | 'arrow' {
+	if (!date) return 'arrow';
+	const k = planDayKicker(date);
+	if (k === 'Today') return 'sun';
+	if (k === 'Tomorrow') return 'calendar';
+	return 'arrow';
+}
+
 function WeekProgressStrip({
 	view,
+	calendar,
 	coachSearch
 }: {
 	view: WeekView;
+	calendar: PlanCalendar;
 	coachSearch: { tab: 'plan'; planWeek: number };
 }) {
-	const groups = weekDayGroups(view);
-	if (!groups.length) return null;
+	const groups = weekDayGroupsCalendarOrder(view, calendar);
 
 	return (
 		<div
-			className="flex flex-wrap gap-1.5 mt-3 mb-4"
+			className="flex justify-between gap-0.5 mt-3 mb-2 max-sm:mt-2 max-sm:mb-1.5"
 			role="list"
-			aria-label="This week at a glance"
+			aria-label="This week Monday through Sunday"
 		>
 			{groups.map((group) => {
 				const state = dayStripState(group);
-				if (state === 'empty') return null;
+				const isNext = state === 'next';
 				return (
 					<Link
 						key={group.day}
@@ -77,16 +91,19 @@ function WeekProgressStrip({
 						to="/coach"
 						search={coachSearch}
 						className={cn(
-							'flex flex-col items-center gap-0.5 min-w-[2.35rem] px-1 py-1 rounded-lg no-underline text-inherit transition-colors hover:bg-accent/8',
-							state === 'next' && 'ring-2 ring-accent ring-offset-2 ring-offset-[var(--color-panel)]',
-							group.isToday && state !== 'next' && 'bg-accent/6'
+							'flex flex-col items-center gap-0.5 min-w-0 flex-1 px-0 py-0.5 rounded-md no-underline text-inherit transition-colors hover:bg-accent/8',
+							isNext && 'ring-1 ring-accent ring-offset-1 ring-offset-transparent',
+							group.isToday && !isNext && 'bg-accent/6'
 						)}
-						title={`${group.day}${group.date ? ` · ${group.date}` : ''}`}
+						title={group.date ? planDaySubline(group.date) : group.day}
 					>
-						<span className="text-[0.65rem] font-semibold text-muted">{dayShortLabel(group.day)}</span>
+						<span className="text-[0.6rem] font-semibold text-muted uppercase max-sm:text-[0.58rem]">
+							{dayChipLabel(group.day, group.date)}
+						</span>
 						<span
 							className={cn(
-								'w-2 h-2 rounded-full',
+								'w-1.5 h-1.5 rounded-full max-sm:w-1.5 max-sm:h-1.5',
+								state === 'idle' && 'bg-transparent border border-line/50',
 								state === 'done' && 'bg-ok/80',
 								state === 'next' && 'bg-accent',
 								state === 'unlogged' && 'bg-muted border border-dashed border-line',
@@ -103,62 +120,7 @@ function WeekProgressStrip({
 	);
 }
 
-function SessionPrimaryAction({
-	session,
-	className
-}: {
-	session: WeekSessionView;
-	className?: string;
-}) {
-	if (session.done || session.skipped || isRestLike(session.label)) return null;
-	if (canLogPlannedStrength(session)) {
-		return (
-			<Link
-				to="/import"
-				search={plannedStrengthLogSearch(session)}
-				className={buttonClass({ variant: 'primary', size: 'sm', className: cn('w-full max-sm:w-full', className) })}
-			>
-				<Icon name="plus" size={15} />
-				Log as planned
-			</Link>
-		);
-	}
-	return (
-		<Link
-			to="/import"
-			search={plannedSessionLogSearch(session)}
-			className={buttonClass({ variant: 'primary', size: 'sm', className: cn('w-full max-sm:w-full', className) })}
-		>
-			<Icon name="plus" size={15} />
-			Log activity
-		</Link>
-	);
-}
-
-function PlanContextLine({
-	weekView,
-	activeGoal,
-	raceDays
-}: {
-	weekView: WeekView;
-	activeGoal: Goal | null;
-	raceDays: number | null;
-}) {
-	const phase = [weekView.week.phase, weekView.week.focus].filter(Boolean).join(' · ');
-	const raceBit =
-		activeGoal && raceDays != null && raceDays >= 0
-			? raceDays === 0
-				? `${activeGoal.name} is today`
-				: `${raceDays} days to ${activeGoal.name}`
-			: activeGoal && raceDays != null && raceDays < 0
-				? `Since ${activeGoal.name}`
-				: null;
-	const bits = [phase, raceBit].filter(Boolean);
-	if (!bits.length) return null;
-	return <p className={cn('text-muted', 'm-0 mb-2 text-[0.88rem] leading-snug')}>{bits.join(' · ')}</p>;
-}
-
-function NextUpFooter({
+function WeekMetaBlock({
 	weekView,
 	coachPlanSearch,
 	unloggedCount
@@ -167,39 +129,49 @@ function NextUpFooter({
 	coachPlanSearch: { tab: 'plan'; planWeek: number };
 	unloggedCount: number;
 }) {
+	const weekShort = [`Week ${weekView.week.week}`, weekView.week.phase].filter(Boolean).join(' · ');
+
 	return (
-		<div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-line/80">
+		<div className="pt-2.5 border-t border-line/80 max-sm:pt-2">
 			<Link
 				to="/coach"
 				search={coachPlanSearch}
-				className="inline-flex items-center gap-1 rounded-full border border-line bg-inset px-2.5 py-1 text-[0.78rem] font-semibold text-accent-fg no-underline hover:border-accent/40"
+				className="text-[0.86rem] font-semibold text-accent-fg no-underline hover:underline underline-offset-2 max-sm:text-[0.82rem]"
 			>
-				Week {weekView.week.week}
-				{weekView.week.phase ? ` · ${weekView.week.phase}` : ''}
+				{weekShort}
 			</Link>
 			{weekView.week.focus ? (
-				<span className="rounded-full border border-line/80 px-2.5 py-1 text-[0.78rem] text-muted">
+				<p
+					className={cn(
+						'text-muted',
+						'm-0 mt-1 text-[0.84rem] leading-snug max-sm:hidden'
+					)}
+				>
 					{weekView.week.focus}
-				</span>
+				</p>
 			) : null}
-			{weekView.unplanned.length ? (
-				<Link
-					to="/coach"
-					search={coachPlanSearch}
-					className="inline-flex items-center gap-1 rounded-full border border-dashed border-accent/45 bg-accent/6 px-2.5 py-1 text-[0.78rem] font-semibold text-accent-fg no-underline"
-				>
-					{weekView.unplanned.length} unplanned logged
-				</Link>
-			) : null}
-			{unloggedCount ? (
-				<Link
-					to="/coach"
-					search={coachPlanSearch}
-					className="inline-flex items-center gap-1 rounded-full border border-dashed border-line px-2.5 py-1 text-[0.78rem] font-semibold text-muted no-underline hover:text-fg"
-				>
-					{unloggedCount === 1 ? '1 needs a log' : `${unloggedCount} need logs`}
-				</Link>
-			) : null}
+			{(weekView.unplanned.length > 0 || unloggedCount > 0) && (
+				<div className="flex flex-wrap gap-1.5 mt-2 max-sm:mt-1.5">
+					{weekView.unplanned.length ? (
+						<Link
+							to="/coach"
+							search={coachPlanSearch}
+							className="inline-flex items-center rounded-full border border-dashed border-accent/45 bg-accent/6 px-2 py-0.5 text-[0.72rem] font-semibold text-accent-fg no-underline max-sm:text-[0.68rem]"
+						>
+							{weekView.unplanned.length} unplanned
+						</Link>
+					) : null}
+					{unloggedCount ? (
+						<Link
+							to="/coach"
+							search={coachPlanSearch}
+							className="inline-flex items-center rounded-full border border-dashed border-line px-2 py-0.5 text-[0.72rem] font-semibold text-muted no-underline max-sm:text-[0.68rem]"
+						>
+							{unloggedCount === 1 ? '1 needs log' : `${unloggedCount} need logs`}
+						</Link>
+					) : null}
+				</div>
+			)}
 		</div>
 	);
 }
@@ -210,14 +182,13 @@ function HighlightSessions({
 	routes,
 	todayUnplanned
 }: {
-	sessions: WeekSessionView[];
+	sessions: WeekView['sessions'];
 	week: number;
 	routes: SessionRouteRef[];
 	todayUnplanned: WeekView['unplanned'];
 }) {
-	const nextSession = sessions.find((s) => s.isNext && !s.done && !s.skipped);
 	return (
-		<div className="flex flex-col gap-3">
+		<div className="flex flex-col gap-2 max-sm:gap-1.5">
 			{sessions.map((session, i) => (
 				<PlannedSessionRow
 					key={`${session.day}-${session.label}-${session.planIndex}`}
@@ -225,6 +196,11 @@ function HighlightSessions({
 					week={week}
 					routes={routes}
 					divided={i > 0}
+					layout="compact"
+					surface="nextUp"
+					coachPlanWeek={week}
+					sessionDate={i === 0 ? session.date : null}
+					headingId={sessions.length === 1 && i === 0 ? 'next-up-heading' : undefined}
 				/>
 			))}
 			{todayUnplanned.map((item, i) => (
@@ -234,46 +210,41 @@ function HighlightSessions({
 					divided={sessions.length > 0 || i > 0}
 				/>
 			))}
-			{nextSession ? (
-				<div className="flex flex-col gap-2 sm:flex-row sm:items-center pt-1">
-					<SessionPrimaryAction session={nextSession} className="sm:flex-1" />
-					<IconLabelLink
-						label="Full week in Coach"
-						size="sm"
-						variant="ghost"
-						to="/coach"
-						search={{ tab: 'plan', planWeek: week }}
-						icon={<Icon name="board" size={15} />}
-						className="justify-center"
-					/>
-				</div>
-			) : (
-				<IconLabelLink
-					label="Full week in Coach"
-					size="sm"
-					variant="ghost"
-					to="/coach"
-					search={{ tab: 'plan', planWeek: week }}
-					icon={<Icon name="board" size={15} />}
-					className="mt-1"
-				/>
-			)}
 		</div>
+	);
+}
+
+function DayHeader({
+	date,
+	fallbackKicker,
+	fallbackIcon
+}: {
+	date: string | null;
+	fallbackKicker: string;
+	fallbackIcon: 'sun' | 'calendar' | 'arrow' | 'circle' | 'check';
+}) {
+	const kicker = date ? planDayKicker(date) : fallbackKicker;
+	const sub = date ? planDaySubline(date) : null;
+	const icon = date ? iconForPlanDate(date) : fallbackIcon;
+	return (
+		<header className="mb-2 max-sm:mb-1.5">
+			<p className={cn(nextUpKicker, 'inline-flex items-center gap-1.5')}>
+				<Icon name={icon} size={12} className="max-sm:w-3 max-sm:h-3" />
+				{kicker}
+			</p>
+			{sub ? <p className={dateSubline}>{sub}</p> : null}
+		</header>
 	);
 }
 
 export function DashboardNextUp({
 	weekView,
 	calendar,
-	planRoutes,
-	activeGoal,
-	raceDays
+	planRoutes
 }: {
 	weekView: WeekView;
 	calendar: PlanCalendar;
 	planRoutes: SessionRouteRef[];
-	activeGoal: Goal | null;
-	raceDays: number | null;
 }) {
 	const currentWeekNum = weekToPlan(calendar);
 	const nextWeekNum = currentWeekNum + 1;
@@ -295,54 +266,36 @@ export function DashboardNextUp({
 		nextWeekNum <= calendar.weekCount;
 
 	const kickerUnlogged = !highlightHead && unloggedCount > 0;
-	const kickerLabel = kickerUnlogged
+	const fallbackKicker = kickerUnlogged
 		? 'Catch up'
-		: highlightHead?.isToday
-			? 'Today'
-			: laterWeek
-				? 'Next week'
-				: 'Next up';
-
-	const kickerIcon = kickerUnlogged
+		: laterWeek
+			? 'Next week'
+			: 'This week';
+	const fallbackIcon = kickerUnlogged
 		? 'circle'
-		: highlightHead?.isToday
-			? 'sun'
-			: laterWeek
-				? 'calendar'
-				: 'arrow';
+		: canPlanNext
+			? 'calendar'
+			: 'check';
 
 	if (highlightHead) {
-		const title =
-			highlightSessions.length === 1
-				? `${highlightHead.label}${highlightHead.date ? ` · ${highlightHead.day} ${highlightHead.date.slice(5)}` : ''}`
-				: `${highlightHead.day}${highlightHead.date ? ` · ${highlightHead.date.slice(5)}` : ''}`;
-
 		return (
 			<section className={cn(nextUp, sectionGap)} aria-labelledby="next-up-heading">
-				<p className={cn(nextUpKicker, 'inline-flex items-center gap-1.5')}>
-					<Icon name={kickerIcon} size={13} />
-					{kickerLabel}
-				</p>
-				<PlanContextLine weekView={weekView} activeGoal={activeGoal} raceDays={raceDays} />
+				{highlightSessions.length > 1 ? (
+					<h2 id="next-up-heading" className="sr-only">Today&apos;s sessions</h2>
+				) : null}
 				{laterWeek ? (
-					<p className={cn('text-muted', 'm-0 mb-2 text-[0.84rem]')}>
-						This week is complete — showing week {weekView.week.week}.
+					<p className={cn('text-muted', 'm-0 mb-1.5 text-[0.8rem] max-sm:hidden')}>
+						Showing week {weekView.week.week} — this week is complete.
 					</p>
 				) : null}
-				<h2
-					id="next-up-heading"
-					className="text-[1.45rem] font-[750] tracking-[-0.03em] m-0 mb-3 [overflow-wrap:anywhere] max-sm:text-[1.2rem]"
-				>
-					{title}
-				</h2>
-				<WeekProgressStrip view={weekView} coachSearch={coachPlanSearch} />
 				<HighlightSessions
 					sessions={highlightSessions}
 					week={weekView.week.week}
 					routes={planRoutes}
 					todayUnplanned={highlightHead.isToday ? todayUnplanned : []}
 				/>
-				<NextUpFooter
+				<WeekProgressStrip view={weekView} calendar={calendar} coachSearch={coachPlanSearch} />
+				<WeekMetaBlock
 					weekView={weekView}
 					coachPlanSearch={coachPlanSearch}
 					unloggedCount={unloggedCount}
@@ -356,14 +309,10 @@ export function DashboardNextUp({
 			className={cn(canPlanNext ? nextUp : nextUpDone, sectionGap)}
 			aria-labelledby="next-up-heading"
 		>
-			<p className={cn(nextUpKicker, 'inline-flex items-center gap-1.5')}>
-				<Icon name={canPlanNext ? 'calendar' : kickerUnlogged ? 'circle' : 'check'} size={13} />
-				{canPlanNext ? 'Next week' : kickerUnlogged ? 'Catch up' : 'This week'}
-			</p>
-			<PlanContextLine weekView={weekView} activeGoal={activeGoal} raceDays={raceDays} />
+			<DayHeader date={null} fallbackKicker={fallbackKicker} fallbackIcon={fallbackIcon} />
 			<h2
 				id="next-up-heading"
-				className="text-[1.45rem] font-[750] tracking-[-0.03em] m-0 mb-2 [overflow-wrap:anywhere] max-sm:text-[1.2rem]"
+				className="text-[1.35rem] font-[750] tracking-[-0.03em] m-0 mb-2 [overflow-wrap:anywhere] max-sm:text-[1.1rem]"
 			>
 				{unloggedCount
 					? unloggedCount === 1
@@ -375,37 +324,35 @@ export function DashboardNextUp({
 							? 'Week complete — some sessions skipped'
 							: 'All planned sessions logged'}
 			</h2>
-			<WeekProgressStrip view={weekView} coachSearch={coachPlanSearch} />
-			<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-				{canPlanNext ? (
-					<Link
-						to="/coach"
-						search={coachNextWeekSearch}
-						className={buttonClass({
-							variant: 'primary',
-							size: 'default',
-							className: 'inline-flex items-center justify-center gap-2 w-full sm:flex-1'
-						})}
-					>
-						<Icon name="sparkle" size={16} />
-						Plan week {nextWeekNum} in Coach
-					</Link>
-				) : (
-					<Link
-						to="/coach"
-						search={coachPlanSearch}
-						className={buttonClass({
-							variant: 'primary',
-							size: 'default',
-							className: 'inline-flex items-center justify-center gap-2 w-full sm:flex-1'
-						})}
-					>
-						<Icon name="board" size={16} />
-						See the week in Coach
-					</Link>
-				)}
-			</div>
-			<NextUpFooter
+			<WeekProgressStrip view={weekView} calendar={calendar} coachSearch={coachPlanSearch} />
+			{canPlanNext ? (
+				<Link
+					to="/coach"
+					search={coachNextWeekSearch}
+					className={buttonClass({
+						variant: 'primary',
+						size: 'sm',
+						className: 'inline-flex items-center justify-center gap-2 w-full mt-2 max-sm:min-h-10'
+					})}
+				>
+					<Icon name="sparkle" size={15} />
+					Plan week {nextWeekNum}
+				</Link>
+			) : (
+				<Link
+					to="/coach"
+					search={coachPlanSearch}
+					className={buttonClass({
+						variant: 'primary',
+						size: 'sm',
+						className: 'inline-flex items-center justify-center gap-2 w-full mt-2 max-sm:min-h-10'
+					})}
+				>
+					<Icon name="board" size={15} />
+					Open week in Coach
+				</Link>
+			)}
+			<WeekMetaBlock
 				weekView={weekView}
 				coachPlanSearch={coachPlanSearch}
 				unloggedCount={unloggedCount}

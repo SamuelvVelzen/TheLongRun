@@ -10,6 +10,7 @@ export {
 	SectionTitle,
 	TabBar
 } from './Chrome';
+export { ChangeReporter } from './ChangeReporter';
 export { Checkbox } from './Checkbox';
 export { ChoiceChips, type ChoiceOption } from './ChoiceChips';
 export { ConfirmDialog, Dialog } from './Dialog';
@@ -34,6 +35,7 @@ export { SegmentedToggle, type SegmentedOption } from './SegmentedToggle';
 export { Select, type SelectOption } from './Select';
 export { errorMessage, SnackAction, SnackbarProvider, useSnackbar } from './Snackbar';
 export type { ShowSnackbarOptions, SnackbarAction, SnackbarVariant } from './Snackbar';
+export { useDiscardGuard, useLeaveGuard } from './LeaveGuard';
 export { SubmitButton } from './SubmitButton';
 export { StatusPill } from './StatusPill';
 export { Tag } from './Tag';

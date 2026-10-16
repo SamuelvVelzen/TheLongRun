@@ -34,7 +34,16 @@ import { FeelChips, WantedFasterChips } from './FeelChips';
 import { GearField } from './GearField';
 import { sportChipLabel } from './Icon';
 import { StrengthEditor } from './StrengthEditor';
-import { Actions, Field, Form, FormGrid, FormSection, Panel, useAppForm } from './ui';
+import {
+	Actions,
+	ChangeReporter,
+	Field,
+	Form,
+	FormGrid,
+	FormSection,
+	Panel,
+	useAppForm
+} from './ui';
 import { WeatherField } from './WeatherField';
 
 export function ActivityForm({
@@ -47,6 +56,7 @@ export function ActivityForm({
 	habits = emptyActivityHabits(),
 	submitLabel,
 	cancel,
+	onDirtyChange,
 	onSubmit,
 	runSlug
 }: {
@@ -60,6 +70,8 @@ export function ActivityForm({
 	habits?: ActivityHabits;
 	submitLabel: string;
 	cancel: ReactNode;
+	/** Gets called with `true` as soon as any field differs from its default. Parents use it for leave guards. */
+	onDirtyChange?: (dirty: boolean) => void;
 	onSubmit: (values: ActivityFormValues) => void | Promise<void>;
 }) {
 	const bodyAreas = useBodyAreas();
@@ -82,6 +94,11 @@ export function ActivityForm({
 				void form.handleSubmit();
 			}}
 		>
+			{onDirtyChange && (
+				<form.Subscribe selector={(s) => s.isDirty}>
+					{(dirty) => <ChangeReporter value={dirty} onChange={onDirtyChange} />}
+				</form.Subscribe>
+			)}
 			{fromPlan && (
 				<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>
 					Prefilling this gym session from the plan — change anything that was different.

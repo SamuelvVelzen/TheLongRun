@@ -36,6 +36,7 @@ export function WaypointEditor({
 	busy = false,
 	embedded = false,
 	onClose,
+	onDirtyChange,
 	onSave,
 	children
 }: {
@@ -48,6 +49,8 @@ export function WaypointEditor({
 	busy?: boolean;
 	embedded?: boolean;
 	onClose?: () => void;
+	/** Fires whenever the pins or the follow-roads toggle differ from the initial state. */
+	onDirtyChange?: (dirty: boolean) => void;
 	onSave?: (data: WaypointEditorSave) => void | Promise<void>;
 	children?: ReactNode;
 }) {
@@ -109,6 +112,12 @@ export function WaypointEditor({
 		};
 	}, [followNetwork, waypoints]);
 
+	const dirty = followNetwork !== true || !samePins(waypoints, initialRef.current);
+
+	useEffect(() => {
+		onDirtyChange?.(dirty);
+	}, [dirty, onDirtyChange]);
+
 	useImperativeHandle(
 		ref,
 		() => ({
@@ -117,9 +126,9 @@ export function WaypointEditor({
 				followNetwork,
 				networkCoords: followNetwork && routePreview.length >= 2 ? routePreview : []
 			}),
-			isDirty: () => followNetwork !== true || !samePins(waypoints, initialRef.current)
+			isDirty: () => dirty
 		}),
-		[followNetwork, routePreview, waypoints]
+		[dirty, followNetwork, routePreview, waypoints]
 	);
 
 	return (

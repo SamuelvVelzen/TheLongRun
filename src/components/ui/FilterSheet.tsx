@@ -1,9 +1,10 @@
 import type { DateRange } from '$lib/date-range';
+import { useBottomSheetSwipe } from '$lib/bottom-sheet-swipe';
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
 import { stickyChrome, stickySectionBar } from '$lib/shell-layout';
 import { cn } from '$lib/ui';
 import { ui } from './tokens';
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
 import { Icon } from '../Icon';
 import { sportSummaryLabel } from '../SportFilter';
 
@@ -46,7 +47,9 @@ export function FilterSheet({
 	const [open, setOpen] = useState(false);
 	const panelId = useId();
 	const titleId = useId();
+	const close = useCallback(() => setOpen(false), []);
 	useOverlayLock(open);
+	const { panelRef, panelStyle, backdropStyle, dragHandleProps } = useBottomSheetSwipe(close, open);
 
 	useEffect(() => {
 		if (!open) return;
@@ -103,20 +106,28 @@ export function FilterSheet({
 						<div className={ui.dialogRoot}>
 							<div
 								className={ui.dialogBackdrop}
-								onClick={() => setOpen(false)}
+								style={backdropStyle}
+								onClick={close}
 								aria-hidden="true"
 							/>
 							<div
+								ref={panelRef}
 								id={panelId}
 								className={cn(ui.dialogPanel, 'sm:max-w-none')}
+								style={panelStyle}
 								role="dialog"
 								aria-modal="true"
 								aria-labelledby={titleId}
 							>
 								<div
-									className="w-9 h-[0.28rem] mx-auto -mt-1 mb-[0.1rem] rounded-full bg-line shrink-0 sm:hidden"
-									aria-hidden="true"
-								/>
+									className="flex flex-col items-center -mx-[1.2rem] px-[1.2rem] pt-1 pb-2 touch-none cursor-grab active:cursor-grabbing sm:hidden"
+									{...dragHandleProps}
+								>
+									<div
+										className="w-9 h-[0.28rem] rounded-full bg-line shrink-0"
+										aria-hidden="true"
+									/>
+								</div>
 								<div className="flex items-center justify-between gap-3">
 									<strong
 										id={titleId}
@@ -128,7 +139,7 @@ export function FilterSheet({
 									<button
 										type="button"
 										className={cn(ui.btnGhost, 'min-h-11 px-[0.95rem] py-[0.45rem]')}
-										onClick={() => setOpen(false)}
+										onClick={close}
 									>
 										Done
 									</button>

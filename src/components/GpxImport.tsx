@@ -2,7 +2,7 @@ import { ACTIVITY_TYPES, activityLabel } from '$lib/activity';
 import { importGpx } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import { Link, useNavigate, useRouter } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BestEffortBadges } from './BestEffortBadges';
 import { DeleteButton } from './DeleteButton';
 import { Icon } from './Icon';
@@ -33,10 +33,12 @@ export type GpxImportResult = {
 
 export function GpxImport({
 	onImported,
-	coachAfter
+	coachAfter,
+	onDirtyChange
 }: {
 	onImported?: (ok: GpxImportResult[]) => void;
 	coachAfter?: boolean;
+	onDirtyChange?: (dirty: boolean) => void;
 }) {
 	const navigate = useNavigate();
 	const router = useRouter();
@@ -53,6 +55,10 @@ export function GpxImport({
 			await runImport(value.activityType);
 		}
 	});
+
+	useEffect(() => {
+		onDirtyChange?.(files.length > 0);
+	}, [files.length, onDirtyChange]);
 
 	function addFiles(list: FileList | null) {
 		if (!list) return;

@@ -26,7 +26,9 @@ export function LogForm({
 	calendar,
 	habits,
 	prefill,
-	strengthTops = []
+	strengthTops = [],
+	onDirtyChange,
+	onIntentionalLeave
 }: {
 	week: PlanWeek | null;
 	gear: GearContext;
@@ -35,6 +37,9 @@ export function LogForm({
 	habits: ActivityHabits;
 	prefill?: LogFormPrefill;
 	strengthTops?: RecentLiftTop[];
+	onDirtyChange?: (dirty: boolean) => void;
+	/** Called immediately before the form navigates away on purpose, so a parent leave guard allows it. */
+	onIntentionalLeave?: () => void;
 }) {
 	const router = useRouter();
 	const snack = useSnackbar();
@@ -67,6 +72,7 @@ export function LogForm({
 			gear={gear}
 			gearWear={gearWear}
 			habits={habits}
+			onDirtyChange={onDirtyChange}
 			submitLabel="Save activity"
 			defaultValues={emptyActivityForm({
 				date: dateValue,
@@ -92,6 +98,7 @@ export function LogForm({
 					const res = await createRun({ data: input });
 					await router.invalidate();
 					if (input.session === 'race') {
+						onIntentionalLeave?.();
 						router.navigate({
 							to: '/coach',
 							search: { tab: 'debrief', slug: res.slug },
@@ -99,6 +106,7 @@ export function LogForm({
 							resetScroll: false
 						});
 					} else {
+						onIntentionalLeave?.();
 						router.navigate({ to: '/runs/$slug', params: { slug: res.slug } });
 					}
 				} catch (err) {

@@ -3,11 +3,12 @@ import { SignInPanel, useAuthed } from '$lib/auth';
 import { getLogDefaults } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import { createFileRoute } from '@tanstack/react-router';
+import { useEffect, useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
 import { LogForm } from '../components/LogForm';
-import { PageHero, PageTabs, Panel } from '../components/ui';
+import { PageHero, PageTabs, Panel, useLeaveGuard } from '../components/ui';
 
 export type AddSearch = {
 	mode?: 'gpx' | 'manual';
@@ -51,6 +52,11 @@ function AddActivity() {
 	const { mode = 'gpx' } = search;
 	const authed = useAuthed();
 	const prefillType: ActivityType | undefined = search.type === 'strength' ? 'strength' : undefined;
+	const [formDirty, setFormDirty] = useState(false);
+	// Only one form is mounted at a time (gpx OR manual), so one flag is enough.
+	// Reset stale dirty when the tab changes; the newly mounted form re-reports on mount.
+	useEffect(() => setFormDirty(false), [mode]);
+	const { guard: leaveGuard, allowNextLeave } = useLeaveGuard({ dirty: authed && formDirty });
 
 	return (
 		<>
@@ -96,7 +102,7 @@ function AddActivity() {
 
 					{mode === 'gpx' ? (
 						<Panel form>
-							<GpxImport coachAfter />
+							<GpxImport coachAfter onDirtyChange={setFormDirty} />
 						</Panel>
 					) : (
 						<DeferredData promise={page}>
@@ -118,12 +124,15 @@ function AddActivity() {
 												}
 											: undefined
 									}
+									onDirtyChange={setFormDirty}
+									onIntentionalLeave={allowNextLeave}
 								/>
 							)}
 						</DeferredData>
 					)}
 				</>
 			)}
+			{leaveGuard}
 		</>
 	);
 }

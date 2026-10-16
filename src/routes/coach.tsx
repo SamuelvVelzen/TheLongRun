@@ -75,6 +75,7 @@ import {
 	Select,
 	Textarea,
 	errorMessage,
+	useLeaveGuard,
 	useSnackbar
 } from '../components/ui';
 import { buttonClass } from '../components/ui/Button';
@@ -606,6 +607,18 @@ function CoachPanels({
 	const setup: WeekSetup = { pattern: toPattern(usual), dayLimits, plannedSports };
 	const mixDirty = !weekSetupsEqual(setup, savedSetup);
 
+	// Leaving /coach with a dirty week setup loses the unsaved mix — confirm first.
+	// Tab switches keep this component mounted (the mix survives them) but still
+	// remind, since the unsaved state is only visible on the training tab.
+	const { guard: leaveGuard } = useLeaveGuard({
+		dirty: authed && mixDirty,
+		title: 'Unsaved week setup',
+		description: 'Your week setup is unsaved — leaving Coach will lose it.',
+		challengeSameRoute: (currentSearch, nextSearch) =>
+			(currentSearch as { tab?: string } | undefined)?.tab !==
+			(nextSearch as { tab?: string } | undefined)?.tab
+	});
+
 	function applySetup(next: WeekSetup) {
 		setUsual(rowsFrom(next.pattern));
 		setDayLimits(next.dayLimits);
@@ -985,6 +998,7 @@ function CoachPanels({
 					/>
 				</>
 			)}
+			{leaveGuard}
 		</>
 	);
 }

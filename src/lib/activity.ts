@@ -1,24 +1,39 @@
 import { parseDurationSeconds } from '$lib/format';
 import { parseStrengthNotes } from '$lib/strength';
 import type { RunRecord } from '$lib/types';
+import {
+	ACTIVITY_DEFS,
+	ACTIVITY_MAP_COLORS,
+	activityDef,
+	coerceActivityType,
+	type ActivityField,
+	type ActivityType,
+	type FeelField
+} from '$lib/activity-registry';
 
-export type ActivityType = 'run' | 'walk' | 'bike' | 'strength';
-export const ACTIVITY_TYPES: ActivityType[] = ['run', 'walk', 'bike', 'strength'];
+export type {
+	ActivityField,
+	ActivityType,
+	FeelField,
+	HeadlineMode
+} from '$lib/activity-registry';
+export {
+	ACTIVITY_DEFS,
+	ACTIVITY_MAP_COLORS,
+	ACTIVITY_TYPES,
+	activityTypeSchema,
+	coerceActivityType,
+	recordForActivities
+} from '$lib/activity-registry';
 
-const LABELS: Record<ActivityType, string> = {
-	run: 'Run',
-	walk: 'Walk',
-	bike: 'Bike',
-	strength: 'Strength'
-};
+export function normalizeActivityType(v: string | null | undefined): ActivityType {
+	return coerceActivityType(v);
+}
 
-/** GPS track colours. Run stays the lime accent so it reads first on overlay maps. */
-export const ACTIVITY_MAP_COLORS: Record<ActivityType, string> = {
-	run: '#c8f25a',
-	walk: '#6ec8ff',
-	bike: '#ffb36b',
-	strength: '#d4a5ff'
-};
+/** GPX/TCX/Strava sport labels — same coercion as stored types (`ride` → bike, migration 0006). */
+export function importActivityType(v: string | null | undefined): ActivityType {
+	return normalizeActivityType(v);
+}
 
 export function activityMapColor(type: string | null | undefined): string {
 	return ACTIVITY_MAP_COLORS[normalizeActivityType(type)];
@@ -30,75 +45,25 @@ export type ActivityMapLineStyle = { color: string; weight: number; opacity: num
 export function activityMapLineStyle(type: string | null | undefined): ActivityMapLineStyle {
 	const t = normalizeActivityType(type);
 	const color = ACTIVITY_MAP_COLORS[t];
-	if (t === 'run') return { color, weight: 4.2, opacity: 0.94 };
+	if (ACTIVITY_DEFS[t].mapLineEmphasis) return { color, weight: 4.2, opacity: 0.94 };
 	return { color, weight: 2.8, opacity: 0.62 };
 }
 
-/** Coerce any stored/imported value to one of the supported activity types. */
-export function normalizeActivityType(v: string | null | undefined): ActivityType {
-	const t = String(v ?? '')
-		.trim()
-		.toLowerCase()
-		.replace(/[\s_-]/g, '');
-	if (['walk', 'walking', 'hike', 'hiking'].includes(t)) return 'walk';
-	if (['bike', 'biking', 'cycling', 'bicycle', 'cycle', 'ebikeride', 'riding', 'ride'].includes(t))
-		return 'bike';
-	if (
-		[
-			'strength',
-			'strengthtraining',
-			'weighttraining',
-			'weights',
-			'weightlifting',
-			'gym',
-			'workout',
-			'crossfit'
-		].includes(t)
-	)
-		return 'strength';
-	return 'run';
-}
-
-/** GPX/TCX/Strava sport labels — same coercion as stored types (`ride` → bike, migration 0006). */
-export function importActivityType(v: string | null | undefined): ActivityType {
-	return normalizeActivityType(v);
-}
-
 export function activityLabel(v: string | null | undefined): string {
-	return LABELS[normalizeActivityType(v)];
+	return activityDef(v).label;
 }
 
 /** Plural noun for empty-state messages; 'all' (or unknown) → "activities". */
 export function activityPlural(sport: string | null | undefined): string {
-	switch (sport) {
-		case 'run':
-			return 'runs';
-		case 'walk':
-			return 'walks';
-		case 'bike':
-			return 'bikes';
-		case 'strength':
-			return 'strength sessions';
-		default:
-			return 'activities';
-	}
+	if (sport && sport in ACTIVITY_DEFS) return ACTIVITY_DEFS[sport as ActivityType].plural;
+	return 'activities';
 }
 
 /** Count label: "1 run", "21 activities", "3 strength sessions". */
 export function activityCount(n: number, sport: string | null | undefined): string {
 	if (n === 1) {
-		switch (sport) {
-			case 'run':
-				return '1 run';
-			case 'walk':
-				return '1 walk';
-			case 'bike':
-				return '1 bike';
-			case 'strength':
-				return '1 strength session';
-			default:
-				return '1 activity';
-		}
+		if (sport && sport in ACTIVITY_DEFS) return ACTIVITY_DEFS[sport as ActivityType].countOne;
+		return '1 activity';
 	}
 	return `${n} ${activityPlural(sport)}`;
 }
@@ -120,47 +85,14 @@ export function activityListHeading(
 	return `Recent ${noun}`;
 }
 
-export type ActivityField =
-	'distance' | 'pace' | 'hr' | 'elevation' | 'cadence' | 'gear' | 'surface' | 'weather';
-
-export type FeelField = 'effort' | 'body' | 'legs' | 'energy' | 'wanted_faster';
-
 /** Which numeric / gear / weather fields make sense to show/edit for a type. */
 export function showsField(activity: string | null | undefined, field: ActivityField): boolean {
-	const t = normalizeActivityType(activity);
-	switch (field) {
-		case 'distance':
-			return t !== 'strength';
-		case 'pace':
-			return t === 'run' || t === 'walk';
-		case 'hr':
-			return t !== 'strength';
-		case 'elevation':
-			return t === 'run' || t === 'walk' || t === 'bike';
-		case 'cadence':
-			return t === 'run';
-		case 'gear':
-			return t === 'run' || t === 'walk' || t === 'bike';
-		case 'surface':
-			return t === 'run' || t === 'walk';
-		case 'weather':
-			return t !== 'strength';
-	}
+	return activityDef(activity).fields[field];
 }
 
-/** Subjective feel chips — body scores are run/walk, wanted-faster is run-only. */
+/** Subjective feel chips — driven per type in the registry. */
 export function showsFeel(activity: string | null | undefined, field: FeelField): boolean {
-	const t = normalizeActivityType(activity);
-	switch (field) {
-		case 'effort':
-		case 'energy':
-		case 'legs':
-			return true;
-		case 'body':
-			return t === 'run' || t === 'walk';
-		case 'wanted_faster':
-			return t === 'run';
-	}
+	return activityDef(activity).feel[field];
 }
 
 export function paceFieldLabel(_activity: string | null | undefined): string {
@@ -244,17 +176,17 @@ export function activitySub(
 
 /** Sport-appropriate headline pace/speed: pace/km (run, walk), km/h (bike). */
 export function headlineMetric(run: HeadlineRun): HeadlineMetric {
-	const t = normalizeActivityType(run.activity_type);
+	const mode = activityDef(run.activity_type).headlineMode;
 	const sec = parseDurationSeconds(run.time);
 
-	if (t === 'strength') {
+	if (mode === 'strength') {
 		const dur = strengthDuration(run);
 		if (dur) return { value: dur, unit: '' };
 		const fallback = strengthWorkLabel(run);
 		return { value: fallback || '—', unit: '' };
 	}
 
-	if (t === 'bike') {
+	if (mode === 'kmh') {
 		if (run.distance_km && sec) {
 			return { value: (run.distance_km / (sec / 3600)).toFixed(1), unit: 'km/h' };
 		}

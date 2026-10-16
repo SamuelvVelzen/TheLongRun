@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPES, type ActivityType } from '$lib/activity';
+import { ACTIVITY_TYPES, activityTypeSchema, type ActivityType } from '$lib/activity';
 import { isRaceGoal, type GoalInput } from '$lib/goals';
 import { mondayIso } from '$lib/plan';
 import type { Goal } from '$lib/types';
@@ -26,7 +26,7 @@ export const goalFormSchema = z
 		date: z.string(),
 		horizon: z.string(),
 		distance_km: z.string().trim().min(1, 'Distance is required'),
-		sport: z.enum(['run', 'walk', 'bike', 'strength']),
+		sport: activityTypeSchema,
 		time_goal: z.string(),
 		bib_number: z.string(),
 		wave: z.string(),

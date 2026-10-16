@@ -2,8 +2,8 @@
  * zod schema for the goal "Import with AI" reply (the race brief JSON).
  */
 import {
-	ACTIVITY_TYPES,
 	activityLabel,
+	activityTypeSchema,
 	normalizeActivityType,
 	type ActivityType
 } from '$lib/activity';
@@ -62,7 +62,7 @@ const sportField = z
 		return normalizeActivityType(raw) !== 'run' || RUN_ALIASES.test(raw);
 	})
 	.transform((s): ActivityType => normalizeActivityType(s))
-	.pipe(z.enum(ACTIVITY_TYPES));
+	.pipe(activityTypeSchema);
 
 const urlField = z.string().transform(normalizeGoalUrl).pipe(z.string().min(1));
 

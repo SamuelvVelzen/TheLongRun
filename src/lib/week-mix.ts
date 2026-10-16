@@ -3,6 +3,7 @@ import {
 	activityCount,
 	activityLabel,
 	normalizeActivityType,
+	recordForActivities,
 	type ActivityType
 } from './activity';
 
@@ -54,12 +55,7 @@ export type WeekSetup = {
 
 const MAX_SLOT_NOTES = 400;
 
-export const ZERO_WEEK_MIX: WeekMix = {
-	run: 0,
-	walk: 0,
-	bike: 0,
-	strength: 0
-};
+export const ZERO_WEEK_MIX: WeekMix = recordForActivities(() => 0);
 
 const MAX_SLOTS = 14;
 

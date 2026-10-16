@@ -1,4 +1,4 @@
-import { normalizeActivityType, type ActivityType } from '$lib/activity';
+import { ACTIVITY_DEFS, normalizeActivityType, recordForActivities, type ActivityType } from '$lib/activity';
 import type { TrackSample } from '$lib/splits';
 
 export type ExportSegment = {
@@ -7,19 +7,13 @@ export type ExportSegment = {
 	points: TrackSample[];
 };
 
-const STRAVA_GPX_TYPE: Record<ActivityType, string> = {
-	run: 'running',
-	walk: 'walking',
-	bike: 'cycling',
-	strength: 'workout'
-};
+const STRAVA_GPX_TYPE: Record<ActivityType, string> = recordForActivities(
+	(type) => ACTIVITY_DEFS[type].gpxType
+);
 
-const TCX_SPORT: Record<ActivityType, string> = {
-	run: 'Running',
-	walk: 'Walking',
-	bike: 'Biking',
-	strength: 'Other'
-};
+const TCX_SPORT: Record<ActivityType, string> = recordForActivities(
+	(type) => ACTIVITY_DEFS[type].tcxSport
+);
 
 function xmlEscape(value: string): string {
 	return value

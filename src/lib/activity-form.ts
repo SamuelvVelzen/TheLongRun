@@ -1,5 +1,6 @@
 import {
 	ACTIVITY_TYPES,
+	activityTypeSchema,
 	normalizeActivityType,
 	showsField,
 	type ActivityType
@@ -22,7 +23,7 @@ export const ACTIVITY_SESSIONS = [
 
 export const activityFormSchema = z.object({
 	date: z.string().trim().min(1, 'Date is required'),
-	activity_type: z.enum(['run', 'walk', 'bike', 'strength']),
+	activity_type: activityTypeSchema,
 	session: z.string(),
 	effort: z.number().nullable(),
 	body_scores: z.array(

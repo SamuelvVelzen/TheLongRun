@@ -1,7 +1,9 @@
 import {
+	ACTIVITY_DEFS,
 	ACTIVITY_TYPES,
 	activityLabel,
 	normalizeActivityType,
+	recordForActivities,
 	type ActivityType
 } from '$lib/activity';
 
@@ -12,31 +14,13 @@ export const MAX_HABIT_NOTES = 400;
 
 export const EMPTY_HABIT_PAIR: HabitPair = { before: '', after: '' };
 
-export const EMPTY_ACTIVITY_HABITS: ActivityHabits = {
-	run: { ...EMPTY_HABIT_PAIR },
-	walk: { ...EMPTY_HABIT_PAIR },
-	bike: { ...EMPTY_HABIT_PAIR },
-	strength: { ...EMPTY_HABIT_PAIR }
-};
+export const EMPTY_ACTIVITY_HABITS: ActivityHabits = recordForActivities(() => ({
+	...EMPTY_HABIT_PAIR
+}));
 
-export const HABIT_PLACEHOLDERS: ActivityHabits = {
-	run: {
-		before: 'Warmup stretches, walk 1000 m',
-		after: 'Cooldown stretches'
-	},
-	walk: {
-		before: 'Warmup stretches',
-		after: 'Cooldown stretches'
-	},
-	bike: {
-		before: 'Warmup spin / mobility',
-		after: 'Cooldown spin / stretch'
-	},
-	strength: {
-		before: 'Warmup sets / mobility',
-		after: 'Cooldown stretch'
-	}
-};
+export const HABIT_PLACEHOLDERS: ActivityHabits = recordForActivities(
+	(type) => ({ ...ACTIVITY_DEFS[type].habitPlaceholder })
+);
 
 /** Off-watch rituals — never copy into plan `detail` or planned distance. */
 export const HABITS_PROMPT_RULE =
@@ -67,12 +51,7 @@ export function normalizeActivityHabits(raw: unknown): ActivityHabits {
 }
 
 export function emptyActivityHabits(): ActivityHabits {
-	return {
-		run: { before: '', after: '' },
-		walk: { before: '', after: '' },
-		bike: { before: '', after: '' },
-		strength: { before: '', after: '' }
-	};
+	return recordForActivities(() => ({ before: '', after: '' }));
 }
 
 export function habitPairFor(

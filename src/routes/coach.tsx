@@ -90,6 +90,9 @@ import { WeekPlanBoard } from '../components/WeekPlanBoard';
 type CoachTab = 'training' | 'debrief' | 'plan' | 'generate';
 type CoachSearch = RangeSearch & {
 	tab?: CoachTab;
+	/** Comma-separated activity ids for debrief. */
+	id?: string;
+	/** @deprecated Legacy comma-separated slugs — use `id`. */
 	slug?: string;
 	planWeek?: number;
 	includePlan?: boolean;
@@ -99,10 +102,12 @@ const RANGE_KINDS: RangeKind[] = ['7d', '30d', 'all', 'custom'];
 const DEFAULT_BRIEF_RANGE: RangeKind = '30d';
 
 function withCoachSearch(search: CoachSearch, extra: Partial<CoachSearch> = {}): CoachSearch {
+	const id = extra.id !== undefined ? extra.id : search.id;
 	const slug = extra.slug !== undefined ? extra.slug : search.slug;
 	const includePlan = extra.includePlan !== undefined ? extra.includePlan : search.includePlan;
 	return {
 		tab: extra.tab ?? search.tab,
+		id: id || undefined,
 		slug: slug || undefined,
 		planWeek: extra.planWeek !== undefined ? extra.planWeek : search.planWeek,
 		includePlan: includePlan === true ? true : undefined,
@@ -116,9 +121,9 @@ function defaultQuestion(nextWeek = false): string {
 	return `What should ${nextWeek ? 'next week' : 'this week'} look like? Use the rules above. If I noted extras I'm considering, say whether to add them.`;
 }
 
-function parseTab(v: unknown): CoachTab {
+function parseTab(v: unknown): CoachTab | undefined {
 	if (v === 'training' || v === 'plan' || v === 'generate' || v === 'debrief') return v;
-	return 'training';
+	return undefined;
 }
 
 function parsePlanWeek(v: unknown): number | undefined {
@@ -135,14 +140,18 @@ function weekTag(n: number, current: number, upcoming: number): 'now' | 'next' |
 	return null;
 }
 
-function visibleTab(tab: CoachTab | undefined, authed: boolean): CoachTab {
-	const next = tab ?? 'training';
-	if ((next === 'debrief' || next === 'generate') && !authed) return 'training';
-	return next;
+function visibleTab(tab: CoachTab, authed: boolean): CoachTab {
+	if ((tab === 'debrief' || tab === 'generate') && !authed) return 'training';
+	return tab;
 }
 
 type DebriefPrompt = Awaited<ReturnType<typeof getDebriefPrompt>>;
 type CoachPlanData = Awaited<ReturnType<typeof getCoachPlan>>;
+
+function defaultCoachTab(planData: CoachPlanData): CoachTab {
+	return planData.views.length > 0 ? 'plan' : 'training';
+}
+
 function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 	const search = Route.useSearch();
 	const router = useRouter();
@@ -332,6 +341,8 @@ export const Route = createFileRoute('/coach')({
 		from: typeof s.from === 'string' ? s.from : undefined,
 		to: typeof s.to === 'string' ? s.to : undefined,
 		tab: parseTab(s.tab),
+		id: typeof s.id === 'string' && s.id ? s.id : undefined,
+		// Legacy bookmarks — server resolves slugs when `id` is absent.
 		slug: typeof s.slug === 'string' && s.slug ? s.slug : undefined,
 		planWeek: parsePlanWeek(s.planWeek),
 		includePlan:
@@ -341,11 +352,12 @@ export const Route = createFileRoute('/coach')({
 	loaderDeps: () => ({}),
 	loader: ({ location }) => {
 		const search = location.search as CoachSearch;
+		const id = search.id ?? '';
 		const slug = search.slug ?? '';
 		const includePlan = search.includePlan === true;
 		return {
 			page: Promise.all([
-				getDebriefPrompt({ data: { slug, includePlan } }),
+				getDebriefPrompt({ data: { id, slug, includePlan } }),
 				getWeekPattern(),
 				getCoachPlan()
 			]).then(([debrief, weekSetup, planData]) => ({ debrief, weekSetup, planData }))
@@ -357,78 +369,9 @@ export const Route = createFileRoute('/coach')({
 
 function Coach() {
 	const { page } = Route.useLoaderData();
-	const search = Route.useSearch();
-	const router = useRouter();
-	const authed = useAuthed();
-	const tab = visibleTab(search.tab, authed);
-
-	function setTab(next: CoachTab) {
-		router.navigate({
-			to: '/coach',
-			search: withCoachSearch(search, {
-				tab: next,
-				slug: next === 'debrief' ? search.slug : ''
-			}),
-			replace: true,
-			resetScroll: false
-		});
-	}
 
 	return (
 		<>
-			<PageTabs
-				aria-label="Coach"
-				value={tab}
-				onChange={setTab}
-				options={[
-					{
-						value: 'training' as const,
-						label: (
-							<>
-								<Icon name="calendar" size={15} />
-								Training
-							</>
-						)
-					},
-					...(authed
-						? [
-								{
-									value: 'generate' as const,
-									label: (
-										<>
-											<Icon name="sparkle" size={15} />
-											Generate
-										</>
-									)
-								}
-							]
-						: []),
-					{
-						value: 'plan' as const,
-						label: (
-							<>
-								<Icon name="board" size={15} />
-								Plan
-							</>
-						)
-					},
-					...(authed
-						? [
-								{
-									value: 'debrief' as const,
-									label: (
-										<>
-											<Icon name="flag" size={15} />
-											<span className="max-sm:hidden">After an activity</span>
-											<span className="hidden max-sm:inline">Activity</span>
-										</>
-									)
-								}
-							]
-						: [])
-				]}
-			/>
-
 			<PageHero variant="quiet" kicker="This week" title="Coach" />
 
 			<DeferredData promise={page}>
@@ -466,9 +409,31 @@ function CoachPanels({
 		search.range || search.from || search.to ? search : { range: DEFAULT_BRIEF_RANGE }
 	);
 	const authed = useAuthed();
-	const tab = visibleTab(search.tab, authed);
-	const slug = search.slug ?? '';
+	const tab = visibleTab(search.tab ?? defaultCoachTab(planData), authed);
+	const debriefIds = search.id ?? '';
 	const includePlan = search.includePlan === true;
+
+	function setTab(next: CoachTab) {
+		router.navigate({
+			to: '/coach',
+			search: withCoachSearch(search, {
+				tab: next,
+				id: next === 'debrief' ? search.id : ''
+			}),
+			replace: true,
+			resetScroll: false
+		});
+	}
+
+	useEffect(() => {
+		if (search.tab !== undefined) return;
+		router.navigate({
+			to: '/coach',
+			search: withCoachSearch(search, { tab: defaultCoachTab(planData) }),
+			replace: true,
+			resetScroll: false
+		});
+	}, [search.tab, planData.views.length, router, search]);
 
 	const [generateDraft, setGenerateDraft] = useState(readGenerateDraft);
 
@@ -516,25 +481,25 @@ function CoachPanels({
 		setDebrief(initialDebrief);
 	}, [initialDebrief]);
 
-	// Soft slug updates (e.g. after GPX import) refresh the prompt without remounting the page.
-	const slugHydrated = useRef<string | null>(null);
+	// Soft id updates (e.g. after GPX import) refresh the prompt without remounting the page.
+	const debriefIdsHydrated = useRef<string | null>(null);
 	useEffect(() => {
-		const key = `${slug}|${includePlan ? '1' : '0'}`;
-		if (slugHydrated.current === null) {
-			slugHydrated.current = key;
+		const key = `${debriefIds}|${includePlan ? '1' : '0'}`;
+		if (debriefIdsHydrated.current === null) {
+			debriefIdsHydrated.current = key;
 			return;
 		}
-		if (slugHydrated.current === key) return;
-		slugHydrated.current = key;
+		if (debriefIdsHydrated.current === key) return;
+		debriefIdsHydrated.current = key;
 		let cancelled = false;
-		getDebriefPrompt({ data: { slug, includePlan } }).then((next) => {
+		getDebriefPrompt({ data: { id: debriefIds, includePlan } }).then((next) => {
 			if (cancelled) return;
 			setDebrief(next);
 		});
 		return () => {
 			cancelled = true;
 		};
-	}, [slug, includePlan]);
+	}, [debriefIds, includePlan]);
 
 	useEffect(() => {
 		const featured = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
@@ -574,16 +539,17 @@ function CoachPanels({
 	}
 
 	async function refreshDebrief() {
-		const next = await getDebriefPrompt({ data: { slug, includePlan } });
+		const next = await getDebriefPrompt({ data: { id: debriefIds, includePlan } });
 		setDebrief(next);
 		const nextRuns = next.runs?.length ? next.runs : next.run ? [next.run] : [];
-		const nextSlug = nextRuns.map((r) => r.slug).join(',');
-		if (nextSlug !== slug) {
+		const nextIds = nextRuns.map((r) => String(r.id)).join(',');
+		if (nextIds !== debriefIds) {
 			router.navigate({
 				to: '/coach',
 				search: withCoachSearch(search, {
 					tab: 'debrief',
-					slug: nextSlug || undefined
+					id: nextIds || undefined,
+					slug: ''
 				}),
 				replace: true,
 				resetScroll: false
@@ -678,6 +644,59 @@ function CoachPanels({
 
 	return (
 		<>
+			<PageTabs
+				aria-label="Coach"
+				value={tab}
+				onChange={setTab}
+				options={[
+					{
+						value: 'training' as const,
+						label: (
+							<>
+								<Icon name="calendar" size={15} />
+								Training
+							</>
+						)
+					},
+					...(authed
+						? [
+								{
+									value: 'generate' as const,
+									label: (
+										<>
+											<Icon name="sparkle" size={15} />
+											Generate
+										</>
+									)
+								}
+							]
+						: []),
+					{
+						value: 'plan' as const,
+						label: (
+							<>
+								<Icon name="board" size={15} />
+								Plan
+							</>
+						)
+					},
+					...(authed
+						? [
+								{
+									value: 'debrief' as const,
+									label: (
+										<>
+											<Icon name="flag" size={15} />
+											<span className="max-sm:hidden">After an activity</span>
+											<span className="hidden max-sm:inline">Activity</span>
+										</>
+									)
+								}
+							]
+						: [])
+				]}
+			/>
+
 			{tab === 'training' && (
 				<Panel form className="mb-4">
 					<Field as="div" label="Week setup">
@@ -751,13 +770,23 @@ function CoachPanels({
 								{authed ? (
 									<GpxImport
 										onImported={(ok) => {
-											const slugs = ok.map((r) => r.slug).filter((s): s is string => Boolean(s));
-											if (slugs.length) {
+											// Merge with the ids already in the URL instead of replacing
+											// them — an earlier activity that is still being written up must
+											// not vanish from the list mid-debrief.
+											const current = (search.id ?? '')
+												.split(',')
+												.map((s) => s.trim())
+												.filter(Boolean);
+											const fresh = ok
+												.map((r) => (r.id != null ? String(r.id) : ''))
+												.filter(Boolean);
+											const merged = [...new Set([...current, ...fresh])];
+											if (merged.length) {
 												router.navigate({
 													to: '/coach',
 													search: withCoachSearch(search, {
 														tab: 'debrief',
-														slug: slugs.join(',')
+														id: merged.join(',')
 													}),
 													replace: true,
 													resetScroll: false
@@ -839,8 +868,8 @@ function CoachPanels({
 									className="mt-3"
 									placeholder={
 										includePlan
-											? '{ "feelings": { "slug": "…", "notes": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
-											: '{ "feelings": { "slug": "…", "notes": "…" } }'
+											? '{ "feelings": { "id": 42, "notes": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
+											: '{ "feelings": { "id": 42, "notes": "…" } }'
 									}
 									submitLabel="Save reply"
 									submitIcon="check"
@@ -851,7 +880,7 @@ function CoachPanels({
 											if (!h) continue;
 											await saveActivityFeel({
 												data: {
-													slug: r.slug,
+													id: r.id,
 													before_notes: h.before,
 													after_notes: h.after
 												}
@@ -878,7 +907,7 @@ function CoachPanels({
 											setBodySuggestions(res.bodySuggestions);
 										}
 										const miss = res.feelingsMissing.length
-											? ` (${res.feelingsMissing.length} slug(s) not found)`
+											? ` (${res.feelingsMissing.length} id(s) not found)`
 											: '';
 										snack.success(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
 										if (res.feelingsUpdatedSlugs.length) {

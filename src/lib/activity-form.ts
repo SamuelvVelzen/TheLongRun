@@ -1,4 +1,9 @@
-import { ACTIVITY_TYPES, normalizeActivityType, type ActivityType } from '$lib/activity';
+import {
+	ACTIVITY_TYPES,
+	normalizeActivityType,
+	showsField,
+	type ActivityType
+} from '$lib/activity';
 import { rowsToBodyScores } from '$lib/body-scores';
 import type { CreateRunInput, UpdateRunInput } from '$lib/server/functions';
 import type { RunRecord } from '$lib/types';
@@ -85,8 +90,8 @@ export function toCreateRunInput(values: ActivityFormValues): CreateRunInput {
 	};
 }
 
-export function toUpdateRunInput(slug: string, values: ActivityFormValues): UpdateRunInput {
-	return { slug, ...toCreateRunInput(values) };
+export function toUpdateRunInput(id: number, values: ActivityFormValues): UpdateRunInput {
+	return { id, ...toCreateRunInput(values) };
 }
 
 function numStr(value: number | null | undefined): string {
@@ -107,7 +112,9 @@ export function emptyActivityForm(partial?: Partial<ActivityFormValues>): Activi
 		legs: partial?.legs ?? null,
 		energy: partial?.energy ?? null,
 		weather: partial?.weather ?? '',
-		surface: partial?.surface ?? 'asphalt',
+		// Only default for types that actually show a Surface field — hidden fields stay empty
+		// so an invisible default can't be saved (it used to leak 'asphalt' into strength logs).
+		surface: partial?.surface ?? (showsField(activity_type, 'surface') ? 'asphalt' : ''),
 		wanted_faster: partial?.wanted_faster ?? '',
 		distance_km: partial?.distance_km ?? '',
 		start_time: partial?.start_time ?? '',

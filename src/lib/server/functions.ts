@@ -243,7 +243,7 @@ import {
 	enrichGroupEfforts,
 	getActivityGroup,
 	listActivityGroups,
-	membershipForSlug,
+	membershipForRun,
 	removeActivityFromGroup,
 	tracksForMembers,
 	ungroupActivities
@@ -278,6 +278,7 @@ import {
 	findRunsByDate,
 	getMaxHrAllTime,
 	getRun,
+	getRunById,
 	listRouteIds,
 	listRuns,
 	runHasMap,
@@ -345,13 +346,14 @@ async function hydrateBestEfforts(runs: RunRecord[]): Promise<RunRecord[]> {
 			fromSplits
 		);
 		if (!merged.length || effortsEqual(merged, run.best_efforts ?? [])) continue;
-		await setRunBestEfforts(run.slug, merged);
+		await setRunBestEfforts(run.id, merged);
 		run.best_efforts = merged;
 	}
 	return runs;
 }
 
 async function highlightsAfterSave(
+	id: number,
 	slug: string,
 	activityType: string,
 	efforts: import('$lib/best-efforts').BestEffort[]
@@ -359,7 +361,7 @@ async function highlightsAfterSave(
 	if (!supportsBestEfforts(activityType) || !efforts.length) return [];
 	const all = await listRuns();
 	await hydrateBestEfforts(all);
-	const row = all.find((r) => r.slug === slug);
+	const row = all.find((r) => r.id === id);
 	if (row) row.best_efforts = mergeMissingBestEfforts(efforts, row.best_efforts ?? []);
 	return highlightsForActivity(slug, activityType, all);
 }
@@ -407,12 +409,13 @@ export const stopLiveLocation = createServerFn({ method: 'POST' })
 	});
 
 export const getDashboardData = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, tracks, routeIds, training, planRefs, groupsRaw] = await Promise.all([
+	const [runs, tracks, routeIds, training, planRefs, plannedRoutes, groupsRaw] = await Promise.all([
 		listRuns(),
 		listRouteTracks(),
 		listRouteIds(),
 		loadTrainingContext(),
 		listPlanRouteRefs(),
+		listPlannedRoutes(),
 		listActivityGroups()
 	]);
 	const groups = await enrichAllGroupEfforts(groupsRaw, runs);
@@ -427,6 +430,11 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 		groups,
 		week,
 		weekView,
+		planRoutes: plannedRoutes.map((r): SessionRouteRef => ({
+			slug: r.slug,
+			name: r.name,
+			distance_km: r.distance_km
+		})),
 		streak: sessionStreak(runs, plan, calendar),
 		activeGoal,
 		nextIntention,
@@ -438,6 +446,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 		groups: ActivityGroupInfo[];
 		week: PlanWeek | null;
 		weekView: WeekView | null;
+		planRoutes: SessionRouteRef[];
 		streak: number;
 		activeGoal: Goal | null;
 		nextIntention: Goal | null;
@@ -524,7 +533,7 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 			listRuns(),
 			getActivityRouteRef(slug),
 			loadTrainingContext(),
-			membershipForSlug(slug),
+			membershipForRun(run.id),
 			listPlannedRoutes(),
 			loadActivityHabits(),
 			loadFuelLog()
@@ -541,7 +550,7 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 		const current = allRuns.find((r) => r.slug === slug) ?? run;
 		const highlights = highlightsForActivity(current.slug, current.activity_type, allRuns);
 		const allGroups = await listActivityGroups();
-		const groupedSlugs = new Set(allGroups.flatMap((g) => g.member_slugs));
+		const groupedIds = new Set(allGroups.flatMap((g) => g.member_ids));
 
 		// HR zones honour a manually-set HRmax; otherwise the all-time max across activities
 		// (never just this one run's noisy peak). Time-in-zone needs the stored per-point HR
@@ -554,23 +563,24 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 		});
 
 		const groupOptions = allRuns
-			.filter((r) => r.slug !== slug)
+			.filter((r) => r.id !== run.id)
 			.map((r) => ({
+				id: r.id,
 				slug: r.slug,
 				date: r.date,
 				start_time: r.start_time,
 				activity_type: r.activity_type,
 				distance_km: r.distance_km,
-				grouped: groupedSlugs.has(r.slug)
+				grouped: groupedIds.has(r.id)
 			}));
 
 		const gpsContextTracks = group
 			? (
 					await Promise.all(
-						group.member_slugs
-							.filter((s) => s !== slug)
-							.map(async (s) => {
-								const sibling = allRuns.find((r) => r.slug === s);
+						group.member_ids
+							.filter((mid) => mid !== run.id)
+							.map(async (mid) => {
+								const sibling = allRuns.find((r) => r.id === mid);
 								if (!sibling) return null;
 								const id = routeIdForRun(sibling);
 								if (!id) return null;
@@ -578,7 +588,7 @@ export const getRunDetail = createServerFn({ method: 'GET' })
 								const coords = trackFromGeoJson(siblingGeo).coords;
 								if (coords.length < 2) return null;
 								return {
-									slug: s,
+									slug: sibling.slug,
 									label: `${sibling.date}${sibling.start_time ? ` · ${sibling.start_time}` : ''} ${activityLabel(sibling.activity_type)}`,
 									coords
 								};
@@ -1120,32 +1130,31 @@ export const saveWeekPattern = createServerFn({ method: 'POST' })
 	.handler(async ({ data }) => saveWeekSetupSetting(data));
 
 function hasFeel(r: RunRecord): boolean {
+	const t = normalizeActivityType(r.activity_type);
 	return (
 		r.effort != null ||
-		r.body_scores.length > 0 ||
+		(showsFeel(t, 'body') && r.body_scores.length > 0) ||
 		r.legs != null ||
 		r.energy != null ||
-		r.wanted_faster != null ||
-		(r.surface ?? '').trim() !== '' ||
-		(normalizeActivityType(r.activity_type) !== 'strength' &&
-			(r.notes ?? '').trim() !== '' &&
-			!isImportNote(r.notes))
+		(showsFeel(t, 'wanted_faster') && r.wanted_faster != null) ||
+		(showsField(t, 'surface') && (r.surface ?? '').trim() !== '') ||
+		(t !== 'strength' && (r.notes ?? '').trim() !== '' && !isImportNote(r.notes))
 	);
 }
 
-/** No scores and no real write-up yet — still waiting on After an activity. */
+/**
+ * No scores and no real write-up yet — still waiting on After an activity.
+ * Only fields the user can actually set for that sport count as evidence of a
+ * debrief: surface is run/walk-only (it used to be auto-filled on strength logs,
+ * hiding them from the list), body scores are run/walk, wanted-faster is run.
+ */
 function stillNeedsDebrief(r: RunRecord): boolean {
-	if (
-		r.effort != null ||
-		r.body_scores.length > 0 ||
-		r.legs != null ||
-		r.energy != null ||
-		r.wanted_faster != null ||
-		(r.surface ?? '').trim() !== ''
-	) {
-		return false;
-	}
-	if (normalizeActivityType(r.activity_type) === 'strength') {
+	const t = normalizeActivityType(r.activity_type);
+	if (r.effort != null || r.legs != null || r.energy != null) return false;
+	if (showsFeel(t, 'body') && r.body_scores.length > 0) return false;
+	if (showsFeel(t, 'wanted_faster') && r.wanted_faster != null) return false;
+	if (showsField(t, 'surface') && (r.surface ?? '').trim() !== '') return false;
+	if (t === 'strength') {
 		const extra = parseStrengthNotes(r.notes).extra.trim();
 		return !extra || isImportNote(extra);
 	}
@@ -1158,7 +1167,7 @@ function formatRunBriefLine(r: RunRecord): string {
 	const notes = notesForBriefRow(r);
 	const km =
 		normalizeActivityType(r.activity_type) === 'strength' ? '' : ` ${r.distance_km ?? '–'} km`;
-	return `- ${r.date} (${r.day || '—'}) ${activityLabel(r.activity_type)}${km} · ${metricText(r)} · HR ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} · feel ${feel}${notes ? ` · ${notes}` : ''} · slug \`${r.slug}\``;
+	return `- ${r.date} (${r.day || '—'}) ${activityLabel(r.activity_type)}${km} · ${metricText(r)} · HR ${r.avg_hr ?? '–'}/${r.max_hr ?? '–'} · feel ${feel}${notes ? ` · ${notes}` : ''} · id ${r.id}`;
 }
 
 const DEBRIEF_SPLITS_CHUNK_KM = 5;
@@ -1243,7 +1252,7 @@ function formatDebriefGpsFacts(r: RunRecord): string {
 }
 
 function formatDebriefFeatured(r: RunRecord, analytics: RouteAnalytics | null): string {
-	const head = `- ${r.date} (${r.day || '—'}) ${activityLabel(r.activity_type)} · slug \`${r.slug}\``;
+	const head = `- ${r.date} (${r.day || '—'}) ${activityLabel(r.activity_type)} · id ${r.id}`;
 	const extra = [
 		formatDebriefGpsFacts(r),
 		...(analytics ? formatKmSplitsLines(analytics.splits) : []),
@@ -1254,7 +1263,19 @@ function formatDebriefFeatured(r: RunRecord, analytics: RouteAnalytics | null): 
 	return [head, ...extra.map((line) => `  ${line}`)].join('\n');
 }
 
-function parseDebriefSlugs(raw: string): string[] {
+function parseDebriefIds(raw: string): number[] {
+	return [
+		...new Set(
+			raw
+				.split(',')
+				.map((s) => Number(s.trim()))
+				.filter((n) => Number.isFinite(n) && n > 0)
+		)
+	];
+}
+
+/** Legacy debrief URLs used comma-separated slugs before numeric ids. */
+function parseDebriefSlugLabels(raw: string): string[] {
 	return [
 		...new Set(
 			raw
@@ -1286,18 +1307,18 @@ function expandDebriefFeatured(
 ): RunRecord[] {
 	if (!seed.length) return [];
 	const dates = new Set(seed.map((r) => r.date));
-	const bySlug = new Map<string, RunRecord>();
+	const byId = new Map<number, RunRecord>();
 	for (const r of pool) {
 		const sameDay = dates.has(r.date);
 		const pendingThisWeek =
 			Boolean(weekStart) && r.date >= weekStart && r.date <= weekEnd && stillNeedsDebrief(r);
-		if (sameDay || pendingThisWeek) bySlug.set(r.slug, r);
+		if (sameDay || pendingThisWeek) byId.set(r.id, r);
 	}
-	// URL slugs are a hint, not a lock — once feel is saved, drop them unless still pending.
+	// URL ids are a hint, not a lock — once feel is saved, drop them unless still pending.
 	for (const r of seed) {
-		if (stillNeedsDebrief(r)) bySlug.set(r.slug, r);
+		if (stillNeedsDebrief(r)) byId.set(r.id, r);
 	}
-	return [...bySlug.values()].sort(compareDebriefRuns);
+	return [...byId.values()].sort(compareDebriefRuns);
 }
 
 export type DebriefRaceHint =
@@ -1352,6 +1373,7 @@ function debriefRaceHint(
 
 function debriefRunSummary(r: RunRecord) {
 	return {
+		id: r.id,
 		slug: r.slug,
 		date: r.date,
 		day: r.day,
@@ -1396,7 +1418,7 @@ function plannedSessionForActivity(
 }
 
 function formatPlannedForActivity(run: RunRecord, match: PlannedMatch): string {
-	const head = `- ${run.date} ${activityLabel(run.activity_type)} (slug \`${run.slug}\`)`;
+	const head = `- ${run.date} ${activityLabel(run.activity_type)} (id ${run.id})`;
 	if (match.kind === 'unplanned') {
 		return `${head}: Unplanned — no session was planned for this day and sport. Coach it as extra load.`;
 	}
@@ -1465,7 +1487,7 @@ function bodyScoresExample(areas: BodyArea[]): Record<string, number> | null {
 function feelingsExample(runs: RunRecord[], areas: BodyArea[]): unknown {
 	const body = bodyScoresExample(areas);
 	const row = (r: RunRecord) => ({
-		slug: r.slug,
+		id: r.id,
 		...(normalizeActivityType(r.activity_type) === 'run' ? { session: 'easy' } : {}),
 		effort: 6,
 		...(showsFeel(r.activity_type, 'body') && body ? { body_scores: body } : {}),
@@ -1476,20 +1498,21 @@ function feelingsExample(runs: RunRecord[], areas: BodyArea[]): unknown {
 		...(showsField(r.activity_type, 'gear') ? { gear: 'shoe name' } : {}),
 		notes: 'Short first-person summary of What I wrote.'
 	});
-	if (!runs.length) return { slug: '…', notes: '…' };
+	if (!runs.length) return { id: 0, notes: '…' };
 	return runs.length === 1 ? row(runs[0]!) : runs.map(row);
 }
 
 export const getDebriefPrompt = createServerFn({ method: 'GET' })
-	.validator((d: { slug?: string; includePlan?: boolean } | string) => {
-		if (typeof d === 'string') return { slug: d, includePlan: false };
+	.validator((d: { id?: string; slug?: string; includePlan?: boolean } | string) => {
+		if (typeof d === 'string') return { id: d, slug: '', includePlan: false };
 		return {
+			id: typeof d?.id === 'string' ? d.id : '',
 			slug: typeof d?.slug === 'string' ? d.slug : '',
 			includePlan: d?.includePlan === true
 		};
 	})
 	.handler(async ({ data }) => {
-		const { slug, includePlan } = data;
+		const { id: idRaw, slug: slugRaw, includePlan } = data;
 		const [
 			allRuns,
 			week,
@@ -1521,12 +1544,17 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			end.setDate(end.getDate() + 6);
 			weekEnd = isoDateLocal(end);
 		}
-		const requested = parseDebriefSlugs(slug);
-		const featuredUnsorted = requested.length
-			? requested
-					.map((s) => allRuns.find((r) => r.slug === s) ?? null)
+		const requestedIds = parseDebriefIds(idRaw);
+		const legacySlugs = requestedIds.length ? [] : parseDebriefSlugLabels(slugRaw);
+		const featuredUnsorted = requestedIds.length
+			? requestedIds
+					.map((rid) => allRuns.find((r) => r.id === rid) ?? null)
 					.filter((r): r is RunRecord => r != null)
-			: weekStart
+			: legacySlugs.length
+				? legacySlugs
+						.map((label) => allRuns.find((r) => r.slug === label) ?? null)
+						.filter((r): r is RunRecord => r != null)
+				: weekStart
 				? (() => {
 						const row = allRuns.find((r) => r.date >= weekStart && r.date <= weekEnd);
 						return row ? [row] : [];
@@ -1559,8 +1587,8 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const weekRuns = weekStart
 			? allRuns.filter((r) => r.date >= weekStart && r.date <= weekEnd).sort(byDateNewestFirst)
 			: [];
-		const featuredSlugs = new Set(featured.map((r) => r.slug));
-		const otherThisWeek = weekRuns.filter((r) => !featuredSlugs.has(r.slug));
+		const featuredIds = new Set(featured.map((r) => r.id));
+		const otherThisWeek = weekRuns.filter((r) => !featuredIds.has(r.id));
 		const sessionLines =
 			weekView?.sessions
 				.map((s) => {
@@ -1719,7 +1747,7 @@ ${rules.join('\n')}`;
 	});
 
 export type ActivityFeelInput = {
-	slug: string;
+	id: number;
 	effort?: number | null;
 	body_scores?: BodyScore[];
 	legs?: number | null;
@@ -1751,13 +1779,13 @@ export const saveActivityFeel = createServerFn({ method: 'POST' })
 		if (data.gear !== undefined) patch.gear = data.gear.trim();
 		if (data.before_notes !== undefined) patch.before_notes = data.before_notes.trim();
 		if (data.after_notes !== undefined) patch.after_notes = data.after_notes.trim();
-		const ok = await updateRunFeelings(data.slug, patch);
+		const ok = await updateRunFeelings(data.id, patch);
 		if (!ok) throw new Error('Activity not found.');
 		if (data.gear !== undefined) {
-			const run = await getRun(data.slug);
+			const run = await getRunById(data.id);
 			if (run) await rememberGearName(run.gear, run.activity_type);
 		}
-		return { ok: true as const, slug: data.slug };
+		return { ok: true as const, id: data.id };
 	});
 
 // ---------- mutations ----------
@@ -1846,7 +1874,7 @@ export const createRun = createServerFn({ method: 'POST' })
 			after_notes: ritual.after
 		});
 		await rememberGearName(run.gear, run.activity_type);
-		return { slug: run.slug };
+		return { id: run.id, slug: run.slug };
 	});
 
 export const importGpx = createServerFn({ method: 'POST' })
@@ -1923,8 +1951,8 @@ export const importGpx = createServerFn({ method: 'POST' })
 
 		// Matched an existing activity → refresh its map/analytics, keep subjective data, no dup.
 		if (existingDup) {
-			if (route && route !== existingDup.route) await setRunRoute(existingDup.slug, route);
-			await setRunImportMetrics(existingDup.slug, {
+			if (route && route !== existingDup.route) await setRunRoute(existingDup.id, route);
+			await setRunImportMetrics(existingDup.id, {
 				distance_km: parsed.distanceKm,
 				time: parsed.time,
 				elapsed_time: parsed.elapsedTime,
@@ -1940,12 +1968,18 @@ export const importGpx = createServerFn({ method: 'POST' })
 				parsed.points.length >= 2
 			) {
 				const surface = await inferSurfaceFromTrack(parsed.points);
-				if (surface) await updateRunFeelings(existingDup.slug, { surface });
+				if (surface) await updateRunFeelings(existingDup.id, { surface });
 			}
 			const efforts = supportsBestEfforts(activity_type) ? parsed.bestEfforts : [];
-			if (efforts.length) await setRunBestEfforts(existingDup.slug, efforts);
-			const highlights = await highlightsAfterSave(existingDup.slug, activity_type, efforts);
+			if (efforts.length) await setRunBestEfforts(existingDup.id, efforts);
+			const highlights = await highlightsAfterSave(
+				existingDup.id,
+				existingDup.slug,
+				activity_type,
+				efforts
+			);
 			return {
+				id: existingDup.id,
 				slug: existingDup.slug,
 				activity_type,
 				distance_km: parsed.distanceKm,
@@ -2014,12 +2048,14 @@ export const importGpx = createServerFn({ method: 'POST' })
 		});
 
 		const highlights = await highlightsAfterSave(
+			run.id,
 			run.slug,
 			activity_type,
 			supportsBestEfforts(activity_type) ? parsed.bestEfforts : []
 		);
 
 		return {
+			id: run.id,
 			slug: run.slug,
 			activity_type,
 			distance_km: parsed.distanceKm,
@@ -2044,7 +2080,7 @@ export const repairRunGps = createServerFn({ method: 'POST' })
 	.middleware([requireAuth])
 	.validator(
 		(d: {
-			slug: string;
+			id: number;
 			waypoints?: { lat: number; lng: number }[];
 			follow_network?: boolean;
 			network_coords?: { lat: number; lng: number }[];
@@ -2052,7 +2088,7 @@ export const repairRunGps = createServerFn({ method: 'POST' })
 		}) => d
 	)
 	.handler(async ({ data }) => {
-		const run = await getRun(data.slug);
+		const run = await getRunById(data.id);
 		if (!run) throw new Error('Activity not found.');
 
 		const pins = normalizeWaypoints(data.waypoints);
@@ -2145,11 +2181,11 @@ export const repairRunGps = createServerFn({ method: 'POST' })
 			}
 		};
 		await saveRouteGeoJson(id, geojson);
-		if (!run.route) await setRunRoute(run.slug, `/routes/${id}.json`);
+		if (!run.route) await setRunRoute(run.id, `/routes/${id}.json`);
 
 		if (supportsBestEfforts(run.activity_type)) {
 			const efforts = computeBestEffortsFromTrack(out);
-			if (efforts.length) await setRunBestEfforts(run.slug, efforts);
+			if (efforts.length) await setRunBestEfforts(run.id, efforts);
 		}
 
 		return {
@@ -2176,7 +2212,7 @@ export const previewGpsNetwork = createServerFn({ method: 'POST' })
 	});
 
 export type UpdateRunInput = {
-	slug: string;
+	id: number;
 	date: string;
 	activity_type: string;
 	session: string;
@@ -2237,25 +2273,25 @@ export const updateRun = createServerFn({ method: 'POST' })
 			before_notes: data.before_notes?.trim() ?? '',
 			after_notes: data.after_notes?.trim() ?? ''
 		};
-		const run = await dbUpdateRun(data.slug, fields);
+		const run = await dbUpdateRun(data.id, fields);
 		await rememberGearName(run.gear, run.activity_type);
-		return { slug: run.slug };
+		return { id: run.id, slug: run.slug };
 	});
 
 export const deleteRun = createServerFn({ method: 'POST' })
 	.middleware([requireAuth])
-	.validator((slug: string) => slug)
-	.handler(async ({ data: slug }) => {
-		return dbDeleteRun(slug);
+	.validator((id: number) => id)
+	.handler(async ({ data: id }) => {
+		return dbDeleteRun(id);
 	});
 
 export const deleteRunsFn = createServerFn({ method: 'POST' })
 	.middleware([requireAuth])
-	.validator((d: { slugs: string[] }) => d)
+	.validator((d: { ids: number[] }) => d)
 	.handler(async ({ data }) => {
-		const unique = [...new Set(data.slugs.map((s) => s.trim()).filter(Boolean))];
+		const unique = [...new Set(data.ids.map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0))];
 		if (!unique.length) throw new Error('Pick at least one activity to delete.');
-		for (const slug of unique) await dbDeleteRun(slug);
+		for (const id of unique) await dbDeleteRun(id);
 		return { ok: true as const };
 	});
 
@@ -2272,8 +2308,8 @@ export const getGroupDetail = createServerFn({ method: 'GET' })
 			listActivityGroups()
 		]);
 		await hydrateBestEfforts(allRuns);
-		const members = groupRaw.member_slugs
-			.map((slug) => allRuns.find((r) => r.slug === slug))
+		const members = groupRaw.member_ids
+			.map((mid) => allRuns.find((r) => r.id === mid))
 			.filter((r): r is RunRecord => r != null);
 		if (members.length < 2) return null;
 		const group = await enrichGroupEfforts(groupRaw, members);
@@ -2318,25 +2354,25 @@ export const getGroupDetail = createServerFn({ method: 'GET' })
 
 export const createActivityGroupFn = createServerFn({ method: 'POST' })
 	.middleware([requireAuth])
-	.validator((d: { slugs: string[]; name?: string }) => d)
+	.validator((d: { ids: number[]; name?: string }) => d)
 	.handler(async ({ data }) => {
-		const group = await createActivityGroup(data.slugs, data.name ?? '');
+		const group = await createActivityGroup(data.ids, data.name ?? '');
 		return { id: group.id };
 	});
 
 export const addToActivityGroupFn = createServerFn({ method: 'POST' })
 	.middleware([requireAuth])
-	.validator((d: { groupId: string; slug: string }) => d)
+	.validator((d: { groupId: string; id: number }) => d)
 	.handler(async ({ data }) => {
-		await addActivityToGroup(data.groupId, data.slug);
+		await addActivityToGroup(data.groupId, data.id);
 		return { ok: true };
 	});
 
 export const removeFromActivityGroupFn = createServerFn({ method: 'POST' })
 	.middleware([requireAuth])
-	.validator((d: { groupId: string; slug: string }) => d)
+	.validator((d: { groupId: string; id: number }) => d)
 	.handler(async ({ data }) => {
-		await removeActivityFromGroup(data.groupId, data.slug);
+		await removeActivityFromGroup(data.groupId, data.id);
 		return { ok: true };
 	});
 
@@ -2354,8 +2390,8 @@ export const exportGroupedActivity = createServerFn({ method: 'GET' })
 		const groupRaw = await getActivityGroup(data.id);
 		if (!groupRaw) throw new Error('Group not found.');
 		const allRuns = await listRuns();
-		const members = groupRaw.member_slugs
-			.map((slug) => allRuns.find((r) => r.slug === slug))
+		const members = groupRaw.member_ids
+			.map((mid) => allRuns.find((r) => r.id === mid))
 			.filter((r): r is RunRecord => r != null);
 		if (members.length < 2) throw new Error('Group not found.');
 		const stats = combineRunStats(members);
@@ -2417,14 +2453,14 @@ function zipFilePayload(filename: string, entries: { name: string; data: string 
 }
 
 export const exportActivitiesFn = createServerFn({ method: 'GET' })
-	.validator((d: { slugs: string[] }) => d)
+	.validator((d: { ids: number[] }) => d)
 	.handler(async ({ data }) => {
-		const unique = [...new Set(data.slugs.map((s) => s.trim()).filter(Boolean))];
+		const unique = [...new Set(data.ids.map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0))];
 		if (!unique.length) throw new Error('Pick at least one activity to export.');
 		const all = await listRuns();
 		const runs = sortGroupMembers(
 			unique
-				.map((slug) => all.find((r) => r.slug === slug))
+				.map((id) => all.find((r) => r.id === id))
 				.filter((r): r is RunRecord => r != null)
 		);
 		if (!runs.length) throw new Error('Activity not found.');
@@ -2529,18 +2565,32 @@ async function applyFeelingsRows(
 		? await loadBodyNotes()
 		: null;
 	for (const row of rows) {
+		let runId = row.id ?? null;
+		if (!runId && row.slug) {
+			const bySlug = await getRun(row.slug);
+			runId = bySlug?.id ?? null;
+		}
+		const key = runId != null ? String(runId) : (row.slug ?? '?');
+		if (!runId) {
+			missing.push(key);
+			continue;
+		}
 		const patch = feelingsRowToPatch(row) as FeelingsPatch;
 		const scores = body ? resolveAiBodyScores(row.body_scores, row.shins, body) : undefined;
 		if (scores) {
-			const current = await getRun(row.slug);
+			const current = await getRunById(runId);
 			if (current) patch.body_scores = mergeBodyScores(current.body_scores, scores);
 		}
-		const ok = await updateRunFeelings(row.slug, patch);
+		const ok = await updateRunFeelings(runId, patch);
 		if (ok && row.gear !== undefined) {
-			const run = await getRun(row.slug);
+			const run = await getRunById(runId);
 			if (run) await rememberGearName(run.gear, run.activity_type);
 		}
-		(ok ? updated : missing).push(row.slug);
+		if (ok) {
+			const run = await getRunById(runId);
+			if (run) updated.push(run.slug);
+			else missing.push(key);
+		} else missing.push(key);
 	}
 	return { updated: updated.length, updatedSlugs: updated, missing };
 }
@@ -2654,18 +2704,18 @@ export const getFeelingsPrompt = createServerFn({ method: 'GET' })
 			? targets
 					.map((r) => {
 						const feel = hasFeel(r) ? 'has notes — refine only if I said more' : 'none yet';
-						return `| ${r.slug} | ${r.date} | ${activityLabel(r.activity_type)} | ${
+						return `| ${r.id} | ${r.date} | ${activityLabel(r.activity_type)} | ${
 							r.distance_km != null ? `${r.distance_km} km` : '—'
 						} | ${feel} |`;
 					})
 					.join('\n')
 			: '| — | — | — | — | — |';
 
-		const exampleSlug = targets[0]?.slug ?? 'copy-slug-from-table';
+		const exampleId = targets[0]?.id ?? 0;
 		const example = JSON.stringify({
 			activities: [
 				{
-					slug: exampleSlug,
+					id: exampleId,
 					effort: 6,
 					...(bodyExample ? { body_scores: bodyExample } : {}),
 					legs: 7,
@@ -2687,19 +2737,19 @@ ${example}
 \`\`\`
 
 Rules:
-- Copy \`slug\` from the table — do not use the example slug if it is not in the table. Do not copy example numbers.
+- Copy \`id\` from the table — do not use the example id if it is not in the table. Do not copy example numbers.
 - ${feelScale()}${scoreAreas.length ? ` \`body_scores\` holds one 0–10 score per body area (runs/walks), keyed by the exact area name: ${scoreAreas.map((a) => a.area).join(', ')}.` : ''} \`wanted_faster\` is true/false.
 - Omit any field you have no information for; omit an activity entirely if I said nothing about it.
 - Keep \`notes\` short and in my voice (first person).
 
 ## Activities (${from} → ${to})
-| slug | date | type | distance | current feel |
+| id | date | type | distance | current feel |
 |------|------|------|----------|--------------|
 ${table}`);
 		return { prompt, count: targets.length, from, to };
 	});
 
-/** Save AI-summarised feelings back onto activities by slug (subjective fields only). */
+/** Save AI-summarised feelings back onto activities by id (subjective fields only). */
 export const saveFeelings = createServerFn({ method: 'POST' })
 	.middleware([requireAuth])
 	.validator((jsonText: string) => jsonText)

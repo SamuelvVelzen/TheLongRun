@@ -344,6 +344,16 @@ function sortLogsForMatch(a: WeekViewRun, b: WeekViewRun): number {
 	return (a.slug ?? '').localeCompare(b.slug ?? '');
 }
 
+/** Plan JSON row order can differ from calendar order (e.g. pinned days listed first). */
+function sortSessionsChronologically(sessions: WeekSessionView[]): WeekSessionView[] {
+	return [...sessions].sort((a, b) => {
+		if (a.date && b.date && a.date !== b.date) return a.date < b.date ? -1 : 1;
+		if (a.date && !b.date) return -1;
+		if (!a.date && b.date) return 1;
+		return a.planIndex - b.planIndex;
+	});
+}
+
 export function buildWeekView(
 	week: PlanWeek,
 	runs: WeekViewRun[],
@@ -408,7 +418,7 @@ export function buildWeekView(
 	// must not steal the highlight after a later day is already logged. Rest days stay
 	// on the board but never become the "next run".
 	const next =
-		sessions.find(
+		sortSessionsChronologically(sessions).find(
 			(s) =>
 				!s.done &&
 				!s.skipped &&

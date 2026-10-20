@@ -69,7 +69,9 @@ export function PlanSessionBody({
 
 	return (
 		<div className={cn('flex flex-col min-w-0', coachGap, className)}>
-			{detailNote ? <p className={bodyLine}>{detailNote}</p> : null}
+			{detailNote ? (
+				<p className={cn(bodyLine, compact && 'line-clamp-3')}>{detailNote}</p>
+			) : null}
 			{!open && !detailNote ? <p className={bodyLine}>{structured.summary}</p> : null}
 			<details open={open} className="min-w-0 group/details">
 				<summary

@@ -352,15 +352,16 @@ export function WeekPlanBoard({
 					)}
 				</p>
 			</div>
-			<div className="grid grid-cols-1 gap-3 min-[720px]:grid-cols-2 items-start">
+			<div className="grid grid-cols-1 gap-3 min-[720px]:grid-cols-2">
 				{visibleDays.map((group) => {
 					const onlyUnplanned = group.sessions.length === 0 && group.unplanned.length > 0;
 					const nextHere = group.sessions.some((s) => s.isNext);
+					const sessionCount = group.sessions.length + group.unplanned.length;
 					return (
 						<article
 							key={group.day}
 							className={cn(
-								'flex flex-col gap-3 min-w-0 h-fit self-start p-[0.85rem_0.95rem] rounded-[14px] border',
+								'flex flex-col gap-2.5 min-w-0 h-full min-h-0 p-[0.85rem_0.95rem] rounded-[14px] border',
 								nextHere
 									? 'border-[color-mix(in_srgb,var(--color-accent)_40%,var(--color-line))] bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))]'
 									: onlyUnplanned
@@ -368,23 +369,23 @@ export function WeekPlanBoard({
 										: 'border-line bg-[color-mix(in_srgb,var(--color-panel)_55%,transparent)]'
 							)}
 						>
-							{group.sessions.length + group.unplanned.length > 1 && (
-								<header className="flex items-baseline justify-between gap-2">
-									<p className="m-0 text-[0.7rem] tracking-[0.06em] uppercase font-bold text-accent-fg leading-snug">
-										{group.date ? planDayKicker(group.date) : group.day}
-										{group.date && !group.isToday ? (
-											<span className="text-muted font-semibold normal-case tracking-normal text-[0.78rem]">
-												{' · '}
-												{planDaySubline(group.date)}
-											</span>
-										) : null}
-									</p>
+							<header className="flex items-baseline justify-between gap-2 shrink-0 min-h-[1.35rem]">
+								<p className="m-0 text-[0.7rem] tracking-[0.06em] uppercase font-bold text-accent-fg leading-snug">
+									{group.date ? planDayKicker(group.date) : group.day}
+									{group.date && !group.isToday ? (
+										<span className="text-muted font-semibold normal-case tracking-normal text-[0.78rem]">
+											{' · '}
+											{planDaySubline(group.date)}
+										</span>
+									) : null}
+								</p>
+								{sessionCount > 1 ? (
 									<span className={cn('text-muted', 'text-[0.78rem] shrink-0')}>
-										{group.sessions.length + group.unplanned.length} sessions
+										{sessionCount} sessions
 									</span>
-								</header>
-							)}
-							<div className="flex flex-col gap-3">
+								) : null}
+							</header>
+							<div className="flex flex-col flex-1 gap-2.5 min-h-0">
 								{group.sessions.map((session, i) => (
 									<PlannedSessionRow
 										key={`${session.day}-${session.label}-${i}`}
@@ -393,11 +394,6 @@ export function WeekPlanBoard({
 										routes={routes}
 										divided={i > 0}
 										layout="compact"
-										sessionDate={
-											group.sessions.length + group.unplanned.length === 1
-												? group.date
-												: null
-										}
 									/>
 								))}
 								{group.unplanned.map((item, i) => (

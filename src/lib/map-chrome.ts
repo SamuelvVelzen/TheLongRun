@@ -8,6 +8,7 @@ import {
 	liveShareAuthed,
 	liveShareOn,
 	requestLiveShare,
+	requestLiveWatch,
 	type LiveLocationView
 } from '$lib/live-location';
 import {
@@ -542,13 +543,21 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		btnShare.setAttribute('aria-pressed', on ? 'true' : 'false');
 	};
 
+	let liveWatcherPing: LiveLocationView | null = null;
+
 	const syncShareChrome = () => {
 		if (liveShareAuthed()) {
 			if (!btnShare.isConnected) texts.append(btnShare);
+			syncShareButton();
+		} else if (liveWatcherPing) {
+			if (!btnShare.isConnected) texts.append(btnShare);
+			btnShare.textContent = 'Live';
+			btnShare.title = 'Open live location map';
+			btnShare.setAttribute('aria-label', btnShare.title);
+			btnShare.removeAttribute('aria-pressed');
 		} else if (btnShare.isConnected) {
 			btnShare.remove();
 		}
-		syncShareButton();
 	};
 	syncShareChrome();
 
@@ -874,8 +883,8 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		(e) => {
 			e.preventDefault();
 			e.stopPropagation();
-			if (!liveShareAuthed()) return;
-			requestLiveShare(!liveShareOn());
+			if (liveShareAuthed()) requestLiveShare(!liveShareOn());
+			else if (liveWatcherPing) requestLiveWatch();
 		},
 		true
 	);
@@ -923,9 +932,13 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 
 	const showLivePing = (ping: LiveLocationView | null) => {
 		if (!L || !ping || liveShareAuthed()) {
+			liveWatcherPing = null;
+			syncShareChrome();
 			clearLiveOverlay();
 			return;
 		}
+		liveWatcherPing = ping;
+		syncShareChrome();
 		showLiveRoute(ping);
 		const latlng = L.latLng(ping.lat, ping.lng);
 		const acc = ping.accuracy && ping.accuracy > 0 ? ping.accuracy : 0;

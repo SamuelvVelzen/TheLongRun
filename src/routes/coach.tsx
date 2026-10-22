@@ -1030,7 +1030,8 @@ function CoachPanels({
 											setWriteups((prev) => clearDebriefWriteups(res.feelingsUpdatedSlugs, prev));
 											setHabitDrafts((prev) => clearDebriefHabits(res.feelingsUpdatedSlugs, prev));
 										}
-										await router.invalidate();
+										// Drop finished sessions from ?id= (and refresh step 1–3) once feelings landed.
+										await refreshDebrief();
 									}}
 								/>
 							) : null}

@@ -8,7 +8,8 @@ export const LIVE_SHARE_KEY = 'tlr-live-share';
 export const LIVE_SHARE_ROUTE_KEY = 'tlr-live-share-route';
 export const LIVE_SHARE_EVENT = 'tlr-live-share';
 export const LIVE_SHARE_REQUEST = 'tlr-live-share-request';
-export const LIVE_WATCH_PROMPT_KEY = 'tlr-live-watch-prompt';
+export const LIVE_WATCH_REQUEST = 'tlr-live-watch-request';
+export const LIVE_PING_EVENT = 'tlr-live-ping';
 
 export type LiveLocationPing = {
 	lat: number;
@@ -28,6 +29,7 @@ export type LiveLocationView = LiveLocationPing & {
 
 export type LiveShareDetail = { sharing: boolean };
 export type LiveShareRequestDetail = { want: boolean };
+export type LivePingDetail = { ping: LiveLocationView | null };
 
 export function isLiveLocationFresh(updatedAt: number, now = Date.now()): boolean {
 	return Number.isFinite(updatedAt) && now - updatedAt < LIVE_LOCATION_STALE_MS;
@@ -99,6 +101,14 @@ export function requestLiveShare(want: boolean) {
 	);
 }
 
+export function requestLiveWatch() {
+	window.dispatchEvent(new CustomEvent(LIVE_WATCH_REQUEST));
+}
+
+export function dispatchLivePing(ping: LiveLocationView | null) {
+	window.dispatchEvent(new CustomEvent<LivePingDetail>(LIVE_PING_EVENT, { detail: { ping } }));
+}
+
 export function liveShareAuthed(): boolean {
 	return typeof document !== 'undefined' && document.documentElement.dataset.liveShareAuth === '1';
 }
@@ -112,20 +122,4 @@ export function liveAgo(updatedAt: number, now = Date.now()): string {
 	if (s < 22) return 'just now';
 	const m = Math.max(1, Math.round(s / 60));
 	return m === 1 ? '1 min ago' : `${m} min ago`;
-}
-
-export function liveWatchPromptSeen(): boolean {
-	try {
-		return sessionStorage.getItem(LIVE_WATCH_PROMPT_KEY) === '1';
-	} catch {
-		return false;
-	}
-}
-
-export function setLiveWatchPromptSeen() {
-	try {
-		sessionStorage.setItem(LIVE_WATCH_PROMPT_KEY, '1');
-	} catch {
-		/* ignore */
-	}
 }

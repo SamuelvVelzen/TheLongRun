@@ -1,5 +1,6 @@
 import {
 	Actions,
+	Button,
 	ConfirmDialog,
 	EmptyState,
 	IconLabelButton,
@@ -13,7 +14,6 @@ import {
 	filterSummary,
 	useSnackbar
 } from '../components/ui';
-import { actionsClass } from '../components/ui/Actions';
 import { buttonClass } from '../components/ui/Button';
 import {
 	activityLabel,
@@ -709,44 +709,40 @@ function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; groups: Acti
 				</div>
 			)}
 			{authed && selecting ? (
-				<div
-					className={actionsClass(
-						true,
-						'fixed left-1/2 z-30 w-auto max-w-[calc(100%-2rem)] -translate-x-1/2 max-sm:bottom-[calc(var(--tab-bar-offset)+0.65rem)]'
-					)}
-				>
-					<button className={buttonClass({ variant: 'ghost' })} type="button" onClick={clearSelect}>
+				<Actions sticky>
+					<Button variant="ghost" type="button" onClick={clearSelect}>
 						Cancel
-					</button>
+					</Button>
 					{selectMode === 'delete' ? (
-						<button
-							className={buttonClass({ variant: 'danger', stickyPrimary: true })}
+						<Button
+							variant="danger"
+							stickyPrimary
 							type="button"
 							disabled={!picked.length}
 							onClick={() => setPendingMass(true)}
 						>
 							Delete {picked.length || ''}
-						</button>
+						</Button>
 					) : selectMode === 'export' ? (
-						<button
-							className={buttonClass({ stickyPrimary: true })}
+						<Button
+							stickyPrimary
 							type="button"
 							disabled={!picked.length || exporting}
 							onClick={() => void exportPicked()}
 						>
 							{exporting ? 'Exporting…' : `Export ${picked.length || ''}`}
-						</button>
+						</Button>
 					) : (
-						<button
-							className={buttonClass({ stickyPrimary: true })}
+						<Button
+							stickyPrimary
 							type="button"
 							disabled={picked.length < 2}
 							onClick={() => void groupPicked()}
 						>
 							Group {picked.length || ''}
-						</button>
+						</Button>
 					)}
-				</div>
+				</Actions>
 			) : null}
 			<ConfirmDialog
 				open={pending != null}

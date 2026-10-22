@@ -1,7 +1,7 @@
 import { emptyActivityHabits } from '$lib/activity-habits';
 import { SignInPanel, useAuthed } from '$lib/auth';
 import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
-import { composeDebriefPrompt } from '$lib/debrief';
+import { composeDebriefPrompt, debriefWriteupUnitsFromCoach } from '$lib/debrief';
 import {
 	readGenerateDraft,
 	scheduleWriteGenerateDraft,
@@ -30,6 +30,7 @@ import {
 	planWeekDateRangeShort
 } from '$lib/plan';
 import {
+	createActivityGroupFn,
 	getCoachBrief,
 	getCoachPlan,
 	getDebriefPrompt,
@@ -37,7 +38,8 @@ import {
 	saveActivityFeel,
 	saveDebrief,
 	savePlanWeeks,
-	saveWeekPattern
+	saveWeekPattern,
+	ungroupActivitiesFn
 } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import { cn } from '$lib/ui';
@@ -146,7 +148,22 @@ function visibleTab(tab: CoachTab, authed: boolean): CoachTab {
 }
 
 type DebriefPrompt = Awaited<ReturnType<typeof getDebriefPrompt>>;
+type CoachDebriefUnit = NonNullable<DebriefPrompt['units']>[number];
 type CoachPlanData = Awaited<ReturnType<typeof getCoachPlan>>;
+
+function coachDebriefUnits(debrief: DebriefPrompt): CoachDebriefUnit[] {
+	if (debrief.units?.length) return debrief.units;
+	const runs = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
+	return runs.map((run) => ({
+		kind: 'single' as const,
+		slug: run.slug,
+		run,
+		members: [run],
+		groupId: undefined,
+		groupName: undefined,
+		stats: undefined
+	}));
+}
 
 function defaultCoachTab(planData: CoachPlanData): CoachTab {
 	return planData.views.length > 0 ? 'plan' : 'training';
@@ -455,11 +472,7 @@ function CoachPanels({
 	const [debriefPrompt, setDebriefPrompt] = useState(() =>
 		composeDebriefPrompt(
 			initialDebrief.prompt,
-			initialDebrief.runs?.length
-				? initialDebrief.runs
-				: initialDebrief.run
-					? [initialDebrief.run]
-					: [],
+			debriefWriteupUnitsFromCoach(initialDebrief),
 			{},
 			{},
 			initialDebrief.habits ?? emptyActivityHabits()
@@ -501,28 +514,43 @@ function CoachPanels({
 		};
 	}, [debriefIds, includePlan]);
 
-	useEffect(() => {
-		const featured = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
-		const habits = debrief.habits ?? emptyActivityHabits();
-		setHabitDrafts((prev) => seedDebriefHabits(featured, habits, prev));
-	}, [debrief]);
+	const coachUnits = coachDebriefUnits(debrief);
+	const writeupUnits = coachUnits.map((u) => ({ slug: u.slug, members: u.members }));
 
 	useEffect(() => {
-		const featured = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
+		const habits = debrief.habits ?? emptyActivityHabits();
+		const seeds = writeupUnits.map((u) => {
+			const lead = u.members[0]!;
+			return {
+				slug: u.slug,
+				activity_type: lead.activity_type,
+				before_notes: lead.before_notes,
+				after_notes: lead.after_notes
+			};
+		});
+		setHabitDrafts((prev) => seedDebriefHabits(seeds, habits, prev));
+	}, [debrief, writeupUnits]);
+
+	useEffect(() => {
 		setDebriefPrompt(
 			composeDebriefPrompt(
 				debrief.prompt,
-				featured,
+				writeupUnits,
 				writeups,
 				habitDrafts,
 				debrief.habits ?? emptyActivityHabits()
 			)
 		);
-	}, [debrief, writeups, habitDrafts]);
+	}, [debrief, writeupUnits, writeups, habitDrafts]);
 
-	const runs = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
-	const many = runs.length > 1;
-	const allWrote = runs.length > 0 && runs.every((r) => (writeups[r.slug] ?? '').trim() !== '');
+	const sessionCount = writeupUnits.length;
+	const many = sessionCount > 1;
+	const allWrote =
+		sessionCount > 0 && writeupUnits.every((u) => (writeups[u.slug] ?? '').trim() !== '');
+	const ungroupedIds = coachUnits
+		.filter((u) => u.kind === 'single')
+		.flatMap((u) => u.members.map((m) => m.id));
+	const canGroupDebrief = ungroupedIds.length >= 2;
 
 	function setWriteup(slugKey: string, text: string) {
 		setWriteups((prev) => {
@@ -553,6 +581,27 @@ function CoachPanels({
 				}
 				return next;
 			});
+		}
+	}
+
+	async function groupDebriefSessions() {
+		if (!canGroupDebrief) return;
+		try {
+			await createActivityGroupFn({ data: { ids: ungroupedIds } });
+			await refreshDebrief();
+			snack.success('Grouped as one session in the debrief.');
+		} catch (e) {
+			snack.error(errorMessage(e, 'Could not group those activities.'));
+		}
+	}
+
+	async function ungroupDebriefSession(groupId: string) {
+		try {
+			await ungroupActivitiesFn({ data: groupId });
+			await refreshDebrief();
+			snack.success('Sessions ungrouped.');
+		} catch (e) {
+			snack.error(errorMessage(e, 'Could not ungroup.'));
 		}
 	}
 
@@ -767,21 +816,46 @@ function CoachPanels({
 			{tab === 'debrief' && (
 				<Panel className="mb-4">
 					<ol className="list-none m-0 p-0 flex flex-col gap-6 max-sm:gap-[1.15rem] [&>li>strong]:block [&>li>strong]:text-[1.05rem]">
-						<li className={runs.length ? '[&>strong]:text-accent-fg' : undefined}>
+						<li className={sessionCount ? '[&>strong]:text-accent-fg' : undefined}>
 							<strong>1. Import the GPX</strong>
-							{runs.length > 0 && (
+							{sessionCount > 0 && (
 								<div className="mt-[0.45rem] mb-0 font-semibold max-sm:[overflow-wrap:anywhere]">
 									<p className="m-0">
-										{many ? `${runs.length} activities in the prompt:` : 'In the prompt:'}
+										{many
+											? `${sessionCount} sessions in the prompt:`
+											: coachUnits[0]?.kind === 'group'
+												? 'Grouped session in the prompt:'
+												: 'In the prompt:'}
 									</p>
 									<ul className="list-none m-[0.35rem_0_0] p-0 grid gap-1">
-										{runs.map((r) => (
-											<li key={r.slug}>
-												<DebriefActivityTitle run={r} link />
-												{r.hasFeel ? '' : ' · no feel yet'}
-											</li>
+										{coachUnits.map((u) => (
+												<li key={u.slug}>
+													{u.kind === 'group' && u.members.length > 1 ? (
+														<span>
+															Grouped · {u.members.length} parts
+															{u.run.hasFeel ? '' : ' · no feel yet'}
+														</span>
+													) : (
+														<>
+															<DebriefActivityTitle run={u.run} link />
+															{u.run.hasFeel ? '' : ' · no feel yet'}
+														</>
+													)}
+												</li>
 										))}
 									</ul>
+									{canGroupDebrief && (
+										<Actions className="mt-2">
+											<button
+												type="button"
+												className={buttonClass({ variant: 'ghost' })}
+												onClick={() => void groupDebriefSessions()}
+											>
+												<Icon name="grid" size={16} />
+												Group into one session
+											</button>
+										</Actions>
+									)}
 								</div>
 							)}
 							<Panel form className="mt-3">
@@ -824,35 +898,55 @@ function CoachPanels({
 								.
 							</p>
 						</li>
-						<li className={runs.length && allWrote ? '[&>strong]:text-accent-fg' : undefined}>
+						<li className={sessionCount && allWrote ? '[&>strong]:text-accent-fg' : undefined}>
 							<strong>2. How it felt</strong>
-							{runs.length > 0 &&
-								runs.map((r) => (
-									<div key={r.slug}>
-										<DebriefFeelForm
-											run={r}
-											writeup={writeups[r.slug] ?? ''}
-											habitDraft={habitDrafts[r.slug] ?? { before: '', after: '' }}
-											gear={gear}
-											gearWear={gearWear}
-											onWriteupChange={(text) => setWriteup(r.slug, text)}
-											onHabitChange={(field, text) => setHabit(r.slug, field, text)}
-											onClearDrafts={(pick) => clearDebriefDraft(r.slug, pick)}
-											onSaved={refreshDebrief}
-										/>
-										{(() => {
-											const raceHint = debrief.raceBySlug[r.slug];
-											return raceHint ? (
-												<DebriefRacePanel
-													hint={raceHint}
-													runSlug={r.slug}
-													onSaved={refreshDebrief}
-												/>
-											) : null;
-										})()}
-									</div>
-								))}
-							{!runs.length && (
+							{sessionCount > 0 &&
+								coachUnits.map((u) => {
+									const mirrorIds =
+										u.kind === 'group' && u.members.length > 1
+											? u.members.map((m) => m.id)
+											: [u.run.id];
+									return (
+										<div key={u.slug}>
+											{u.kind === 'group' && u.groupId ? (
+												<Actions className="mb-1">
+													<button
+														type="button"
+														className={buttonClass({ variant: 'ghost' })}
+														onClick={() => void ungroupDebriefSession(u.groupId!)}
+													>
+														Ungroup session
+													</button>
+												</Actions>
+											) : null}
+											<DebriefFeelForm
+												run={u.run}
+												parts={u.members.length > 1 ? u.members : undefined}
+												mirrorIds={mirrorIds}
+												writeup={writeups[u.slug] ?? ''}
+												habitDraft={habitDrafts[u.slug] ?? { before: '', after: '' }}
+												gear={gear}
+												gearWear={gearWear}
+												onWriteupChange={(text) => setWriteup(u.slug, text)}
+												onHabitChange={(field, text) => setHabit(u.slug, field, text)}
+												onClearDrafts={(pick) => clearDebriefDraft(u.slug, pick)}
+												onSaved={refreshDebrief}
+											/>
+											{u.members.map((r) => {
+												const raceHint = debrief.raceBySlug[r.slug];
+												return raceHint ? (
+													<DebriefRacePanel
+														key={r.slug}
+														hint={raceHint}
+														runSlug={r.slug}
+														onSaved={refreshDebrief}
+													/>
+												) : null;
+											})}
+										</div>
+									);
+								})}
+							{!sessionCount && (
 								<p className={cn('text-muted', 'mt-[0.4rem]')}>
 									Import a GPX (or log manually) first.
 								</p>
@@ -894,16 +988,19 @@ function CoachPanels({
 									submitIcon="check"
 									errorLabel="Could not save debrief."
 									onSubmit={async (json) => {
-										for (const r of runs) {
-											const h = habitDrafts[r.slug];
+										for (const u of writeupUnits) {
+											const h = habitDrafts[u.slug];
 											if (!h) continue;
-											await saveActivityFeel({
-												data: {
-													id: r.id,
-													before_notes: h.before,
-													after_notes: h.after
-												}
-											});
+											const ids = u.members.map((m) => m.id);
+											for (const id of ids) {
+												await saveActivityFeel({
+													data: {
+														id,
+														before_notes: h.before,
+														after_notes: h.after
+													}
+												});
+											}
 										}
 										const res = await saveDebrief({ data: json });
 										const bits: string[] = [];

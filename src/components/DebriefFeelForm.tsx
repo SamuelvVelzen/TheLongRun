@@ -145,6 +145,7 @@ function buildFeelSavePayload({
 
 function DebriefFeelAutosave({
 	run,
+	mirrorIds,
 	activityType,
 	writeup,
 	habitDraft,
@@ -155,6 +156,7 @@ function DebriefFeelAutosave({
 	flushRef
 }: {
 	run: DebriefFeelRun;
+	mirrorIds: number[];
 	activityType: ReturnType<typeof normalizeActivityType>;
 	writeup: string;
 	habitDraft: HabitPair;
@@ -206,7 +208,12 @@ function DebriefFeelAutosave({
 		void (async () => {
 			setSyncState('saving');
 			try {
-				await saveActivityFeel({ data: payloadRef.current });
+				const payload = payloadRef.current;
+				await saveActivityFeel({ data: payload });
+				for (const id of mirrorIds) {
+					if (id === payload.id) continue;
+					await saveActivityFeel({ data: { ...payload, id } });
+				}
 				lastSaved.current = key;
 				setSyncState('saved');
 				if (refreshTimer.current) clearTimeout(refreshTimer.current);
@@ -220,7 +227,7 @@ function DebriefFeelAutosave({
 				saving.current = false;
 			}
 		})();
-	}, [snack]);
+	}, [mirrorIds, snack]);
 
 	useEffect(() => {
 		flushRef.current = flushSave;
@@ -248,6 +255,8 @@ function DebriefFeelAutosave({
 
 export function DebriefFeelForm({
 	run,
+	parts,
+	mirrorIds = [],
 	writeup,
 	habitDraft,
 	gear,
@@ -258,6 +267,9 @@ export function DebriefFeelForm({
 	onSaved
 }: {
 	run: DebriefFeelRun;
+	/** Other GPX parts when this form covers a grouped session. */
+	parts?: DebriefFeelRun[];
+	mirrorIds?: number[];
 	writeup: string;
 	habitDraft: HabitPair;
 	gear: GearContext;
@@ -343,12 +355,28 @@ export function DebriefFeelForm({
 			<Panel form className="mt-3">
 				<div className="flex flex-wrap items-end justify-between gap-2 gap-y-1">
 					<PanelTitle className="flex-1 min-w-0 border-0 pb-0 mb-0">
-						<DebriefActivityTitle run={run} link />
+						{parts && parts.length > 1 ? (
+							<span className="grid gap-1">
+								<span className="font-semibold">
+									Grouped session · {parts.length} parts
+								</span>
+								<ul className="list-none m-0 p-0 grid gap-0.5 text-[0.92rem] font-normal">
+									{parts.map((p) => (
+										<li key={p.slug}>
+											<DebriefActivityTitle run={p} link />
+										</li>
+									))}
+								</ul>
+							</span>
+						) : (
+							<DebriefActivityTitle run={run} link />
+						)}
 					</PanelTitle>
 					<form.Subscribe selector={(s) => s.values}>
 						{(formValues) => (
 							<DebriefFeelAutosave
 								run={run}
+								mirrorIds={mirrorIds}
 								activityType={activityType}
 								writeup={writeup}
 								habitDraft={habitDraft}

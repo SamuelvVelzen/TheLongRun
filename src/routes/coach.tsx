@@ -333,10 +333,12 @@ function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 					title="Paste updated JSON"
 					description={
 						<p className={cn('text-muted', 'mt-[0.3rem]')}>
-							Same shape as Generate — one week object or an array of weeks. Merged by week number.
+							Same shape as Generate — per-session <code className="text-[0.85em]">fuel</code> arrays
+							and <code className="text-[0.85em]">kit</code> strings on run, walk, and bike rows.
+							Merged by week number.
 						</p>
 					}
-					placeholder='{ "week": 5, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'
+					placeholder='{ "week": 5, "sessions": [{ "day": "Sunday", "label": "Long", "fuel": [{ "phase": "during", "item": "Gel", "timing": "every 5 km" }], "kit": "Liner shorts; light jacket until warm." }] }'
 					submitLabel="Add to plan"
 					errorLabel="Could not save plan."
 					onSubmit={async (json) => {
@@ -1127,8 +1129,10 @@ function CoachPanels({
 						title={`Save ${weekPhrase}’s plan`}
 						description={
 							<p className={cn('text-muted', 'mt-[0.3rem]')}>
-								Paste the JSON block your AI returned — merged by week number. Check that pinned
-								activities kept their day.
+								Paste the JSON block your AI returned — merged by week number. Session{' '}
+								<code className="text-[0.85em]">fuel</code> /{' '}
+								<code className="text-[0.85em]">kit</code> are saved on the plan (not the fuel
+								log). Check that pinned activities kept their day.
 							</p>
 						}
 						placeholder='{ "week": 3, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'

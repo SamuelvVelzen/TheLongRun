@@ -158,6 +158,10 @@ import {
 	parseFeelingsSuggestions,
 	type ParsedFeelingsActivity
 } from '$lib/feelings-schema';
+import {
+	PLAN_SESSION_FUEL_JSON_EXAMPLE,
+	PLAN_SESSION_KIT_JSON_EXAMPLE
+} from '$lib/plan-session-extras';
 import { looksLikePlanWeek, parsePlanWeeks } from '$lib/plan-schema';
 import { workoutMarkdown, workoutSummary } from '$lib/run-workout';
 import {
@@ -996,9 +1000,10 @@ ${formatUnplannedBrief(targetView.unplanned)}`
 			typicalStartTime(allRuns)
 		);
 		const wardrobeSection = formatWardrobeSection(wardrobe);
-		const kitReply = hasWardrobe
-			? ` In the prose, give each run, walk, and bike session a one-line **Kit:** from My clothing${forecast.length ? ' for that day’s forecast' : ''} (long or wet runs → long-run-safe bottoms). Keep kit out of the JSON. If the weather calls for something I don’t own, say so once.`
-			: '';
+		const wardrobeBit = hasWardrobe
+			? `My clothing${forecast.length ? ' and that day’s forecast' : ''} for \`kit\``
+			: 'forecast and what I own for \`kit\`';
+		const planFuelKitRules = ` On run, walk, and bike sessions where it matters, add \`"fuel"\` and/or \`"kit"\` (omit on strength or when nothing specific is needed). This is **planned** fuel/kit on the session — saved in the training plan, **not** in my fuel log (the log is only for what I actually tried). \`fuel\`: array of \`{"phase":"before"|"during"|"after","item","timing"}\` with optional \`"notes"\` — use separate rows per phase; default to what worked in my Fuel log; never suggest timings that caused trouble. \`kit\`: one short string sentence — ${wardrobeBit}; long or wet runs → long-run-safe bottoms. Example fuel: ${JSON.stringify(PLAN_SESSION_FUEL_JSON_EXAMPLE)}. Example kit: ${JSON.stringify(PLAN_SESSION_KIT_JSON_EXAMPLE)}. Keep coaching intent in \`"detail"\` — do not duplicate fuel or kit there. If the weather calls for something I don’t own, say so once in prose or in \`kit\`.`;
 		const thisWeekLogs = allRuns
 			.filter((r) => r.date >= weekStartIso && r.date <= weekEndIso)
 			.sort((a, b) =>
@@ -1134,7 +1139,7 @@ ${HOW_TO_READ}`,
 				formatFuelSection(fuelLog, fuelRunRefs(allRuns, fuelLog)),
 				mixSection,
 				`## When you reply
-Give your assessment and ${weekPhrase}'s sessions in prose.${kitReply} Then, so I can save it straight back into my app, also output **${weekPhrase} as one JSON object** in exactly this shape (real values, same keys). ${replyRules}
+Give your assessment and ${weekPhrase}'s sessions in prose. Then, so I can save it straight back into my app, also output **${weekPhrase} as one JSON object** in exactly this shape (real values, same keys). ${replyRules}${planFuelKitRules}
 
 \`\`\`json
 ${exampleJson}

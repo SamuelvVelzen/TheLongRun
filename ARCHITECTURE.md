@@ -33,3 +33,4 @@ Client-safe RPC shapes live under `$lib/` (e.g. [`run-input.ts`](src/lib/run-inp
 
 - Heavy maps (`RouteMap`, `RoutesHeatmap`) are lazy-loaded on dashboard and activity views.
 - Coach page UI: [`src/components/coach/`](src/components/coach/); search + loader: [`src/lib/coach/`](src/lib/coach/).
+- Timeline / goals / run detail: [`src/components/timeline/`](src/components/timeline/), [`src/components/goals/`](src/components/goals/), [`src/components/run-detail/`](src/components/run-detail/).

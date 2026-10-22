@@ -16,3 +16,5 @@ Domain-specific **handlers and prompts** live alongside as plain modules:
 | [`debrief-prompt.ts`](../debrief-prompt.ts) | Debrief prompt assembly helpers |
 
 Regenerate RPC files with `node scripts/split-server-fns.mjs` (after editing the monolith backup flow — prefer editing domain `fns/*.ts` directly). Dynamic `import('../auth.server')` paths must stay one level up from this folder.
+
+After bulk splits, run `node scripts/trim-fns-imports.mjs` to drop unused imports (then `npm run build`).

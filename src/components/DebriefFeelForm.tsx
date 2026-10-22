@@ -21,6 +21,9 @@ import { ManageBodyNotesLink, NoBodyNotesHint } from './BodyNoteParts';
 import { FeelChips, WantedFasterChips } from './FeelChips';
 import { GearField } from './GearField';
 import {
+	Button,
+	Checkbox,
+	Dialog,
 	Field,
 	FormGrid,
 	FormSection,
@@ -31,6 +34,12 @@ import {
 	useAppForm,
 	useSnackbar
 } from './ui';
+
+export type DebriefDraftClearPick = {
+	writeup: boolean;
+	before: boolean;
+	after: boolean;
+};
 
 const SESSIONS = ['easy', 'quality', 'tempo', 'steady', 'long', 'shakeout', 'race', 'other'];
 const REFRESH_DEBOUNCE_MS = 1200;
@@ -245,6 +254,7 @@ export function DebriefFeelForm({
 	gearWear,
 	onWriteupChange,
 	onHabitChange,
+	onClearDrafts,
 	onSaved
 }: {
 	run: DebriefFeelRun;
@@ -254,11 +264,20 @@ export function DebriefFeelForm({
 	gearWear: Record<GearKind, Record<string, GearWear>>;
 	onWriteupChange: (text: string) => void;
 	onHabitChange: (field: keyof HabitPair, text: string) => void;
+	onClearDrafts: (pick: DebriefDraftClearPick) => void;
 	onSaved: () => void | Promise<void>;
 }) {
 	const bodyAreas = useBodyAreas();
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	const [scoresOpen, setScoresOpen] = useState(false);
+	const [clearDraftOpen, setClearDraftOpen] = useState(false);
+	const [clearPick, setClearPick] = useState<DebriefDraftClearPick>({
+		writeup: true,
+		before: true,
+		after: true
+	});
+	const hasDraft =
+		writeup.trim() !== '' || habitDraft.before.trim() !== '' || habitDraft.after.trim() !== '';
 	const activityType = normalizeActivityType(run.activity_type ?? 'run');
 	const sport = activityLabel(activityType).toLowerCase();
 	const gearKind = gearKindForActivity(activityType);
@@ -301,6 +320,24 @@ export function DebriefFeelForm({
 		return () => el.removeEventListener('focusout', onPanelFocusOut);
 	}, []);
 
+	const hasWriteupDraft = writeup.trim() !== '';
+	const hasBeforeDraft = habitDraft.before.trim() !== '';
+	const hasAfterDraft = habitDraft.after.trim() !== '';
+
+	useEffect(() => {
+		if (!clearDraftOpen) return;
+		setClearPick({ writeup: true, before: true, after: true });
+	}, [clearDraftOpen]);
+
+	const willClear =
+		(clearPick.writeup && hasWriteupDraft) ||
+		(clearPick.before && hasBeforeDraft) ||
+		(clearPick.after && hasAfterDraft);
+	const clearCount =
+		(clearPick.writeup && hasWriteupDraft ? 1 : 0) +
+		(clearPick.before && hasBeforeDraft ? 1 : 0) +
+		(clearPick.after && hasAfterDraft ? 1 : 0);
+
 	return (
 		<div ref={panelRef}>
 			<Panel form className="mt-3">
@@ -331,8 +368,8 @@ export function DebriefFeelForm({
 							<DeleteButton
 								label="Clear write-up"
 								compact
-								disabled={!writeup}
-								onClick={() => onWriteupChange('')}
+								disabled={!hasDraft}
+								onClick={() => setClearDraftOpen(true)}
 							/>
 						</span>
 					}
@@ -546,6 +583,60 @@ export function DebriefFeelForm({
 					</>
 				)}
 			</Panel>
+			<Dialog
+				open={clearDraftOpen}
+				title="Clear debrief drafts?"
+				onClose={() => setClearDraftOpen(false)}
+				actions={
+					<>
+						<Button variant="ghost" onClick={() => setClearDraftOpen(false)}>
+							Cancel
+						</Button>
+						<Button
+							variant="danger"
+							disabled={!willClear}
+							onClick={() => {
+								onClearDrafts({
+									writeup: clearPick.writeup && hasWriteupDraft,
+									before: clearPick.before && hasBeforeDraft,
+									after: clearPick.after && hasAfterDraft
+								});
+								setClearDraftOpen(false);
+							}}
+						>
+							Clear{clearCount ? ` ${clearCount}` : ''}
+						</Button>
+					</>
+				}
+			>
+				<p className={cn('text-muted', 'm-0')}>
+					Removes the ticked drafts from this browser only. Nothing already saved on the server
+					changes.
+				</p>
+				<div className="grid gap-3 mt-4">
+					<Checkbox
+						checked={clearPick.writeup}
+						onChange={(on) => setClearPick((p) => ({ ...p, writeup: on }))}
+						label="What happened"
+						hint={hasWriteupDraft ? undefined : 'Nothing drafted here.'}
+						size="sm"
+					/>
+					<Checkbox
+						checked={clearPick.before}
+						onChange={(on) => setClearPick((p) => ({ ...p, before: on }))}
+						label="Before"
+						hint={hasBeforeDraft ? undefined : 'Nothing drafted here.'}
+						size="sm"
+					/>
+					<Checkbox
+						checked={clearPick.after}
+						onChange={(on) => setClearPick((p) => ({ ...p, after: on }))}
+						label="After"
+						hint={hasAfterDraft ? undefined : 'Nothing drafted here.'}
+						size="sm"
+					/>
+				</div>
+			</Dialog>
 		</div>
 	);
 }

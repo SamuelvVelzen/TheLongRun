@@ -52,7 +52,7 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { DateRangeFilter, type RangeSearch } from '../components/DateRangeFilter';
 import { DebriefActivityTitle } from '../components/DebriefActivityTitle';
-import { DebriefFeelForm } from '../components/DebriefFeelForm';
+import { DebriefFeelForm, type DebriefDraftClearPick } from '../components/DebriefFeelForm';
 import { DebriefRacePanel } from '../components/DebriefRacePanel';
 import { AiPromptFlow } from '../components/AiPromptFlow';
 import { DeferredData } from '../components/DeferredData';
@@ -538,6 +538,24 @@ function CoachPanels({
 		setHabitDrafts((prev) => setDebriefHabitField(slugKey, field, text, prev));
 	}
 
+	function clearDebriefDraft(slugKey: string, pick: DebriefDraftClearPick) {
+		if (pick.writeup) {
+			setWriteups((prev) => clearDebriefWriteups([slugKey], prev));
+		}
+		if (pick.before || pick.after) {
+			setHabitDrafts((prev) => {
+				let next = prev;
+				if (pick.before) next = setDebriefHabitField(slugKey, 'before', '', next);
+				if (pick.after) next = setDebriefHabitField(slugKey, 'after', '', next);
+				const pair = next[slugKey];
+				if (pair && !pair.before.trim() && !pair.after.trim()) {
+					next = clearDebriefHabits([slugKey], next);
+				}
+				return next;
+			});
+		}
+	}
+
 	async function refreshDebrief() {
 		const next = await getDebriefPrompt({ data: { id: debriefIds, includePlan } });
 		setDebrief(next);
@@ -819,6 +837,7 @@ function CoachPanels({
 											gearWear={gearWear}
 											onWriteupChange={(text) => setWriteup(r.slug, text)}
 											onHabitChange={(field, text) => setHabit(r.slug, field, text)}
+											onClearDrafts={(pick) => clearDebriefDraft(r.slug, pick)}
 											onSaved={refreshDebrief}
 										/>
 										{(() => {

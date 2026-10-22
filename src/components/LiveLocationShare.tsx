@@ -3,18 +3,20 @@ import { useAuthed } from '$lib/auth';
 import { loadLeaflet } from '$lib/leaflet';
 import {
 	LIVE_LOCATION_PING_MS,
+	LIVE_PING_EVENT,
 	LIVE_SHARE_EVENT,
 	LIVE_SHARE_REQUEST,
-	liveAgo,
+	LIVE_WATCH_REQUEST,
+	dispatchLivePing,
 	liveShareRouteSlug,
 	liveShareWanted,
-	liveWatchPromptSeen,
 	requestLiveShare,
+	requestLiveWatch,
 	setLiveShareRouteSlug,
 	setLiveShareWanted,
-	setLiveWatchPromptSeen,
 	syncLiveShareDom,
 	type LiveLocationView,
+	type LivePingDetail,
 	type LiveShareDetail,
 	type LiveShareRequestDetail
 } from '$lib/live-location';
@@ -270,11 +272,21 @@ function LiveLocationBroadcaster() {
 
 function LiveLocationWatch() {
 	const [ping, setPing] = useState<LiveLocationView | null>(null);
-	const [promptOpen, setPromptOpen] = useState(false);
 	const [watching, setWatching] = useState(false);
+	const pingRef = useRef<LiveLocationView | null>(null);
+	pingRef.current = ping;
 
 	useLayoutEffect(() => {
 		syncLiveShareDom(false, false);
+	}, []);
+
+	const openWatch = useCallback(() => {
+		if (!pingRef.current) return;
+		setWatching(true);
+	}, []);
+
+	const closeWatch = useCallback(() => {
+		setWatching(false);
 	}, []);
 
 	useEffect(() => {
@@ -284,11 +296,8 @@ function LiveLocationWatch() {
 				.then((next) => {
 					if (cancelled) return;
 					setPing(next);
-					if (next && !liveWatchPromptSeen()) setPromptOpen(true);
-					if (!next) {
-						setPromptOpen(false);
-						setWatching(false);
-					}
+					dispatchLivePing(next);
+					if (!next) setWatching(false);
 				})
 				.catch(() => {
 					/* ignore */
@@ -301,55 +310,21 @@ function LiveLocationWatch() {
 			cancelled = true;
 			clearInterval(timer);
 			offResume();
+			dispatchLivePing(null);
 		};
 	}, []);
 
-	function dismissPrompt() {
-		setLiveWatchPromptSeen();
-		setPromptOpen(false);
-	}
-
-	const closeWatch = useCallback(() => {
-		setWatching(false);
-	}, []);
-
-	function openWatch() {
-		setLiveWatchPromptSeen();
-		setPromptOpen(false);
-		setWatching(true);
-	}
+	useEffect(() => {
+		const onWatchRequest = () => openWatch();
+		window.addEventListener(LIVE_WATCH_REQUEST, onWatchRequest);
+		return () => window.removeEventListener(LIVE_WATCH_REQUEST, onWatchRequest);
+	}, [openWatch]);
 
 	if (!ping) return null;
 
 	return (
 		<>
-			<Dialog
-				open={promptOpen && !watching}
-				title="Live on the map"
-				onClose={dismissPrompt}
-				actions={
-					<>
-						<button
-							className={buttonClass({ variant: 'ghost' })}
-							type="button"
-							onClick={dismissPrompt}
-						>
-							Not now
-						</button>
-						<button className={buttonClass()} type="button" onClick={openWatch}>
-							Watch live
-						</button>
-					</>
-				}
-			>
-				<p className={cn('text-muted', 'm-0 leading-[1.45]')}>
-					They're sharing where they are right now. Open a fullscreen map to follow the pin — it
-					updates about every 30 seconds
-					{ping?.routeSlug ? ', with their planned route on the map' : ''}.
-				</p>
-				<p className={cn('text-muted', 'm-0 text-[0.82rem]')}>Updated {liveAgo(ping.updatedAt)}</p>
-			</Dialog>
-			{!watching && !promptOpen ? (
+			{!watching ? (
 				<div data-live-watch-host className={liveShareHost}>
 					<div
 						className="pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.65rem] pr-[0.45rem] pl-[0.9rem] rounded-[14px] border border-live/40 bg-surface shadow-lift"
@@ -357,8 +332,8 @@ function LiveLocationWatch() {
 					>
 						<span className="size-2 shrink-0 rounded-full bg-live" aria-hidden="true" />
 						<p className="m-0 flex-1 text-[0.88rem] leading-[1.35]">Live location is on the map.</p>
-						<SnackAction type="button" onClick={() => setWatching(true)}>
-							Watch
+						<SnackAction type="button" onClick={openWatch}>
+							Open map
 						</SnackAction>
 					</div>
 				</div>
@@ -437,18 +412,41 @@ export function LiveLocationMenuItem({
 }) {
 	const authed = useAuthed();
 	const [sharing, setSharing] = useState(false);
+	const [liveOnMap, setLiveOnMap] = useState(false);
 
 	useEffect(() => {
-		setSharing(liveShareOnSafe());
-		const on = (e: Event) => {
-			const next = (e as CustomEvent<LiveShareDetail>).detail?.sharing;
-			if (typeof next === 'boolean') setSharing(next);
+		if (authed) {
+			setSharing(liveShareOnSafe());
+			const on = (e: Event) => {
+				const next = (e as CustomEvent<LiveShareDetail>).detail?.sharing;
+				if (typeof next === 'boolean') setSharing(next);
+			};
+			window.addEventListener(LIVE_SHARE_EVENT, on);
+			return () => window.removeEventListener(LIVE_SHARE_EVENT, on);
+		}
+		const onPing = (e: Event) => {
+			setLiveOnMap(!!(e as CustomEvent<LivePingDetail>).detail?.ping);
 		};
-		window.addEventListener(LIVE_SHARE_EVENT, on);
-		return () => window.removeEventListener(LIVE_SHARE_EVENT, on);
-	}, []);
+		window.addEventListener(LIVE_PING_EVENT, onPing);
+		return () => window.removeEventListener(LIVE_PING_EVENT, onPing);
+	}, [authed]);
 
-	if (!authed) return null;
+	if (!authed) {
+		if (!liveOnMap) return null;
+		return (
+			<button
+				type="button"
+				className={className}
+				onClick={(e) => {
+					onClick?.(e);
+					requestLiveWatch();
+				}}
+			>
+				<Icon name="map" size={18} />
+				Open live location
+			</button>
+		);
+	}
 
 	return (
 		<button

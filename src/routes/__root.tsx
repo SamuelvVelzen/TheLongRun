@@ -237,7 +237,7 @@ function ProfileMenuItems({ authed, mobile = false }: { authed: boolean; mobile?
 				</Link>
 			) : null}
 			{mobile ? <PwaInstall className={tabMoreLink} /> : null}
-			{authed ? <LiveLocationMenuItem className={tabMoreLink} onClick={closeDetails} /> : null}
+			<LiveLocationMenuItem className={tabMoreLink} onClick={closeDetails} />
 			<div className="my-[0.15rem] border-t border-line" />
 			<ThemeToggle className={tabMoreButton} showLabel onClick={closeDetails} />
 			{authed ? (

@@ -42,6 +42,7 @@ import {
 	type RangeKind
 } from '$lib/date-range';
 import { DEBRIEF_HABITS_TOKEN, DEBRIEF_WRITEUP_TOKEN } from '$lib/debrief';
+import { parseLiveRouteSlug } from '$lib/live-location';
 import {
 	dayFromIsoDate,
 	formatDuration,
@@ -264,6 +265,7 @@ import {
 	updatePlannedRoute as dbUpdatePlannedRoute,
 	getActivityRouteRef,
 	getPlannedRoute,
+	getPlannedRouteTrack,
 	listPlannedRoutes,
 	listPlannedRouteTracks,
 	listPlanRouteRefs,
@@ -383,28 +385,43 @@ export const getAuthState = createServerFn({ method: 'GET' }).handler(async () =
 });
 
 export const getLiveLocation = createServerFn({ method: 'GET' }).handler(async () => {
-	return loadLiveLocation();
+	const ping = await loadLiveLocation();
+	if (!ping) return null;
+	const routeTrack = ping.routeSlug ? await getPlannedRouteTrack(ping.routeSlug) : null;
+	return { ...ping, routeTrack };
 });
 
 export const pingLiveLocation = createServerFn({ method: 'POST' })
 	.middleware([requireAuth])
 	.validator(
-		(d: { lat: number; lng: number; accuracy?: number | null; heading?: number | null }) => {
+		(d: {
+			lat: number;
+			lng: number;
+			accuracy?: number | null;
+			heading?: number | null;
+			routeSlug?: string | null;
+		}) => {
 			const lat = Number(d?.lat);
 			const lng = Number(d?.lng);
 			if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error('Invalid location.');
 			if (lat < -90 || lat > 90 || lng < -180 || lng > 180) throw new Error('Invalid location.');
 			const accuracy = d?.accuracy == null ? null : Number(d.accuracy);
 			const heading = d?.heading == null ? null : Number(d.heading);
+			const routeSlug = parseLiveRouteSlug(d?.routeSlug);
 			return {
 				lat,
 				lng,
 				accuracy: Number.isFinite(accuracy) ? accuracy : null,
-				heading: Number.isFinite(heading) && heading! >= 0 ? heading : null
+				heading: Number.isFinite(heading) && heading! >= 0 ? heading : null,
+				routeSlug
 			};
 		}
 	)
 	.handler(async ({ data }) => {
+		if (data.routeSlug) {
+			const track = await getPlannedRouteTrack(data.routeSlug);
+			if (!track) throw new Error('That planned route was not found.');
+		}
 		return saveLiveLocation(data);
 	});
 

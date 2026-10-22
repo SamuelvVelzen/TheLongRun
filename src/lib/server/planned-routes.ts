@@ -133,6 +133,20 @@ export async function listPlannedRouteTracks(): Promise<RouteTrack[]> {
 	return tracks;
 }
 
+export async function getPlannedRouteTrack(slug: string): Promise<RouteTrack | null> {
+	if (!slug || slug.includes('..') || slug.includes('/') || slug.includes('\\')) return null;
+	const sql = getSql();
+	const rows = (await sql`SELECT slug, polyline FROM planned_routes WHERE slug = ${slug} LIMIT 1`) as {
+		slug: string;
+		polyline: unknown;
+	}[];
+	const row = rows[0];
+	if (!row) return null;
+	const coords = parsePolyline(row.polyline);
+	if (coords.length < 2) return null;
+	return { id: row.slug, coords };
+}
+
 export async function getPlannedRoute(slug: string): Promise<PlannedRouteDetail | null> {
 	if (!slug || slug.includes('..') || slug.includes('/') || slug.includes('\\')) return null;
 	const sql = getSql();

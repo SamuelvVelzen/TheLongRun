@@ -8,7 +8,7 @@ import {
 	liveShareAuthed,
 	liveShareOn,
 	requestLiveShare,
-	type LiveLocationPing
+	type LiveLocationView
 } from '$lib/live-location';
 import {
 	applyMarkerHeading,
@@ -758,6 +758,11 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	let liveMarker: any = null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let liveAccuracy: any = null;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let liveRouteLine: any = null;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let liveRouteCasing: any = null;
+	let liveRouteSlug: string | null = null;
 	let liveTimer: ReturnType<typeof setInterval> | null = null;
 	let releaseHeading: (() => void) | null = null;
 	let unsubHeading: (() => void) | null = null;
@@ -882,11 +887,46 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		liveAccuracy = null;
 	};
 
-	const showLivePing = (ping: LiveLocationPing | null) => {
-		if (!L || !ping || liveShareAuthed()) {
-			clearLiveMarker();
+	const clearLiveRoute = () => {
+		liveRouteLine?.remove?.();
+		liveRouteCasing?.remove?.();
+		liveRouteLine = null;
+		liveRouteCasing = null;
+		liveRouteSlug = null;
+	};
+
+	const clearLiveOverlay = () => {
+		clearLiveMarker();
+		clearLiveRoute();
+	};
+
+	const showLiveRoute = (ping: LiveLocationView) => {
+		if (!L) return;
+		const slug = ping.routeSlug;
+		if (!slug) {
+			clearLiveRoute();
 			return;
 		}
+		if (slug === liveRouteSlug && liveRouteLine) return;
+		clearLiveRoute();
+		const coords = ping.routeTrack?.coords;
+		if (!coords || coords.length < 2) return;
+		const route = addRoutePolyline(L, map, coords, {
+			interactive: false,
+			weight: 4,
+			opacity: 0.78
+		});
+		liveRouteLine = route.line;
+		liveRouteCasing = route.casing;
+		liveRouteSlug = slug;
+	};
+
+	const showLivePing = (ping: LiveLocationView | null) => {
+		if (!L || !ping || liveShareAuthed()) {
+			clearLiveOverlay();
+			return;
+		}
+		showLiveRoute(ping);
 		const latlng = L.latLng(ping.lat, ping.lng);
 		const acc = ping.accuracy && ping.accuracy > 0 ? ping.accuracy : 0;
 		const tip = `Live · ${liveAgo(ping.updatedAt)}`;
@@ -922,7 +962,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 
 	const pollLive = () => {
 		if (liveShareAuthed()) {
-			clearLiveMarker();
+			clearLiveOverlay();
 			return;
 		}
 		void getLiveLocation()
@@ -939,7 +979,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 
 	const onShareEvent = () => {
 		syncShareChrome();
-		if (liveShareAuthed()) clearLiveMarker();
+		if (liveShareAuthed()) clearLiveOverlay();
 		else pollLive();
 	};
 	window.addEventListener(LIVE_SHARE_EVENT, onShareEvent);
@@ -964,7 +1004,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			map.off?.('dragstart', onDragStart);
 			map.off?.('dragend', onDragEnd);
 			stopLocate();
-			clearLiveMarker();
+			clearLiveOverlay();
 			if (liveTimer != null) clearInterval(liveTimer);
 			offLiveResume();
 			window.removeEventListener(LIVE_SHARE_EVENT, onShareEvent);

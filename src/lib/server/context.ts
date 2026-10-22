@@ -19,6 +19,7 @@ import { emptyWardrobe, normalizeWardrobe, type Wardrobe } from '$lib/wardrobe';
 import { goalIdFrom, pickSoonestOpenGoal, stampGoalsByDate } from '$lib/goals';
 import {
 	isLiveLocationFresh,
+	parseLiveRouteSlug,
 	roundCoord,
 	roundHeading,
 	type LiveLocationPing
@@ -530,6 +531,7 @@ function parseLiveLocation(raw: string): LiveLocationPing | null {
 			accuracy?: unknown;
 			heading?: unknown;
 			updatedAt?: unknown;
+			routeSlug?: unknown;
 		};
 		const lat = Number(o.lat);
 		const lng = Number(o.lng);
@@ -542,7 +544,8 @@ function parseLiveLocation(raw: string): LiveLocationPing | null {
 			lng,
 			accuracy: Number.isFinite(acc) && acc! >= 0 ? acc : null,
 			heading: roundHeading(o.heading),
-			updatedAt
+			updatedAt,
+			routeSlug: parseLiveRouteSlug(o.routeSlug)
 		};
 	} catch {
 		return null;
@@ -561,6 +564,7 @@ export async function saveLiveLocation(pos: {
 	lng: number;
 	accuracy?: number | null;
 	heading?: number | null;
+	routeSlug?: string | null;
 }): Promise<LiveLocationPing> {
 	const acc = pos.accuracy == null ? null : Number(pos.accuracy);
 	const next: LiveLocationPing = {
@@ -568,7 +572,8 @@ export async function saveLiveLocation(pos: {
 		lng: roundCoord(pos.lng),
 		accuracy: Number.isFinite(acc) && acc! >= 0 ? Math.round(acc!) : null,
 		heading: roundHeading(pos.heading),
-		updatedAt: Date.now()
+		updatedAt: Date.now(),
+		routeSlug: parseLiveRouteSlug(pos.routeSlug)
 	};
 	await writeContextFile(LIVE_LOCATION_FILE, `${JSON.stringify(next)}\n`);
 	return next;

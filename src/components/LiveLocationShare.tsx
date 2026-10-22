@@ -6,13 +6,15 @@ import {
 	LIVE_SHARE_EVENT,
 	LIVE_SHARE_REQUEST,
 	liveAgo,
+	liveShareRouteSlug,
 	liveShareWanted,
 	liveWatchPromptSeen,
 	requestLiveShare,
+	setLiveShareRouteSlug,
 	setLiveShareWanted,
 	setLiveWatchPromptSeen,
 	syncLiveShareDom,
-	type LiveLocationPing,
+	type LiveLocationView,
 	type LiveShareDetail,
 	type LiveShareRequestDetail
 } from '$lib/live-location';
@@ -24,7 +26,13 @@ import {
 	type MapChromeHandle
 } from '$lib/map-chrome';
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
-import { getLiveLocation, pingLiveLocation, stopLiveLocation } from '$lib/server/functions';
+import {
+	getLiveLocation,
+	getPlannedRoutesData,
+	pingLiveLocation,
+	stopLiveLocation
+} from '$lib/server/functions';
+import type { PlannedRoute } from '$lib/types';
 import { setScreenWakeLock } from '$lib/wake-lock';
 import { liveShareHost, liveWatchCanvas, liveWatchMapShell, mapWrap } from '$lib/map-layout';
 import { cn } from '$lib/ui';
@@ -37,7 +45,7 @@ import {
 	type MouseEventHandler
 } from 'react';
 import { Icon } from './Icon';
-import { Dialog, SnackAction, errorMessage, useSnackbar } from './ui';
+import { Dialog, Field, Select, SnackAction, errorMessage, useSnackbar } from './ui';
 import { buttonClass } from './ui/Button';
 
 function currentPosition(): Promise<GeolocationPosition> {
@@ -63,7 +71,10 @@ function LiveLocationBroadcaster() {
 	const snack = useSnackbar();
 	const [sharing, setSharing] = useState(false);
 	const [confirmOpen, setConfirmOpen] = useState(false);
+	const [routeSlug, setRouteSlug] = useState('');
+	const [plannedRoutes, setPlannedRoutes] = useState<PlannedRoute[]>([]);
 	const sharingRef = useRef(false);
+	const routeSlugRef = useRef<string | null>(null);
 	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	const setOn = useCallback((on: boolean) => {
@@ -82,7 +93,8 @@ function LiveLocationBroadcaster() {
 				lat: pos.coords.latitude,
 				lng: pos.coords.longitude,
 				accuracy: Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null,
-				heading: getLastHeading()
+				heading: getLastHeading(),
+				routeSlug: routeSlugRef.current
 			}
 		});
 	}, []);
@@ -104,6 +116,9 @@ function LiveLocationBroadcaster() {
 
 	const start = useCallback(async () => {
 		setConfirmOpen(false);
+		const slug = routeSlug.trim() || liveShareRouteSlug() || null;
+		routeSlugRef.current = slug;
+		setLiveShareRouteSlug(slug);
 		try {
 			await ping(true);
 		} catch (e) {
@@ -125,7 +140,23 @@ function LiveLocationBroadcaster() {
 			});
 		}, LIVE_LOCATION_PING_MS);
 		void setScreenWakeLock(true);
-	}, [ping, setOn, snack]);
+	}, [ping, routeSlug, setOn, snack]);
+
+	useEffect(() => {
+		if (!confirmOpen) return;
+		setRouteSlug(liveShareRouteSlug() ?? '');
+		let cancelled = false;
+		void getPlannedRoutesData()
+			.then((data) => {
+				if (!cancelled) setPlannedRoutes(data.routes);
+			})
+			.catch(() => {
+				/* routes picker is optional */
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [confirmOpen]);
 
 	useLayoutEffect(() => {
 		syncLiveShareDom(true, sharingRef.current);
@@ -186,10 +217,36 @@ function LiveLocationBroadcaster() {
 					</>
 				}
 			>
-				<p className={cn('text-muted', 'm-0 leading-[1.45]')}>
-					Anyone looking at this site will see where you are on the map. The pin updates about every
-					30 seconds while this app stays open. You can stop at any time.
-				</p>
+				<div className="grid gap-3">
+					<p className={cn('text-muted', 'm-0 leading-[1.45]')}>
+						Anyone looking at this site will see where you are on the map. The pin updates about every
+						30 seconds while this app stays open. You can stop at any time.
+					</p>
+					{plannedRoutes.length > 0 ? (
+						<Field
+							as="div"
+							label="Show planned route (optional)"
+							hint="Watchers see this track on the map with your live pin."
+						>
+							<Select
+								value={routeSlug}
+								onChange={setRouteSlug}
+								placeholder="No route — pin only"
+								aria-label="Show planned route (optional)"
+								options={[
+									{ value: '', label: 'No route — pin only' },
+									...plannedRoutes.map((route) => ({
+										value: route.slug,
+										label:
+											route.distance_km != null
+												? `${route.name} · ${route.distance_km} km`
+												: route.name
+									}))
+								]}
+							/>
+						</Field>
+					) : null}
+				</div>
 			</Dialog>
 			{sharing ? (
 				<div data-live-share-host className={liveShareHost}>
@@ -212,7 +269,7 @@ function LiveLocationBroadcaster() {
 }
 
 function LiveLocationWatch() {
-	const [ping, setPing] = useState<LiveLocationPing | null>(null);
+	const [ping, setPing] = useState<LiveLocationView | null>(null);
 	const [promptOpen, setPromptOpen] = useState(false);
 	const [watching, setWatching] = useState(false);
 
@@ -287,7 +344,8 @@ function LiveLocationWatch() {
 			>
 				<p className={cn('text-muted', 'm-0 leading-[1.45]')}>
 					They're sharing where they are right now. Open a fullscreen map to follow the pin — it
-					updates about every 30 seconds.
+					updates about every 30 seconds
+					{ping?.routeSlug ? ', with their planned route on the map' : ''}.
 				</p>
 				<p className={cn('text-muted', 'm-0 text-[0.82rem]')}>Updated {liveAgo(ping.updatedAt)}</p>
 			</Dialog>
@@ -310,7 +368,7 @@ function LiveLocationWatch() {
 	);
 }
 
-function LiveWatchMap({ ping, onClose }: { ping: LiveLocationPing; onClose: () => void }) {
+function LiveWatchMap({ ping, onClose }: { ping: LiveLocationView; onClose: () => void }) {
 	const wrapRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const pingRef = useRef(ping);

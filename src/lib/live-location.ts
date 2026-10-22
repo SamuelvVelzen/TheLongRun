@@ -1,8 +1,11 @@
 /** Live location broadcast: one ping in the context table, polled by maps. */
 
+import type { RouteTrack } from './types';
+
 export const LIVE_LOCATION_PING_MS = 30_000;
 export const LIVE_LOCATION_STALE_MS = 5 * 60_000;
 export const LIVE_SHARE_KEY = 'tlr-live-share';
+export const LIVE_SHARE_ROUTE_KEY = 'tlr-live-share-route';
 export const LIVE_SHARE_EVENT = 'tlr-live-share';
 export const LIVE_SHARE_REQUEST = 'tlr-live-share-request';
 export const LIVE_WATCH_PROMPT_KEY = 'tlr-live-watch-prompt';
@@ -14,6 +17,13 @@ export type LiveLocationPing = {
 	/** Degrees clockwise from true north, when known. */
 	heading: number | null;
 	updatedAt: number;
+	/** Optional planned route slug — watchers see this track on the map. */
+	routeSlug: string | null;
+};
+
+/** `getLiveLocation` adds the downsampled track when `routeSlug` is set. */
+export type LiveLocationView = LiveLocationPing & {
+	routeTrack: RouteTrack | null;
 };
 
 export type LiveShareDetail = { sharing: boolean };
@@ -48,6 +58,32 @@ export function setLiveShareWanted(on: boolean) {
 	} catch {
 		/* ignore */
 	}
+}
+
+export function liveShareRouteSlug(): string | null {
+	try {
+		const s = localStorage.getItem(LIVE_SHARE_ROUTE_KEY)?.trim();
+		return s || null;
+	} catch {
+		return null;
+	}
+}
+
+export function setLiveShareRouteSlug(slug: string | null) {
+	try {
+		const s = slug?.trim();
+		if (s) localStorage.setItem(LIVE_SHARE_ROUTE_KEY, s);
+		else localStorage.removeItem(LIVE_SHARE_ROUTE_KEY);
+	} catch {
+		/* ignore */
+	}
+}
+
+export function parseLiveRouteSlug(raw: unknown): string | null {
+	if (raw == null || raw === '') return null;
+	const s = String(raw).trim();
+	if (!s || s.includes('..') || s.includes('/') || s.includes('\\')) return null;
+	return s;
 }
 
 export function syncLiveShareDom(authed: boolean, sharing: boolean) {

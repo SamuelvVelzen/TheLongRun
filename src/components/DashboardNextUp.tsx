@@ -103,7 +103,10 @@ function WeekProgressStrip({
 						search={coachSearch}
 						className={cn(
 							'flex flex-col items-center gap-0.5 min-w-0 flex-1 px-0 py-0.5 rounded-md no-underline text-inherit transition-colors hover:bg-accent/8',
-							isNext && 'ring-1 ring-accent ring-offset-1 ring-offset-transparent',
+							isNext &&
+								(embedded
+									? 'ring-1 ring-inset ring-accent'
+									: 'ring-1 ring-accent ring-offset-1 ring-offset-transparent'),
 							group.isToday && !isNext && 'bg-accent/6'
 						)}
 						title={group.date ? planDaySubline(group.date) : group.day}
@@ -145,7 +148,7 @@ function WeekMetaBlock({
 	const weekShort = [`Week ${weekView.week.week}`, weekView.week.phase].filter(Boolean).join(' · ');
 
 	return (
-		<div className="mt-3 pt-2.5 border-t border-line/80 max-sm:mt-2.5 max-sm:pt-2">
+		<div className="relative z-0 mt-4 pt-2.5 border-t border-line/80 max-sm:mt-3 max-sm:pt-2">
 			<Link
 				to="/coach"
 				search={coachPlanSearch}
@@ -207,7 +210,7 @@ function HighlightSessions({
 	todayUnplanned: WeekView['unplanned'];
 }) {
 	return (
-		<div className="flex flex-col gap-2 max-sm:gap-1.5">
+		<div className="relative z-[1] flex flex-col gap-2 max-sm:gap-1.5 min-w-0">
 			{sessions.map((session, i) => (
 				<PlannedSessionRow
 					key={`${session.day}-${session.label}-${session.planIndex}`}

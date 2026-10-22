@@ -118,6 +118,9 @@ export type {
 	RunWorkout,
 	RunWorkoutType
 } from '$lib/plan-schema';
+import type { PlanSessionFuel } from '$lib/plan-session-extras';
+
+export type { PlanSessionFuel };
 
 export interface PlanSession {
 	day: string;
@@ -126,6 +129,10 @@ export interface PlanSession {
 	activity_type?: string;
 	distance_km: number | null;
 	detail: string;
+	/** Planned fuel for this session (coach JSON — not the fuel log). */
+	fuel?: PlanSessionFuel[];
+	/** Planned kit for this session — one sentence (coach JSON). */
+	kit?: string;
 	/** Strength only. Older rows omit this and Log as planned parses `detail`. */
 	exercises?: PlanStrengthExercise[];
 	/** Run only. Structured warmup / reps / cooldown blocks; older rows only have `detail`. */

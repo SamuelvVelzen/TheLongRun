@@ -4,6 +4,10 @@
 import { activityLabel, normalizeActivityType } from '$lib/activity';
 import { bodyScoreTracks } from '$lib/body-scores';
 import { dayFromIsoDate, formatDuration, parseDurationSeconds } from '$lib/format';
+import {
+	formatPlanSessionFuelMarkdown,
+	formatPlanSessionKitMarkdown
+} from '$lib/plan-session-extras';
 import type {
 	PlanSession,
 	PlanSessionStatus,
@@ -608,6 +612,13 @@ function sessionCopyState(s: WeekSessionView): string {
 	return 'upcoming';
 }
 
+function planSessionExtraLine(s: PlanSession): string {
+	const bits: string[] = [];
+	if (s.fuel?.length) bits.push(`Fuel: ${formatPlanSessionFuelMarkdown(s.fuel)}`);
+	if (s.kit?.trim()) bits.push(`Kit: ${formatPlanSessionKitMarkdown(s.kit)}`);
+	return bits.join(' · ');
+}
+
 export function formatWeekPlanMarkdown(view: WeekView): string {
 	const w = view.week;
 	const lines = [`## Week ${w.week} — ${[w.dates, w.phase, w.focus].filter(Boolean).join(' · ')}`];
@@ -623,8 +634,10 @@ export function formatWeekPlanMarkdown(view: WeekView): string {
 			const measure = sessionMeasureLabel(s);
 			const km = measure ? ` · ${measure}` : '';
 			const steps = s.workout ? `${workoutSummary(s.workout)}. ` : '';
+			const extras = planSessionExtraLine(s);
+			const extraSuffix = extras ? ` (${extras})` : '';
 			lines.push(
-				`- ${s.day}${date}: ${type}${km} · ${s.label} — ${steps}${s.detail} [${sessionCopyState(s)}]`
+				`- ${s.day}${date}: ${type}${km} · ${s.label} — ${steps}${s.detail}${extraSuffix} [${sessionCopyState(s)}]`
 			);
 		}
 		for (const u of g.unplanned) {
@@ -650,6 +663,8 @@ export function weekToPlanJson(week: PlanWeek): unknown {
 			label: s.label,
 			distance_km: s.distance_km,
 			detail: s.detail,
+			...(s.fuel?.length ? { fuel: s.fuel } : {}),
+			...(s.kit?.trim() ? { kit: s.kit.trim() } : {}),
 			...(s.exercises?.length ? { exercises: s.exercises } : {}),
 			...(s.workout ? { workout: s.workout } : {}),
 			...(hasSkipStatus(s) ? { status: 'skipped' as const } : {})

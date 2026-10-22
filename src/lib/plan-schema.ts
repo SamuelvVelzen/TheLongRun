@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import { normalizeActivityType } from '$lib/activity';
 import { formatDuration, parseDurationSeconds } from '$lib/format';
+import { planSessionFuelField, planSessionKitField } from '$lib/plan-session-extras';
 import { workoutTotalKm } from '$lib/run-workout';
 
 export const RUN_EFFORTS = [
@@ -262,6 +263,8 @@ export const planSessionSchema = z
 			z.number().nonnegative().nullable()
 		),
 		detail: z.preprocess((v) => v ?? '', z.string()),
+		fuel: planSessionFuelField(),
+		kit: planSessionKitField(),
 		exercises: opt(z.array(planStrengthExerciseSchema)),
 		workout: opt(runWorkoutSchema),
 		status: z.unknown().optional()
@@ -284,19 +287,25 @@ export const planSessionSchema = z
 			activity_type,
 			distance_km: totalKm ?? s.distance_km,
 			detail: s.detail.trim(),
+			...(s.fuel?.length ? { fuel: s.fuel } : {}),
+			...(s.kit ? { kit: s.kit } : {}),
 			...(s.exercises?.length ? { exercises: s.exercises } : {}),
 			...(s.workout ? { workout: s.workout } : {}),
 			...(isSkipped(s.status) ? { status: 'skipped' as const } : {})
 		};
 	});
 
-export const planWeekSchema = z.object({
-	week: z.preprocess(toNumber, z.number().int().min(1)),
-	dates: z.preprocess((v) => v ?? '', z.string()),
-	phase: z.preprocess((v) => v ?? '', z.string()),
-	focus: z.preprocess((v) => v ?? '', z.string()),
-	sessions: z.array(planSessionSchema)
-});
+export const planWeekSchema = z
+	.object({
+		week: z.preprocess(toNumber, z.number().int().min(1)),
+		dates: z.preprocess((v) => v ?? '', z.string()),
+		phase: z.preprocess((v) => v ?? '', z.string()),
+		focus: z.preprocess((v) => v ?? '', z.string()),
+		/** Set by the app on save — allowed when revising from a clipboard snapshot. */
+		start: opt(z.string()),
+		sessions: z.array(planSessionSchema)
+	})
+	.strict();
 
 export type ParsedPlanWeek = z.output<typeof planWeekSchema>;
 

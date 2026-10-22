@@ -29,6 +29,11 @@ const fmtDayChip = new Intl.DateTimeFormat('en-GB', { weekday: 'short' });
 
 const DAY_CHIP = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'] as const;
 
+/** Next up: still to do or needs a log — not logged (done) or plan-skipped. */
+function isNextUpActionable(session: WeekView['sessions'][number]): boolean {
+	return !session.done && !session.skipped;
+}
+
 function dayChipLabel(day: string, date: string | null): string {
 	if (date) {
 		const d = new Date(`${date}T12:00:00`);
@@ -264,8 +269,8 @@ export function DashboardNextUp({
 	const nextWeekNum = currentWeekNum + 1;
 	const laterWeek = weekView.week.week > currentWeekNum;
 	const highlightSessions = weekView.next?.isToday
-		? weekView.sessions.filter((s) => s.isToday)
-		: weekView.next
+		? weekView.sessions.filter((s) => s.isToday && isNextUpActionable(s))
+		: weekView.next && isNextUpActionable(weekView.next)
 			? [weekView.next]
 			: [];
 	const highlightHead = highlightSessions[0];

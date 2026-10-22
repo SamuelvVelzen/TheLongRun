@@ -70,6 +70,10 @@ export default tseslint.config(
 				'warn',
 				{ prefer: 'type-imports', fixStyle: 'inline-type-imports' }
 			],
+			'max-lines': [
+				'warn',
+				{ max: 550, skipBlankLines: true, skipComments: true }
+			],
 			'no-restricted-imports': [
 				'error',
 				{
@@ -148,7 +152,14 @@ export default tseslint.config(
 	{
 		files: ['src/routes/**/*.{ts,tsx}'],
 		rules: {
-			'react-refresh/only-export-components': 'off'
+			'react-refresh/only-export-components': 'off',
+			'max-lines': ['warn', { max: 550, skipBlankLines: true, skipComments: true }]
+		}
+	},
+	{
+		files: ['src/lib/server/fns/**/*.ts'],
+		rules: {
+			'max-lines': ['warn', { max: 2800, skipBlankLines: true, skipComments: true }]
 		}
 	},
 	{

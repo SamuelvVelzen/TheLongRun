@@ -43,17 +43,13 @@ npm run d1:exec:remote -- --command="SELECT slug, date FROM runs ORDER BY date D
 
 ```
 src/
-  routes/            TanStack routes: __root, index (dashboard), timeline,
-                     log, runs.$slug, context, goals
-  components/        React: RouteMap, RoutesHeatmap, SplitsPanel, TrendsSection,
-                     Sparkline, DateRangeFilter
-  lib/               framework-agnostic logic: splits, trends, format, plan,
-                     date-range, hr-zones, markdown, leaflet, map-chrome, types
-  lib/server/        db (D1), runs, routes, route-analytics, context, weather,
-                     functions (createServerFn wrappers = the data layer / RPC)
-  app.css            global styles     components.css   ported component styles
-migrations/          D1 schema (applied with npm run d1:apply:local / :remote)
-schema.sql           same schema, for reading
+  routes/            TanStack route modules (thin shells + loaders where needed)
+  components/        UI primitives in components/ui; feature folders (coach/, debrief/, …)
+  lib/               Pure domain: plan, fuel, format, types, coach/, run-detail/
+  lib/server/        D1 access: runs, context stores, weather, fns/*.ts (RPC handlers)
+                     functions.ts re-exports all createServerFn exports
+  ARCHITECTURE.md    Layer rules and where to add endpoints
+migrations/          D1 schema (npm run d1:apply:local / :remote)
 ```
 
 ## Data model (D1)

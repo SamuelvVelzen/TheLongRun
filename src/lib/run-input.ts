@@ -1,0 +1,52 @@
+import type { BodyScore } from '$lib/body-scores';
+
+export type CreateRunInput = {
+	date: string;
+	activity_type: string;
+	session: string;
+	effort: number | null;
+	body_scores: BodyScore[];
+	legs: number | null;
+	energy: number | null;
+	weather: string;
+	surface: string;
+	wanted_faster: boolean | null;
+	distance_km: number | null;
+	start_time: string;
+	time: string;
+	avg_pace: string;
+	avg_hr: number | null;
+	max_hr: number | null;
+	elev_gain: number | null;
+	cadence: number | null;
+	gear: string;
+	notes: string;
+	before_notes?: string;
+	after_notes?: string;
+};
+
+export type UpdateRunInput = {
+	id: number;
+	date: string;
+	activity_type: string;
+	session: string;
+	effort: number | null;
+	body_scores: BodyScore[];
+	legs: number | null;
+	energy: number | null;
+	weather: string;
+	surface: string;
+	wanted_faster: boolean | null;
+	distance_km: number | null;
+	start_time: string;
+	time: string;
+	avg_pace: string;
+	avg_hr: number | null;
+	max_hr: number | null;
+	elev_gain: number | null;
+	cadence: number | null;
+	gear: string;
+	notes: string;
+	before_notes?: string;
+	after_notes?: string;
+};

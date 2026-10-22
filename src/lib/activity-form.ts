@@ -6,7 +6,7 @@ import {
 	type ActivityType
 } from '$lib/activity';
 import { rowsToBodyScores } from '$lib/body-scores';
-import type { CreateRunInput, UpdateRunInput } from '$lib/server/functions';
+import type { CreateRunInput, UpdateRunInput } from '$lib/run-input';
 import type { RunRecord } from '$lib/types';
 import { z } from 'zod';
 

@@ -14,15 +14,18 @@ import {
 import type { KmMarker } from '$lib/splits';
 import type { PlannedWaypoint } from '$lib/types';
 import { useEffect, useRef, useState } from 'react';
+import { MapNextUpPanel, type MapPlanPeek } from './MapNextUpPanel';
 
 export function PlannedRouteMap({
 	geojson,
 	kmMarkers,
-	waypoints
+	waypoints,
+	planPeek
 }: {
 	geojson: unknown;
 	kmMarkers: KmMarker[];
 	waypoints: PlannedWaypoint[];
+	planPeek?: MapPlanPeek | null;
 }) {
 	const wrapRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -105,6 +108,7 @@ export function PlannedRouteMap({
 				</p>
 			)}
 			<div data-route-map className={mapRoutePane} ref={containerRef}></div>
+			<MapNextUpPanel peek={planPeek} />
 		</div>
 	);
 }

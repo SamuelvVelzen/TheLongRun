@@ -483,13 +483,31 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 	};
 });
 
-export const getCurrentWeekView = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, training, planRefs] = await Promise.all([
+export type PlanPeekData = {
+	weekView: WeekView;
+	calendar: PlanCalendar;
+	planRoutes: SessionRouteRef[];
+};
+
+export const getPlanPeekData = createServerFn({ method: 'GET' }).handler(async (): Promise<PlanPeekData | null> => {
+	const [runs, training, planRefs, plannedRoutes] = await Promise.all([
 		listRuns(),
 		loadTrainingContext(),
-		listPlanRouteRefs()
+		listPlanRouteRefs(),
+		listPlannedRoutes()
 	]);
-	return attachPlanRoutes(pickBannerWeekView(training.plan, runs, training.calendar), planRefs);
+	const { plan, calendar } = training;
+	const weekView = attachPlanRoutes(pickBannerWeekView(plan, runs, calendar), planRefs);
+	if (!weekView) return null;
+	return {
+		weekView,
+		calendar,
+		planRoutes: plannedRoutes.map((r): SessionRouteRef => ({
+			slug: r.slug,
+			name: r.name,
+			distance_km: r.distance_km
+		}))
+	};
 });
 
 export const getCoachPlan = createServerFn({ method: 'GET' }).handler(async () => {

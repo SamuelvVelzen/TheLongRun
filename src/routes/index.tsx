@@ -408,7 +408,20 @@ function DashboardBody({
 								</p>
 							</div>
 						</SectionTitle>
-						<RoutesHeatmap tracks={tracks} meta={routeMeta} focusIds={focusIds} />
+						<RoutesHeatmap
+							tracks={tracks}
+							meta={routeMeta}
+							focusIds={focusIds}
+							planPeek={
+								data.weekView
+									? {
+											weekView: data.weekView,
+											calendar: data.calendar,
+											planRoutes: data.planRoutes
+										}
+									: null
+							}
+						/>
 					</section>
 
 					<SectionTitle>

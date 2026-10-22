@@ -739,6 +739,13 @@ body.map-fs-active [data-live-watch-host] {
 	right: max(0.85rem, env(safe-area-inset-right, 0px));
 }
 
+[data-map-wrap][data-map-fullscreen] [data-map-next-up],
+[data-map-wrap]:fullscreen [data-map-next-up],
+[data-map-wrap]:-webkit-full-screen [data-map-next-up] {
+	bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
+	left: max(0.85rem, env(safe-area-inset-left, 0px));
+}
+
 .map-chrome-text {
 	box-sizing: border-box;
 	min-height: 44px;

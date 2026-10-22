@@ -15,6 +15,7 @@ import { getRouteGeoJsonFn } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import { analyticsFromProperties, haversineMeters, type KmMarker } from '$lib/splits';
 import { useEffect, useRef, useState } from 'react';
+import { MapNextUpPanel, type MapPlanPeek } from './MapNextUpPanel';
 
 /** Seconds-per-km → `m:ss /km`. */
 function fmtPace(secPerKm: number): string {
@@ -69,13 +70,15 @@ export function RouteMap({
 	routeIds,
 	activityType,
 	activityTypes,
-	kmMarkers = null
+	kmMarkers = null,
+	planPeek
 }: {
 	routeId?: string;
 	routeIds?: string[];
 	activityType?: string;
 	activityTypes?: string[];
 	kmMarkers?: KmMarker[] | null;
+	planPeek?: MapPlanPeek | null;
 }) {
 	const wrapRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -263,6 +266,7 @@ export function RouteMap({
 				</div>
 			)}
 			<div data-route-map className={mapRoutePane} ref={containerRef}></div>
+			<MapNextUpPanel peek={planPeek} />
 		</div>
 	);
 }

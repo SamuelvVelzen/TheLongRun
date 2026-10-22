@@ -20,6 +20,7 @@ import {
 import type { RouteTrack } from '$lib/types';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { MapNextUpPanel, type MapPlanPeek } from './MapNextUpPanel';
 import { SegmentedToggle } from './ui';
 
 /** Per-track hover/click metadata, keyed by route id. */
@@ -35,7 +36,8 @@ export function RoutesHeatmap({
 	detailPath = '/runs/$slug',
 	emptyText = 'No GPS routes yet — import a GPX or attach a route.',
 	showEndpoints,
-	onRouteClick
+	onRouteClick,
+	planPeek
 }: {
 	tracks: RouteTrack[];
 	meta?: RouteMeta;
@@ -47,6 +49,7 @@ export function RoutesHeatmap({
 	showEndpoints?: boolean;
 	/** When set, used instead of navigating to the detail path. */
 	onRouteClick?: (slug: string) => void;
+	planPeek?: MapPlanPeek | null;
 }) {
 	const wrapRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -216,6 +219,7 @@ export function RoutesHeatmap({
 				</div>
 			)}
 			<div data-heatmap-map className={mapHeatmapPane} ref={containerRef}></div>
+			<MapNextUpPanel peek={planPeek} />
 		</div>
 	);
 }

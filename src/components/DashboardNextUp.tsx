@@ -10,6 +10,11 @@ import {
 	type WeekDayGroup,
 	type WeekView
 } from '$lib/plan';
+import {
+	isNextUpActionable,
+	nextUpHighlightSessions,
+	nextUpTodayUnplanned
+} from '$lib/plan-next-up';
 import type { SessionRouteRef } from '$lib/types';
 import { cn } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
@@ -28,11 +33,6 @@ const sectionGap = 'mb-7 max-sm:mb-6';
 const fmtDayChip = new Intl.DateTimeFormat('en-GB', { weekday: 'short' });
 
 const DAY_CHIP = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'] as const;
-
-/** Next up: still to do or needs a log — not logged (done) or plan-skipped. */
-function isNextUpActionable(session: WeekView['sessions'][number]): boolean {
-	return !session.done && !session.skipped;
-}
 
 function dayChipLabel(day: string, date: string | null): string {
 	if (date) {
@@ -271,14 +271,9 @@ export function DashboardNextUp({
 	const currentWeekNum = weekToPlan(calendar);
 	const nextWeekNum = currentWeekNum + 1;
 	const laterWeek = weekView.week.week > currentWeekNum;
-	const highlightSessions = weekView.next?.isToday
-		? weekView.sessions.filter((s) => s.isToday && isNextUpActionable(s))
-		: weekView.next && isNextUpActionable(weekView.next)
-			? [weekView.next]
-			: [];
+	const highlightSessions = nextUpHighlightSessions(weekView);
 	const highlightHead = highlightSessions[0];
-	const todayGroup = weekDayGroups(weekView).find((g) => g.isToday);
-	const todayUnplanned = todayGroup?.unplanned ?? [];
+	const todayUnplanned = nextUpTodayUnplanned(weekView, highlightHead);
 	const unloggedCount = weekView.sessions.filter((s) => s.unlogged).length;
 	const coachPlanSearch = { tab: 'plan' as const, planWeek: weekView.week.week };
 	const coachNextWeekSearch = { tab: 'generate' as const, planWeek: nextWeekNum };

@@ -102,7 +102,7 @@ export function FeelAiDialog({
 	const prompt = debrief?.prompt
 		? composeDebriefPrompt(
 				debrief.prompt,
-				[run],
+				[{ slug: run.slug, members: [run] }],
 				{ [run.slug]: writeup },
 				{ [run.slug]: habitDraft },
 				debrief.habits ?? emptyActivityHabits()

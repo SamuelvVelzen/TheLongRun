@@ -38,17 +38,31 @@ export function debriefRunTitle(
 		.join(' · ');
 }
 
+export type DebriefWriteupUnit = {
+	slug: string;
+	members: DebriefWriteupRun[];
+};
+
+function writeupUnitHeading(u: DebriefWriteupUnit): string {
+	if (u.members.length > 1) {
+		const lead = u.members[0]!;
+		return `### ${debriefRunTitle(lead)} + ${u.members.length - 1} more part(s) (\`${u.slug}\`)`;
+	}
+	const r = u.members[0]!;
+	return `### ${debriefRunTitle(r)} (\`${u.slug}\`)`;
+}
+
 export function formatDebriefWriteup(
-	runs: DebriefWriteupRun[],
+	units: DebriefWriteupUnit[],
 	writeups: Record<string, string>
 ): string {
-	const many = runs.length > 1;
-	const blocks = runs
-		.map((r) => {
-			const text = (writeups[r.slug] ?? '').trim();
+	const many = units.length > 1;
+	const blocks = units
+		.map((u) => {
+			const text = (writeups[u.slug] ?? '').trim();
 			if (!text) return '';
-			if (!many) return text;
-			return `### ${debriefRunTitle(r)} (\`${r.slug}\`)\n${text}`;
+			if (!many && u.members.length === 1) return text;
+			return `${writeupUnitHeading(u)}\n${text}`;
 		})
 		.filter(Boolean);
 	if (!blocks.length) return DEBRIEF_WRITEUP_PLACEHOLDER;
@@ -65,14 +79,35 @@ export function injectDebriefHabits(prompt: string, habitsBody: string): string 
 	return prompt.split(DEBRIEF_HABITS_TOKEN).join(habitsBody);
 }
 
+export function debriefWriteupUnitsFromCoach(debrief: {
+	runs?: DebriefWriteupRun[];
+	run?: DebriefWriteupRun | null;
+	units?: { slug: string; members: DebriefWriteupRun[] }[];
+}): DebriefWriteupUnit[] {
+	if (debrief.units?.length) {
+		return debrief.units.map((u) => ({ slug: u.slug, members: u.members }));
+	}
+	const runs = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
+	return runs.map((r) => ({ slug: r.slug, members: [r] }));
+}
+
 export function composeDebriefPrompt(
 	prompt: string,
-	runs: DebriefWriteupRun[],
+	units: DebriefWriteupUnit[],
 	writeups: Record<string, string>,
 	habitDrafts: Record<string, HabitPair> = {},
 	habits: ActivityHabits | null = null
 ): string {
-	const withWriteup = injectDebriefWriteup(prompt, formatDebriefWriteup(runs, writeups));
+	const withWriteup = injectDebriefWriteup(prompt, formatDebriefWriteup(units, writeups));
 	if (!habits) return withWriteup;
-	return injectDebriefHabits(withWriteup, formatSessionHabitsBlock(runs, habitDrafts, habits));
+	const habitRows = units.map((u) => {
+		const lead = u.members[0]!;
+		return {
+			slug: u.slug,
+			activity_type: lead.activity_type,
+			before_notes: lead.before_notes,
+			after_notes: lead.after_notes
+		};
+	});
+	return injectDebriefHabits(withWriteup, formatSessionHabitsBlock(habitRows, habitDrafts, habits));
 }

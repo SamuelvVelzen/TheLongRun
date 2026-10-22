@@ -23,7 +23,7 @@ import { appHead } from '$lib/title';
 import { buildTrainingTrends } from '$lib/trends';
 import { cn } from '$lib/ui';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { Fragment, useMemo } from 'react';
+import { Fragment, lazy, Suspense, useMemo } from 'react';
 import { ActivityFilters } from '../components/ActivityFilters';
 import { rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
@@ -41,7 +41,11 @@ import {
 	RunTitle,
 	SectionTitle
 } from '../components/ui';
-import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
+import type { RouteMeta } from '../components/RoutesHeatmap';
+
+const RoutesHeatmap = lazy(() =>
+	import('../components/RoutesHeatmap').then((m) => ({ default: m.RoutesHeatmap }))
+);
 import {
 	matchesSportFilter,
 	parseSportSearch,
@@ -408,20 +412,22 @@ function DashboardBody({
 								</p>
 							</div>
 						</SectionTitle>
-						<RoutesHeatmap
-							tracks={tracks}
-							meta={routeMeta}
-							focusIds={focusIds}
-							planPeek={
-								data.weekView
-									? {
-											weekView: data.weekView,
-											calendar: data.calendar,
-											planRoutes: data.planRoutes
-										}
-									: null
-							}
-						/>
+						<Suspense fallback={<p className="text-muted text-sm py-8 text-center">Loading map…</p>}>
+							<RoutesHeatmap
+								tracks={tracks}
+								meta={routeMeta}
+								focusIds={focusIds}
+								planPeek={
+									data.weekView
+										? {
+												weekView: data.weekView,
+												calendar: data.calendar,
+												planRoutes: data.planRoutes
+											}
+										: null
+								}
+							/>
+						</Suspense>
 					</section>
 
 					<SectionTitle>

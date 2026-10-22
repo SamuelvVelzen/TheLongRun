@@ -31,13 +31,17 @@ import { appHead } from '$lib/title';
 import type { PlannedRoute } from '$lib/types';
 import { cn } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { DeferredData } from '../components/DeferredData';
 import { DeleteButton } from '../components/DeleteButton';
 import { Icon } from '../components/Icon';
 import { OpenRouteBadge } from '../components/OpenRouteBadge';
 import { MapPinIcon } from '../components/RouteChip';
-import { RoutesHeatmap, type RouteMeta } from '../components/RoutesHeatmap';
+import type { RouteMeta } from '../components/RoutesHeatmap';
+
+const RoutesHeatmap = lazy(() =>
+	import('../components/RoutesHeatmap').then((m) => ({ default: m.RoutesHeatmap }))
+);
 import { WaypointEditor } from '../components/WaypointEditor';
 
 type RoutesSearch = { draw?: boolean };
@@ -421,13 +425,15 @@ function PlannedRoutesList({ data }: { data: Awaited<ReturnType<typeof getPlanne
 						</p>
 					</div>
 				</SectionTitle>
-				<RoutesHeatmap
-					tracks={data.tracks}
-					meta={meta}
-					focusIds={[]}
-					detailPath="/routes/$slug"
-					emptyText="No planned routes yet — draw one or import a GPX."
-				/>
+				<Suspense fallback={<p className="text-muted text-sm py-8 text-center">Loading map…</p>}>
+					<RoutesHeatmap
+						tracks={data.tracks}
+						meta={meta}
+						focusIds={[]}
+						detailPath="/routes/$slug"
+						emptyText="No planned routes yet — draw one or import a GPX."
+					/>
+				</Suspense>
 			</section>
 
 			<SectionTitle>

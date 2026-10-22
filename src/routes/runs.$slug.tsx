@@ -10,10 +10,10 @@ import { HABIT_PLACEHOLDERS, withHabitDefaults } from '$lib/activity-habits';
 import { useAuthed, useBodyAreas } from '$lib/auth';
 import { bodyScoreRows, rowsToBodyScores } from '$lib/body-scores';
 import { gearKindForActivity, gearMetaForActivity, gearPickerOptions } from '$lib/gear';
+import { loadRunDetail } from '$lib/run-detail/loader';
 import {
 	createActivityGroupFn,
 	deleteRun,
-	getRunDetail,
 	saveHrMax,
 	updateRun,
 	type UpdateRunInput
@@ -27,8 +27,8 @@ import {
 } from '$lib/strength';
 import { activityTitlePart, appHead } from '$lib/title';
 import { cn } from '$lib/ui';
-import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { ActivityForm } from '../components/ActivityForm';
 import { BestEffortBadges } from '../components/BestEffortBadges';
 import { EditButton, TrashIcon } from '../components/DeleteButton';
@@ -39,7 +39,9 @@ import { exportActivityGpx, GpsRepair } from '../components/GpsRepair';
 import { ActivityIcon, Icon } from '../components/Icon';
 import { MoreMenu } from '../components/MoreMenu';
 import { RouteChip } from '../components/RouteChip';
-import { RouteMap } from '../components/RouteMap';
+const RouteMap = lazy(() =>
+	import('../components/RouteMap').then((m) => ({ default: m.RouteMap }))
+);
 import { SplitsPanel } from '../components/SplitsPanel';
 import {
 	Button,
@@ -65,11 +67,7 @@ export const Route = createFileRoute('/runs/$slug')({
 	validateSearch: (s: Record<string, unknown>): RunSearch => ({
 		edit: s.edit === true || s.edit === 'true' || s.edit === '1' ? true : undefined
 	}),
-	loader: async ({ params }) => {
-		const detail = await getRunDetail({ data: params.slug });
-		if (!detail) throw notFound();
-		return detail;
-	},
+	loader: async ({ params }) => loadRunDetail(params.slug),
 	head: ({ loaderData }) =>
 		appHead(loaderData ? activityTitlePart(loaderData.run) : null, 'Timeline'),
 	component: RunDetail
@@ -789,11 +787,13 @@ function RunDetail() {
 							<div className="p-[1.1rem_1.2rem_0.6rem]">
 								<PanelTitle className="m-0">Route</PanelTitle>
 							</div>
-							<RouteMap
-								routeId={routeId}
-								activityType={r.activity_type}
-								kmMarkers={analytics?.kmMarkers ?? null}
-							/>
+							<Suspense fallback={<p className="text-muted text-sm p-4">Loading map…</p>}>
+								<RouteMap
+									routeId={routeId}
+									activityType={r.activity_type}
+									kmMarkers={analytics?.kmMarkers ?? null}
+								/>
+							</Suspense>
 						</Panel>
 					)}
 

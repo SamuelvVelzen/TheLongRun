@@ -32,10 +32,12 @@ import {
 import { activityTitlePart, appHead } from '$lib/title';
 import { cn } from '$lib/ui';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { BestEffortBadges } from '../components/BestEffortBadges';
 import { ActivityTag, Icon } from '../components/Icon';
-import { RouteMap } from '../components/RouteMap';
+const RouteMap = lazy(() =>
+	import('../components/RouteMap').then((m) => ({ default: m.RouteMap }))
+);
 import { SplitsPanel } from '../components/SplitsPanel';
 
 export const Route = createFileRoute('/groups/$id')({
@@ -204,11 +206,13 @@ function GroupDetail() {
 							{routeIds.length} GPS parts — pause between files is not drawn as a line
 						</p>
 					</div>
-					<RouteMap
-						routeIds={routeIds}
-						activityTypes={segments.filter((s) => s.route_id).map((s) => s.activity_type)}
-						kmMarkers={analytics?.kmMarkers ?? null}
-					/>
+					<Suspense fallback={<p className="text-muted text-sm p-4">Loading map…</p>}>
+						<RouteMap
+							routeIds={routeIds}
+							activityTypes={segments.filter((s) => s.route_id).map((s) => s.activity_type)}
+							kmMarkers={analytics?.kmMarkers ?? null}
+						/>
+					</Suspense>
 				</Panel>
 			)}
 

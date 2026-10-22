@@ -107,7 +107,13 @@ import {
 	stampAlongDistance,
 	trackDistanceMeters
 } from '$lib/gps-repair';
-import { combineRunStats, groupedSessionTitle, sortGroupMembers } from '$lib/group';
+import {
+	collapseDebriefSessions,
+	debriefUnitLead,
+	debriefUnitSlug,
+	type DebriefSessionUnit
+} from '$lib/debrief-group';
+import { combineRunStats, groupedSessionTitle, groupMembership, sortGroupMembers } from '$lib/group';
 import {
 	buildWeekView,
 	calendarFromGoal,
@@ -1252,6 +1258,27 @@ function formatDebriefGpsFacts(r: RunRecord): string {
 	return parts.join(' · ');
 }
 
+function formatDebriefCombinedGpsFacts(stats: ReturnType<typeof combineRunStats>): string {
+	const t = normalizeActivityType(stats.activity_type);
+	const parts: string[] = [];
+	if (t !== 'strength' && stats.distance_km != null) parts.push(`${stats.distance_km} km total`);
+	if (stats.time) parts.push(`moving ${stats.time}`);
+	if (stats.elapsed_time && stats.elapsed_time !== stats.time) {
+		parts.push(`elapsed ${stats.elapsed_time}`);
+	}
+	if (!stats.mixed && showsField(stats.activity_type, 'pace') && stats.avg_pace) {
+		parts.push(`${stats.avg_pace}/km`);
+	}
+	if (!stats.mixed && showsField(stats.activity_type, 'elevation') && stats.elev_gain != null) {
+		parts.push(`+${stats.elev_gain} m`);
+	}
+	if (!stats.mixed && showsField(stats.activity_type, 'hr') && (stats.avg_hr != null || stats.max_hr != null)) {
+		parts.push(`HR ${stats.avg_hr ?? '–'}/${stats.max_hr ?? '–'}`);
+	}
+	if (stats.mixed) parts.push(`mixed: ${stats.types.map((x) => activityLabel(x)).join(' + ')}`);
+	return parts.join(' · ');
+}
+
 function formatDebriefFeatured(r: RunRecord, analytics: RouteAnalytics | null): string {
 	const head = `- ${r.date} (${r.day || '—'}) ${activityLabel(r.activity_type)} · id ${r.id}`;
 	const extra = [
@@ -1262,6 +1289,52 @@ function formatDebriefFeatured(r: RunRecord, analytics: RouteAnalytics | null): 
 	].filter(Boolean);
 	if (!extra.length) return head;
 	return [head, ...extra.map((line) => `  ${line}`)].join('\n');
+}
+
+function formatDebriefGroupSession(
+	unit: Extract<DebriefSessionUnit, { kind: 'group' }>,
+	analyticsById: Map<number, RouteAnalytics | null>
+): string {
+	const { group, members, stats } = unit;
+	const title = groupedSessionTitle(group, members.length, stats.date);
+	const lead = debriefUnitLead(unit);
+	const head = `- ${title} · grouped session (${members.length} parts) · lead id ${lead.id}`;
+	const combined = formatDebriefCombinedGpsFacts(stats);
+	const lines = [head];
+	if (combined) lines.push(`  Combined: ${combined}`);
+	for (const m of members) {
+		const partHead = `  Part · id ${m.id} · ${m.start_time || '—'} ${activityLabel(m.activity_type)}`;
+		const partFacts = formatDebriefGpsFacts(m);
+		const analytics = analyticsById.get(m.id) ?? null;
+		const partExtra = [
+			partFacts,
+			...(analytics ? formatKmSplitsLines(analytics.splits) : []),
+			formatHrZonesLine(analytics),
+			formatBestEffortsLine(m)
+		].filter(Boolean);
+		if (!partExtra.length) lines.push(partHead);
+		else lines.push(partHead, ...partExtra.map((line) => `    ${line}`));
+	}
+	return lines.join('\n');
+}
+
+function formatDebriefSessionUnit(
+	unit: DebriefSessionUnit,
+	analyticsById: Map<number, RouteAnalytics | null>
+): string {
+	if (unit.kind === 'group') return formatDebriefGroupSession(unit, analyticsById);
+	const r = unit.members[0]!;
+	return formatDebriefFeatured(r, analyticsById.get(r.id) ?? null);
+}
+
+function formatFeelForUnit(unit: DebriefSessionUnit, areas: BodyArea[]): string {
+	const slug = debriefUnitSlug(unit);
+	const lead = debriefUnitLead(unit);
+	if (unit.kind === 'group') {
+		const inner = formatFeelLogged(lead, areas).replace(/^- `\S+`: /, '');
+		return `- \`${slug}\` (grouped, ${unit.members.length} parts, save feelings on id ${lead.id}): ${inner}`;
+	}
+	return formatFeelLogged(lead, areas);
 }
 
 function parseDebriefIds(raw: string): number[] {
@@ -1296,28 +1369,46 @@ function compareDebriefRuns(a: RunRecord, b: RunRecord) {
 }
 
 /**
- * Same-day companions (AM+PM commutes) plus other this-week logs that still
- * need a write-up — so an earlier import this week is not dropped when a later
- * slug is in the URL.
+ * Same-day companions (AM+PM commutes) that still need a write-up, plus other
+ * this-week logs that still need one — so an earlier import this week is not
+ * dropped when a later slug is in the URL. Finished sessions drop out even if
+ * their id is still in the URL.
  */
+function addDebriefPoolRow(
+	byId: Map<number, RunRecord>,
+	r: RunRecord,
+	membership: Map<number, import('$lib/types').ActivityGroupInfo>,
+	pool: RunRecord[]
+) {
+	byId.set(r.id, r);
+	const group = membership.get(r.id);
+	if (!group) return;
+	for (const id of group.member_ids) {
+		const mate = pool.find((x) => x.id === id);
+		if (mate) byId.set(id, mate);
+	}
+}
+
 function expandDebriefFeatured(
 	seed: RunRecord[],
 	pool: RunRecord[],
 	weekStart: string,
-	weekEnd: string
+	weekEnd: string,
+	groups: import('$lib/types').ActivityGroupInfo[]
 ): RunRecord[] {
 	if (!seed.length) return [];
 	const dates = new Set(seed.map((r) => r.date));
+	const membership = groupMembership(groups);
 	const byId = new Map<number, RunRecord>();
 	for (const r of pool) {
-		const sameDay = dates.has(r.date);
+		const sameDay = dates.has(r.date) && stillNeedsDebrief(r);
 		const pendingThisWeek =
 			Boolean(weekStart) && r.date >= weekStart && r.date <= weekEnd && stillNeedsDebrief(r);
-		if (sameDay || pendingThisWeek) byId.set(r.id, r);
+		if (sameDay || pendingThisWeek) addDebriefPoolRow(byId, r, membership, pool);
 	}
 	// URL ids are a hint, not a lock — once feel is saved, drop them unless still pending.
 	for (const r of seed) {
-		if (stillNeedsDebrief(r)) byId.set(r.id, r);
+		if (stillNeedsDebrief(r)) addDebriefPoolRow(byId, r, membership, pool);
 	}
 	return [...byId.values()].sort(compareDebriefRuns);
 }
@@ -1484,8 +1575,8 @@ function bodyScoresExample(areas: BodyArea[]): Record<string, number> | null {
 	return Object.fromEntries(areas.map((a, i) => [a.area, i === 0 ? 2 : 1]));
 }
 
-/** One `feelings` row per featured activity — only the keys that apply to its sport. */
-function feelingsExample(runs: RunRecord[], areas: BodyArea[]): unknown {
+/** One `feelings` row per debrief session (grouped imports count as one). */
+function feelingsExample(units: DebriefSessionUnit[], areas: BodyArea[]): unknown {
 	const body = bodyScoresExample(areas);
 	const row = (r: RunRecord) => ({
 		id: r.id,
@@ -1499,8 +1590,9 @@ function feelingsExample(runs: RunRecord[], areas: BodyArea[]): unknown {
 		...(showsField(r.activity_type, 'gear') ? { gear: 'shoe name' } : {}),
 		notes: 'Short first-person summary of What I wrote.'
 	});
-	if (!runs.length) return { id: 0, notes: '…' };
-	return runs.length === 1 ? row(runs[0]!) : runs.map(row);
+	if (!units.length) return { id: 0, notes: '…' };
+	const rows = units.map((u) => row(debriefUnitLead(u)));
+	return rows.length === 1 ? rows[0]! : rows;
 }
 
 export const getDebriefPrompt = createServerFn({ method: 'GET' })
@@ -1523,7 +1615,8 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			gearInventory,
 			allTimeMaxHr,
 			habits,
-			fuelLog
+			fuelLog,
+			activityGroups
 		] = await Promise.all([
 			listRuns(),
 			currentPlanWeek(),
@@ -1533,7 +1626,8 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			loadGear(),
 			getMaxHrAllTime(),
 			loadActivityHabits(),
-			loadFuelLog()
+			loadFuelLog(),
+			listActivityGroups()
 		]);
 		const { goals } = training.store;
 		const { calendar } = training;
@@ -1561,12 +1655,20 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 						return row ? [row] : [];
 					})()
 				: [];
-		const featured = expandDebriefFeatured(featuredUnsorted, allRuns, weekStart, weekEnd);
-		if (!featured.length) {
+		const featured = expandDebriefFeatured(
+			featuredUnsorted,
+			allRuns,
+			weekStart,
+			weekEnd,
+			activityGroups
+		);
+		const units = collapseDebriefSessions(featured, activityGroups, allRuns);
+		if (!units.length) {
 			return {
 				prompt: '',
 				run: null,
 				runs: [],
+				units: [],
 				raceBySlug: {} as Record<string, DebriefRaceHint | null>,
 				gear: gearInventory,
 				gearWear: wearByAllGear(allRuns),
@@ -1576,19 +1678,24 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			};
 		}
 
-		const storedAnalytics = await Promise.all(featured.map((r) => loadRouteAnalytics(r)));
-		const featuredAnalytics = featured.map((r, i) =>
-			withEffectiveHrZones(storedAnalytics[i] ?? null, {
-				avgHr: r.avg_hr,
-				hrMaxManual: settings.hrMax,
-				hrMaxAllTime: allTimeMaxHr
-			})
-		);
+		const featuredMembers = units.flatMap((u) => u.members);
+		const storedAnalytics = await Promise.all(featuredMembers.map((r) => loadRouteAnalytics(r)));
+		const analyticsById = new Map<number, RouteAnalytics | null>();
+		featuredMembers.forEach((r, i) => {
+			analyticsById.set(
+				r.id,
+				withEffectiveHrZones(storedAnalytics[i] ?? null, {
+					avgHr: r.avg_hr,
+					hrMaxManual: settings.hrMax,
+					hrMaxAllTime: allTimeMaxHr
+				})
+			);
+		});
 
 		const weekRuns = weekStart
 			? allRuns.filter((r) => r.date >= weekStart && r.date <= weekEnd).sort(byDateNewestFirst)
 			: [];
-		const featuredIds = new Set(featured.map((r) => r.id));
+		const featuredIds = new Set(featuredMembers.map((r) => r.id));
 		const otherThisWeek = weekRuns.filter((r) => !featuredIds.has(r.id));
 		const sessionLines =
 			weekView?.sessions
@@ -1614,18 +1721,30 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const easyPace =
 			typicalEasyPace(buildPaceProfile(allRuns, training.medals, isoDateLocal(new Date()))) ??
 			'M:SS';
-		const many = featured.length > 1;
+		const many = units.length > 1;
 		const sessionWord = many ? 'these sessions' : 'this session';
 		const sessionHeading = many ? 'These sessions' : 'This session';
-		const sessionBlock = featured
-			.map((r, i) => formatDebriefFeatured(r, featuredAnalytics[i] ?? null))
-			.join('\n');
-		const feelBlock = featured.map((r) => formatFeelLogged(r, scoreAreas)).join('\n');
+		const sessionBlock = units.map((u) => formatDebriefSessionUnit(u, analyticsById)).join('\n');
+		const feelBlock = units.map((u) => formatFeelForUnit(u, scoreAreas)).join('\n');
 		const plannedHeading = many ? 'Planned for these sessions' : 'Planned for this session';
-		const plannedBlock = featured
-			.map((r) =>
-				formatPlannedForActivity(r, plannedSessionForActivity(r, training.plan, allRuns, calendar))
-			)
+		const plannedBlock = units
+			.map((u) => {
+				if (u.kind === 'single') {
+					const r = u.members[0]!;
+					return formatPlannedForActivity(
+						r,
+						plannedSessionForActivity(r, training.plan, allRuns, calendar)
+					);
+				}
+				const title = groupedSessionTitle(u.group, u.members.length, u.stats.date);
+				const parts = u.members.map((r) =>
+					formatPlannedForActivity(
+						r,
+						plannedSessionForActivity(r, training.plan, allRuns, calendar)
+					)
+				);
+				return [`- ${title} (grouped)`, ...parts.map((p) => p.replace(/^- /, '  - '))].join('\n');
+			})
 			.join('\n');
 		const compareLine = `Compare what I did against **${plannedHeading}**: did each step hit its target pace or effort (use the km splits and HR in the session block), and did I cut it short or add to it? If it says Unplanned, coach it as extra load. If no plan covers the date, do not call it unplanned.`;
 		const job = includePlan
@@ -1642,6 +1761,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const fuelNames = fuelItemNames(fuelLog);
 		const bodyAreas = profile.body.notes.map((n) => n.area);
 		const rules = [
+			'- Grouped sessions (multiple GPX parts in one block) get **one** `feelings` object — use the **lead id** shown in This session / How I felt. One write-up covers the whole grouped session.',
 			'- `feelings.notes` is a **short** first-person summary of What I wrote (about 2–5 sentences) for the activity log. Keep my voice and the useful specifics (body, shoes, questions you answered). Do **not** paste the whole write-up. Omit `notes` if I wrote nothing. For strength, notes are extra commentary only — never rewrite the lift list.',
 			"- Before/after in **This session's habits** are what I actually did — ground truth. Do not copy those rituals into `feelings.notes` or into week `detail`.",
 			`- Scores marked – were not tapped in the app. Infer effort / legs / energy${scoreAreas.length ? ' / body scores' : ''} (and wanted_faster / surface) from What I wrote when the text is clear enough for a number; otherwise omit the field. Do not invent from GPS. If How I felt already has a number, omit that field. Do not copy example numbers. Only include keys shown in the example for that activity.`,
@@ -1658,10 +1778,10 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 			includePlan ? `- ${STRENGTH_SESSION_PROMPT}` : ''
 		].filter(Boolean);
 		const exampleReply = JSON.stringify({
-			feelings: feelingsExample(featured, scoreAreas),
+			feelings: feelingsExample(units, scoreAreas),
 			fuel: [
 				{
-					slug: featured[0]?.slug ?? '',
+					slug: debriefUnitLead(units[0]!)?.slug ?? '',
 					phase: 'before',
 					item: 'Coffee',
 					timing: '20 min before',
@@ -1731,13 +1851,28 @@ ${rules.join('\n')}`;
 				reply
 			)
 		);
-		const runs = featured.map(debriefRunSummary);
+		const runs = featuredMembers.map(debriefRunSummary);
+		const clientUnits = units.map((u) => {
+			const members = sortGroupMembers(u.members).map(debriefRunSummary);
+			const lead = members[0]!;
+			const slug = debriefUnitSlug(u);
+			return {
+				kind: u.kind,
+				slug,
+				groupId: u.kind === 'group' ? u.group.id : undefined,
+				groupName: u.kind === 'group' ? u.group.name : undefined,
+				run: lead,
+				members,
+				stats: u.kind === 'group' ? u.stats : undefined
+			};
+		});
 		const raceBySlug: Record<string, DebriefRaceHint | null> = {};
-		for (const r of featured) raceBySlug[r.slug] = debriefRaceHint(r, goals);
+		for (const r of featuredMembers) raceBySlug[r.slug] = debriefRaceHint(r, goals);
 		return {
 			prompt,
 			run: runs[runs.length - 1] ?? null,
 			runs,
+			units: clientUnits,
 			raceBySlug,
 			gear: gearInventory,
 			gearWear: wearByAllGear(allRuns),

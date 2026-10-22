@@ -1,9 +1,10 @@
 import { planDayKicker } from '$lib/plan';
 import { nextUpHighlightSessions, nextUpTodayUnplanned } from '$lib/plan-next-up';
+import { useMapWrapFullscreen } from '$lib/map-fullscreen';
 import { getPlanPeekData, type PlanPeekData } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { Icon } from './Icon';
 import { PlannedSessionRow, UnplannedRow } from './WeekPlanBoard';
 import { buttonClass } from './ui/Button';
@@ -116,11 +117,17 @@ export function MapNextUpPanel({
 	peek?: Peek | null;
 	className?: string;
 }) {
+	const hostRef = useRef<HTMLDivElement>(null);
+	const fullscreen = useMapWrapFullscreen(hostRef);
 	const [peek, setPeek] = useState<Peek | null>(peekProp ?? null);
 	const [open, setOpen] = useState(false);
 	const [failed, setFailed] = useState(false);
 
 	useEffect(() => {
+		if (!fullscreen) {
+			setOpen(false);
+			return;
+		}
 		if (peekProp !== undefined) {
 			setPeek(peekProp);
 			return;
@@ -136,64 +143,76 @@ export function MapNextUpPanel({
 		return () => {
 			cancelled = true;
 		};
-	}, [peekProp]);
+	}, [fullscreen, peekProp]);
 
 	const summary = useMemo(() => (peek ? collapsedSummary(peek) : null), [peek]);
 
-	if (failed || !peek?.weekView) return null;
+	const show = fullscreen && !failed && Boolean(peek?.weekView);
 
 	return (
-		<div
-			data-map-next-up
-			className={cn(
-				'absolute z-[3] left-[0.85rem] bottom-[0.85rem] max-w-[min(calc(100%-5.75rem),22rem)] pointer-events-auto',
-				className
-			)}
-			onClick={stopMapClick}
-			onPointerDown={stopMapClick}
-		>
-			{open ? (
-				<div className={cn(shell, 'p-2.5 max-h-[min(42vh,20rem)] overflow-y-auto overscroll-contain')}>
-					<div className="flex items-start justify-between gap-2 mb-2">
-						<p className="m-0 text-[0.72rem] font-bold uppercase tracking-[0.08em] text-accent-fg">
-							Next up
-						</p>
+		<>
+			<div ref={hostRef} className="hidden" aria-hidden />
+			{show ? (
+				<div
+					data-map-next-up
+					className={cn(
+						'absolute z-[3] left-[0.85rem] bottom-[0.85rem] max-w-[min(calc(100%-5.75rem),22rem)] pointer-events-auto',
+						className
+					)}
+					onClick={stopMapClick}
+					onPointerDown={stopMapClick}
+				>
+					{open ? (
+						<div
+							className={cn(
+								shell,
+								'p-2.5 max-h-[min(42vh,20rem)] overflow-y-auto overscroll-contain'
+							)}
+						>
+							<div className="flex items-start justify-between gap-2 mb-2">
+								<p className="m-0 text-[0.72rem] font-bold uppercase tracking-[0.08em] text-accent-fg">
+									Next up
+								</p>
+								<button
+									type="button"
+									className={buttonClass({
+										variant: 'ghost',
+										size: 'sm',
+										className: 'min-h-8 min-w-8 px-0 shrink-0'
+									})}
+									aria-label="Close plan panel"
+									onClick={() => setOpen(false)}
+								>
+									<Icon name="close" size={16} />
+								</button>
+							</div>
+							<MapNextUpBody peek={peek!} />
+						</div>
+					) : (
 						<button
 							type="button"
-							className={buttonClass({
-								variant: 'ghost',
-								size: 'sm',
-								className: 'min-h-8 min-w-8 px-0 shrink-0'
-							})}
-							aria-label="Close plan panel"
-							onClick={() => setOpen(false)}
+							className={cn(
+								shell,
+								'flex items-center gap-2 px-3 py-2 min-h-11 text-left w-full max-w-full',
+								'hover:border-accent/40 transition-colors'
+							)}
+							aria-expanded={false}
+							onClick={() => setOpen(true)}
 						>
-							<Icon name="close" size={16} />
+							<Icon name="coach" size={16} className="shrink-0 text-accent-fg" />
+							<span className="min-w-0 flex flex-col gap-0.5">
+								<span className="text-[0.65rem] font-bold uppercase tracking-[0.08em] text-accent-fg">
+									Next up
+								</span>
+								<span className="text-[0.86rem] font-semibold leading-tight truncate">
+									{summary}
+								</span>
+							</span>
+							<Icon name="arrowUp" size={14} className="shrink-0 text-muted ml-auto" />
 						</button>
-					</div>
-					<MapNextUpBody peek={peek} />
-				</div>
-			) : (
-				<button
-					type="button"
-					className={cn(
-						shell,
-						'flex items-center gap-2 px-3 py-2 min-h-11 text-left w-full max-w-full',
-						'hover:border-accent/40 transition-colors'
 					)}
-					aria-expanded={false}
-					onClick={() => setOpen(true)}
-				>
-					<Icon name="coach" size={16} className="shrink-0 text-accent-fg" />
-					<span className="min-w-0 flex flex-col gap-0.5">
-						<span className="text-[0.65rem] font-bold uppercase tracking-[0.08em] text-accent-fg">
-							Next up
-						</span>
-						<span className="text-[0.86rem] font-semibold leading-tight truncate">{summary}</span>
-					</span>
-					<Icon name="arrowUp" size={14} className="shrink-0 text-muted ml-auto" />
-				</button>
-			)}
-		</div>
+				</div>
+			) : null}
+		</>
 	);
 }

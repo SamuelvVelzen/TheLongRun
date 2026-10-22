@@ -145,6 +145,29 @@ export function PlannedSessionRow({
 	const linked = Boolean(session.route && !session.done);
 	const compact = layout === 'compact';
 	const sportLine = sessionSportLine(session);
+	const titleSuffix = sportLine ? (
+		<span className="text-muted font-semibold text-[0.85rem] max-sm:text-[0.8rem]">
+			{' · '}
+			{sportLine}
+		</span>
+	) : null;
+	const titleInner = (
+		<>
+			{session.label}
+			{titleSuffix}
+		</>
+	);
+	const titleContent = logSlug ? (
+		<Link
+			to="/runs/$slug"
+			params={{ slug: logSlug }}
+			className="text-inherit no-underline hover:text-accent-fg"
+		>
+			{titleInner}
+		</Link>
+	) : (
+		titleInner
+	);
 	const className = cn(
 		'flex flex-col min-w-0',
 		compact ? 'gap-1' : 'gap-[0.2rem]',
@@ -152,7 +175,7 @@ export function PlannedSessionRow({
 		divided && compact && 'pt-2 border-t border-line/80',
 		session.done && 'opacity-80',
 		session.skipped && 'opacity-55',
-		logSlug && 'text-inherit no-underline rounded-inset -mx-1 px-1 py-1 hover:bg-accent/6'
+		logSlug && 'rounded-inset -mx-1 px-1 py-1'
 	);
 	const menu = (
 		<PlanSessionMenu
@@ -228,13 +251,7 @@ export function PlannedSessionRow({
 								sessionDate ? 'mt-0.5 text-[1.25rem] max-sm:text-[1.1rem]' : 'text-[1.02rem]'
 							)}
 						>
-							{session.label}
-							{sportLine ? (
-								<span className="text-muted font-semibold text-[0.85rem] max-sm:text-[0.8rem]">
-									{' · '}
-									{sportLine}
-								</span>
-							) : null}
+							{titleContent}
 						</h2>
 					) : (
 						<p
@@ -243,13 +260,7 @@ export function PlannedSessionRow({
 								sessionDate ? 'mt-0.5 text-[1.25rem] max-sm:text-[1.1rem]' : 'text-[1.02rem]'
 							)}
 						>
-							{session.label}
-							{sportLine ? (
-								<span className="text-muted font-semibold text-[0.85rem] max-sm:text-[0.8rem]">
-									{' · '}
-									{sportLine}
-								</span>
-							) : null}
+							{titleContent}
 						</p>
 					)}
 				</div>
@@ -283,19 +294,12 @@ export function PlannedSessionRow({
 				</div>
 			</div>
 			<strong className="font-display text-[1.02rem] font-bold tracking-[-0.02em] leading-[1.25] [overflow-wrap:anywhere]">
-				{session.label}
+				{titleContent}
 			</strong>
 			<PlanSessionBody session={session} className="[overflow-wrap:anywhere]" />
 			{routeDialogs}
 		</>
 	);
-	if (logSlug) {
-		return (
-			<Link to="/runs/$slug" params={{ slug: logSlug }} className={className}>
-				{body}
-			</Link>
-		);
-	}
 	return (
 		<div className={className}>
 			{body}

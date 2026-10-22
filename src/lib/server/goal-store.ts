@@ -1,7 +1,7 @@
 import { normalizeActivityType } from '$lib/activity';
 import { goalIdFrom, pickSoonestOpenGoal, stampGoalsByDate } from '$lib/goals';
 import type { Goal, PlanWeek } from '$lib/types';
-import matter from 'gray-matter';
+import { splitFrontmatter } from './frontmatter';
 import { readContextFile, writeContextFile } from './context-io';
 
 export type GoalStore = { goals: Goal[] };
@@ -105,7 +105,7 @@ function normalizeStoredGoal(item: unknown): Goal | null {
 
 function parseLegacyGoalsMd(raw: string): Goal | null {
 	if (!raw.trim()) return null;
-	const { data, content } = matter(raw);
+	const { data, content } = splitFrontmatter(raw);
 	const name = String(data.race_name ?? '').trim();
 	const date = toIsoDate(data.race_date, '');
 	if (!name && !date) return null;

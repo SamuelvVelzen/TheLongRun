@@ -14,7 +14,7 @@ import {
 	type GearContext
 } from '$lib/gear';
 import { emptyWardrobe, normalizeWardrobe, type Wardrobe } from '$lib/wardrobe';
-import matter from 'gray-matter';
+import { splitFrontmatter } from './frontmatter';
 import { readContextFile, writeContextFile } from './context-io';
 
 const HABITS_FILE = 'activity-habits.json';
@@ -39,7 +39,7 @@ export async function persistActivityHabits(habits: ActivityHabits): Promise<Act
 
 function catalogFromShoesMarkdown(raw: string): GearCatalog {
 	if (!raw.trim()) return normalizeGearCatalog({});
-	const { data, content } = matter(raw);
+	const { data, content } = splitFrontmatter(raw);
 	return normalizeGearCatalog({
 		active: String(data.active ?? ''),
 		rotation: asGearNameList(data.rotation),

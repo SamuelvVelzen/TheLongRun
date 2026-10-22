@@ -14,7 +14,7 @@ import { daysUntil } from '$lib/plan';
 import { clearGoal, getGoalsData } from '$lib/server/functions';
 import type { Goal } from '$lib/types';
 import { cn } from '$lib/ui';
-import { Link, useRouter } from '@tanstack/react-router';
+import { getRouteApi, Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { DeferredData } from '../DeferredData';
 import { GoalDialog } from '../GoalDialog';
@@ -48,7 +48,10 @@ type OpenGoalDialog =
 
 type GoalsData = Awaited<ReturnType<typeof getGoalsData>>;
 
-import { getRouteApi } from '@tanstack/react-router';
+function parseTab(v: unknown): GoalsTab {
+	return v === 'medals' ? 'medals' : 'races';
+}
+
 const goalsRoute = getRouteApi('/goals');
 
 function formatRaceDate(iso: string) {

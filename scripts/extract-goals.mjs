@@ -3,9 +3,15 @@ import fs from 'node:fs';
 const src = fs.readFileSync('src/routes/goals.tsx', 'utf8').split(/\r?\n/);
 const slice = (a, b) => src.slice(a - 1, b).join('\n');
 
-const importBlock = slice(1, 39).replace(/\.\.\/components\//g, '../');
-const routeApi = `import { getRouteApi } from '@tanstack/react-router';
-const goalsRoute = getRouteApi('/goals');
+const importBlock = slice(1, 39)
+	.replace(/\.\.\/components\//g, '../')
+	.replace(
+		/import \{([^}]+)\} from '@tanstack\/react-router';/,
+		(_, names) =>
+			`import { getRouteApi, ${names.trim().replace(/^createFileRoute,\s*/, '')} } from '@tanstack/react-router';`
+	);
+
+const routeApi = `const goalsRoute = getRouteApi('/goals');
 `;
 
 const typesBlock = `type GoalsTab = 'races' | 'medals';
@@ -18,6 +24,11 @@ type OpenGoalDialog =
 	| { variant: 'lookahead'; mode: 'edit'; goal: Goal };
 
 type GoalsData = Awaited<ReturnType<typeof getGoalsData>>;
+
+function parseTab(v: unknown): GoalsTab {
+	return v === 'medals' ? 'medals' : 'races';
+}
+
 `;
 
 let body = slice(66, src.length)
@@ -25,19 +36,13 @@ let body = slice(66, src.length)
 	.replace(/Route\.useSearch\(\)/g, 'goalsRoute.useSearch()')
 	.replace(/^function goalSummaryLine/, 'export function goalSummaryLine')
 	.replace(/^function GoalUrlLinks/, 'export function GoalUrlLinks')
+	.replace(/^function parseTab[\s\S]*?\n\}\n\n/, '')
 	.replace(/^function GoalsPage/, 'export function GoalsPage');
 
 fs.mkdirSync('src/components/goals', { recursive: true });
 fs.writeFileSync(
 	'src/components/goals/GoalsPage.tsx',
-	importBlock +
-		'\n' +
-		typesBlock +
-		'\n' +
-		routeApi +
-		'\n' +
-		body +
-		'\n'
+	importBlock + '\n' + typesBlock + routeApi + '\n' + body + '\n'
 );
 
 const slim = `import { getGoalsData } from '$lib/server/functions';

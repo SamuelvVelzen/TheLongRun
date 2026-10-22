@@ -12,10 +12,9 @@ import {
 } from '$lib/goals';
 import { daysUntil } from '$lib/plan';
 import { clearGoal, getGoalsData } from '$lib/server/functions';
-import { appHead } from '$lib/title';
 import type { Goal } from '$lib/types';
 import { cn } from '$lib/ui';
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
+import { Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { DeferredData } from '../DeferredData';
 import { GoalDialog } from '../GoalDialog';
@@ -37,7 +36,7 @@ import {
 } from '../ui';
 import { buttonClass } from '../ui/Button';
 import { panelClass } from '../ui/Panel';
-import { getGoalsData } from '$lib/server/functions';
+
 type GoalsTab = 'races' | 'medals';
 type GoalsSearch = { tab?: GoalsTab };
 

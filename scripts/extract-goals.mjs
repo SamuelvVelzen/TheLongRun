@@ -32,7 +32,6 @@ fs.writeFileSync(
 	'src/components/goals/GoalsPage.tsx',
 	importBlock +
 		'\n' +
-		"import { getGoalsData } from '$lib/server/functions';\n" +
 		typesBlock +
 		'\n' +
 		routeApi +

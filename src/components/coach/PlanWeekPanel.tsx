@@ -95,7 +95,7 @@ import {
 
 import { getRouteApi } from '@tanstack/react-router';
 const coachRoute = getRouteApi('/coach');
-import type { CoachPlanData } from './coach-utils';
+import { weekTag, type CoachPlanData } from './coach-utils';
 
 export function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 	const search = coachRoute.useSearch();

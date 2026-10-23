@@ -1,5 +1,13 @@
 import { normalizeActivityType } from '$lib/activity';
-import { dateForSessionDay, isRestLike, planSessionRouteKey, planWeekStartIso, sessionCanLinkRoute, upcomingPlanSessions } from '$lib/plan';
+import {
+	dateForSessionDay,
+	isoDateLocal,
+	isRestLike,
+	planSessionRouteKey,
+	planWeekStartIso,
+	sessionCanLinkRoute,
+	upcomingPlanSessions
+} from '$lib/plan';
 import type { ActivityAttachOption, ActivityGroupInfo, Goal, PlanAttachOption, PlannedRoute, PlannedRouteActivityLink, PlannedRoutePlanLink, PlanWeek, RouteTrack, RunRecord, RunWithMap, SessionRouteRef } from '$lib/types';
 import type { ActivityFeelInput, DebriefRaceHint } from '$lib/debrief-types';
 import type { GoalBriefDraft } from '$lib/goal-brief';
@@ -19,6 +27,68 @@ import { matchingPlanSession, startFinishWaypoints, trackFromDrawnPins } from '.
 export const getPlannedRoutesData = createServerFn({ method: 'GET' }).handler(async () => {
 	const [routes, tracks] = await Promise.all([listPlannedRoutes(), listPlannedRouteTracks()]);
 	return { routes, tracks } satisfies { routes: PlannedRoute[]; tracks: RouteTrack[] };
+});
+
+/** Routes for live-share picker — plan-linked first, labels include upcoming plan day context. */
+export const getLiveShareRouteOptions = createServerFn({ method: 'GET' }).handler(async () => {
+	const [routes, links, training] = await Promise.all([
+		listPlannedRoutes(),
+		listRouteLinks(),
+		loadTrainingContext()
+	]);
+	const { plan, calendar } = training;
+	const todayIso = isoDateLocal(new Date());
+	type Hint = { text: string; rank: number };
+	const hints = new Map<string, Hint>();
+
+	for (const link of links) {
+		if (link.kind !== 'plan' || link.plan_week == null || !link.plan_day) continue;
+		const date = dateForSessionDay(planWeekStartIso(link.plan_week, calendar), link.plan_day);
+		const weekRow = plan.find((w) => w.week === link.plan_week);
+		const session = weekRow?.sessions.find((s) => {
+			if (s.day.toLowerCase() !== link.plan_day!.toLowerCase()) return false;
+			if (link.plan_label && s.label !== link.plan_label) return false;
+			if (
+				link.plan_activity_type &&
+				normalizeActivityType(s.activity_type ?? 'run') !==
+					normalizeActivityType(link.plan_activity_type)
+			) {
+				return false;
+			}
+			return true;
+		});
+		const sessionLabel = session?.label || link.plan_label || 'Session';
+		const text = `Week ${link.plan_week} · ${link.plan_day} · ${sessionLabel}`;
+		let rank = 3;
+		if (date) {
+			if (date < todayIso) rank = 4;
+			else if (date === todayIso) rank = 0;
+			else rank = 1;
+		} else if (link.plan_week) rank = 2;
+		const prev = hints.get(link.route_slug);
+		if (!prev || rank < prev.rank) hints.set(link.route_slug, { text, rank });
+	}
+
+	const sorted = [...routes].sort((a, b) => {
+		const ra = hints.get(a.slug)?.rank ?? 5;
+		const rb = hints.get(b.slug)?.rank ?? 5;
+		if (ra !== rb) return ra - rb;
+		if (b.plan_link_count !== a.plan_link_count) return b.plan_link_count - a.plan_link_count;
+		return a.name.localeCompare(b.name);
+	});
+
+	return sorted.map((route) => {
+		const hint = hints.get(route.slug)?.text;
+		const km =
+			route.distance_km != null && !/\bkm\b/i.test(route.name)
+				? ` · ${route.distance_km} km`
+				: '';
+		const base = `${route.name}${km}`;
+		return {
+			slug: route.slug,
+			label: hint ? `${base} · ${hint}` : base
+		};
+	});
 });
 
 export const getPlannedRouteDetail = createServerFn({ method: 'GET' })

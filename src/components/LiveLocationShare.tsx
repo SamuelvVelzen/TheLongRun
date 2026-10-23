@@ -30,11 +30,10 @@ import {
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
 import {
 	getLiveLocation,
-	getPlannedRoutesData,
+	getLiveShareRouteOptions,
 	pingLiveLocation,
 	stopLiveLocation
 } from '$lib/server/functions';
-import type { PlannedRoute } from '$lib/types';
 import { setScreenWakeLock } from '$lib/wake-lock';
 import { liveShareHost, liveWatchCanvas, liveWatchMapShell, mapWrap } from '$lib/map-layout';
 import { cn } from '$lib/ui';
@@ -74,7 +73,7 @@ function LiveLocationBroadcaster() {
 	const [sharing, setSharing] = useState(false);
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [routeSlug, setRouteSlug] = useState('');
-	const [plannedRoutes, setPlannedRoutes] = useState<PlannedRoute[]>([]);
+	const [routeOptions, setRouteOptions] = useState<{ slug: string; label: string }[]>([]);
 	const sharingRef = useRef(false);
 	const routeSlugRef = useRef<string | null>(null);
 	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -148,9 +147,9 @@ function LiveLocationBroadcaster() {
 		if (!confirmOpen) return;
 		setRouteSlug(liveShareRouteSlug() ?? '');
 		let cancelled = false;
-		void getPlannedRoutesData()
-			.then((data) => {
-				if (!cancelled) setPlannedRoutes(data.routes);
+		void getLiveShareRouteOptions()
+			.then((options) => {
+				if (!cancelled) setRouteOptions(options);
 			})
 			.catch(() => {
 				/* routes picker is optional */
@@ -224,11 +223,11 @@ function LiveLocationBroadcaster() {
 						Anyone looking at this site will see where you are on the map. The pin updates about every
 						30 seconds while this app stays open. You can stop at any time.
 					</p>
-					{plannedRoutes.length > 0 ? (
+					{routeOptions.length > 0 ? (
 						<Field
 							as="div"
 							label="Show planned route (optional)"
-							hint="Watchers see this track on the map with your live pin."
+							hint="Plan-linked routes are listed first. Watchers see the track with your live pin."
 						>
 							<Select
 								value={routeSlug}
@@ -237,12 +236,9 @@ function LiveLocationBroadcaster() {
 								aria-label="Show planned route (optional)"
 								options={[
 									{ value: '', label: 'No route — pin only' },
-									...plannedRoutes.map((route) => ({
+									...routeOptions.map((route) => ({
 										value: route.slug,
-										label:
-											route.distance_km != null
-												? `${route.name} · ${route.distance_km} km`
-												: route.name
+										label: route.label
 									}))
 								]}
 							/>

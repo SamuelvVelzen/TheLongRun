@@ -1,25 +1,3 @@
-import {
-	Actions,
-	Button,
-	ConfirmDialog,
-	Dropzone,
-	Field,
-	Grid,
-	IconLabelButton,
-	PageHero,
-	Panel,
-	RunRow,
-	RunTitle,
-	SectionTitle,
-	Tag,
-	errorMessage,
-	useDiscardGuard,
-	useLeaveGuard,
-	useSnackbar
-} from '../components/ui';
-import { buttonClass } from '../components/ui/Button';
-import { dropzoneClass, runRowClass, runTitleClass } from '../components/ui/Chrome';
-import { reqClass } from '../components/ui/Field';
 import { AuthGate, useAuthed } from '$lib/auth';
 import {
 	createPlannedRoute,
@@ -31,18 +9,37 @@ import { appHead } from '$lib/title';
 import type { PlannedRoute } from '$lib/types';
 import { cn } from '$lib/ui';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
-import { lazy, Suspense, useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
-import { DeleteButton } from '../components/DeleteButton';
+import { DeleteButton, EditButton, TrashIcon } from '../components/DeleteButton';
 import { Icon } from '../components/Icon';
+import { MoreMenu } from '../components/MoreMenu';
 import { OpenRouteBadge } from '../components/OpenRouteBadge';
 import { MapPinIcon } from '../components/RouteChip';
 import type { RouteMeta } from '../components/RoutesHeatmap';
+import {
+	Actions,
+	Button,
+	ConfirmDialog,
+	errorMessage,
+	Field,
+	Grid,
+	IconLabelButton,
+	PageHero,
+	Panel,
+	SectionTitle,
+	Tag,
+	useDiscardGuard,
+	useLeaveGuard,
+	useSnackbar
+} from '../components/ui';
+import { dropzoneClass, runRowClass, runTitleClass } from '../components/ui/Chrome';
+import { reqClass } from '../components/ui/Field';
+import { WaypointEditor } from '../components/WaypointEditor';
 
 const RoutesHeatmap = lazy(() =>
 	import('../components/RoutesHeatmap').then((m) => ({ default: m.RoutesHeatmap }))
 );
-import { WaypointEditor } from '../components/WaypointEditor';
 
 type RoutesSearch = { draw?: boolean };
 
@@ -172,7 +169,11 @@ function PlannedRoutes() {
 		if (ok.length) {
 			await refreshRoutesList(router);
 			if (ok.length === 1 && ok[0]?.slug) {
-				await router.navigate({ to: '/routes/$slug', params: { slug: ok[0].slug } });
+				await router.navigate({
+					to: '/routes/$slug',
+					params: { slug: ok[0].slug },
+					resetScroll: true
+				});
 			}
 		}
 	}
@@ -209,7 +210,11 @@ function PlannedRoutes() {
 			allowNextLeave();
 			await refreshRoutesList(router);
 			allowNextLeave();
-			await router.navigate({ to: '/routes/$slug', params: { slug: result.slug } });
+			await router.navigate({
+				to: '/routes/$slug',
+				params: { slug: result.slug },
+				resetScroll: true
+			});
 		} catch (error) {
 			snack.error(errorMessage(error, 'Could not save route'));
 			setBusy(false);
@@ -220,6 +225,7 @@ function PlannedRoutes() {
 		<>
 			<PageHero
 				variant="quiet"
+				className="grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2"
 				kicker="Keep planned routes separate from completed activities"
 				title="Routes"
 				lead={
@@ -227,6 +233,18 @@ function PlannedRoutes() {
 						Draw a loop with pins, or import a <strong>GPX route</strong>. Open it later to attach
 						the same loop to upcoming plan days or a logged activity.
 					</p>
+				}
+				actionsClassName="justify-end! self-start max-sm:w-auto max-sm:[&>button]:flex-none max-sm:[&>button]:min-w-11"
+				actions={
+					authed && !drawing ? (
+						<IconLabelButton
+							label="Draw a route"
+							variant="primary"
+							size="default"
+							icon={<Icon name="map" size={16} />}
+							onClick={() => setDrawing(true)}
+						/>
+					) : null
 				}
 			/>
 
@@ -256,17 +274,8 @@ function PlannedRoutes() {
 								</Field>
 							</WaypointEditor>
 						</Panel>
-					) : (
-						<IconLabelButton
-							label="Draw a route"
-							variant="primary"
-							size="default"
-							className="justify-self-start"
-							icon={<Icon name="map" size={16} />}
-							onClick={() => setDrawing(true)}
-						/>
-					)}
-					{drawing ? null : (
+					) : null}
+					{!drawing ? (
 						<label
 							className={dropzoneClass(dragOver && true)}
 							onDragOver={(event) => {
@@ -305,7 +314,7 @@ function PlannedRoutes() {
 								You can also drop files here
 							</span>
 						</label>
-					)}
+					) : null}
 					{files.length > 0 && !drawing ? (
 						<>
 							<ul className="list-none m-0 p-0 grid gap-1.5">
@@ -486,12 +495,6 @@ function PlannedRouteRow({ route }: { route: PlannedRoute }) {
 	const snack = useSnackbar();
 	const [pendingDelete, setPendingDelete] = useState(false);
 
-	async function onDeleteRoute(event: MouseEvent) {
-		event.preventDefault();
-		event.stopPropagation();
-		setPendingDelete(true);
-	}
-
 	async function confirmDelete() {
 		try {
 			await deletePlannedRoute({ data: route.slug });
@@ -513,11 +516,21 @@ function PlannedRouteRow({ route }: { route: PlannedRoute }) {
 				role="link"
 				tabIndex={0}
 				title="Open route"
-				onClick={() => void router.navigate({ to: '/routes/$slug', params: { slug: route.slug } })}
+				onClick={() =>
+					void router.navigate({
+						to: '/routes/$slug',
+						params: { slug: route.slug },
+						resetScroll: true
+					})
+				}
 				onKeyDown={(event) => {
 					if (event.key === 'Enter' || event.key === ' ') {
 						event.preventDefault();
-						void router.navigate({ to: '/routes/$slug', params: { slug: route.slug } });
+						void router.navigate({
+							to: '/routes/$slug',
+							params: { slug: route.slug },
+							resetScroll: true
+						});
 					}
 				}}
 			>
@@ -537,11 +550,37 @@ function PlannedRouteRow({ route }: { route: PlannedRoute }) {
 				) : null}
 			</div>
 			<AuthGate>
-				<DeleteButton
-					className="absolute top-0 bottom-0 right-[0.55rem] z-[2] my-auto opacity-100 sm:opacity-55 group-hover:opacity-100"
-					label={`Delete route ${route.name}`}
-					onClick={(event) => void onDeleteRoute(event)}
-				/>
+				<div
+					className="absolute top-0 bottom-0 right-[0.55rem] z-[2] my-auto inline-flex items-center gap-1 opacity-100 sm:opacity-55 group-hover:opacity-100"
+					onClick={(e) => e.stopPropagation()}
+				>
+					<EditButton
+						compact
+						label={`Edit route ${route.name}`}
+						onClick={(event) => {
+							event.preventDefault();
+							event.stopPropagation();
+							void router.navigate({
+								to: '/routes/$slug',
+								params: { slug: route.slug },
+								search: { edit: true },
+								resetScroll: true
+							});
+						}}
+					/>
+					<MoreMenu
+						compact
+						label={`More for route ${route.name}`}
+						items={[
+							{
+								label: 'Delete',
+								icon: <TrashIcon className="size-4" />,
+								onClick: () => setPendingDelete(true),
+								danger: true
+							}
+						]}
+					/>
+				</div>
 			</AuthGate>
 			<ConfirmDialog
 				open={pendingDelete}

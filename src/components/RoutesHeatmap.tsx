@@ -128,7 +128,12 @@ export function RoutesHeatmap({
 						line.on('click', () => {
 							const handler = onRouteClickRef.current;
 							if (handler) handler(info.slug);
-							else navigate({ to: detailPath, params: { slug: info.slug } });
+							else
+								navigate({
+									to: detailPath,
+									params: { slug: info.slug },
+									resetScroll: true
+								});
 						});
 						const el = line.getElement?.();
 						if (el) el.style.cursor = 'pointer';

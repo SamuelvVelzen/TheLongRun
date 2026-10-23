@@ -72,7 +72,7 @@ export function FeelAiDialog({
 		setBusy(true);
 		setFailed(false);
 		setDebrief(null);
-		getDebriefPrompt({ data: { id: String(run.id), includePlan } }).then(
+		getDebriefPrompt({ data: { id: String(run.id), includePlan, idsOnly: true } }).then(
 			(next) => {
 				if (!cancelled) {
 					setDebrief(next);

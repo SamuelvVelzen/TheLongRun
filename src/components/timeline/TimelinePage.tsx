@@ -57,10 +57,10 @@ import { ActivityFilters } from '../ActivityFilters';
 import { BestEffortBadges, BestEffortBoard } from '../BestEffortBadges';
 import { type RangeSearch } from '../DateRangeFilter';
 import { DeferredData } from '../DeferredData';
-import { DeleteButton, EditButton, TrashIcon } from '../DeleteButton';
+import { EditButton, TrashIcon } from '../DeleteButton';
+import { MoreMenu } from '../MoreMenu';
 import { FeelBadge } from '../FeelBadge';
 import { ActivityTag, Icon } from '../Icon';
-import { MoreMenu } from '../MoreMenu';
 import {
 	matchesSportFilter,
 	parseSportSearch,
@@ -648,6 +648,7 @@ export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; group
 												<AuthGate>
 													<div className="absolute top-[0.65rem] right-[0.65rem] z-[2] inline-flex items-center gap-1 m-0 opacity-100 sm:opacity-55 hover:opacity-100 group-hover:opacity-100">
 														<EditButton
+															compact
 															label={`Edit ${activityLabel(item.run.activity_type).toLowerCase()} ${item.run.date}`}
 															onClick={(e) => {
 																e.preventDefault();
@@ -659,13 +660,17 @@ export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; group
 																});
 															}}
 														/>
-														<DeleteButton
-															label={`Delete ${activityLabel(item.run.activity_type).toLowerCase()} ${item.run.date}`}
-															onClick={(e) => {
-																e.preventDefault();
-																e.stopPropagation();
-																setPending(item.run);
-															}}
+														<MoreMenu
+															compact
+															label={`More for ${item.run.date}`}
+															items={[
+																{
+																	label: 'Delete',
+																	icon: <TrashIcon className="size-4" />,
+																	onClick: () => setPending(item.run),
+																	danger: true
+																}
+															]}
 														/>
 													</div>
 												</AuthGate>

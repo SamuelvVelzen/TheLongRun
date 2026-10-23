@@ -45,6 +45,8 @@ import {
 	useAppForm,
 	useSnackbar
 } from '../ui';
+import { DeleteButton } from '../DeleteButton';
+import { MoreMenu } from '../MoreMenu';
 import { buttonClass } from '../ui/Button';
 
 /** Kit shown in the open editor — strength has none. */
@@ -128,44 +130,47 @@ function ItemRow({
 				<p className={cn('text-muted', 'm-0 mt-1 text-[0.82rem]')}>{sub || 'No km logged yet'}</p>
 			</div>
 			{authed && (
-				<div className="flex flex-wrap gap-2">
-					{role !== 'active' && (
-						<button
-							type="button"
-							className={buttonClass({ variant: 'ghost', size: 'sm' })}
-							disabled={busy}
-							onClick={onSetActive}
-						>
-							{setActiveLabel}
-						</button>
-					)}
-					{role !== 'retired' ? (
-						<button
-							type="button"
-							className={buttonClass({ variant: 'ghost', size: 'sm' })}
-							disabled={busy}
-							onClick={onRetire}
-						>
-							Retire
-						</button>
-					) : (
-						<button
-							type="button"
-							className={buttonClass({ variant: 'ghost', size: 'sm' })}
-							disabled={busy}
-							onClick={onRestore}
-						>
-							Restore
-						</button>
-					)}
-					<button
-						type="button"
-						className={buttonClass({ variant: 'danger', size: 'sm' })}
+				<div className="inline-flex items-center gap-1 shrink-0">
+					<MoreMenu
+						compact
+						trigger="edit"
+						label={`Manage ${name}`}
+						items={[
+							...(role !== 'active'
+								? [
+										{
+											label: setActiveLabel,
+											icon: <Icon name="check" size={16} />,
+											onClick: onSetActive,
+											disabled: busy
+										}
+									]
+								: []),
+							...(role !== 'retired'
+								? [
+										{
+											label: 'Retire',
+											icon: <Icon name="skip" size={16} />,
+											onClick: onRetire,
+											disabled: busy
+										}
+									]
+								: [
+										{
+											label: 'Restore',
+											icon: <Icon name="undo" size={16} />,
+											onClick: onRestore,
+											disabled: busy
+										}
+									])
+						]}
+					/>
+					<DeleteButton
+						compact
 						disabled={busy}
+						label={`Remove ${name}`}
 						onClick={onRemove}
-					>
-						Remove
-					</button>
+					/>
 				</div>
 			)}
 		</div>

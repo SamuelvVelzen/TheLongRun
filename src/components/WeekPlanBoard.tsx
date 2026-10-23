@@ -16,7 +16,11 @@ import { useState } from 'react';
 import { ActivityIcon, Icon } from './Icon';
 import { PlanSessionBody } from './PlanSessionBody';
 import { PlanSessionMenu } from './PlanSessionMenu';
-import { PlanSessionRoute, PlanSessionRouteOpenLink } from './PlanSessionRoute';
+import {
+	PlanSessionRoute,
+	PlanSessionRouteOpenLink,
+	type PlanRoutePickerMode
+} from './PlanSessionRoute';
 
 function StatusBadge({
 	done,
@@ -140,6 +144,7 @@ export function PlannedSessionRow({
 	surface?: 'coach' | 'nextUp';
 }) {
 	const [routePickerOpen, setRoutePickerOpen] = useState(false);
+	const [routePickerMode, setRoutePickerMode] = useState<PlanRoutePickerMode>('link');
 	const [confirmUnlink, setConfirmUnlink] = useState(false);
 	const logSlug = session.done ? session.logSlug : null;
 	const linked = Boolean(session.route && !session.done);
@@ -182,7 +187,10 @@ export function PlannedSessionRow({
 			week={week}
 			session={session}
 			linked={linked}
-			onAddRoute={() => setRoutePickerOpen(true)}
+			onAddRoute={(mode) => {
+				setRoutePickerMode(mode);
+				setRoutePickerOpen(true);
+			}}
 			onUnlinkRoute={linked ? () => setConfirmUnlink(true) : undefined}
 			coachPlanWeek={coachPlanWeek}
 		/>
@@ -206,6 +214,7 @@ export function PlannedSessionRow({
 			session={session}
 			routes={routes}
 			pickerOpen={routePickerOpen}
+			pickerMode={routePickerMode}
 			onPickerClose={() => setRoutePickerOpen(false)}
 			confirmUnlink={confirmUnlink}
 			onConfirmUnlinkChange={setConfirmUnlink}
@@ -356,7 +365,7 @@ export function WeekPlanBoard({
 					)}
 				</p>
 			</div>
-			<div className="grid grid-cols-1 gap-3 min-[720px]:grid-cols-2">
+			<div className="grid grid-cols-1 items-start gap-3 min-[720px]:grid-cols-2 min-[720px]:items-stretch">
 				{visibleDays.map((group) => {
 					const onlyUnplanned = group.sessions.length === 0 && group.unplanned.length > 0;
 					const nextHere = group.sessions.some((s) => s.isNext);
@@ -365,7 +374,7 @@ export function WeekPlanBoard({
 						<article
 							key={group.day}
 							className={cn(
-								'flex flex-col gap-2.5 min-w-0 h-full min-h-0 p-[0.85rem_0.95rem] rounded-[14px] border',
+								'flex flex-col gap-2.5 min-w-0 p-[0.85rem_0.95rem] rounded-[14px] border min-[720px]:h-full min-[720px]:min-h-0',
 								nextHere
 									? 'border-[color-mix(in_srgb,var(--color-accent)_40%,var(--color-line))] bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-panel))]'
 									: onlyUnplanned
@@ -389,7 +398,7 @@ export function WeekPlanBoard({
 									</span>
 								) : null}
 							</header>
-							<div className="flex flex-col flex-1 gap-2.5 min-h-0">
+							<div className="flex flex-col gap-2.5 min-[720px]:flex-1 min-[720px]:min-h-0">
 								{group.sessions.map((session, i) => (
 									<PlannedSessionRow
 										key={`${session.day}-${session.label}-${i}`}

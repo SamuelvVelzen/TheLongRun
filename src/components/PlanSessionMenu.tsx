@@ -23,7 +23,7 @@ export function PlanSessionMenu({
 	week: number;
 	session: WeekSessionView;
 	linked: boolean;
-	onAddRoute: () => void;
+	onAddRoute: (mode: 'link' | 'create') => void;
 	onUnlinkRoute?: () => void;
 	/** Adds “Full week in Coach” to the menu (dashboard next up). */
 	coachPlanWeek?: number;
@@ -146,9 +146,15 @@ export function PlanSessionMenu({
 		...(canAddRoute
 			? [
 					{
-						label: 'Add route to plan',
+						label: 'Link saved route',
 						icon: <Icon name="routes" size={16} />,
-						onClick: onAddRoute,
+						onClick: () => onAddRoute('link'),
+						disabled: busy
+					},
+					{
+						label: 'Draw & link route',
+						icon: <Icon name="map" size={16} />,
+						onClick: () => onAddRoute('create'),
 						disabled: busy
 					}
 				]

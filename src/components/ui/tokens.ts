@@ -31,7 +31,8 @@ export const ui = {
 	heroHome: 'max-sm:hidden mt-3',
 	heroQuiet: 'mt-3 max-sm:mb-3 max-sm:gap-2',
 	heroMobileHideCopy: 'max-sm:hidden',
-	heroRoute: '[&_h1]:max-w-none [&_a]:text-accent-fg',
+	heroRoute:
+		'[&_h1]:max-w-none [&_h1]:text-[clamp(1.55rem,4.5vw,2.35rem)] max-sm:[&_h1]:text-[clamp(1.55rem,8vw,2.1rem)] [&_a]:text-accent-fg',
 	snackHost:
 		'fixed z-[60] inset-x-0 bottom-[calc(1.15rem+var(--safe-bottom))] flex flex-col-reverse items-center gap-[0.45rem] px-4 pointer-events-none max-sm:bottom-(--tab-bar-offset) max-sm:px-3',
 	snack:

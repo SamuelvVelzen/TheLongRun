@@ -13,6 +13,8 @@ export function PageHero({
 	copyClassName,
 	kickerClassName,
 	titleClassName,
+	titleRowClassName,
+	titleAside,
 	actionsClassName,
 	hideActionsOnMobile
 }: {
@@ -21,11 +23,14 @@ export function PageHero({
 	lead?: ReactNode;
 	children?: ReactNode;
 	actions?: ReactNode;
+	/** Toolbar beside the title (outside `h1` so it does not inherit display type). */
+	titleAside?: ReactNode;
 	variant?: 'default' | 'home' | 'quiet' | 'route';
 	className?: string;
 	copyClassName?: string;
 	kickerClassName?: string;
 	titleClassName?: string;
+	titleRowClassName?: string;
 	actionsClassName?: string;
 	hideActionsOnMobile?: boolean;
 }) {
@@ -47,7 +52,14 @@ export function PageHero({
 						{kicker}
 					</p>
 				) : null}
-				<h1 className={titleClassName}>{title}</h1>
+				{titleAside ? (
+					<div className={cn('flex items-center justify-between gap-3', titleRowClassName)}>
+						<h1 className={cn('min-w-0', titleClassName)}>{title}</h1>
+						<div className="flex shrink-0 items-center gap-2">{titleAside}</div>
+					</div>
+				) : (
+					<h1 className={titleClassName}>{title}</h1>
+				)}
 				{lead == null ? null : typeof lead === 'string' || typeof lead === 'number' ? (
 					<p className={mobileTitleOnly ? ui.heroMobileHideCopy : undefined}>{lead}</p>
 				) : (
@@ -61,7 +73,7 @@ export function PageHero({
 				<div
 					className={cn(
 						ui.actions,
-						(mobileTitleOnly || hideActionsOnMobile) && 'max-sm:hidden',
+						hideActionsOnMobile && 'max-sm:hidden',
 						actionsClassName
 					)}
 				>

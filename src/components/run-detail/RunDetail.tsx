@@ -251,12 +251,15 @@ export function RunDetail() {
 					</>
 				}
 				titleClassName={runTitleClass}
-				actionsClassName="justify-end! max-sm:w-auto max-sm:[&>button]:flex-none max-sm:[&>button]:min-w-11"
+				actionsClassName="justify-end! items-center! gap-2! max-sm:w-auto max-sm:[&>button]:flex-none max-sm:[&>details]:flex-none"
 				actions={
 					!editing ? (
 						<>
-							{authed && <EditButton label="Edit activity" onClick={startEditing} />}
+							{authed && (
+								<EditButton compact label="Edit activity" onClick={startEditing} />
+							)}
 							<MoreMenu
+								compact
 								items={[
 									...(authed
 										? [

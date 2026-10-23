@@ -7,7 +7,8 @@ import { Button, buttonClass, type ButtonSize, type ButtonVariant } from './Butt
 const iconLabelMobile =
 	'max-sm:min-w-11 max-sm:w-11 max-sm:px-0 max-sm:justify-center max-sm:gap-0';
 
-const compactIcon =
+/** Matches compact `EditButton` / `DeleteButton` — shared with `MoreMenu` triggers. */
+export const compactIconButtonClass =
 	'size-8 min-h-8! min-w-8 p-0! px-0! py-0! rounded-full leading-none shrink-0 self-center box-border max-sm:flex-none max-sm:size-8 max-sm:min-h-8! max-sm:min-w-8 max-sm:p-0! max-sm:px-0! max-sm:py-0!';
 
 /** Ghost toolbar control: icon + label on `sm+`, icon-only on mobile (label stays in `aria-label`). */
@@ -94,7 +95,7 @@ export function EditButton({
 		<Button
 			variant="ghost"
 			size={compact ? 'default' : 'icon'}
-			className={cn(compact && compactIcon, className)}
+			className={cn(compact && compactIconButtonClass, className)}
 			aria-label={label}
 			title={label}
 			disabled={disabled}
@@ -122,7 +123,7 @@ export function DeleteButton({
 		<Button
 			variant="danger"
 			size={compact ? 'default' : 'icon'}
-			className={cn(compact && compactIcon, className)}
+			className={cn(compact && compactIconButtonClass, className)}
 			aria-label={label}
 			title={label}
 			disabled={disabled}

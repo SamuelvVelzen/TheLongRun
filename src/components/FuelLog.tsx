@@ -21,7 +21,9 @@ import { FuelAddDialog } from './FuelAddDialog';
 import { FuelDescribeDialog } from './FuelDescribeDialog';
 import { FuelEntryForm } from './FuelEntryForm';
 import { FuelTryLine } from './FuelParts';
+import { EditButton, TrashIcon } from './DeleteButton';
 import { Icon } from './Icon';
+import { MoreMenu } from './MoreMenu';
 import {
 	Actions,
 	Button,
@@ -142,24 +144,27 @@ function FuelGroupRow({
 							meta={tryMeta(entry, runsBySlug)}
 							actions={
 								authed ? (
-									<>
-										<button
-											type="button"
-											className={buttonClass({ variant: 'ghost', size: 'sm' })}
+									<div className="inline-flex items-center gap-1 shrink-0">
+										<EditButton
+											compact
 											disabled={busy}
+											label={`Edit ${entry.item || 'try'}`}
 											onClick={() => onEdit(entry.id)}
-										>
-											Edit
-										</button>
-										<button
-											type="button"
-											className={buttonClass({ variant: 'danger', size: 'sm' })}
-											disabled={busy}
-											onClick={() => onRemove(entry)}
-										>
-											Remove
-										</button>
-									</>
+										/>
+										<MoreMenu
+											compact
+											label={`More for ${entry.item || 'try'}`}
+											items={[
+												{
+													label: 'Remove',
+													icon: <TrashIcon className="size-4" />,
+													onClick: () => onRemove(entry),
+													danger: true,
+													disabled: busy
+												}
+											]}
+										/>
+									</div>
 								) : null
 							}
 						/>

@@ -15,7 +15,9 @@ import {
 } from '$lib/wardrobe';
 import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import { DeleteButton, EditButton, TrashIcon } from './DeleteButton';
 import { Icon } from './Icon';
+import { MoreMenu } from './MoreMenu';
 import { WardrobeAddDialog } from './WardrobeAddDialog';
 import { WardrobeAiDialog } from './WardrobeAiDialog';
 import { ClothingForm } from './WardrobeClothingForm';
@@ -77,22 +79,25 @@ function ClothingRow({
 					>
 						+
 					</button>
-					<button
-						type="button"
-						className={buttonClass({ variant: 'ghost', size: 'sm' })}
+					<EditButton
+						compact
 						disabled={busy}
+						label={`Edit ${item.name}`}
 						onClick={onEdit}
-					>
-						Edit
-					</button>
-					<button
-						type="button"
-						className={buttonClass({ variant: 'danger', size: 'sm' })}
-						disabled={busy}
-						onClick={onRemove}
-					>
-						Remove
-					</button>
+					/>
+					<MoreMenu
+						compact
+						label={`More for ${item.name}`}
+						items={[
+							{
+								label: 'Remove',
+								icon: <TrashIcon className="size-4" />,
+								onClick: onRemove,
+								danger: true,
+								disabled: busy
+							}
+						]}
+					/>
 				</div>
 			)}
 		</div>

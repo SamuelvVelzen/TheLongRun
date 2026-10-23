@@ -15,7 +15,9 @@ import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { BodyNoteLine } from './BodyNoteParts';
+import { EditButton, TrashIcon } from './DeleteButton';
 import { Icon } from './Icon';
+import { MoreMenu } from './MoreMenu';
 import {
 	Actions,
 	Button,
@@ -209,24 +211,27 @@ export function BodyNotesPanel({ initial, authed }: { initial: BodyNotes; authed
 				note={n}
 				actions={
 					authed ? (
-						<>
-							<button
-								type="button"
-								className={buttonClass({ variant: 'ghost', size: 'sm' })}
+						<div className="inline-flex items-center gap-1 shrink-0">
+							<EditButton
+								compact
 								disabled={busy}
+								label={`Edit ${n.area} note`}
 								onClick={() => setEditing(n)}
-							>
-								Edit
-							</button>
-							<button
-								type="button"
-								className={buttonClass({ variant: 'danger', size: 'sm' })}
-								disabled={busy}
-								onClick={() => setRemove(n)}
-							>
-								Remove
-							</button>
-						</>
+							/>
+							<MoreMenu
+								compact
+								label={`More for ${n.area} note`}
+								items={[
+									{
+										label: 'Remove',
+										icon: <TrashIcon className="size-4" />,
+										onClick: () => setRemove(n),
+										danger: true,
+										disabled: busy
+									}
+								]}
+							/>
+						</div>
 					) : null
 				}
 			/>

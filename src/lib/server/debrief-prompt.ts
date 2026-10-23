@@ -5,41 +5,25 @@ import {
 	showsFeel,
 	showsField
 } from '$lib/activity';
-import {
-	computeBestEffortsFromSplits,
-	distanceLabel,
-	formatEffortTime,
-	supportsBestEfforts
-} from '$lib/best-efforts';
+import { distanceLabel, formatEffortTime, supportsBestEfforts } from '$lib/best-efforts';
+import { bodyScoreRows } from '$lib/body-scores';
+import { debriefUnitLead, debriefUnitSlug, type DebriefSessionUnit } from '$lib/debrief-group';
 import type { DebriefRaceHint } from '$lib/debrief-types';
-import {
-	debriefUnitLead,
-	debriefUnitSlug,
-	type DebriefSessionUnit
-} from '$lib/debrief-group';
-import {
-	activityLooksLikeRace,
-	canPinRaceResult
-} from '$lib/goals';
+import { activityLooksLikeRace, canPinRaceResult } from '$lib/goals';
 import { combineRunStats, groupedSessionTitle, groupMembership } from '$lib/group';
 import {
 	buildWeekView,
-	formatUnplannedBrief,
-	planWeekDateRange,
-	planWeekStartIso,
 	weekNumberForDate,
 	type PlanCalendar,
 	type WeekSessionView
 } from '$lib/plan';
-import { feelCell, feelScale, joinSections, section, tidyPrompt } from '$lib/prompt';
+import { feelCell } from '$lib/prompt';
 import { workoutMarkdown, workoutSummary } from '$lib/run-workout';
 import type { RouteAnalytics } from '$lib/splits';
-import { withEffectiveHrZones } from '$lib/splits';
-import type { BodyArea, PlanWeek, RunRecord } from '$lib/types';
-import { bodyScoreRows } from '$lib/body-scores';
 import { parseStrengthNotes } from '$lib/strength';
+import type { BodyArea, PlanWeek, RunRecord } from '$lib/types';
 import { notesForBriefRow } from './coach-brief';
-import { byDateNewestFirst, isImportNote } from './run-sort';
+import { isImportNote } from './run-sort';
 
 export function hasFeel(r: RunRecord): boolean {
 	const t = normalizeActivityType(r.activity_type);
@@ -99,8 +83,8 @@ export function splitKmLabel(s: RouteAnalytics['splits'][number]): string {
 export function formatKmSplitsLines(splits: RouteAnalytics['splits']): string[] {
 	if (!splits.length) return [];
 	const lines: string[] = [];
-	for (let i = 0; i < splits.length; i += DEBRIEF_SPLITS_CHUNK_KM) {
-		const chunk = splits.slice(i, i + DEBRIEF_SPLITS_CHUNK_KM);
+	for (let i = 0; i < splits.length; i += DEBRIEF_CHUNK_KM) {
+		const chunk = splits.slice(i, i + DEBRIEF_CHUNK_KM);
 		const first = chunk[0]!;
 		const last = chunk[chunk.length - 1]!;
 		const start = splitKmLabel(first);
@@ -177,7 +161,11 @@ export function formatDebriefCombinedGpsFacts(stats: ReturnType<typeof combineRu
 	if (!stats.mixed && showsField(stats.activity_type, 'elevation') && stats.elev_gain != null) {
 		parts.push(`+${stats.elev_gain} m`);
 	}
-	if (!stats.mixed && showsField(stats.activity_type, 'hr') && (stats.avg_hr != null || stats.max_hr != null)) {
+	if (
+		!stats.mixed &&
+		showsField(stats.activity_type, 'hr') &&
+		(stats.avg_hr != null || stats.max_hr != null)
+	) {
 		parts.push(`HR ${stats.avg_hr ?? '–'}/${stats.max_hr ?? '–'}`);
 	}
 	if (stats.mixed) parts.push(`mixed: ${stats.types.map((x) => activityLabel(x)).join(' + ')}`);

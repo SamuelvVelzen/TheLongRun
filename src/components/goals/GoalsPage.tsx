@@ -19,6 +19,8 @@ import { useState } from 'react';
 import { DeferredData } from '../DeferredData';
 import { GoalDialog } from '../GoalDialog';
 import { Icon } from '../Icon';
+import { MoreMenu } from '../MoreMenu';
+import { TrashIcon } from '../DeleteButton';
 import { MedalDialog } from '../MedalDialog';
 import { PinRaceResult } from '../PinRaceResult';
 import { RouteLine } from '../RouteLine';
@@ -579,10 +581,12 @@ function ActiveGoalCard({
 	onEdit: () => void;
 	onClear: () => void;
 }) {
+	const router = useRouter();
 	const days = daysUntil(goal.date);
 	return (
 		<Panel className="mb-6 grid gap-4">
-			<div>
+			<div className="flex items-start justify-between gap-3">
+			<div className="min-w-0">
 				<p className="m-0 inline-flex items-center gap-1.5 text-accent-fg font-bold text-[0.72rem] tracking-[0.08em] uppercase">
 					<Icon name="flag" size={14} />
 					Active
@@ -590,6 +594,30 @@ function ActiveGoalCard({
 				<h2 className="font-display text-[1.7rem] tracking-[-0.03em] m-0 mt-1">{goal.name}</h2>
 				<p className={cn('text-muted', 'm-0 mt-1')}>{goalSummaryLine(goal)}</p>
 				<GoalUrlLinks url={goal.url} itineraryUrl={goal.itinerary_url} />
+			</div>
+			{authed ? (
+				<MoreMenu
+					label="Active goal actions"
+					items={[
+						{
+							label: 'Edit',
+							icon: <Icon name="pencil" size={16} />,
+							onClick: onEdit
+						},
+						{
+							label: 'Plan',
+							icon: <Icon name="board" size={16} />,
+							onClick: () => void router.navigate({ to: '/coach', search: { tab: 'plan' } })
+						},
+						{
+							label: 'Clear',
+							icon: <TrashIcon className="size-4" />,
+							onClick: onClear,
+							danger: true
+						}
+					]}
+				/>
+			) : null}
 			</div>
 			<div className="flex flex-wrap gap-6">
 				<div>
@@ -626,29 +654,6 @@ function ActiveGoalCard({
 			{goal.notes ? (
 				<p className={cn('text-muted', 'm-0 whitespace-pre-wrap')}>{goal.notes}</p>
 			) : null}
-			{authed && (
-				<Actions className="justify-start!">
-					<IconLabelButton
-						label="Edit"
-						size="default"
-						icon={<Icon name="pencil" size={16} />}
-						onClick={onEdit}
-					/>
-					<button className={buttonClass({ variant: 'danger' })} type="button" onClick={onClear}>
-						Clear
-					</button>
-					<Link
-						className={buttonClass({ variant: 'ghost', size: 'default' })}
-						to="/coach"
-						search={{ tab: 'plan' }}
-						aria-label="Plan"
-						title="Plan"
-					>
-						<Icon name="board" size={16} />
-						<span className="max-sm:hidden">Plan</span>
-					</Link>
-				</Actions>
-			)}
 			{authed && canPinRaceResult(goal) && <PinRaceResult goal={goal} candidates={candidates} />}
 		</Panel>
 	);

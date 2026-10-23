@@ -19,8 +19,9 @@ import { cn } from '$lib/ui';
 import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
-import { DeleteButton, EditButton } from '../components/DeleteButton';
+import { EditButton, TrashIcon } from '../components/DeleteButton';
 import { Icon } from '../components/Icon';
+import { MoreMenu, type MoreMenuItem } from '../components/MoreMenu';
 import { OpenRouteBadge } from '../components/OpenRouteBadge';
 import { PlannedRouteMap } from '../components/PlannedRouteMap';
 import { RouteAttach } from '../components/RouteAttach';
@@ -30,13 +31,11 @@ import {
 	ChangeReporter,
 	ConfirmDialog,
 	Form,
-	IconLabelButton,
 	Metric,
 	Metrics,
 	PageHero,
 	Panel,
 	PanelTitle,
-	RunTitle,
 	errorMessage,
 	useAppForm,
 	useDiscardGuard,
@@ -47,7 +46,12 @@ import { buttonClass } from '../components/ui/Button';
 import { runTitleClass } from '../components/ui/Chrome';
 import { WaypointEditor, type WaypointEditorHandle } from '../components/WaypointEditor';
 
+type RouteSearch = { edit?: boolean };
+
 export const Route = createFileRoute('/routes/$slug')({
+	validateSearch: (s: Record<string, unknown>): RouteSearch => ({
+		edit: s.edit === true || s.edit === 'true' || s.edit === '1' ? true : undefined
+	}),
 	loader: async ({ params }) => {
 		const route = await getPlannedRouteDetail({ data: params.slug });
 		if (!route) throw notFound();
@@ -59,11 +63,12 @@ export const Route = createFileRoute('/routes/$slug')({
 
 function PlannedRouteDetail() {
 	const route = Route.useLoaderData();
+	const { edit: editFromSearch } = Route.useSearch();
 	const router = useRouter();
 	const authed = useAuthed();
 	const snack = useSnackbar();
 	const pathRef = useRef<WaypointEditorHandle>(null);
-	const [editing, setEditing] = useState(false);
+	const [editing, setEditing] = useState(() => authed && Boolean(editFromSearch));
 	const [pendingDelete, setPendingDelete] = useState(false);
 	/** False until the name/notes form actually differs from its defaults. */
 	const [formDirty, setFormDirty] = useState(false);
@@ -107,7 +112,7 @@ function PlannedRouteDetail() {
 					}
 				});
 				snack.success('Route saved.');
-				setEditing(false);
+				leaveEditing();
 				await router.invalidate();
 			} catch (error) {
 				snack.error(errorMessage(error, 'Save failed'));
@@ -118,7 +123,7 @@ function PlannedRouteDetail() {
 		dirty: editDirty,
 		onDiscard: () => {
 			form.reset({ name: route.name, notes: route.notes });
-			setEditing(false);
+			leaveEditing();
 		},
 		title: 'Discard these changes?',
 		description: 'Your pin and text edits will be lost.'
@@ -147,9 +152,35 @@ function PlannedRouteDetail() {
 		setPinsDirty(false);
 	}, [editing, route.name, route.notes]);
 
+	useEffect(() => {
+		if (!editFromSearch || !authed) return;
+		form.reset({ name: route.name, notes: route.notes });
+		setEditing(true);
+	}, [editFromSearch, authed, route.name, route.notes, form]);
+
 	function startEditing() {
 		form.reset({ name: route.name, notes: route.notes });
 		setEditing(true);
+		void router.navigate({
+			to: '/routes/$slug',
+			params: { slug: route.slug },
+			search: { edit: true },
+			replace: true,
+			resetScroll: false
+		});
+	}
+
+	function leaveEditing() {
+		setEditing(false);
+		if (editFromSearch) {
+			void router.navigate({
+				to: '/routes/$slug',
+				params: { slug: route.slug },
+				search: {},
+				replace: true,
+				resetScroll: false
+			});
+		}
 	}
 
 	function remove() {
@@ -202,6 +233,53 @@ function PlannedRouteDetail() {
 			{location ? ` · ${location}` : ''} · saved {route.saved_on}
 		</>
 	);
+
+	const downloadGpxItem: MoreMenuItem = {
+		label: 'Download GPX',
+		icon: <Icon name="download" size={16} />,
+		onClick: () => downloadPlannedRouteGpx(route.name, route.geojson, route.waypoints)
+	};
+
+	const mobileRouteMenuItems: MoreMenuItem[] = [
+		{
+			label: 'Apple Maps',
+			icon: <Icon name="map" size={16} />,
+			onClick: openAppleMaps
+		},
+		{
+			label: 'Open in BRouter',
+			icon: <Icon name="routes" size={16} />,
+			onClick: openInBrouter
+		},
+		...(authed
+			? [
+					{
+						label: 'Edit route',
+						icon: <Icon name="pencil" size={16} />,
+						onClick: startEditing
+					},
+					downloadGpxItem,
+					{
+						label: 'Delete',
+						icon: <TrashIcon className="size-4" />,
+						onClick: remove,
+						danger: true
+					}
+				]
+			: [])
+	];
+
+	const desktopMoreItems: MoreMenuItem[] = authed
+		? [
+				downloadGpxItem,
+				{
+					label: 'Delete',
+					icon: <TrashIcon className="size-4" />,
+					onClick: remove,
+					danger: true
+				}
+			]
+		: [];
 
 	return (
 		<>
@@ -291,6 +369,50 @@ function PlannedRouteDetail() {
 							</>
 						}
 						titleClassName={runTitleClass}
+						titleRowClassName="w-full"
+						titleAside={
+							<>
+								{mobileRouteMenuItems.length > 0 ? (
+									<div className="sm:hidden">
+										<MoreMenu compact items={mobileRouteMenuItems} />
+									</div>
+								) : null}
+								<div className="hidden items-center gap-2 sm:flex">
+									<button
+										className={buttonClass({
+											variant: mapsPref === 'apple' ? 'primary' : 'ghost',
+											size: 'sm'
+										})}
+										type="button"
+										onClick={openAppleMaps}
+									>
+										<Icon name="map" size={16} />
+										Apple Maps
+										<Icon name="external" size={13} />
+									</button>
+									<button
+										className={buttonClass({
+											variant: mapsPref === 'desktop' ? 'primary' : 'ghost',
+											size: 'sm'
+										})}
+										type="button"
+										onClick={openInBrouter}
+									>
+										<Icon name="routes" size={16} />
+										Open in BRouter
+										<Icon name="external" size={13} />
+									</button>
+									{authed ? (
+										<>
+											<EditButton label="Edit route" onClick={startEditing} />
+											{desktopMoreItems.length > 0 ? (
+												<MoreMenu items={desktopMoreItems} />
+											) : null}
+										</>
+									) : null}
+								</div>
+							</>
+						}
 						lead={
 							<>
 								<p>{route.notes || 'Planned route.'}</p>
@@ -299,63 +421,12 @@ function PlannedRouteDetail() {
 										Start and finish are {formatStraightLineGap(openGap)} apart from each other.
 									</p>
 								)}
-							</>
-						}
-						actionsClassName="justify-start! max-sm:order-3 max-sm:mt-1 max-sm:mb-4"
-						actions={
-							<>
-								<button
-									className={cn(
-										buttonClass({ variant: mapsPref === 'apple' ? 'primary' : 'ghost' }),
-										'max-sm:min-w-11 max-sm:w-11 max-sm:px-0 max-sm:justify-center max-sm:gap-0'
-									)}
-									type="button"
-									aria-label="Apple Maps"
-									title="Apple Maps"
-									onClick={openAppleMaps}
-								>
-									<Icon name="map" size={16} />
-									<span className="max-sm:hidden">Apple Maps</span>
-									<Icon name="external" size={13} className="max-sm:hidden" />
-								</button>
-								<button
-									className={cn(
-										buttonClass({ variant: mapsPref === 'desktop' ? 'primary' : 'ghost' }),
-										'max-sm:min-w-11 max-sm:w-11 max-sm:px-0 max-sm:justify-center max-sm:gap-0'
-									)}
-									type="button"
-									aria-label="Open in BRouter"
-									title="Open in BRouter"
-									onClick={openInBrouter}
-								>
-									<Icon name="routes" size={16} />
-									<span className="max-sm:hidden">Open in BRouter</span>
-									<Icon name="external" size={13} className="max-sm:hidden" />
-								</button>
-								{authed && (
-									<IconLabelButton
-										label="Download GPX"
-										size="default"
-										icon={<Icon name="download" size={16} />}
-										onClick={() =>
-											downloadPlannedRouteGpx(route.name, route.geojson, route.waypoints)
-										}
-									/>
-								)}
-								{authed && (
-									<>
-										<EditButton label="Edit route" onClick={startEditing} />
-										<DeleteButton label={`Delete route ${route.name}`} onClick={remove} />
-									</>
-								)}
-								{appleMapsUrl && (
-									<p
-										className={cn('text-muted', 'mt-3 mb-0 max-w-[36ch] text-[0.92rem] basis-full')}
-									>
+								{appleMapsUrl ? (
+									<p className={cn('text-muted', 'mb-0 max-w-[36ch] text-[0.92rem] max-sm:hidden')}>
 										Opens a pin at the start. Tap it, then Create a Custom Route, and tap along the
 										trail.
 									</p>
-								)}
+								) : null}
 							</>
 						}
 					/>

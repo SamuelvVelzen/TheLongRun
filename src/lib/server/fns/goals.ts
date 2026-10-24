@@ -2,12 +2,37 @@ import { activityLabel, normalizeActivityType } from '$lib/activity';
 import { formatUsualHabitsSection } from '$lib/activity-habits';
 import { dateRangeFromSearch, filterRunsByRange } from '$lib/date-range';
 import { formatFuelSection } from '$lib/fuel';
-import { canPinRaceResult, formatHorizonLabel, isRaceGoal, normalizeGoalInput, normalizeGoalUrl, openIntentions, pickSoonestOpenGoal, pinCandidatesForGoal, resultFromActivity, type GoalInput, type MedalDetailsInput } from '$lib/goals';
+import {
+	canPinRaceResult,
+	formatHorizonLabel,
+	isRaceGoal,
+	normalizeGoalInput,
+	normalizeGoalUrl,
+	openIntentions,
+	pickSoonestOpenGoal,
+	pinCandidatesForGoal,
+	resultFromActivity,
+	type GoalInput,
+	type MedalDetailsInput
+} from '$lib/goals';
 import { calendarFromGoal, daysUntil, isoDateLocal } from '$lib/plan';
 import { BODY_SAFETY_RULE, formatBodyNotesSection, formatCoachNotesSection } from '$lib/body-notes';
 import { buildPaceProfile, formatPaceSection } from '$lib/pace-profile';
 import { feelScale, joinSections, section, tidyPrompt } from '$lib/prompt';
-import type { ActivityAttachOption, ActivityGroupInfo, Goal, PlanAttachOption, PlannedRoute, PlannedRouteActivityLink, PlannedRoutePlanLink, PlanWeek, RouteTrack, RunRecord, RunWithMap, SessionRouteRef } from '$lib/types';
+import type {
+	ActivityAttachOption,
+	ActivityGroupInfo,
+	Goal,
+	PlanAttachOption,
+	PlannedRoute,
+	PlannedRouteActivityLink,
+	PlannedRoutePlanLink,
+	PlanWeek,
+	RouteTrack,
+	RunRecord,
+	RunWithMap,
+	SessionRouteRef
+} from '$lib/types';
 import { loadProfile } from '../profile';
 import type { ActivityFeelInput, DebriefRaceHint } from '$lib/debrief-types';
 import type { GoalBriefDraft } from '$lib/goal-brief';
@@ -15,13 +40,24 @@ import type { PlanPeekData } from '$lib/plan-peek';
 import type { CreateRunInput, UpdateRunInput } from '$lib/run-input';
 import { createServerFn } from '@tanstack/react-start';
 import { requireAuth } from '../auth';
-import { loadActivityHabits, loadFuelLog, loadGoalStore, loadPlan, loadTrainingContext, saveGoalStore, savePlan } from '../context';
+import {
+	loadActivityHabits,
+	loadFuelLog,
+	loadGoalStore,
+	loadPlan,
+	loadTrainingContext,
+	saveGoalStore,
+	savePlan
+} from '../context';
 import { routeIdForRun } from '../route-analytics';
 import { listRouteTracks } from '../routes';
 import { getRun, listRuns } from '../runs';
 import { byDateNewestFirst } from '../run-sort';
 import { fuelRunRefs } from '../fuel-prompt';
 import { allTimeSummarySection, briefTableRow, BRIEF_TABLE_HEAD } from '../coach-brief';
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_HORIZON_RE = /^\d{4}-\d{2}$/;
 
 // ---------- reads ----------
 

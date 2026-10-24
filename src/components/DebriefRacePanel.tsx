@@ -1,4 +1,4 @@
-import type { DebriefRaceHint } from '$lib/server/functions';
+import type { DebriefRaceHint } from '$lib/debrief-types';
 import { completeGoal } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import { Link } from '@tanstack/react-router';

@@ -21,7 +21,8 @@ import { feelCell } from '$lib/prompt';
 import { workoutMarkdown, workoutSummary } from '$lib/run-workout';
 import type { RouteAnalytics } from '$lib/splits';
 import { parseStrengthNotes } from '$lib/strength';
-import type { BodyArea, PlanWeek, RunRecord } from '$lib/types';
+import type { BodyArea } from '$lib/body-scores';
+import type { PlanWeek, RunRecord } from '$lib/types';
 import { notesForBriefRow } from './coach-brief';
 import { isImportNote } from './run-sort';
 

@@ -42,10 +42,6 @@ import {
 	SectionTitle
 } from '../components/ui';
 import type { RouteMeta } from '../components/RoutesHeatmap';
-
-const RoutesHeatmap = lazy(() =>
-	import('../components/RoutesHeatmap').then((m) => ({ default: m.RoutesHeatmap }))
-);
 import {
 	matchesSportFilter,
 	parseSportSearch,
@@ -56,6 +52,10 @@ import { TrendsSection } from '../components/TrendsSection';
 
 import { buttonClass } from '../components/ui/Button';
 import { runRowClass } from '../components/ui/Chrome';
+
+const RoutesHeatmap = lazy(() =>
+	import('../components/RoutesHeatmap').then((m) => ({ default: m.RoutesHeatmap }))
+);
 
 type DashSearch = RangeSearch & {
 	sport?: string;
@@ -220,7 +220,7 @@ function DashboardBody({
 				lead={
 					<p>
 						Stats, maps, and this week’s plan live here.{' '}
-						<Link className="text-accent-fg font-semibold" to="/goals">
+						<Link className="font-semibold text-accent-fg" to="/goals">
 							Goals
 						</Link>{' '}
 						hold the race — and the medals after.
@@ -247,7 +247,7 @@ function DashboardBody({
 							<SignInLink
 								className={cn(
 									buttonClass({ variant: 'ghost' }),
-									'max-sm:min-w-11 max-sm:w-11 max-sm:px-0 max-sm:justify-center max-sm:gap-0'
+									'max-sm:w-11 max-sm:min-w-11 max-sm:justify-center max-sm:gap-0 max-sm:px-0'
 								)}
 								aria-label="Sign in to edit"
 								title="Sign in to edit"
@@ -283,11 +283,11 @@ function DashboardBody({
 			) : (
 				<>
 					<section
-						className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-0 mb-[0.55rem] py-[0.85rem] border-y border-line max-sm:grid-cols-3 max-sm:gap-y-[0.85rem] max-sm:py-3"
+						className="mb-[0.55rem] grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-0 border-y border-line py-[0.85rem] max-sm:grid-cols-3 max-sm:gap-y-[0.85rem] max-sm:py-3"
 						aria-label="Training stats"
 					>
 						<div className={statsItem}>
-							<span className={cn(statsLabel, 'text-accent-fg font-semibold')}>
+							<span className={cn(statsLabel, 'font-semibold text-accent-fg')}>
 								{data.activeGoal
 									? raceDays != null && raceDays < 0
 										? `Since ${data.activeGoal.name}`
@@ -299,7 +299,7 @@ function DashboardBody({
 											: 'Next race'}
 							</span>
 							<strong
-								className={cn(statsValue, 'text-accent-fg text-[2.1rem] max-sm:text-[1.7rem]')}
+								className={cn(statsValue, 'text-[2.1rem] text-accent-fg max-sm:text-[1.7rem]')}
 							>
 								{data.activeGoal ? (
 									raceDays == null ? (
@@ -320,7 +320,7 @@ function DashboardBody({
 								)}
 							</strong>
 							{data.activeGoal || data.nextIntention || data.lastMedal ? (
-								<Link className="text-[0.78rem] text-accent-fg font-semibold" to="/goals">
+								<Link className="text-[0.78rem] font-semibold text-accent-fg" to="/goals">
 									{data.activeGoal && raceDays != null && raceDays < 0
 										? 'Pin result'
 										: data.activeGoal && raceDays != null
@@ -412,7 +412,7 @@ function DashboardBody({
 								</p>
 							</div>
 						</SectionTitle>
-						<Suspense fallback={<p className="text-muted text-sm py-8 text-center">Loading map…</p>}>
+						<Suspense fallback={<p className="py-8 text-center text-sm text-muted">Loading map…</p>}>
 							<RoutesHeatmap
 								tracks={tracks}
 								meta={routeMeta}
@@ -473,7 +473,7 @@ function DashboardBody({
 										style={{ animationDelay: `${i * 40}ms` }}
 									>
 										<ActivityMark type={item.stats.activity_type} />
-										<span className="min-w-0 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-[0.1rem] items-baseline">
+										<span className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-[0.1rem]">
 											<RunTitle>
 												{groupedSessionTitle(item.group, item.members.length, item.stats.date)}
 												{item.members.some((m) => m.has_map) && (
@@ -487,7 +487,7 @@ function DashboardBody({
 													</MapBadge>
 												)}
 											</RunTitle>
-											<span className="font-[650] tracking-[-0.02em] justify-self-end text-right max-sm:text-[0.95rem]">
+											<span className="justify-self-end text-right font-[650] tracking-[-0.02em] max-sm:text-[0.95rem]">
 												{showsField(item.stats.activity_type, 'distance')
 													? `${item.stats.distance_km ?? '—'} km · ${metricText(item.stats)}`
 													: metricText(item.stats)}
@@ -495,7 +495,7 @@ function DashboardBody({
 											<span
 												className={cn(
 													'text-muted',
-													'text-[0.8rem] col-span-full max-sm:text-[0.76rem]'
+													'col-span-full text-[0.8rem] max-sm:text-[0.76rem]'
 												)}
 											>
 												{`${item.members.length} parts · ${item.stats.types.map((t) => activityLabel(t)).join(' + ')}`}
@@ -511,7 +511,7 @@ function DashboardBody({
 										style={{ animationDelay: `${i * 40}ms` }}
 									>
 										<ActivityMark type={item.run.activity_type} />
-										<span className="min-w-0 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-[0.1rem] items-baseline">
+										<span className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-[0.1rem]">
 											<RunTitle>
 												{item.run.date}
 												{item.run.has_map && (
@@ -526,7 +526,7 @@ function DashboardBody({
 												)}
 												{hasContext(item.run) && <FeelBadge />}
 											</RunTitle>
-											<span className="font-[650] tracking-[-0.02em] justify-self-end text-right max-sm:text-[0.95rem]">
+											<span className="justify-self-end text-right font-[650] tracking-[-0.02em] max-sm:text-[0.95rem]">
 												{showsField(item.run.activity_type, 'distance')
 													? `${item.run.distance_km ?? '—'} km · ${metricText(item.run)}`
 													: metricText(item.run)}
@@ -534,7 +534,7 @@ function DashboardBody({
 											<span
 												className={cn(
 													'text-muted',
-													'text-[0.8rem] col-span-full max-sm:text-[0.76rem]'
+													'col-span-full text-[0.8rem] max-sm:text-[0.76rem]'
 												)}
 											>
 												{activitySub(item.run)}

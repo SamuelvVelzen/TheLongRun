@@ -160,8 +160,8 @@ ${formatUnplannedBrief(targetView.unplanned)}`
 		);
 		const wardrobeSection = formatWardrobeSection(wardrobe);
 		const wardrobeBit = hasWardrobe
-			? `My clothing${forecast.length ? ' and that day’s forecast' : ''} for \`kit\``
-			: 'forecast and what I own for \`kit\`';
+			? `My clothing${forecast.length ? ' and that day’s forecast' : ''} for 'kit'`
+			: "forecast and what I own for 'kit'";
 		const planFuelKitRules = ` On run, walk, and bike sessions where it matters, add \`"fuel"\` and/or \`"kit"\` (omit on strength or when nothing specific is needed). This is **planned** fuel/kit on the session — saved in the training plan, **not** in my fuel log (the log is only for what I actually tried). \`fuel\`: array of \`{"phase":"before"|"during"|"after","item","timing"}\` with optional \`"notes"\` — use separate rows per phase; default to what worked in my Fuel log; never suggest timings that caused trouble. \`kit\`: one short string sentence — ${wardrobeBit}; long or wet runs → long-run-safe bottoms. Example fuel: ${JSON.stringify(PLAN_SESSION_FUEL_JSON_EXAMPLE)}. Example kit: ${JSON.stringify(PLAN_SESSION_KIT_JSON_EXAMPLE)}. Keep coaching intent in \`"detail"\` — do not duplicate fuel or kit there. If the weather calls for something I don’t own, say so once in prose or in \`kit\`.`;
 		const thisWeekLogs = allRuns
 			.filter((r) => r.date >= weekStartIso && r.date <= weekEndIso)

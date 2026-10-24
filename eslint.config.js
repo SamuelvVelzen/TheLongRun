@@ -168,5 +168,11 @@ export default tseslint.config(
 			// TanStack Start `useSession` is server session API, not a React hook.
 			'react-hooks/rules-of-hooks': 'off'
 		}
+	},
+	{
+		files: ['scripts/**/*.cjs'],
+		rules: {
+			'@typescript-eslint/no-require-imports': 'off'
+		}
 	}
 );

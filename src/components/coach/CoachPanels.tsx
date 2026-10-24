@@ -50,7 +50,7 @@ import {
 	type DayLimit,
 	type WeekSetup
 } from '$lib/week-mix';
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
+import { createFileRoute, Link, useRouter, getRouteApi  } from '@tanstack/react-router';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { DateRangeFilter, type RangeSearch } from '../DateRangeFilter';
 import { DebriefActivityTitle } from '../DebriefActivityTitle';
@@ -93,8 +93,6 @@ import {
 	withCoachSearch
 } from '$lib/coach/search';
 
-import { getRouteApi } from '@tanstack/react-router';
-const coachRoute = getRouteApi('/coach');
 import {
 	coachDebriefUnits,
 	defaultCoachTab,
@@ -108,6 +106,7 @@ import {
 } from './coach-utils';
 import { PlanWeekPanel } from './PlanWeekPanel';
 import { GenerateBriefForm } from './GenerateBriefForm';
+const coachRoute = getRouteApi('/coach');
 
 export function CoachPanels({
 	debrief: initialDebrief,
@@ -518,11 +517,11 @@ export function CoachPanels({
 
 			{tab === 'debrief' && (
 				<Panel className="mb-4">
-					<ol className="list-none m-0 p-0 flex flex-col gap-6 max-sm:gap-[1.15rem] [&>li>strong]:block [&>li>strong]:text-[1.05rem]">
+					<ol className="m-0 flex list-none flex-col gap-6 p-0 max-sm:gap-[1.15rem] [&>li>strong]:block [&>li>strong]:text-[1.05rem]">
 						<li className={sessionCount ? '[&>strong]:text-accent-fg' : undefined}>
 							<strong>1. Import the GPX</strong>
 							{sessionCount > 0 && (
-								<div className="mt-[0.45rem] mb-0 font-semibold max-sm:[overflow-wrap:anywhere]">
+								<div className="mt-[0.45rem] mb-0 font-semibold max-sm:wrap-anywhere">
 									<p className="m-0">
 										{many
 											? `${sessionCount} sessions in the prompt:`
@@ -530,7 +529,7 @@ export function CoachPanels({
 												? 'Grouped session in the prompt:'
 												: 'In the prompt:'}
 									</p>
-									<ul className="list-none m-[0.35rem_0_0] p-0 grid gap-1">
+									<ul className="m-[0.35rem_0_0] grid list-none gap-1 p-0">
 										{coachUnits.map((u) => (
 												<li key={u.slug}>
 													{u.kind === 'group' && u.members.length > 1 ? (
@@ -775,14 +774,14 @@ export function CoachPanels({
 									{planData.activeGoal.name}.
 								</>
 							) : null}{' '}
-							<Link className="text-accent-fg font-semibold" to="/goals">
+							<Link className="font-semibold text-accent-fg" to="/goals">
 								Goals
 							</Link>
 							{mixDirty ? (
 								<>
 									{' · '}
 									<Link
-										className="text-accent-fg font-semibold"
+										className="font-semibold text-accent-fg"
 										to="/coach"
 										search={withCoachSearch(search, { tab: 'training' })}
 									>
@@ -807,7 +806,7 @@ export function CoachPanels({
 
 					{generateDraft.brief && (
 						<Panel form>
-							<PanelTitle className="m-0 mb-2 pb-0 border-b-0">Prompt</PanelTitle>
+							<PanelTitle className="m-0 mb-2 border-b-0 pb-0">Prompt</PanelTitle>
 							<AiPromptFlow
 								className="mt-2"
 								prompt={generateDraft.brief}

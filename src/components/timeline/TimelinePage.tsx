@@ -51,7 +51,7 @@ import { formatTimelineClipboard } from '$lib/timeline-copy';
 import { appHead } from '$lib/title';
 import type { ActivityGroupInfo, RunWithMap } from '$lib/types';
 import { cn } from '$lib/ui';
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
+import { createFileRoute, Link, useRouter, getRouteApi  } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { ActivityFilters } from '../ActivityFilters';
 import { BestEffortBadges, BestEffortBoard } from '../BestEffortBadges';
@@ -68,7 +68,6 @@ import {
 	sportIsAll
 } from '../SportFilter';
 
-import { getRouteApi } from '@tanstack/react-router';
 const timelineRoute = getRouteApi('/timeline');
 
 function monthKey(date: string) {
@@ -122,7 +121,7 @@ function SelectCheck({ on }: { on: boolean }) {
 	return (
 		<span
 			className={cn(
-				'relative z-[1] mt-3 inline-flex size-11 items-center justify-center',
+				'relative z-1 mt-3 inline-flex size-11 items-center justify-center',
 				on ? 'text-accent-ink' : 'text-muted'
 			)}
 		>
@@ -213,7 +212,7 @@ function RunCardBody({
 						.join(' · ')}
 				</p>
 			)}
-			<div className="flex flex-wrap gap-x-[0.85rem] gap-y-[0.35rem] mt-[0.4rem] text-muted text-[0.9rem]">
+			<div className="mt-[0.4rem] flex flex-wrap gap-x-[0.85rem] gap-y-[0.35rem] text-[0.9rem] text-muted">
 				{showsField(run.activity_type, 'distance') && <span>{run.distance_km ?? '—'} km</span>}
 				<span>{metricText(run)}</span>
 				{run.avg_hr != null ? (
@@ -473,7 +472,7 @@ export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; group
 								</div>
 							</SectionTitle>
 
-							<div className="grid gap-[0.35rem] mb-6 max-sm:gap-[0.45rem]">
+							<div className="mb-6 grid gap-[0.35rem] max-sm:gap-[0.45rem]">
 								{month.items.map((item, i) =>
 									item.kind === 'group' ? (
 										(selectMode === 'delete' || selectMode === 'export') && authed ? (
@@ -491,7 +490,7 @@ export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; group
 												</div>
 												<div
 													className={cn(
-														'relative p-4 px-[1.1rem] border rounded-[14px] transition-[border-color,background-color,transform] duration-150 max-sm:p-[0.85rem_0.95rem]',
+														'relative rounded-[14px] border p-4 px-[1.1rem] transition-[border-color,background-color,transform] duration-150 max-sm:p-[0.85rem_0.95rem]',
 														item.members.every((m) => picked.includes(m.id))
 															? 'border-accent bg-accent/10'
 															: 'border-accent/35 bg-accent/4'
@@ -519,7 +518,7 @@ export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; group
 															.filter(Boolean)
 															.join(' · ')}
 													</p>
-													<div className="flex flex-wrap gap-x-[0.85rem] gap-y-[0.35rem] mt-[0.4rem] text-muted text-[0.9rem]">
+													<div className="mt-[0.4rem] flex flex-wrap gap-x-[0.85rem] gap-y-[0.35rem] text-[0.9rem] text-muted">
 														{showsField(item.stats.activity_type, 'distance') && (
 															<span>{item.stats.distance_km ?? '—'} km</span>
 														)}
@@ -546,9 +545,9 @@ export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; group
 												style={{ animationDelay: `${i * 35}ms` }}
 											>
 												<div className={railClass} aria-hidden="true">
-													<span className="relative z-[1] size-[0.7rem] mt-5 rounded-full bg-accent shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent)_12%,transparent)]"></span>
+													<span className="relative z-1 mt-5 size-[0.7rem] rounded-full bg-accent shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent)_12%,transparent)]"></span>
 												</div>
-												<div className="relative p-4 px-[1.1rem] border border-accent/35 rounded-[14px] bg-accent/4 transition-[border-color,background-color,transform] duration-150 group-hover:border-accent/55 group-hover:-translate-y-px max-sm:p-[0.85rem_0.95rem]">
+												<div className="relative rounded-[14px] border border-accent/35 bg-accent/4 p-4 px-[1.1rem] transition-[border-color,background-color,transform] duration-150 group-hover:-translate-y-px group-hover:border-accent/55 max-sm:p-[0.85rem_0.95rem]">
 													<Link
 														className="block text-inherit"
 														to="/groups/$id"
@@ -576,7 +575,7 @@ export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; group
 																.filter(Boolean)
 																.join(' · ')}
 														</p>
-														<div className="flex flex-wrap gap-x-[0.85rem] gap-y-[0.35rem] mt-[0.4rem] text-muted text-[0.9rem]">
+														<div className="mt-[0.4rem] flex flex-wrap gap-x-[0.85rem] gap-y-[0.35rem] text-[0.9rem] text-muted">
 															{showsField(item.stats.activity_type, 'distance') && (
 																<span>{item.stats.distance_km ?? '—'} km</span>
 															)}
@@ -613,10 +612,10 @@ export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; group
 											</div>
 											<div
 												className={cn(
-													'relative p-4 px-[1.1rem] border rounded-[14px] transition-[border-color,background-color,transform] duration-150 max-sm:p-[0.85rem_0.95rem]',
+													'relative rounded-[14px] border p-4 px-[1.1rem] transition-[border-color,background-color,transform] duration-150 max-sm:p-[0.85rem_0.95rem]',
 													picked.includes(item.run.id)
 														? 'border-accent bg-accent/10'
-														: 'border-line bg-white/[0.02]'
+														: 'border-line bg-white/2'
 												)}
 											>
 												<RunCardBody
@@ -632,11 +631,11 @@ export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; group
 											style={{ animationDelay: `${i * 35}ms` }}
 										>
 											<div className={railClass} aria-hidden="true">
-												<span className="relative z-[1] size-[0.7rem] mt-5 rounded-full bg-accent shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent)_12%,transparent)]"></span>
+												<span className="relative z-1 mt-5 size-[0.7rem] rounded-full bg-accent shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent)_12%,transparent)]"></span>
 											</div>
-											<div className="relative p-4 px-[1.1rem] border border-line rounded-[14px] bg-white/[0.02] transition-[border-color,background-color,transform] duration-150 group-hover:border-accent/35 group-hover:bg-accent/4 group-hover:-translate-y-px group-active:border-accent/35 group-active:bg-accent/4 group-active:-translate-y-px max-sm:p-[0.85rem_0.95rem]">
+											<div className="relative rounded-[14px] border border-line bg-white/2 p-4 px-[1.1rem] transition-[border-color,background-color,transform] duration-150 group-hover:-translate-y-px group-hover:border-accent/35 group-hover:bg-accent/4 group-active:-translate-y-px group-active:border-accent/35 group-active:bg-accent/4 max-sm:p-[0.85rem_0.95rem]">
 												<Link
-													className="block text-inherit pr-[5.5rem]"
+													className="block pr-22 text-inherit"
 													to="/runs/$slug"
 													params={{ slug: item.run.slug }}
 												>
@@ -646,7 +645,7 @@ export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; group
 													/>
 												</Link>
 												<AuthGate>
-													<div className="absolute top-[0.65rem] right-[0.65rem] z-[2] inline-flex items-center gap-1 m-0 opacity-100 sm:opacity-55 hover:opacity-100 group-hover:opacity-100">
+													<div className="absolute top-[0.65rem] right-[0.65rem] z-2 m-0 inline-flex items-center gap-1 opacity-100 group-hover:opacity-100 hover:opacity-100 sm:opacity-55">
 														<EditButton
 															compact
 															label={`Edit ${activityLabel(item.run.activity_type).toLowerCase()} ${item.run.date}`}

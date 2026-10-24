@@ -50,7 +50,7 @@ import {
 	type DayLimit,
 	type WeekSetup
 } from '$lib/week-mix';
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
+import { createFileRoute, Link, useRouter, getRouteApi  } from '@tanstack/react-router';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { DateRangeFilter, type RangeSearch } from '../DateRangeFilter';
 import { DebriefActivityTitle } from '../DebriefActivityTitle';
@@ -93,9 +93,8 @@ import {
 	withCoachSearch
 } from '$lib/coach/search';
 
-import { getRouteApi } from '@tanstack/react-router';
-const coachRoute = getRouteApi('/coach');
 import { weekTag, type CoachPlanData } from './coach-utils';
+const coachRoute = getRouteApi('/coach');
 
 export function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 	const search = coachRoute.useSearch();
@@ -136,7 +135,7 @@ export function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 		<>
 			<Panel form className="mb-4">
 				<Field as="div" label="Week">
-					<div className="hidden max-sm:flex flex-col gap-[0.35rem]">
+					<div className="hidden flex-col gap-[0.35rem] max-sm:flex">
 						<div className="flex items-stretch gap-2">
 							<button
 								type="button"
@@ -193,20 +192,20 @@ export function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 										aria-pressed={pressed}
 										aria-label={`Week ${n}, ${dates}${tag ? `, ${tag}` : ''}${planned ? '' : ', no plan yet'}`}
 										className={cn(
-											'appearance-none inline-flex flex-col items-center justify-center gap-[0.18rem] min-h-[3.35rem] min-w-[4.4rem] px-[0.7rem] py-[0.4rem] rounded-[14px] bg-transparent text-muted cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg',
+											'inline-flex min-h-[3.35rem] min-w-[4.4rem] cursor-pointer appearance-none flex-col items-center justify-center gap-[0.18rem] rounded-[14px] bg-transparent px-[0.7rem] py-[0.4rem] text-muted transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg',
 											planned
 												? 'border border-solid border-line hover:border-accent/35'
 												: 'border border-dashed border-line/80 text-muted/80 hover:border-accent/40 hover:text-muted',
-											'aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-solid! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent'
+											'aria-pressed:border-solid! aria-pressed:border-accent! aria-pressed:bg-accent! aria-pressed:text-accent-ink! aria-pressed:hover:border-accent aria-pressed:hover:text-accent-ink'
 										)}
 										onClick={() => {
 											if (!pressed) setWeek(n);
 										}}
 									>
-										<span className="text-[0.95rem] font-semibold leading-none">
+										<span className="text-[0.95rem] leading-none font-semibold">
 											{tag ? `${n} · ${tag}` : n}
 										</span>
-										<span className="text-[0.68rem] font-medium leading-[1.15] whitespace-nowrap opacity-80">
+										<span className="leading-1.15 text-[0.68rem] font-medium whitespace-nowrap opacity-80">
 											{dates}
 										</span>
 									</button>

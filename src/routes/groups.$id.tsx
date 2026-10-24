@@ -36,10 +36,11 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { BestEffortBadges } from '../components/BestEffortBadges';
 import { ActivityTag, Icon } from '../components/Icon';
+import { SplitsPanel } from '../components/SplitsPanel';
+
 const RouteMap = lazy(() =>
 	import('../components/RouteMap').then((m) => ({ default: m.RouteMap }))
 );
-import { SplitsPanel } from '../components/SplitsPanel';
 
 export const Route = createFileRoute('/groups/$id')({
 	loader: async ({ params }) => {
@@ -175,7 +176,7 @@ function GroupDetail() {
 					<Metric>
 						<div className="flex items-baseline gap-1">
 							<b>{stats.avg_hr ?? '—'}</b>
-							<span className="text-muted text-[0.95rem]">/</span>
+							<span className="text-[0.95rem] text-muted">/</span>
 							<strong className="font-display text-[1.05rem] text-warn">
 								{stats.max_hr ?? '—'}
 							</strong>
@@ -200,14 +201,14 @@ function GroupDetail() {
 			<BestEffortBadges highlights={highlights} />
 
 			{routeIds.length > 0 && (
-				<Panel className="mb-4 p-0 overflow-hidden">
+				<Panel className="mb-4 overflow-hidden p-0">
 					<div className="p-[1.1rem_1.2rem_0.6rem]">
 						<PanelTitle>Route</PanelTitle>
 						<p className={cn('text-muted', 'm-0 mt-1 text-[0.85rem]')}>
 							{routeIds.length} GPS parts — pause between files is not drawn as a line
 						</p>
 					</div>
-					<Suspense fallback={<p className="text-muted text-sm p-4">Loading map…</p>}>
+					<Suspense fallback={<p className="p-4 text-sm text-muted">Loading map…</p>}>
 						<RouteMap
 							routeIds={routeIds}
 							activityTypes={segments.filter((s) => s.route_id).map((s) => s.activity_type)}
@@ -222,7 +223,7 @@ function GroupDetail() {
 			)}
 
 			<Panel className="mb-4">
-				<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
+				<div className="mb-[0.85rem] flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem]">
 					<PanelTitle>Parts</PanelTitle>
 					<p className={cn('text-muted', 'text-[0.85rem]')}>original imported activities</p>
 				</div>
@@ -230,9 +231,9 @@ function GroupDetail() {
 					{members.map((run) => (
 						<div
 							key={run.slug}
-							className="flex flex-wrap items-center justify-between gap-3 py-2 border-b border-line last:border-b-0"
+							className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-2 last:border-b-0"
 						>
-							<Link className="text-inherit min-w-0" to="/runs/$slug" params={{ slug: run.slug }}>
+							<Link className="min-w-0 text-inherit" to="/runs/$slug" params={{ slug: run.slug }}>
 								<strong>
 									{run.date}
 									{run.start_time ? ` · ${run.start_time}` : ''}
@@ -265,7 +266,7 @@ function GroupDetail() {
 			</Panel>
 
 			<Panel className="mb-4">
-				<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
+				<div className="mb-[0.85rem] flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem]">
 					<PanelTitle>Export</PanelTitle>
 					<p className={cn('text-muted', 'text-[0.85rem]')}>
 						one file for Strava; Apple Health is a hop
@@ -347,14 +348,14 @@ function GroupDetail() {
 					</>
 				}
 			>
-				<div className="grid gap-1.5 max-h-[50vh] overflow-y-auto">
+				<div className="grid max-h-[50vh] gap-1.5 overflow-y-auto">
 					{addOptions.length ? (
 						addOptions.map((opt) => (
 							<button
 								key={opt.id}
 								type="button"
 								className={cn(
-									'flex items-center justify-between gap-3 min-h-11 px-3 py-2 rounded-xl border text-left',
+									'flex min-h-11 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left',
 									addPick === opt.id ? 'border-accent bg-accent/10' : 'border-line'
 								)}
 								aria-pressed={addPick === opt.id}

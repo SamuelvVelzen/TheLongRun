@@ -31,7 +31,8 @@ import {
 } from '$lib/server/functions';
 import { activityTitlePart, appHead } from '$lib/title';
 import { cn } from '$lib/ui';
-import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
+import { entityNotFound } from '$lib/not-found';
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { BestEffortBadges } from '../components/BestEffortBadges';
 import { ActivityTag, Icon } from '../components/Icon';
@@ -43,7 +44,7 @@ import { SplitsPanel } from '../components/SplitsPanel';
 export const Route = createFileRoute('/groups/$id')({
 	loader: async ({ params }) => {
 		const detail = await getGroupDetail({ data: params.id });
-		if (!detail) throw notFound();
+		if (!detail) throw entityNotFound('group');
 		return detail;
 	},
 	head: ({ loaderData }) => {

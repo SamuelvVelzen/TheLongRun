@@ -22,6 +22,7 @@ export { FilterSheet, filterSummary } from './FilterSheet';
 export { Form, FormGrid, FormSection } from './Form';
 export { DeleteButton, EditButton, IconLabelButton, IconLabelLink, TrashIcon } from './IconButtons';
 export { AppErrorBoundary, RouteError } from './RouteError';
+export { RouteNotFound } from './RouteNotFound';
 export { EmptyState } from './EmptyState';
 export { Input } from './Input';
 export { InsetRow } from './InsetRow';

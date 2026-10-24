@@ -7,9 +7,6 @@ node_modules
 .wrangler
 /dist
 
-# TanStack Router generated tree
-src/routeTree.gen.ts
-
 # Cloudflare local dev secrets
 .dev.vars
 

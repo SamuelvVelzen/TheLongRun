@@ -76,7 +76,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		]);
 		const { goals } = training.store;
 		const { calendar } = training;
-		const weekView = week ? buildWeekView(week, allRuns, calendar) : null;
+		const weekView = week ? buildWeekView(week, allRuns, calendar, undefined, activityGroups) : null;
 		const weekStart = week ? planWeekStartIso(week.week, calendar) : '';
 		let weekEnd = weekStart;
 		if (weekStart) {
@@ -181,14 +181,14 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 					const r = u.members[0]!;
 					return formatPlannedForActivity(
 						r,
-						plannedSessionForActivity(r, training.plan, allRuns, calendar)
+						plannedSessionForActivity(r, training.plan, allRuns, calendar, activityGroups)
 					);
 				}
 				const title = groupedSessionTitle(u.group, u.members.length, u.stats.date);
 				const parts = u.members.map((r) =>
 					formatPlannedForActivity(
 						r,
-						plannedSessionForActivity(r, training.plan, allRuns, calendar)
+						plannedSessionForActivity(r, training.plan, allRuns, calendar, activityGroups)
 					)
 				);
 				return [`- ${title} (grouped)`, ...parts.map((p) => p.replace(/^- /, '  - '))].join('\n');

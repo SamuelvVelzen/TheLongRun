@@ -2,6 +2,7 @@
  * Training plan helpers + dashboard stats.
  */
 import { activityLabel, normalizeActivityType } from '$lib/activity';
+import { runsForPlanMatching, sameSportPlanGroupId } from '$lib/group';
 import { bodyScoreTracks } from '$lib/body-scores';
 import { dayFromIsoDate, formatDuration, parseDurationSeconds } from '$lib/format';
 import {
@@ -9,6 +10,7 @@ import {
 	formatPlanSessionKitMarkdown
 } from '$lib/plan-session-extras';
 import type {
+	ActivityGroupInfo,
 	PlanSession,
 	PlanSessionStatus,
 	PlanWeek,
@@ -249,6 +251,10 @@ export type WeekSessionView = PlanSession & {
 	route: SessionRouteRef | null;
 	/** Activity slug when this planned session was matched to a log. */
 	logSlug: string | null;
+	/** Grouped session id when the match is a multi-part same-sport group. */
+	logGroupId: string | null;
+	/** Combined logged distance when matched (grouped sessions use all parts). */
+	logDistanceKm: number | null;
 	/** Index in `PlanWeek.sessions` — disambiguates duplicate day/label/sport rows. */
 	planIndex: number;
 };
@@ -256,6 +262,8 @@ export type WeekSessionView = PlanSession & {
 /** Logged activity in this week that did not consume a planned session (date + sport). */
 export type UnplannedActivity = {
 	slug: string;
+	/** When the extra load is a grouped session, link to the group page. */
+	groupId: string | null;
 	date: string;
 	day: string;
 	activity_type: string;
@@ -272,7 +280,7 @@ export type WeekView = {
 
 export type WeekViewRun = Pick<
 	RunRecord,
-	'date' | 'activity_type' | 'slug' | 'distance_km' | 'start_time'
+	'id' | 'date' | 'activity_type' | 'slug' | 'distance_km' | 'start_time'
 >;
 
 /** Rest / off days — not recovery workouts like "Recovery easy". */
@@ -362,13 +370,16 @@ export function buildWeekView(
 	week: PlanWeek,
 	runs: WeekViewRun[],
 	cal: PlanCalendar,
-	today = new Date()
+	today = new Date(),
+	groups: ActivityGroupInfo[] = []
 ): WeekView {
 	const todayIso = isoDateLocal(today);
 	const start = planWeekStartIso(week.week, cal);
 	const end = planWeekEndIso(week.week, cal);
+	const matchRuns = runsForPlanMatching(runs, groups);
+	const runsById = new Map(runs.map((r) => [r.id, r] as const));
 	const buckets = new Map<string, WeekViewRun[]>();
-	for (const r of runs) {
+	for (const r of matchRuns) {
 		const key = logMatchKey(r.date, r.activity_type);
 		const list = buckets.get(key) ?? [];
 		list.push(r);
@@ -385,6 +396,8 @@ export function buildWeekView(
 		const matched = list?.length ? list.shift() : null;
 		const done = matched != null;
 		const skipped = isSessionSkipped(s, done);
+		const logGroupId =
+			matched != null ? sameSportPlanGroupId(matched.id, groups, runsById) : null;
 		return {
 			...s,
 			date,
@@ -395,6 +408,8 @@ export function buildWeekView(
 			isNext: false,
 			route: null,
 			logSlug: matched?.slug ?? null,
+			logGroupId,
+			logDistanceKm: matched?.distance_km ?? null,
 			planIndex
 		};
 	});
@@ -406,6 +421,7 @@ export function buildWeekView(
 			if (!day) continue;
 			unplanned.push({
 				slug: r.slug,
+				groupId: sameSportPlanGroupId(r.id, groups, runsById),
 				date: r.date,
 				day,
 				activity_type: normalizeActivityType(r.activity_type),
@@ -462,7 +478,8 @@ export function pickBannerWeekView(
 	plan: PlanWeek[],
 	runs: WeekViewRun[],
 	cal: PlanCalendar,
-	today = new Date()
+	today = new Date(),
+	groups: ActivityGroupInfo[] = []
 ): WeekView | null {
 	const currentNum = weekToPlan(cal, today);
 	const weeks = [...plan]
@@ -471,13 +488,13 @@ export function pickBannerWeekView(
 	let currentView: WeekView | null = null;
 	for (const w of weeks) {
 		if (w.week < currentNum) continue;
-		const view = buildWeekView(w, runs, cal, today);
+		const view = buildWeekView(w, runs, cal, today, groups);
 		if (w.week === currentNum) currentView = view;
 		if (view.next) return view;
 	}
 	if (currentView) return currentView;
 	const last = weeks[weeks.length - 1];
-	return last ? buildWeekView(last, runs, cal, today) : null;
+	return last ? buildWeekView(last, runs, cal, today, groups) : null;
 }
 
 /** Nothing left to do this week: no remaining next session, no unlogged past sessions. */
@@ -494,13 +511,14 @@ export function weekToGenerate(
 	plan: PlanWeek[],
 	runs: WeekViewRun[],
 	cal: PlanCalendar,
-	today = new Date()
+	today = new Date(),
+	groups: ActivityGroupInfo[] = []
 ): number {
 	const current = weekToPlan(cal, today);
 	if (current >= cal.weekCount) return current;
 	const saved = plan.find((w) => w.week === current);
 	if (!saved || (saved.sessions?.length ?? 0) === 0) return current;
-	const view = buildWeekView(saved, runs, cal, today);
+	const view = buildWeekView(saved, runs, cal, today, groups);
 	if (!weekViewIsClosed(view)) return current;
 	return current + 1;
 }

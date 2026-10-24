@@ -32,7 +32,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 	const nextIntention = openIntentions(training.store.goals)[0] ?? null;
 	const weekNum = weekToPlan(calendar);
 	const week = plan.find((w) => w.week === weekNum) ?? plan[plan.length - 1] ?? null;
-	const weekView = attachPlanRoutes(pickBannerWeekView(plan, runs, calendar), planRefs);
+	const weekView = attachPlanRoutes(pickBannerWeekView(plan, runs, calendar, undefined, groups), planRefs);
 	return {
 		runs: withMap(runs, routeIds),
 		tracks,
@@ -67,14 +67,16 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 export type { PlanPeekData } from '$lib/plan-peek';
 
 export const getPlanPeekData = createServerFn({ method: 'GET' }).handler(async (): Promise<PlanPeekData | null> => {
-	const [runs, training, planRefs, plannedRoutes] = await Promise.all([
+	const [runs, training, planRefs, plannedRoutes, groupsRaw] = await Promise.all([
 		listRuns(),
 		loadTrainingContext(),
 		listPlanRouteRefs(),
-		listPlannedRoutes()
+		listPlannedRoutes(),
+		listActivityGroups()
 	]);
+	const groups = await enrichAllGroupEfforts(groupsRaw, runs);
 	const { plan, calendar } = training;
-	const weekView = attachPlanRoutes(pickBannerWeekView(plan, runs, calendar), planRefs);
+	const weekView = attachPlanRoutes(pickBannerWeekView(plan, runs, calendar, undefined, groups), planRefs);
 	if (!weekView) return null;
 	return {
 		weekView,

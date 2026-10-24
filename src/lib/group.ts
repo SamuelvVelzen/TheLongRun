@@ -184,6 +184,60 @@ export function groupMembership(groups: ActivityGroupInfo[]): Map<number, Activi
 	return map;
 }
 
+type PlanMatchRun = Pick<
+	RunRecord,
+	'id' | 'date' | 'activity_type' | 'slug' | 'start_time' | 'distance_km'
+>;
+
+/** Same-sport group with 2+ logged members in this run list, else null. */
+export function sameSportPlanGroupId(
+	runId: number,
+	groups: ActivityGroupInfo[],
+	byId: Map<number, Pick<RunRecord, 'activity_type'>>
+): string | null {
+	const g = groupMembership(groups).get(runId);
+	if (!g) return null;
+	const members = g.member_ids
+		.map((id) => byId.get(id))
+		.filter((r): r is Pick<RunRecord, 'activity_type'> => r != null);
+	if (members.length < 2) return null;
+	const types = new Set(members.map((m) => normalizeActivityType(m.activity_type)));
+	return types.size === 1 ? g.id : null;
+}
+
+/**
+ * Same-sport grouped sessions are one workout on the plan: one match slot with combined
+ * distance, not a separate row per GPX part.
+ */
+export function runsForPlanMatching<T extends PlanMatchRun>(
+	runs: T[],
+	groups: ActivityGroupInfo[]
+): T[] {
+	if (!groups.length) return runs;
+	const byId = new Map(runs.map((r) => [r.id, r] as const));
+	const inGroup = new Set<number>();
+	const collapsed: T[] = [];
+
+	for (const g of groups) {
+		const members = g.member_ids
+			.map((id) => byId.get(id))
+			.filter((r): r is T => r != null);
+		if (members.length < 2) continue;
+		const types = new Set(members.map((m) => normalizeActivityType(m.activity_type)));
+		if (types.size > 1) continue;
+		for (const m of members) inGroup.add(m.id);
+		const lead = sortGroupMembers(members)[0]!;
+		const dist = members.reduce((acc, m) => acc + (m.distance_km ?? 0), 0);
+		collapsed.push({
+			...lead,
+			distance_km: dist > 0 ? Math.round(dist * 100) / 100 : lead.distance_km
+		});
+	}
+
+	const singles = runs.filter((r) => !inGroup.has(r.id));
+	return collapsed.length ? [...collapsed, ...singles] : runs;
+}
+
 /**
  * Collapse grouped members into one item. A group appears if any member is in `visible`;
  * stats use every member found in `all`.

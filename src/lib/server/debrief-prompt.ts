@@ -10,7 +10,7 @@ import { bodyScoreRows } from '$lib/body-scores';
 import { debriefUnitLead, debriefUnitSlug, type DebriefSessionUnit } from '$lib/debrief-group';
 import type { DebriefRaceHint } from '$lib/debrief-types';
 import { activityLooksLikeRace, canPinRaceResult } from '$lib/goals';
-import { combineRunStats, groupedSessionTitle, groupMembership } from '$lib/group';
+import { combineRunStats, groupedSessionTitle, groupMembership, sortGroupMembers } from '$lib/group';
 import {
 	buildWeekView,
 	weekNumberForDate,
@@ -22,7 +22,7 @@ import { workoutMarkdown, workoutSummary } from '$lib/run-workout';
 import type { RouteAnalytics } from '$lib/splits';
 import { parseStrengthNotes } from '$lib/strength';
 import type { BodyArea } from '$lib/body-scores';
-import type { PlanWeek, RunRecord } from '$lib/types';
+import type { ActivityGroupInfo, PlanWeek, RunRecord } from '$lib/types';
 import { notesForBriefRow } from './coach-brief';
 import { isImportNote } from './run-sort';
 
@@ -380,14 +380,34 @@ export function plannedSessionForActivity(
 	run: RunRecord,
 	plan: PlanWeek[],
 	runs: RunRecord[],
-	cal: PlanCalendar
+	cal: PlanCalendar,
+	groups: ActivityGroupInfo[] = []
 ): PlannedMatch {
 	const weekNum = weekNumberForDate(run.date, cal);
 	const planWeek = weekNum != null ? plan.find((w) => w.week === weekNum) : undefined;
 	if (!planWeek?.sessions?.length) return { kind: 'missing' };
-	const view = buildWeekView(planWeek, runs, cal);
+	const view = buildWeekView(planWeek, runs, cal, undefined, groups);
 	const session = view.sessions.find((s) => s.logSlug === run.slug);
 	if (session) return { kind: 'planned', session };
+
+	const group = groupMembership(groups).get(run.id);
+	if (group) {
+		const byId = new Map(runs.map((r) => [r.id, r] as const));
+		const members = group.member_ids
+			.map((id) => byId.get(id))
+			.filter((r): r is RunRecord => r != null);
+		if (members.length >= 2) {
+			const types = new Set(members.map((m) => normalizeActivityType(m.activity_type)));
+			if (types.size === 1) {
+				const lead = sortGroupMembers(members)[0]!;
+				if (lead.id !== run.id) {
+					const leadSession = view.sessions.find((s) => s.logSlug === lead.slug);
+					if (leadSession) return { kind: 'planned', session: leadSession };
+				}
+			}
+		}
+	}
+
 	if (view.unplanned.some((u) => u.slug === run.slug)) return { kind: 'unplanned' };
 	return { kind: 'missing' };
 }

@@ -55,7 +55,7 @@ import {
 } from '../ui';
 import { buttonClass } from '../ui/Button';
 import { runTitleClass } from '../ui/Chrome';
-import { InlineText } from './InlineText';
+import { fieldLabel, InlineText } from './InlineText';
 import { FeelTile } from './FeelTile';
 import { routeIdFrom } from './route-id';
 import { getRouteApi } from '@tanstack/react-router';

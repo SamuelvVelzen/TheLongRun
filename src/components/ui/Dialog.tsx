@@ -13,7 +13,8 @@ export function Dialog({
 	children,
 	actions,
 	size = 'default',
-	className
+	className,
+	compactClose = false
 }: {
 	open: boolean;
 	title: string;
@@ -22,6 +23,7 @@ export function Dialog({
 	actions?: ReactNode;
 	size?: 'default' | 'medal';
 	className?: string;
+	compactClose?: boolean;
 }) {
 	const titleId = useId();
 	useOverlayLock(open);
@@ -55,11 +57,15 @@ export function Dialog({
 						<Button
 							variant="ghost"
 							size="icon"
-							className="text-[1.25rem]"
+							className={cn(
+								'text-[1.25rem]',
+								compactClose &&
+									'size-8! min-h-8! min-w-8! max-sm:!size-8 max-sm:!min-h-8 max-sm:!min-w-8'
+							)}
 							aria-label="Close"
 							onClick={onClose}
 						>
-							<Icon name="close" size={16} />
+							<Icon name="close" size={compactClose ? 14 : 16} />
 						</Button>
 					</div>
 					{children}

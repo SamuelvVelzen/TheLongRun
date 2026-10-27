@@ -18,7 +18,8 @@ export function PlanSessionMenu({
 	linked,
 	onAddRoute,
 	onUnlinkRoute,
-	coachPlanWeek
+	coachPlanWeek,
+	onShowDetails
 }: {
 	week: number;
 	session: WeekSessionView;
@@ -27,6 +28,8 @@ export function PlanSessionMenu({
 	onUnlinkRoute?: () => void;
 	/** Adds “Full week in Coach” to the menu (dashboard next up). */
 	coachPlanWeek?: number;
+	/** Dashboard stacked session: open full plan text in a dialog. */
+	onShowDetails?: () => void;
 }) {
 	const authed = useAuthed();
 	const router = useRouter();
@@ -91,6 +94,16 @@ export function PlanSessionMenu({
 	}
 
 	const items: MoreMenuItem[] = [
+		...(onShowDetails
+			? [
+					{
+						label: 'Show details',
+						icon: <Icon name="board" size={16} />,
+						onClick: () => onShowDetails(),
+						disabled: busy
+					}
+				]
+			: []),
 		...(canLog
 			? [
 					{

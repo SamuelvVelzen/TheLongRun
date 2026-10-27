@@ -1,8 +1,11 @@
 import { cn } from '$lib/ui';
 import type { MouseEvent, ReactNode } from 'react';
 import { Icon } from './Icon';
-import { compactIconButtonClass } from './ui/IconButtons';
 import { buttonClass } from './ui/Button';
+
+/** Smaller ⋮ trigger for dense rows (plan sessions, routes toolbar, etc.). */
+const compactMoreTriggerClass =
+	'inline-flex items-center justify-center appearance-none bg-transparent border border-solid border-line text-muted cursor-pointer transition-colors duration-150 hover:text-fg hover:bg-fg/[0.08] size-7 min-h-7! min-w-7! p-0! px-0! py-0! rounded-full leading-none shrink-0 self-center box-border max-sm:!size-7 max-sm:!min-h-7 max-sm:!min-w-7 max-sm:!p-0 max-sm:!px-0 max-sm:!py-0';
 
 export type MoreMenuItem = {
 	label: string;
@@ -43,14 +46,15 @@ export function MoreMenu({
 		<details className="relative z-30 shrink-0 open:z-50 max-sm:flex-none">
 			<summary
 				className={cn(
-					buttonClass({ variant: 'ghost', size: compact ? 'default' : 'icon' }),
-					compact && compactIconButtonClass,
+					compact
+						? compactMoreTriggerClass
+						: buttonClass({ variant: 'ghost', size: 'icon' }),
 					'list-none [&::-webkit-details-marker]:hidden'
 				)}
 				aria-label={label}
 				title={label}
 			>
-				<Icon name={trigger === 'edit' ? 'pencil' : 'more'} size={compact ? 14 : 16} />
+				<Icon name={trigger === 'edit' ? 'pencil' : 'more'} size={compact ? 12 : 16} />
 			</summary>
 			<div className="fixed inset-0 z-40 cursor-pointer" onClick={closeMenu} aria-hidden="true" />
 			<div className="absolute right-0 top-[calc(100%+0.35rem)] z-[41] grid min-w-[12.5rem] gap-[0.2rem] p-[0.45rem] border border-line rounded-box bg-surface shadow-lift">

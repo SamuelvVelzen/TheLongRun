@@ -14,7 +14,8 @@ import { cn } from '$lib/ui';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { ActivityIcon, Icon } from './Icon';
-import { PlanSessionBody } from './PlanSessionBody';
+import { PlanSessionBody, planSessionHasDetails } from './PlanSessionBody';
+import { PlanSessionDetailsDialog } from './PlanSessionDetailsDialog';
 import { PlanSessionMenu } from './PlanSessionMenu';
 import {
 	PlanSessionRoute,
@@ -130,7 +131,9 @@ export function PlannedSessionRow({
 	coachPlanWeek,
 	sessionDate = null,
 	headingId,
-	surface = 'coach'
+	surface = 'coach',
+	nextUpTier = 'featured',
+	nextUpMulti = false
 }: {
 	session: WeekSessionView;
 	week: number;
@@ -142,13 +145,21 @@ export function PlannedSessionRow({
 	sessionDate?: string | null;
 	headingId?: string;
 	surface?: 'coach' | 'nextUp';
+	nextUpTier?: 'featured' | 'stacked';
+	/** Dashboard next up lists two+ sessions today (spacing). */
+	nextUpMulti?: boolean;
 }) {
 	const [routePickerOpen, setRoutePickerOpen] = useState(false);
+	const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 	const [routePickerMode, setRoutePickerMode] = useState<PlanRoutePickerMode>('link');
 	const [confirmUnlink, setConfirmUnlink] = useState(false);
 	const logSlug = session.done ? session.logSlug : null;
 	const linked = Boolean(session.route && !session.done);
 	const compact = layout === 'compact';
+	const isNextUp = surface === 'nextUp';
+	const isNextUpFeatured = isNextUp && nextUpTier === 'featured';
+	const isNextUpStacked = isNextUp && nextUpTier === 'stacked';
+	const showDetailsInMenu = isNextUpStacked && planSessionHasDetails(session);
 	const sportLine = sessionSportLine(session);
 	const titleSuffix = sportLine ? (
 		<span className="text-muted font-semibold text-[0.85rem] max-sm:text-[0.8rem]">
@@ -176,12 +187,22 @@ export function PlannedSessionRow({
 	const className = cn(
 		'flex flex-col min-w-0',
 		compact ? 'gap-1' : 'gap-[0.2rem]',
+		isNextUpFeatured && nextUpMulti && 'pb-0',
 		divided && !compact && 'pt-3 border-t border-line',
-		divided && compact && 'pt-2 border-t border-line/80',
+		divided && compact && !isNextUpStacked && 'pt-2 border-t border-line/80',
 		session.done && 'opacity-80',
 		session.skipped && 'opacity-55',
 		logSlug && 'rounded-inset -mx-1 px-1 py-1'
 	);
+
+	const stackedRowClass = cn(
+		'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-0 min-h-11 min-w-0',
+		divided && 'border-t border-line/80 py-2.5',
+		session.done && 'opacity-80',
+		session.skipped && 'opacity-55'
+	);
+	const stackedTitleClass =
+		'm-0 font-display text-[1.02rem] font-[750] tracking-[-0.03em] leading-tight [overflow-wrap:anywhere]';
 	const menu = (
 		<PlanSessionMenu
 			week={week}
@@ -193,6 +214,7 @@ export function PlannedSessionRow({
 			}}
 			onUnlinkRoute={linked ? () => setConfirmUnlink(true) : undefined}
 			coachPlanWeek={coachPlanWeek}
+			onShowDetails={showDetailsInMenu ? () => setDetailsDialogOpen(true) : undefined}
 		/>
 	);
 	const statusOnly =
@@ -230,12 +252,35 @@ export function PlannedSessionRow({
 			/>
 		) : null;
 	const toolbar = (
-		<div className="flex items-center gap-0.5 shrink-0 self-start -mt-0.5">
+		<div className="flex shrink-0 items-center gap-0.5 self-start -mt-0.5">
 			{statusOnly}
 			{routeToolbar}
 			{menu}
 		</div>
 	);
+
+	if (compact && isNextUpStacked) {
+		return (
+			<>
+				<div className={stackedRowClass}>
+					<p className={stackedTitleClass}>{titleContent}</p>
+					<div className="flex items-center justify-self-end gap-0.5">
+						{statusOnly}
+						{routeToolbar}
+						{menu}
+					</div>
+				</div>
+				{showDetailsInMenu ? (
+					<PlanSessionDetailsDialog
+						open={detailsDialogOpen}
+						session={session}
+						onClose={() => setDetailsDialogOpen(false)}
+					/>
+				) : null}
+				{routeDialogs}
+			</>
+		);
+	}
 
 	const body = compact ? (
 		<>
@@ -275,12 +320,22 @@ export function PlannedSessionRow({
 				</div>
 				{toolbar}
 			</div>
-			<PlanSessionBody
-				session={session}
-				compact
-				surface={surface}
-				className="[overflow-wrap:anywhere]"
-			/>
+			{!isNextUpStacked ? (
+				<PlanSessionBody
+					session={session}
+					compact
+					surface={surface}
+					nextUpTier={nextUpTier}
+					className="[overflow-wrap:anywhere]"
+				/>
+			) : null}
+			{showDetailsInMenu ? (
+				<PlanSessionDetailsDialog
+					open={detailsDialogOpen}
+					session={session}
+					onClose={() => setDetailsDialogOpen(false)}
+				/>
+			) : null}
 			{routeDialogs}
 		</>
 	) : (

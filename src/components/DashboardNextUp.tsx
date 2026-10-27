@@ -138,17 +138,25 @@ function WeekMetaBlock({
 	weekView,
 	calendar,
 	coachPlanSearch,
-	unloggedCount
+	unloggedCount,
+	weekMetaTop = 'default'
 }: {
 	weekView: WeekView;
 	calendar: PlanCalendar;
 	coachPlanSearch: { tab: 'plan'; planWeek: number };
 	unloggedCount: number;
+	/** `none` when another today session sits directly above (no gap before divider). */
+	weekMetaTop?: 'default' | 'none';
 }) {
 	const weekShort = [`Week ${weekView.week.week}`, weekView.week.phase].filter(Boolean).join(' · ');
 
 	return (
-		<div className="relative z-0 mt-4 pt-2.5 border-t border-line/80 max-sm:mt-3 max-sm:pt-2">
+		<div
+			className={cn(
+				'relative z-0 border-t border-line/80 pt-2.5',
+				weekMetaTop === 'none' ? '!mt-0 max-sm:!mt-0' : 'mt-4 max-sm:mt-3'
+			)}
+		>
 			<Link
 				to="/coach"
 				search={coachPlanSearch}
@@ -202,15 +210,25 @@ function HighlightSessions({
 	sessions,
 	week,
 	routes,
-	todayUnplanned
+	todayUnplanned,
+	weekView,
+	calendar,
+	coachPlanSearch,
+	unloggedCount
 }: {
 	sessions: WeekView['sessions'];
 	week: number;
 	routes: SessionRouteRef[];
 	todayUnplanned: WeekView['unplanned'];
+	weekView: WeekView;
+	calendar: PlanCalendar;
+	coachPlanSearch: { tab: 'plan'; planWeek: number };
+	unloggedCount: number;
 }) {
+	const multi = sessions.length > 1;
+
 	return (
-		<div className="relative z-[1] flex flex-col gap-2 max-sm:gap-1.5 min-w-0">
+		<div className="relative z-[1] flex flex-col min-w-0">
 			{sessions.map((session, i) => (
 				<PlannedSessionRow
 					key={`${session.day}-${session.label}-${session.planIndex}`}
@@ -220,9 +238,11 @@ function HighlightSessions({
 					divided={i > 0}
 					layout="compact"
 					surface="nextUp"
+					nextUpTier={i === 0 ? 'featured' : 'stacked'}
+					nextUpMulti={multi}
 					coachPlanWeek={week}
 					sessionDate={i === 0 ? session.date : null}
-					headingId={sessions.length === 1 && i === 0 ? 'next-up-heading' : undefined}
+					headingId={i === 0 && !multi ? 'next-up-heading' : undefined}
 				/>
 			))}
 			{todayUnplanned.map((item, i) => (
@@ -232,6 +252,13 @@ function HighlightSessions({
 					divided={sessions.length > 0 || i > 0}
 				/>
 			))}
+			<WeekMetaBlock
+				weekView={weekView}
+				calendar={calendar}
+				coachPlanSearch={coachPlanSearch}
+				unloggedCount={unloggedCount}
+				weekMetaTop={multi ? 'none' : 'default'}
+			/>
 		</div>
 	);
 }
@@ -310,8 +337,6 @@ export function DashboardNextUp({
 					week={weekView.week.week}
 					routes={planRoutes}
 					todayUnplanned={highlightHead.isToday ? todayUnplanned : []}
-				/>
-				<WeekMetaBlock
 					weekView={weekView}
 					calendar={calendar}
 					coachPlanSearch={coachPlanSearch}

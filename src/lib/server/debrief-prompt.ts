@@ -23,21 +23,11 @@ import type { RouteAnalytics } from '$lib/splits';
 import { parseStrengthNotes } from '$lib/strength';
 import type { BodyArea } from '$lib/body-scores';
 import type { ActivityGroupInfo, PlanWeek, RunRecord } from '$lib/types';
+import { hasFeel } from '$lib/feel';
 import { notesForBriefRow } from './coach-brief';
 import { isImportNote } from './run-sort';
 
-export function hasFeel(r: RunRecord): boolean {
-	const t = normalizeActivityType(r.activity_type);
-	return (
-		r.effort != null ||
-		(showsFeel(t, 'body') && r.body_scores.length > 0) ||
-		r.legs != null ||
-		r.energy != null ||
-		(showsFeel(t, 'wanted_faster') && r.wanted_faster != null) ||
-		(showsField(t, 'surface') && (r.surface ?? '').trim() !== '') ||
-		(t !== 'strength' && (r.notes ?? '').trim() !== '' && !isImportNote(r.notes))
-	);
-}
+export { hasFeel };
 
 /**
  * No scores and no real write-up yet — still waiting on After an activity.

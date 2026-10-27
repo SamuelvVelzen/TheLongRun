@@ -42,6 +42,14 @@ import {
 	SectionTitle
 } from '../components/ui';
 import type { RouteMeta } from '../components/RoutesHeatmap';
+import { feelFilterActive, matchesFeelFilter, parseFeelSearch } from '$lib/feel';
+import { gearFilterIsAll, matchesGearFilter, parseGearSearch } from '$lib/gear-filter';
+import { mapFilterActive, matchesMapFilter, parseMapSearch } from '../components/MapFilter';
+import {
+	matchesSessionFilter,
+	parseSessionSearch,
+	sessionIsAll
+} from '../components/SessionFilter';
 import {
 	matchesSportFilter,
 	parseSportSearch,
@@ -59,6 +67,10 @@ const RoutesHeatmap = lazy(() =>
 
 type DashSearch = RangeSearch & {
 	sport?: string;
+	session?: string;
+	map?: string;
+	feel?: string;
+	gear?: string;
 	country?: string;
 	province?: string;
 	place?: string;
@@ -77,6 +89,10 @@ export const Route = createFileRoute('/')({
 		from: typeof s.from === 'string' ? s.from : undefined,
 		to: typeof s.to === 'string' ? s.to : undefined,
 		sport: parseSportSearch(s.sport),
+		session: parseSessionSearch(s.session),
+		map: parseMapSearch(s.map),
+		feel: parseFeelSearch(s.feel),
+		gear: parseGearSearch(s.gear),
 		country: typeof s.country === 'string' ? s.country : undefined,
 		province: typeof s.province === 'string' ? s.province : undefined,
 		place: typeof s.place === 'string' ? s.place : undefined
@@ -124,6 +140,10 @@ function DashboardBody({
 	if (search.to) sp.set('to', search.to);
 	const range = parseDateRange(sp);
 	const sport = search.sport ?? 'all';
+	const session = search.session ?? 'all';
+	const map = search.map ?? 'all';
+	const feel = search.feel ?? 'all';
+	const gear = search.gear ?? 'all';
 	const country = search.country ?? 'all';
 	const province = search.province ?? 'all';
 	const place = search.place ?? 'all';
@@ -132,6 +152,10 @@ function DashboardBody({
 	const availableSports = new Set(allRuns.map((r) => normalizeActivityType(r.activity_type)));
 	const scoped = allRuns
 		.filter((r) => matchesSportFilter(r.activity_type, sport))
+		.filter((r) => matchesSessionFilter(r.session, session))
+		.filter((r) => matchesMapFilter(r.has_map, map))
+		.filter((r) => matchesFeelFilter(r, feel))
+		.filter((r) => matchesGearFilter(r, gear))
 		.filter((r) => country === 'all' || r.country === country)
 		.filter((r) => province === 'all' || r.province === province)
 		.filter((r) => place === 'all' || r.place === place);
@@ -139,8 +163,13 @@ function DashboardBody({
 	const trackIds = routeIdsForRuns(runs);
 	const locationActive = country !== 'all' || province !== 'all' || place !== 'all';
 	const sportFilterActive = !sportIsAll(sport);
+	const sessionFilterActive = !sessionIsAll(session);
+	const mapFilterOn = mapFilterActive(map);
+	const feelFilterOn = feelFilterActive(feel);
+	const gearFilterOn = !gearFilterIsAll(gear);
+	const extraFilterActive = sessionFilterActive || mapFilterOn || feelFilterOn || gearFilterOn;
 	const tracks =
-		range.kind === 'all' && !sportFilterActive && !locationActive
+		range.kind === 'all' && !sportFilterActive && !locationActive && !extraFilterActive
 			? data.tracks
 			: data.tracks.filter((t) => trackIds.has(t.id));
 	const listItems = collapseRuns(runs, allRuns, data.groups);
@@ -205,6 +234,11 @@ function DashboardBody({
 			<ActivityFilters
 				to="/"
 				sport={sport}
+				session={session}
+				map={map}
+				feel={feel}
+				gear={gear}
+				gearContext={data.gear}
 				range={range}
 				runs={allRuns}
 				country={country}
@@ -399,14 +433,14 @@ function DashboardBody({
 						<SectionTitle className="mt-2">
 							<div>
 								<h2 id="routes-heading">
-									{rangeActive || sportFilterActive || locationActive
+									{rangeActive || sportFilterActive || locationActive || extraFilterActive
 										? 'Routes in view'
 										: 'All routes'}
 								</h2>
 								<p>
 									{tracks.length
 										? `${tracks.length} tracks overlaid · overlaps glow brighter`
-										: rangeActive || sportFilterActive || locationActive
+										: rangeActive || sportFilterActive || locationActive || extraFilterActive
 											? 'No GPS routes in this view'
 											: 'Heatmap appears when GPS routes are imported'}
 								</p>
@@ -444,6 +478,10 @@ function DashboardBody({
 								search={{
 									...timelineSearch,
 									sport: sportFilterActive ? sport : undefined,
+									session: sessionFilterActive ? session : undefined,
+									map: mapFilterOn ? map : undefined,
+									feel: feelFilterOn ? feel : undefined,
+									gear: gearFilterOn ? gear : undefined,
 									country: country === 'all' ? undefined : country,
 									province: province === 'all' ? undefined : province,
 									place: place === 'all' ? undefined : place

@@ -6,13 +6,25 @@ import { cn } from '$lib/ui';
 import { ui } from './tokens';
 import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
 import { Icon } from '../Icon';
+import { feelSummaryLabel } from '$lib/feel';
+import type { GearFilterOption } from '$lib/gear-filter';
+import { gearSummaryLabel } from '$lib/gear-filter';
+import { mapSummaryLabel } from '../MapFilter';
+import { sessionSummaryLabel } from '../SessionFilter';
 import { sportSummaryLabel } from '../SportFilter';
 
 /** Compact trigger text, e.g. "Run · 30 days" or "All · All time · NL". */
 export function filterSummary(
 	sport: string,
 	range: DateRange,
-	location?: { country?: string; province?: string; place?: string }
+	location?: { country?: string; province?: string; place?: string },
+	extra?: {
+		session?: string;
+		map?: string;
+		feel?: string;
+		gear?: string;
+		gearOptions?: GearFilterOption[];
+	}
 ): string {
 	const sportPart = sportSummaryLabel(sport);
 	const rangePart =
@@ -24,6 +36,12 @@ export function filterSummary(
 					? 'All time'
 					: range.label;
 	const parts = [sportPart, rangePart];
+	if (extra?.session && extra.session !== 'all') parts.push(sessionSummaryLabel(extra.session));
+	if (extra?.map && extra.map !== 'all') parts.push(mapSummaryLabel(extra.map));
+	if (extra?.feel && extra.feel !== 'all') parts.push(feelSummaryLabel(extra.feel));
+	if (extra?.gear && extra.gear !== 'all' && extra.gearOptions?.length) {
+		parts.push(gearSummaryLabel(extra.gear, extra.gearOptions));
+	}
 	if (location?.country && location.country !== 'all') parts.push(location.country);
 	if (location?.province && location.province !== 'all') parts.push(location.province);
 	if (location?.place && location.place !== 'all') parts.push(location.place);

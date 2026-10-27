@@ -61,9 +61,13 @@ import { EditButton, TrashIcon } from '../DeleteButton';
 import { MoreMenu } from '../MoreMenu';
 import { FeelBadge } from '../FeelBadge';
 import { ActivityTag, Icon } from '../Icon';
+import { matchesFeelFilter } from '$lib/feel';
+import { gearFilterOptions, matchesGearFilter } from '$lib/gear-filter';
+import type { GearContext } from '$lib/gear';
+import { matchesMapFilter } from '../MapFilter';
+import { matchesSessionFilter } from '../SessionFilter';
 import {
 	matchesSportFilter,
-	parseSportSearch,
 	selectedSports,
 	sportIsAll
 } from '../SportFilter';
@@ -241,7 +245,15 @@ function RunCardBody({
 	);
 }
 
-export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; groups: ActivityGroupInfo[] }) {
+export function TimelineBody({
+	allRuns,
+	groups,
+	gear
+}: {
+	allRuns: RunWithMap[];
+	groups: ActivityGroupInfo[];
+	gear: GearContext;
+}) {
 	const search = timelineRoute.useSearch();
 	const router = useRouter();
 	const snack = useSnackbar();
@@ -260,6 +272,10 @@ export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; group
 	if (search.to) sp.set('to', search.to);
 	const range = parseDateRange(sp);
 	const sport = search.sport ?? 'all';
+	const session = search.session ?? 'all';
+	const map = search.map ?? 'all';
+	const feel = search.feel ?? 'all';
+	const gearFilter = search.gear ?? 'all';
 	const country = search.country ?? 'all';
 	const province = search.province ?? 'all';
 	const place = search.place ?? 'all';
@@ -267,6 +283,10 @@ export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; group
 
 	const scoped = allRuns
 		.filter((r) => matchesSportFilter(r.activity_type, sport))
+		.filter((r) => matchesSessionFilter(r.session, session))
+		.filter((r) => matchesMapFilter(r.has_map, map))
+		.filter((r) => matchesFeelFilter(r, feel))
+		.filter((r) => matchesGearFilter(r, gearFilter))
 		.filter((r) => country === 'all' || r.country === country)
 		.filter((r) => province === 'all' || r.province === province)
 		.filter((r) => place === 'all' || r.place === place);
@@ -290,7 +310,13 @@ export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; group
 	const totalAllTime = allRuns.length;
 	const neverLogged = totalAllTime === 0;
 	const filteredEmpty = totalAllTime > 0 && !months.length;
-	const summary = filterSummary(sport, range, { country, province, place });
+	const gearOptions = useMemo(() => gearFilterOptions(allRuns, gear), [allRuns, gear]);
+	const summary = filterSummary(
+		sport,
+		range,
+		{ country, province, place },
+		{ session, map, feel, gear: gearFilter, gearOptions }
+	);
 
 	async function copyTimeline() {
 		if (!runs.length) return;
@@ -374,6 +400,11 @@ export function TimelineBody({ allRuns, groups }: { allRuns: RunWithMap[]; group
 			<ActivityFilters
 				to="/timeline"
 				sport={sport}
+				session={session}
+				map={map}
+				feel={feel}
+				gear={gearFilter}
+				gearContext={gear}
 				range={range}
 				runs={allRuns}
 				country={country}

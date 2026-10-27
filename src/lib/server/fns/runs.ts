@@ -33,14 +33,15 @@ import { activityStartMs } from '../planned-route-draw';
 /** Root-loader data shared by every page: sign-in state + the open body notes to score. */
 
 export const getTimelineRuns = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, routeIds, groupsRaw] = await Promise.all([
+	const [runs, routeIds, groupsRaw, gear] = await Promise.all([
 		listRuns(),
 		listRouteIds(),
-		listActivityGroups()
+		listActivityGroups(),
+		loadGear()
 	]);
 	await hydrateBestEfforts(runs);
 	const groups = await enrichAllGroupEfforts(groupsRaw, runs);
-	return { runs: withMap(runs, routeIds), groups };
+	return { runs: withMap(runs, routeIds), groups, gear };
 });
 
 export const getRunDetail = createServerFn({ method: 'GET' })

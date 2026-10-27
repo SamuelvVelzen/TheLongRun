@@ -1,3 +1,4 @@
+import type { GearContext } from '$lib/gear';
 import { openIntentions } from '$lib/goals';
 import { pickBannerWeekView, sessionStreak, weekToPlan, type PlanCalendar, type WeekView } from '$lib/plan';
 import type { ActivityAttachOption, ActivityGroupInfo, Goal, PlanAttachOption, PlannedRoute, PlannedRouteActivityLink, PlannedRoutePlanLink, PlanWeek, RouteTrack, RunRecord, RunWithMap, SessionRouteRef } from '$lib/types';
@@ -6,7 +7,7 @@ import type { GoalBriefDraft } from '$lib/goal-brief';
 import type { PlanPeekData } from '$lib/plan-peek';
 import type { CreateRunInput, UpdateRunInput } from '$lib/run-input';
 import { createServerFn } from '@tanstack/react-start';
-import { loadTrainingContext } from '../context';
+import { loadGear, loadTrainingContext } from '../context';
 import { enrichAllGroupEfforts, listActivityGroups } from '../groups';
 import { listPlannedRoutes, listPlanRouteRefs } from '../planned-routes';
 import { listRouteTracks } from '../routes';
@@ -18,15 +19,17 @@ import { attachPlanRoutes, withMap } from '../run-orchestration';
 /** Root-loader data shared by every page: sign-in state + the open body notes to score. */
 
 export const getDashboardData = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, tracks, routeIds, training, planRefs, plannedRoutes, groupsRaw] = await Promise.all([
-		listRuns(),
-		listRouteTracks(),
-		listRouteIds(),
-		loadTrainingContext(),
-		listPlanRouteRefs(),
-		listPlannedRoutes(),
-		listActivityGroups()
-	]);
+	const [runs, tracks, routeIds, training, planRefs, plannedRoutes, groupsRaw, gear] =
+		await Promise.all([
+			listRuns(),
+			listRouteTracks(),
+			listRouteIds(),
+			loadTrainingContext(),
+			listPlanRouteRefs(),
+			listPlannedRoutes(),
+			listActivityGroups(),
+			loadGear()
+		]);
 	const groups = await enrichAllGroupEfforts(groupsRaw, runs);
 	const { plan, calendar, activeGoal, medals } = training;
 	const nextIntention = openIntentions(training.store.goals)[0] ?? null;
@@ -36,6 +39,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 	return {
 		runs: withMap(runs, routeIds),
 		tracks,
+		gear,
 		groups,
 		week,
 		weekView,
@@ -52,6 +56,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 	} satisfies {
 		runs: RunWithMap[];
 		tracks: RouteTrack[];
+		gear: GearContext;
 		groups: ActivityGroupInfo[];
 		week: PlanWeek | null;
 		weekView: WeekView | null;

@@ -37,8 +37,8 @@ export const ui = {
 		'fixed z-[60] inset-x-0 bottom-[calc(1.15rem+var(--safe-bottom))] flex flex-col-reverse items-center gap-[0.45rem] px-4 pointer-events-none max-sm:bottom-(--tab-bar-offset) max-sm:px-3',
 	snack:
 		'pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.7rem] pr-[0.55rem] pl-[0.95rem] rounded-[14px] border border-line bg-surface shadow-lift animate-rise max-sm:py-[0.65rem] max-sm:pr-[0.4rem] max-sm:pl-[0.85rem]',
-	snackSuccess: 'border-ok/35 bg-ok/10 text-ok',
-	snackError: 'border-warn/40 bg-warn/10 text-warn',
+	snackSuccess: 'border-ok/35 bg-surface text-ok',
+	snackError: 'border-warn/40 bg-surface text-warn',
 	snackAction:
 		'shrink-0 appearance-none min-h-11 px-[0.7rem] py-[0.35rem] border-0 rounded-full bg-transparent text-accent-fg font-semibold cursor-pointer whitespace-nowrap hover:text-fg active:text-fg',
 	snackDismiss:
@@ -69,6 +69,18 @@ export const ui = {
 		'flex flex-col items-center justify-center gap-[0.35rem] p-[2.25rem_1.2rem] border-2 border-dashed border-line rounded-box bg-inset text-muted cursor-pointer text-center transition-[border-color,background-color,color] duration-150 ease-out hover:border-accent hover:text-fg active:border-accent active:text-fg max-sm:p-[1.5rem_0.85rem] [&_strong]:font-display [&_strong]:text-[1.02rem] [&_strong]:text-fg',
 	dropzoneOver: 'border-accent bg-accent/8 text-fg',
 	coachTabs: `${stickySectionBar} ${stickyChrome}`,
+	coachTabsInline: 'mt-2 max-sm:mt-1.5 !mb-0 !py-0',
+	tabbedPageHeader: 'flex flex-col gap-0',
+	tabbedPageHeaderCompact: 'max-sm:!py-1 sm:!py-1.5',
+	tabbedPageHeaderCopy: 'min-w-0',
+	tabbedPageHeaderTitleShell:
+		'grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none',
+	tabbedPageHeaderTitleShellOpen: 'grid-rows-[1fr]',
+	tabbedPageHeaderTitleShellClosed: 'grid-rows-[0fr]',
+	tabbedPageKicker: 'm-0 mb-0.5 text-[0.82rem] sm:text-[0.88rem]',
+	tabbedPageTitle:
+		'font-display font-extrabold tracking-[-0.04em] m-0 text-[1.28rem] sm:text-[1.65rem]',
+	tabbedPageLead: 'm-0 mt-1 max-w-[68ch] text-muted text-[0.98rem] sm:text-[1.02rem]',
 	choiceChips: 'flex flex-wrap gap-[0.4rem]',
 	choiceChip:
 		'appearance-none inline-flex items-center justify-center gap-1.5 min-h-11 px-[0.95rem] py-2 rounded-full border border-solid border-line bg-transparent text-muted font-semibold cursor-pointer transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:border-accent/35 disabled:opacity-35 disabled:cursor-not-allowed aria-[pressed=true]:bg-accent! aria-[pressed=true]:text-accent-ink! aria-[pressed=true]:border-accent! aria-[pressed=true]:hover:text-accent-ink aria-[pressed=true]:hover:border-accent',

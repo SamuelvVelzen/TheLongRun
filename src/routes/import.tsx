@@ -8,7 +8,7 @@ import { DeferredData } from '../components/DeferredData';
 import { GpxImport } from '../components/GpxImport';
 import { Icon } from '../components/Icon';
 import { LogForm } from '../components/LogForm';
-import { PageHero, PageTabs, Panel, useLeaveGuard } from '../components/ui';
+import { TabbedPageHeader, Panel, useLeaveGuard } from '../components/ui';
 
 export type AddSearch = {
 	mode?: 'gpx' | 'manual';
@@ -67,8 +67,7 @@ function AddActivity() {
 
 	return (
 		<>
-			<PageHero
-				variant="quiet"
+			<TabbedPageHeader
 				kicker="Track file or type it in"
 				title="Add activity"
 				lead={
@@ -76,41 +75,44 @@ function AddActivity() {
 						Upload GPX or TCX (from a watch export, Strava, Komoot, etc.) or log manually.
 					</p>
 				}
+				tabs={
+					authed
+						? {
+								'aria-label': 'How to add',
+								value: mode,
+								options: [
+									{
+										value: 'gpx',
+										label: (
+											<>
+												<Icon name="upload" size={15} />
+												GPX / TCX
+											</>
+										),
+										to: '/import',
+										search: { mode: 'gpx' }
+									},
+									{
+										value: 'manual',
+										label: (
+											<>
+												<Icon name="pencil" size={15} />
+												Log manually
+											</>
+										),
+										to: '/import',
+										search: { mode: 'manual' }
+									}
+								]
+							}
+						: undefined
+				}
 			/>
 
 			{!authed ? (
 				<SignInPanel title="Sign in to add an activity" />
 			) : (
 				<>
-					<PageTabs
-						aria-label="How to add"
-						value={mode}
-						options={[
-							{
-								value: 'gpx',
-								label: (
-									<>
-										<Icon name="upload" size={15} />
-										GPX / TCX
-									</>
-								),
-								to: '/import',
-								search: { mode: 'gpx' }
-							},
-							{
-								value: 'manual',
-								label: (
-									<>
-										<Icon name="pencil" size={15} />
-										Log manually
-									</>
-								),
-								to: '/import',
-								search: { mode: 'manual' }
-							}
-						]}
-					/>
-
 					{mode === 'gpx' ? (
 						<Panel form>
 							<GpxImport coachAfter onDirtyChange={setFormDirty} />

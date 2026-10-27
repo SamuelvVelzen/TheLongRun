@@ -18,7 +18,7 @@ Read **`.cursor/UI_SYSTEM.md`** in full when implementing or reviewing UI. It is
 ## Non-negotiables
 
 1. **Imports** — App code uses `import { … } from '../components/ui'` (or `./ui` under `src/components`). Do not import `PageHero`, `Dialog`, `Snackbar`, etc. from legacy `src/components/*.tsx` shims.
-2. **Page shell** — `PageHero` → optional `PageTabs` → `Panel` / `PageSection`. Utility pages use `PageHero variant="quiet"`.
+2. **Page shell** — `PageHero` or `TabbedPageHeader` (tabbed pages) → `Panel` / `PageSection`. Utility pages without tabs use `PageHero variant="quiet"`.
 3. **Shapes** — `rounded-full` (controls/chips), `rounded-inset` (scores/cells/inset rows), `rounded-box` (panels/maps/dialogs).
 4. **Destructive** — `Button variant="danger"`, `DeleteButton`, or `DestructiveLink` / `destructiveNavLinkClass` with warn tokens.
 5. **Auth** — When `!authed`, hide save/edit/delete/generate controls (not only disabled). Use `SignInPanel` on edit-heavy pages.

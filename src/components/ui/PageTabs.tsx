@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import { TabBar } from './Chrome';
 import { SegmentedToggle, type SegmentedOption } from './SegmentedToggle';
 
@@ -7,16 +6,19 @@ export function PageTabs<T extends string>({
 	value,
 	onChange,
 	options,
-	className
+	className,
+	sticky = true
 }: {
 	'aria-label': string;
 	value: T;
 	onChange?: (value: T) => void;
 	options: SegmentedOption<T>[];
 	className?: string;
+	/** False when tabs sit inside `TabbedPageHeader` (parent handles sticky chrome). */
+	sticky?: boolean;
 }) {
 	return (
-		<TabBar className={className}>
+		<TabBar sticky={sticky} className={className}>
 			<SegmentedToggle
 				fill
 				aria-label={ariaLabel}

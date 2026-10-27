@@ -11,8 +11,11 @@ export function gridClass(...parts: Array<string | false | null | undefined>) {
 	return cn(ui.grid, ...parts);
 }
 
-export function tabBarClass(...parts: Array<string | false | null | undefined>) {
-	return cn(ui.coachTabs, ...parts);
+export function tabBarClass(
+	sticky: boolean | undefined,
+	...parts: Array<string | false | null | undefined>
+) {
+	return cn(sticky !== false ? ui.coachTabs : ui.coachTabsInline, ...parts);
 }
 
 export function runRowClass(...parts: Array<string | boolean | false | null | undefined>) {
@@ -48,8 +51,12 @@ export function Grid({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
 	return <div className={gridClass(className)} {...props} />;
 }
 
-export function TabBar({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-	return <div className={tabBarClass(className)} {...props} />;
+export function TabBar({
+	sticky = true,
+	className,
+	...props
+}: { sticky?: boolean } & HTMLAttributes<HTMLDivElement>) {
+	return <div className={tabBarClass(sticky, className)} {...props} />;
 }
 
 export function RunRow({

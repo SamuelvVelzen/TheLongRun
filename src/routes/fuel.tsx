@@ -4,7 +4,6 @@ import { appHead } from '$lib/title';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { DeferredData } from '../components/DeferredData';
 import { FuelLog, parseFuelTab, type FuelTab } from '../components/FuelLog';
-import { PageHero } from '../components/ui';
 
 type FuelSearch = { tab?: FuelTab };
 
@@ -36,7 +35,6 @@ function FuelPage() {
 
 	return (
 		<>
-			<PageHero variant="quiet" kicker="Food and drink" title="Fuel" />
 			{!authed ? (
 				<SignInPanel
 					title="Sign in to log fuel"

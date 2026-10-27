@@ -17,13 +17,14 @@
 
 ## Page shell
 
-1. `PageHero` (`variant="quiet"` on utility pages)
-2. `PageTabs` where tabs exist (wraps `TabBar` + `SegmentedToggle fill`)
-3. Stack of `Panel` / `PageSection` — avoid bare primary content on the canvas
+1. `PageHero` (`variant="quiet"` on utility pages without in-page tabs)
+2. **`TabbedPageHeader`** when a page has section tabs (Coach, Goals, Fuel, Add activity) — one sticky chrome block: compact title + `PageTabs` (`sticky={false}` inside the header). Title collapses on scroll; tabs stay pinned in the band.
+3. Standalone `PageTabs` only when not using `TabbedPageHeader` (rare)
+4. Stack of `Panel` / `PageSection` — avoid bare primary content on the canvas
 
-### Mobile `PageHero`
+### Mobile page titles
 
-On viewports `max-sm`, non-`home` heroes show **only the `h1`**. Kicker, lead, children, and actions are hidden in `PageHero`.
+On viewports `max-sm`, non-`home` `PageHero` shows **only the `h1`** (kicker, lead, actions hidden). `TabbedPageHeader` uses the same rule for kicker and lead; the compact `h1` and tabs always show.
 
 ## Destructive actions
 
@@ -75,6 +76,7 @@ Toolbar button **Import with AI** opens a dialog built on **`AiPromptFlow`**: op
 | `Metric` / `Metrics`                          | Stat tiles                                                                     |
 | `PageHero`                                    | Page title block                                                               |
 | `PageSection`                                 | `Panel` + optional `PanelTitle`                                                |
+| `TabbedPageHeader`                            | Sticky title + in-page tabs (single chrome band)                               |
 | `PageTabs`                                    | Sticky tab bar + filled segmented control                                      |
 | `Panel`                                       | Surface card; `form` prop adds form grid spacing                               |
 | `PanelTitle`                                  | In-panel section heading (h3)                                                  |

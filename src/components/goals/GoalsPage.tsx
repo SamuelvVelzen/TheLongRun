@@ -29,9 +29,8 @@ import {
 	ConfirmDialog,
 	IconLabelButton,
 	IconLabelLink,
-	PageHero,
-	PageTabs,
 	Panel,
+	TabbedPageHeader,
 	SectionTitle,
 	errorMessage,
 	useSnackbar
@@ -148,36 +147,34 @@ export function GoalsPage() {
 
 	return (
 		<>
-			<PageTabs
-				aria-label="Goals"
-				value={tab}
-				onChange={setTab}
-				options={[
-					{
-						value: 'races',
-						label: (
-							<>
-								<Icon name="flag" size={15} />
-								Races
-							</>
-						)
-					},
-					{
-						value: 'medals',
-						label: (
-							<>
-								<Icon name="trophy" size={15} />
-								Medals
-							</>
-						)
-					}
-				]}
-			/>
-
-			<PageHero
-				variant="quiet"
+			<TabbedPageHeader
 				kicker={tab === 'medals' ? 'On the wall' : 'Race on the calendar'}
 				title="Goals"
+				tabs={{
+					'aria-label': 'Goals',
+					value: tab,
+					onChange: setTab,
+					options: [
+						{
+							value: 'races',
+							label: (
+								<>
+									<Icon name="flag" size={15} />
+									Races
+								</>
+							)
+						},
+						{
+							value: 'medals',
+							label: (
+								<>
+									<Icon name="trophy" size={15} />
+									Medals
+								</>
+							)
+						}
+					]
+				}}
 			/>
 
 			{!authed ? <SignInPanel title="Sign in to set races and medals" /> : null}

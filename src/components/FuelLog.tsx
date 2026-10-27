@@ -34,8 +34,7 @@ import {
 	IconLabelButton,
 	Panel,
 	PanelTitle,
-	SegmentedToggle,
-	TabBar,
+	TabbedPageHeader,
 	useAppForm,
 	useSnackbar
 } from './ui';
@@ -380,13 +379,14 @@ export function FuelLog({
 
 	return (
 		<>
-			<TabBar>
-				<SegmentedToggle
-					fill
-					aria-label="Fuel"
-					value={tab}
-					onChange={onTabChange}
-					options={[
+			<TabbedPageHeader
+				kicker="Food and drink"
+				title="Fuel"
+				tabs={{
+					'aria-label': 'Fuel',
+					value: tab,
+					onChange: onTabChange,
+					options: [
 						...FUEL_PHASES.map((p) => ({
 							value: p as FuelTab,
 							label: groups[p].length
@@ -394,9 +394,9 @@ export function FuelLog({
 								: FUEL_PHASE_META[p].label
 						})),
 						{ value: 'guidance' as FuelTab, label: 'Guidance' }
-					]}
-				/>
-			</TabBar>
+					]
+				}}
+			/>
 
 			{authed && (
 				<div className="flex flex-wrap gap-2 justify-end mb-4">

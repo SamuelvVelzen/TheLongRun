@@ -28,6 +28,7 @@ export { Metric, Metrics } from './Metric';
 export { PageHero } from './PageHero';
 export { PageSection } from './PageSection';
 export { PageTabs } from './PageTabs';
+export { TabbedPageHeader, type TabbedPageHeaderTabs } from './TabbedPageHeader';
 export { Panel } from './Panel';
 export { PanelTitle } from './PanelTitle';
 export { FeelChips, WantedFasterChips } from './ScoreChips';

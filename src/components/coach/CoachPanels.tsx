@@ -70,9 +70,8 @@ import {
 	Field,
 	Form,
 	IconLabelButton,
-	PageHero,
-	PageTabs,
 	Panel,
+	TabbedPageHeader,
 	PanelTitle,
 	Select,
 	Textarea,
@@ -414,57 +413,61 @@ export function CoachPanels({
 
 	return (
 		<>
-			<PageTabs
-				aria-label="Coach"
-				value={tab}
-				onChange={setTab}
-				options={[
-					{
-						value: 'training' as const,
-						label: (
-							<>
-								<Icon name="calendar" size={15} />
-								Training
-							</>
-						)
-					},
-					...(authed
-						? [
-								{
-									value: 'generate' as const,
-									label: (
-										<>
-											<Icon name="sparkle" size={15} />
-											Generate
-										</>
-									)
-								}
-							]
-						: []),
-					{
-						value: 'plan' as const,
-						label: (
-							<>
-								<Icon name="board" size={15} />
-								Plan
-							</>
-						)
-					},
-					...(authed
-						? [
-								{
-									value: 'debrief' as const,
-									label: (
-										<>
-											<Icon name="flag" size={15} />
-											<span className="max-sm:hidden">After an activity</span>
-											<span className="hidden max-sm:inline">Activity</span>
-										</>
-									)
-								}
-							]
-						: [])
-				]}
+			<TabbedPageHeader
+				kicker="This week"
+				title="Coach"
+				tabs={{
+					'aria-label': 'Coach',
+					value: tab,
+					onChange: setTab,
+					options: [
+						{
+							value: 'training' as const,
+							label: (
+								<>
+									<Icon name="calendar" size={15} />
+									Training
+								</>
+							)
+						},
+						...(authed
+							? [
+									{
+										value: 'generate' as const,
+										label: (
+											<>
+												<Icon name="sparkle" size={15} />
+												Generate
+											</>
+										)
+									}
+								]
+							: []),
+						{
+							value: 'plan' as const,
+							label: (
+								<>
+									<Icon name="board" size={15} />
+									Plan
+								</>
+							)
+						},
+						...(authed
+							? [
+									{
+										value: 'debrief' as const,
+										label: (
+											<>
+												<Icon name="flag" size={15} />
+												<span className="max-sm:hidden">After an activity</span>
+												<span className="hidden max-sm:inline">Activity</span>
+											</>
+										)
+									}
+								]
+							: [])
+					]
+				}}
 			/>
 
 			{tab === 'training' && (

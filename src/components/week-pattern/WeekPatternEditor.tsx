@@ -95,11 +95,6 @@ function slotFromDraft(draft: Draft): WeekSlot {
 	});
 }
 
-function defaultDay(rows: SlotRow[]): Weekday {
-	const used = new Set(rows.map((r) => r.day));
-	return WEEKDAYS.find((d) => !used.has(d)) ?? 'Monday';
-}
-
 function sortRows(rows: SlotRow[]): SlotRow[] {
 	return [...rows].sort((a, b) => {
 		const d = weekdayIndex(a.day) - weekdayIndex(b.day);
@@ -229,7 +224,7 @@ export function WeekPatternEditor({
 
 	function openAdd() {
 		setNoteId(null);
-		setDraft(emptyDraft(defaultDay(rows)));
+		setDraft(emptyDraft('Monday'));
 	}
 
 	function openEdit(row: SlotRow) {

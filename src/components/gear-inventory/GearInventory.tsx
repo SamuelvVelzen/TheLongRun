@@ -29,9 +29,8 @@ import { saveActivityHabits, saveGear } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { z } from 'zod';
 import { SportHabitsForm } from '../ActivityHabitsEditor';
-import { GearAiDialog } from '../GearAiDialog';
+import { GearKitAddDialog } from './GearKitAddDialog';
 import { Icon, sportChipLabel } from '../Icon';
 import {
 	Actions,
@@ -45,7 +44,7 @@ import {
 	useAppForm,
 	useSnackbar
 } from '../ui';
-import { DeleteButton } from '../DeleteButton';
+import { TrashIcon } from '../DeleteButton';
 import { MoreMenu } from '../MoreMenu';
 import { buttonClass } from '../ui/Button';
 
@@ -134,7 +133,7 @@ function ItemRow({
 					<MoreMenu
 						compact
 						trigger="edit"
-						label={`Manage ${name}`}
+						label={`Edit ${name}`}
 						items={[
 							...(role !== 'active'
 								? [
@@ -165,11 +164,18 @@ function ItemRow({
 									])
 						]}
 					/>
-					<DeleteButton
+					<MoreMenu
 						compact
-						disabled={busy}
-						label={`Remove ${name}`}
-						onClick={onRemove}
+						label={`More for ${name}`}
+						items={[
+							{
+								label: 'Remove',
+								icon: <TrashIcon className="size-4" />,
+								onClick: onRemove,
+								danger: true,
+								disabled: busy
+							}
+						]}
 					/>
 				</div>
 			)}
@@ -306,14 +312,7 @@ function KindSection({
 			)}
 
 			{authed && (
-				<>
-					<AddGearForm
-						addLabel={meta.addLabel}
-						placeholder={meta.addPlaceholder}
-						busy={busy}
-						onAdd={(n) => onPersist(addGear(catalog, n), `Added ${n}`)}
-					/>
-					<GearNotesForm
+				<GearNotesForm
 						notes={catalog.notes}
 						placeholder={meta.notesPlaceholder}
 						busy={busy}
@@ -321,7 +320,6 @@ function KindSection({
 							onPersist({ ...catalog, notes: next }, `Saved ${meta.label.toLowerCase()} notes`)
 						}
 					/>
-				</>
 			)}
 
 			{!authed && catalog.notes ? (
@@ -348,7 +346,7 @@ export function GearInventory({
 	const [habits, setHabits] = useState(initialHabits);
 	const [busy, setBusy] = useState(false);
 	const [remove, setRemove] = useState<{ kind: GearKind; name: string } | null>(null);
-	const [asking, setAsking] = useState(false);
+	const [adding, setAdding] = useState(false);
 	const [kitCopied, setKitCopied] = useState(false);
 
 	useEffect(() => {
@@ -405,18 +403,23 @@ export function GearInventory({
 			<div className="flex flex-wrap items-center gap-2">
 				<PanelTitle className="m-0 mb-0 pb-0 border-b-0 flex-1 min-w-[8rem]">Kit</PanelTitle>
 				{authed && (
-					<div className="flex flex-wrap gap-2 justify-end">
+					<div className="flex flex-wrap items-center gap-2 justify-end">
 						<IconLabelButton
-							label="Copy kit for AI"
+							label="Add kit"
+							variant="primary"
 							disabled={busy}
-							icon={<Icon name={kitCopied ? 'check' : 'copy'} size={16} />}
-							onClick={() => void copyKitForAi()}
+							icon={<Icon name="plus" size={16} />}
+							onClick={() => setAdding(true)}
 						/>
-						<IconLabelButton
-							label="Import with AI"
-							disabled={busy}
-							icon={<Icon name="sparkle" size={16} />}
-							onClick={() => setAsking(true)}
+						<MoreMenu
+							items={[
+								{
+									label: kitCopied ? 'Copied' : 'Copy kit for AI',
+									icon: <Icon name={kitCopied ? 'check' : 'copy'} size={16} />,
+									onClick: () => void copyKitForAi(),
+									disabled: busy
+								}
+							]}
 						/>
 					</div>
 				)}
@@ -487,12 +490,12 @@ export function GearInventory({
 				);
 			})}
 
-			<GearAiDialog
-				open={asking}
+			<GearKitAddDialog
+				open={adding}
 				gear={gear}
 				busy={busy}
-				onClose={() => setAsking(false)}
-				onSave={persist}
+				onClose={() => setAdding(false)}
+				onPersist={persist}
 			/>
 
 			<ConfirmDialog
@@ -516,57 +519,6 @@ export function GearInventory({
 				}}
 			/>
 		</Panel>
-	);
-}
-
-const addGearSchema = z.object({ name: z.string().trim().min(1) });
-
-function AddGearForm({
-	addLabel,
-	placeholder,
-	busy,
-	onAdd
-}: {
-	addLabel: string;
-	placeholder: string;
-	busy: boolean;
-	onAdd: (name: string) => Promise<boolean>;
-}) {
-	const form = useAppForm({
-		defaultValues: { name: '' },
-		validators: { onSubmit: addGearSchema },
-		onSubmit: async ({ value }) => {
-			const ok = await onAdd(value.name.trim());
-			if (ok) form.reset();
-		}
-	});
-
-	return (
-		<form
-			className="flex gap-[0.4rem] items-end mt-4"
-			onSubmit={(e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				void form.handleSubmit();
-			}}
-		>
-			<form.AppField
-				name="name"
-				children={(field) => (
-					<field.TextField
-						label={addLabel}
-						placeholder={placeholder}
-						disabled={busy}
-						className="flex-1 min-w-0"
-					/>
-				)}
-			/>
-			<form.AppForm>
-				<form.SubmitButton className={buttonClass({ size: 'sm', className: 'mb-[0.05rem]' })}>
-					Add
-				</form.SubmitButton>
-			</form.AppForm>
-		</form>
 	);
 }
 

@@ -11,21 +11,18 @@ import {
 	type Wardrobe
 } from '$lib/wardrobe';
 import { parseClothingReplyText } from '$lib/wardrobe-schema';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AiPromptFlow } from './AiPromptFlow';
 import { Icon } from './Icon';
 import { JsonPasteForm } from './JsonPasteForm';
-import { Button, Checkbox, Dialog, StatusPill } from './ui';
+import { Button, Checkbox, Dialog } from './ui';
 
-/** Describe or ask → copy prompt → paste the AI's JSON → pick what to keep. Nothing saves until confirmed. */
-export function WardrobeAiDialog({
-	open,
+export function WardrobeAiImportPanel({
 	wardrobe,
 	busy,
 	onClose,
 	onSave
 }: {
-	open: boolean;
 	wardrobe: Wardrobe;
 	busy: boolean;
 	onClose: () => void;
@@ -34,12 +31,6 @@ export function WardrobeAiDialog({
 	const [extra, setExtra] = useState('');
 	const [changes, setChanges] = useState<ClothingChange[]>([]);
 	const [picked, setPicked] = useState<Set<string>>(new Set());
-
-	useEffect(() => {
-		if (open) return;
-		setChanges([]);
-		setPicked(new Set());
-	}, [open]);
 
 	const template = useMemo(
 		() => buildWardrobePrompt(wardrobe, isoDateLocal(new Date())),
@@ -61,6 +52,8 @@ export function WardrobeAiDialog({
 		);
 		if (ok) {
 			setExtra('');
+			setChanges([]);
+			setPicked(new Set());
 			onClose();
 		}
 	}
@@ -68,25 +61,7 @@ export function WardrobeAiDialog({
 	const count = picked.size;
 
 	return (
-		<Dialog
-			open={open}
-			title="Import clothing with AI"
-			className="sm:max-w-[38rem]"
-			onClose={busy ? () => {} : onClose}
-			actions={
-				changes.length ? (
-					<>
-						<Button variant="ghost" disabled={busy} onClick={() => setChanges([])}>
-							Back
-						</Button>
-						<Button variant="primary" disabled={busy || count === 0} onClick={() => void save()}>
-							<Icon name="check" size={16} />
-							{busy ? 'Saving…' : `Save ${count}`}
-						</Button>
-					</>
-				) : undefined
-			}
-		>
+		<div className="grid gap-4">
 			{changes.length ? (
 				<>
 					<p className={cn('text-muted', 'm-0')}>Untick anything you don't want to keep.</p>
@@ -135,6 +110,15 @@ export function WardrobeAiDialog({
 							);
 						})}
 					</div>
+					<div className="flex justify-end gap-2">
+						<Button variant="ghost" disabled={busy} onClick={() => setChanges([])}>
+							Back
+						</Button>
+						<Button variant="primary" disabled={busy || count === 0} onClick={() => void save()}>
+							<Icon name="check" size={16} />
+							{busy ? 'Saving…' : `Save ${count}`}
+						</Button>
+					</div>
 				</>
 			) : (
 				<AiPromptFlow
@@ -168,6 +152,32 @@ export function WardrobeAiDialog({
 					}
 				/>
 			)}
+		</div>
+	);
+}
+
+/** Describe or ask → copy prompt → paste the AI's JSON → pick what to keep. Nothing saves until confirmed. */
+export function WardrobeAiDialog({
+	open,
+	wardrobe,
+	busy,
+	onClose,
+	onSave
+}: {
+	open: boolean;
+	wardrobe: Wardrobe;
+	busy: boolean;
+	onClose: () => void;
+	onSave: (next: Wardrobe, okMessage: string) => Promise<boolean>;
+}) {
+	return (
+		<Dialog
+			open={open}
+			title="Import clothing with AI"
+			className="sm:max-w-[38rem]"
+			onClose={busy ? () => {} : onClose}
+		>
+			<WardrobeAiImportPanel wardrobe={wardrobe} busy={busy} onClose={onClose} onSave={onSave} />
 		</Dialog>
 	);
 }

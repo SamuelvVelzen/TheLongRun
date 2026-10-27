@@ -271,6 +271,11 @@ function PlannedRouteDetail() {
 
 	const desktopMoreItems: MoreMenuItem[] = authed
 		? [
+				{
+					label: 'Apple Maps',
+					icon: <Icon name="map" size={16} />,
+					onClick: openAppleMaps
+				},
 				downloadGpxItem,
 				{
 					label: 'Delete',
@@ -279,7 +284,15 @@ function PlannedRouteDetail() {
 					danger: true
 				}
 			]
-		: [];
+		: appleMapsUrl
+			? [
+					{
+						label: 'Apple Maps',
+						icon: <Icon name="map" size={16} />,
+						onClick: openAppleMaps
+					}
+				]
+			: [];
 
 	return (
 		<>
@@ -380,18 +393,6 @@ function PlannedRouteDetail() {
 								<div className="hidden items-center gap-2 sm:flex">
 									<button
 										className={buttonClass({
-											variant: mapsPref === 'apple' ? 'primary' : 'ghost',
-											size: 'sm'
-										})}
-										type="button"
-										onClick={openAppleMaps}
-									>
-										<Icon name="map" size={16} />
-										Apple Maps
-										<Icon name="external" size={13} />
-									</button>
-									<button
-										className={buttonClass({
 											variant: mapsPref === 'desktop' ? 'primary' : 'ghost',
 											size: 'sm'
 										})}
@@ -421,12 +422,6 @@ function PlannedRouteDetail() {
 										Start and finish are {formatStraightLineGap(openGap)} apart from each other.
 									</p>
 								)}
-								{appleMapsUrl ? (
-									<p className={cn('text-muted', 'mb-0 max-w-[36ch] text-[0.92rem] max-sm:hidden')}>
-										Opens a pin at the start. Tap it, then Create a Custom Route, and tap along the
-										trail.
-									</p>
-								) : null}
 							</>
 						}
 					/>

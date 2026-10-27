@@ -280,10 +280,6 @@
 	body:has([data-sticky-actions]) [data-scroll-to-top] {
 		bottom: calc(10rem + var(--safe-bottom-chrome));
 	}
-
-	body:has([data-sticky-actions]) [data-snack-host] {
-		bottom: calc(10rem + var(--safe-bottom-chrome));
-	}
 }
 
 /* Markdown rendered from marked() — generated HTML, not JSX. */

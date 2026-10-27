@@ -24,7 +24,11 @@ import {
 } from 'react';
 import '../app.css';
 import { Icon } from '../components/Icon';
-import { LiveLocationMenuItem, LiveLocationShare } from '../components/LiveLocationShare';
+import {
+	LiveLocationMenuItem,
+	LiveLocationShare,
+	LiveShareBanner
+} from '../components/LiveLocationShare';
 import { NetworkStatus } from '../components/NetworkStatus';
 import { PwaInstall } from '../components/PwaInstall';
 import { ScrollToTop } from '../components/ScrollToTop';
@@ -172,6 +176,7 @@ function RootShell() {
 						</details>
 					</header>
 					<NetworkStatus />
+					<LiveShareBanner />
 					<main data-app-scroll className={appScroll}>
 						<Outlet />
 					</main>
@@ -231,13 +236,13 @@ function ProfileMenuItems({ authed, mobile = false }: { authed: boolean; mobile?
 				</Link>
 			))}
 			{authed ? (
-				<Link to="/routes" search={{ draw: true }} className={tabMoreLink} onClick={closeDetails}>
+				<Link to="/routes/draw" className={tabMoreLink} onClick={closeDetails}>
 					<Icon name="map" size={18} />
 					Plan route
 				</Link>
 			) : null}
 			{mobile ? <PwaInstall className={tabMoreLink} /> : null}
-			<LiveLocationMenuItem className={tabMoreLink} onClick={closeDetails} />
+			<LiveLocationMenuItem className={tabMoreButton} onClick={closeDetails} />
 			<div className="my-[0.15rem] border-t border-line" />
 			<ThemeToggle className={tabMoreButton} showLabel onClick={closeDetails} />
 			{authed ? (

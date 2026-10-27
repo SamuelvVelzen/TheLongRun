@@ -19,7 +19,6 @@ import { DeleteButton, EditButton, TrashIcon } from './DeleteButton';
 import { Icon } from './Icon';
 import { MoreMenu } from './MoreMenu';
 import { WardrobeAddDialog } from './WardrobeAddDialog';
-import { WardrobeAiDialog } from './WardrobeAiDialog';
 import { ClothingForm } from './WardrobeClothingForm';
 import {
 	Actions,
@@ -32,20 +31,17 @@ import {
 	useAppForm,
 	useSnackbar
 } from './ui';
-import { buttonClass } from './ui/Button';
 
 function ClothingRow({
 	item,
 	authed,
 	busy,
-	onCount,
 	onEdit,
 	onRemove
 }: {
 	item: ClothingItem;
 	authed: boolean;
 	busy: boolean;
-	onCount: (count: number) => void;
 	onEdit: () => void;
 	onRemove: () => void;
 }) {
@@ -60,25 +56,7 @@ function ClothingRow({
 				{detail && <p className={cn('text-muted', 'm-0 mt-1 text-[0.82rem]')}>{detail}</p>}
 			</div>
 			{authed && (
-				<div className="flex flex-wrap gap-2">
-					<button
-						type="button"
-						className={buttonClass({ variant: 'ghost', size: 'sm' })}
-						disabled={busy || item.count <= 1}
-						aria-label={`One fewer ${item.name}`}
-						onClick={() => onCount(item.count - 1)}
-					>
-						−
-					</button>
-					<button
-						type="button"
-						className={buttonClass({ variant: 'ghost', size: 'sm' })}
-						disabled={busy}
-						aria-label={`One more ${item.name}`}
-						onClick={() => onCount(item.count + 1)}
-					>
-						+
-					</button>
+				<div className="inline-flex items-center gap-1 shrink-0">
 					<EditButton
 						compact
 						disabled={busy}
@@ -174,7 +152,6 @@ export function WardrobePanel({
 	const [busy, setBusy] = useState(false);
 	const [editing, setEditing] = useState<string | null>(null);
 	const [remove, setRemove] = useState<ClothingItem | null>(null);
-	const [asking, setAsking] = useState(false);
 	const [adding, setAdding] = useState(false);
 	const [kitCopied, setKitCopied] = useState(false);
 
@@ -224,24 +201,23 @@ export function WardrobePanel({
 			<div className="flex flex-wrap items-center gap-2">
 				<PanelTitle className="m-0 mb-0 pb-0 border-b-0 flex-1 min-w-[8rem]">Clothing</PanelTitle>
 				{authed && (
-					<div className="flex flex-wrap gap-2 justify-end">
+					<div className="flex flex-wrap items-center gap-2 justify-end">
 						<IconLabelButton
 							label="Add clothing"
+							variant="primary"
 							disabled={busy}
 							icon={<Icon name="plus" size={16} />}
 							onClick={() => setAdding(true)}
 						/>
-						<IconLabelButton
-							label="Copy kit for AI"
-							disabled={busy}
-							icon={<Icon name={kitCopied ? 'check' : 'copy'} size={16} />}
-							onClick={() => void copyKitForAi()}
-						/>
-						<IconLabelButton
-							label="Import with AI"
-							disabled={busy}
-							icon={<Icon name="sparkle" size={16} />}
-							onClick={() => setAsking(true)}
+						<MoreMenu
+							items={[
+								{
+									label: kitCopied ? 'Copied' : 'Copy clothing for AI',
+									icon: <Icon name={kitCopied ? 'check' : 'copy'} size={16} />,
+									onClick: () => void copyKitForAi(),
+									disabled: busy
+								}
+							]}
 						/>
 					</div>
 				)}
@@ -285,12 +261,6 @@ export function WardrobePanel({
 								item={item}
 								authed={authed}
 								busy={busy}
-								onCount={(count) =>
-									void persist(
-										upsertClothing(wardrobe, { ...item, count }),
-										`${item.name} ×${count}`
-									)
-								}
 								onEdit={() => setEditing(item.id)}
 								onRemove={() => setRemove(item)}
 							/>
@@ -314,16 +284,10 @@ export function WardrobePanel({
 			<WardrobeAddDialog
 				open={adding}
 				busy={busy}
+				wardrobe={wardrobe}
 				onClose={() => setAdding(false)}
 				onAdd={(item) => persist(upsertClothing(wardrobe, item), `Added ${item.name}`)}
-			/>
-
-			<WardrobeAiDialog
-				open={asking}
-				wardrobe={wardrobe}
-				busy={busy}
-				onClose={() => setAsking(false)}
-				onSave={persist}
+				onSaveWardrobe={persist}
 			/>
 
 			<ConfirmDialog

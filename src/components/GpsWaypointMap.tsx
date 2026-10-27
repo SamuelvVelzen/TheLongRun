@@ -29,6 +29,7 @@ export function GpsWaypointMap({
 	previewCoords,
 	status,
 	emptyHint = 'Tap to drop pins along how you travelled',
+	mapClassName,
 	onChange
 }: {
 	waypoints: GpsWaypoint[];
@@ -36,6 +37,7 @@ export function GpsWaypointMap({
 	previewCoords?: [number, number][];
 	status?: string;
 	emptyHint?: string;
+	mapClassName?: string;
 	onChange: (next: GpsWaypoint[]) => void;
 }) {
 	const wrapRef = useRef<HTMLDivElement>(null);
@@ -250,7 +252,11 @@ export function GpsWaypointMap({
 								previewKm > 0 ? ` · ~${previewKm.toFixed(1)} km` : ''
 							}`}
 			</p>
-			<div data-route-map className={mapRoutePaneTall} ref={containerRef} />
+			<div
+				data-route-map
+				className={mapClassName ?? mapRoutePaneTall}
+				ref={containerRef}
+			/>
 		</div>
 	);
 }

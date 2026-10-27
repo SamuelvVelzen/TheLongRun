@@ -38,6 +38,9 @@ export function WaypointEditor({
 	onClose,
 	onDirtyChange,
 	onSave,
+	mapClassName,
+	stickyFooter = false,
+	closeLabel = 'Close',
 	children
 }: {
 	ref?: Ref<WaypointEditorHandle>;
@@ -52,6 +55,10 @@ export function WaypointEditor({
 	/** Fires whenever the pins or the follow-roads toggle differ from the initial state. */
 	onDirtyChange?: (dirty: boolean) => void;
 	onSave?: (data: WaypointEditorSave) => void | Promise<void>;
+	mapClassName?: string;
+	/** Sticky action row on small screens (route draw page). */
+	stickyFooter?: boolean;
+	closeLabel?: string;
 	children?: ReactNode;
 }) {
 	const initialRef = useRef(initialWaypoints.map((point) => ({ lat: point.lat, lng: point.lng })));
@@ -138,6 +145,7 @@ export function WaypointEditor({
 			<GpsWaypointMap
 				waypoints={waypoints}
 				contextTracks={contextTracks}
+				mapClassName={mapClassName}
 				emptyHint={emptyHint}
 				previewCoords={
 					followNetwork && routePreview.length >= 2
@@ -196,7 +204,14 @@ export function WaypointEditor({
 				BRouter bike/hike network — not trains. Uncheck to keep the line you drew.
 			</p>
 			{embedded ? null : (
-				<div className="flex flex-wrap justify-end gap-2">
+				<div
+					className={cn(
+						'flex flex-wrap justify-end gap-2',
+						stickyFooter &&
+							'sticky bottom-0 z-10 -mx-[0.05rem] mt-1 px-3 py-3 border-t border-line rounded-b-box bg-surface shadow-[0_-8px_24px_rgba(0,0,0,0.22)] max-sm:-mx-0 max-sm:px-2 max-sm:[&>button]:min-w-[min(48%,9rem)]'
+					)}
+					data-sticky-actions={stickyFooter ? '' : undefined}
+				>
 					{onClose ? (
 						<button
 							className={buttonClass({ variant: 'ghost', size: 'sm' })}
@@ -204,7 +219,7 @@ export function WaypointEditor({
 							disabled={busy}
 							onClick={onClose}
 						>
-							Close
+							{closeLabel}
 						</button>
 					) : null}
 					<button

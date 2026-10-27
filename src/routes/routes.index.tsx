@@ -1,6 +1,5 @@
 import { AuthGate, useAuthed } from '$lib/auth';
 import {
-	createPlannedRoute,
 	deletePlannedRoute,
 	getPlannedRoutesData,
 	importPlannedRoute
@@ -8,7 +7,7 @@ import {
 import { appHead } from '$lib/title';
 import type { PlannedRoute } from '$lib/types';
 import { cn } from '$lib/ui';
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate, useRouter } from '@tanstack/react-router';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { DeferredData } from '../components/DeferredData';
 import { DeleteButton, EditButton, TrashIcon } from '../components/DeleteButton';
@@ -22,20 +21,14 @@ import {
 	Button,
 	ConfirmDialog,
 	errorMessage,
-	Field,
 	Grid,
 	IconLabelButton,
 	PageHero,
-	Panel,
 	SectionTitle,
 	Tag,
-	useDiscardGuard,
-	useLeaveGuard,
 	useSnackbar
 } from '../components/ui';
 import { dropzoneClass, runRowClass, runTitleClass } from '../components/ui/Chrome';
-import { reqClass } from '../components/ui/Field';
-import { WaypointEditor } from '../components/WaypointEditor';
 
 const RoutesHeatmap = lazy(() =>
 	import('../components/RoutesHeatmap').then((m) => ({ default: m.RoutesHeatmap }))
@@ -64,7 +57,8 @@ async function refreshRoutesList(router: ReturnType<typeof useRouter>) {
 
 export const Route = createFileRoute('/routes/')({
 	validateSearch: (s: Record<string, unknown>): RoutesSearch => ({
-		draw: s.draw === true || s.draw === '1' || s.draw === 'true' ? true : undefined
+		draw:
+			s.draw === true || s.draw === '1' || s.draw === 'true' ? true : undefined
 	}),
 	loader: () => ({ page: getPlannedRoutesData() }),
 	head: () => appHead('Routes'),
@@ -75,42 +69,19 @@ function PlannedRoutes() {
 	const { page } = Route.useLoaderData();
 	const { draw } = Route.useSearch();
 	const router = useRouter();
+	const navigate = useNavigate();
 	const authed = useAuthed();
 	const snack = useSnackbar();
 	const [dragOver, setDragOver] = useState(false);
 	const [busy, setBusy] = useState(false);
-	const [drawing, setDrawing] = useState(() => Boolean(draw));
-	const [routeName, setRouteName] = useState('');
 	const [files, setFiles] = useState<File[]>([]);
 	const [progress, setProgress] = useState('');
 	const [results, setResults] = useState<PlannedRouteImportResult[]>([]);
 	const [pendingFile, setPendingFile] = useState<string | null>(null);
-	const [pinsDirty, setPinsDirty] = useState(false);
 
 	useEffect(() => {
-		if (draw) setDrawing(true);
-	}, [draw]);
-
-	useEffect(() => {
-		if (!drawing) setPinsDirty(false);
-	}, [drawing]);
-
-	const drawDirty = authed && drawing && (pinsDirty || routeName.trim() !== '');
-
-	const { guard: leaveGuard, allowNextLeave } = useLeaveGuard({ dirty: drawDirty });
-
-	const [requestCloseDraw, discardGuard] = useDiscardGuard({
-		dirty: drawDirty,
-		onDiscard: () => {
-			setDrawing(false);
-			if (draw) {
-				allowNextLeave();
-				void router.navigate({ to: '/routes', search: {} });
-			}
-		},
-		title: 'Discard this draft route?',
-		description: 'Your pins and the name will be lost.'
-	});
+		if (draw) void navigate({ to: '/routes/draw', replace: true });
+	}, [draw, navigate]);
 
 	function addFiles(list: FileList | null) {
 		const tracks = routeImportFiles(list);
@@ -178,49 +149,6 @@ function PlannedRoutes() {
 		}
 	}
 
-	async function saveDrawn(data: {
-		waypoints: { lat: number; lng: number }[];
-		followNetwork: boolean;
-		networkCoords: { lat: number; lng: number; elev?: number }[];
-	}) {
-		const name = routeName.trim();
-		if (!name) {
-			snack.info('Name this route first.');
-			return;
-		}
-		if (data.waypoints.length < 2) {
-			snack.info('Drop at least two pins — start and end, plus any turns in between.');
-			return;
-		}
-		setBusy(true);
-		try {
-			const result = await createPlannedRoute({
-				data: {
-					name,
-					waypoints: data.waypoints,
-					follow_network: data.followNetwork,
-					network_coords:
-						data.followNetwork && data.networkCoords.length >= 2 ? data.networkCoords : undefined
-				}
-			});
-			snack.success(`Saved ${result.name}`);
-			setRouteName('');
-			setPinsDirty(false);
-			setDrawing(false);
-			allowNextLeave();
-			await refreshRoutesList(router);
-			allowNextLeave();
-			await router.navigate({
-				to: '/routes/$slug',
-				params: { slug: result.slug },
-				resetScroll: true
-			});
-		} catch (error) {
-			snack.error(errorMessage(error, 'Could not save route'));
-			setBusy(false);
-		}
-	}
-
 	return (
 		<>
 			<PageHero
@@ -236,13 +164,13 @@ function PlannedRoutes() {
 				}
 				actionsClassName="justify-end! self-start max-sm:w-auto max-sm:[&>button]:flex-none max-sm:[&>button]:min-w-11"
 				actions={
-					authed && !drawing ? (
+					authed ? (
 						<IconLabelButton
 							label="Draw a route"
 							variant="primary"
 							size="default"
 							icon={<Icon name="map" size={16} />}
-							onClick={() => setDrawing(true)}
+							onClick={() => void navigate({ to: '/routes/draw' })}
 						/>
 					) : null
 				}
@@ -250,33 +178,7 @@ function PlannedRoutes() {
 
 			{authed ? (
 				<div className="mb-5 grid gap-3">
-					{drawing ? (
-						<Panel>
-							<WaypointEditor
-								emptyHint="Tap to drop pins along the loop"
-								hint="Place pins in order. Tap a pin to remove it, or tap the line to add one between. Drag to adjust."
-								saveLabel="Save route"
-								busy={busy}
-								onDirtyChange={setPinsDirty}
-								onClose={requestCloseDraw}
-								onSave={saveDrawn}
-							>
-								<Field as="label">
-									<span className={reqClass}>Name</span>
-									<input
-										value={routeName}
-										required
-										autoComplete="off"
-										placeholder="Saturday loop"
-										disabled={busy}
-										onChange={(event) => setRouteName(event.target.value)}
-									/>
-								</Field>
-							</WaypointEditor>
-						</Panel>
-					) : null}
-					{!drawing ? (
-						<label
+					<label
 							className={dropzoneClass(dragOver && true)}
 							onDragOver={(event) => {
 								event.preventDefault();
@@ -314,8 +216,7 @@ function PlannedRoutes() {
 								You can also drop files here
 							</span>
 						</label>
-					) : null}
-					{files.length > 0 && !drawing ? (
+					{files.length > 0 ? (
 						<>
 							<ul className="list-none m-0 p-0 grid gap-1.5">
 								{files.map((f) => (
@@ -394,8 +295,6 @@ function PlannedRoutes() {
 					/>
 				</div>
 			) : null}
-			{leaveGuard}
-			{discardGuard}
 			<DeferredData promise={page}>{(data) => <PlannedRoutesList data={data} />}</DeferredData>
 		</>
 	);

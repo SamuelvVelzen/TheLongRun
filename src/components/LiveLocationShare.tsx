@@ -35,7 +35,7 @@ import {
 	stopLiveLocation
 } from '$lib/server/functions';
 import { setScreenWakeLock } from '$lib/wake-lock';
-import { liveShareHost, liveWatchCanvas, liveWatchMapShell, mapWrap } from '$lib/map-layout';
+import { liveWatchCanvas, liveWatchMapShell, mapWrap } from '$lib/map-layout';
 import { cn } from '$lib/ui';
 import {
 	useCallback,
@@ -246,23 +246,54 @@ function LiveLocationBroadcaster() {
 					) : null}
 				</div>
 			</Dialog>
-			{sharing ? (
-				<div data-live-share-host className={liveShareHost}>
-					<div
-						className="pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.65rem] pr-[0.45rem] pl-[0.9rem] rounded-[14px] border border-live/40 bg-surface shadow-lift"
-						role="status"
-					>
-						<span className="size-2 shrink-0 rounded-full bg-live" aria-hidden="true" />
-						<p className="m-0 flex-1 text-[0.88rem] leading-[1.35]">
-							Location is being shared on the map.
-						</p>
-						<SnackAction type="button" onClick={() => void stop()}>
-							Stop
-						</SnackAction>
-					</div>
-				</div>
-			) : null}
 		</>
+	);
+}
+
+/** In-flow banner under the app header — not a floating toast. */
+export function LiveShareBanner() {
+	const authed = useAuthed();
+	const [sharing, setSharing] = useState(false);
+
+	useEffect(() => {
+		if (!authed) {
+			setSharing(false);
+			return;
+		}
+		setSharing(liveShareOnSafe());
+		const on = (e: Event) => {
+			const next = (e as CustomEvent<LiveShareDetail>).detail?.sharing;
+			if (typeof next === 'boolean') setSharing(next);
+		};
+		window.addEventListener(LIVE_SHARE_EVENT, on);
+		return () => window.removeEventListener(LIVE_SHARE_EVENT, on);
+	}, [authed]);
+
+	if (!authed || !sharing) return null;
+
+	return (
+		<div
+			data-live-share-banner
+			role="status"
+			className={cn(
+				'flex flex-none items-center gap-2 px-3 py-2 text-[0.82rem] leading-snug',
+				'border-b border-live/35 bg-surface text-fg',
+				'max-sm:px-[max(0.625rem,env(safe-area-inset-left,0px))] max-sm:pr-[max(0.625rem,env(safe-area-inset-right,0px))]'
+			)}
+		>
+			<span className="size-2 shrink-0 rounded-full bg-live" aria-hidden="true" />
+			<span className="flex-1 min-w-0">Location is being shared on the map.</span>
+			<button
+				type="button"
+				className={cn(
+					buttonClass({ variant: 'ghost', size: 'sm' }),
+					'shrink-0 max-sm:px-3'
+				)}
+				onClick={() => requestLiveShare(false)}
+			>
+				Stop sharing
+			</button>
+		</div>
 	);
 }
 
@@ -323,7 +354,7 @@ function LiveLocationWatch() {
 			{!watching ? (
 				<div data-live-watch-host className={liveShareHost}>
 					<div
-						className="pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.65rem] pr-[0.45rem] pl-[0.9rem] rounded-[14px] border border-live/40 bg-surface shadow-lift"
+						className="pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.65rem] pr-[0.45rem] pl-[0.9rem] rounded-[14px] border border-live/40 bg-panel shadow-lift"
 						role="status"
 					>
 						<span className="size-2 shrink-0 rounded-full bg-live" aria-hidden="true" />

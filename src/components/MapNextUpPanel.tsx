@@ -1,16 +1,14 @@
-import { planDayKicker } from '$lib/plan';
 import { nextUpHighlightSessions, nextUpTodayUnplanned } from '$lib/plan-next-up';
 import { useMapWrapFullscreen } from '$lib/map-fullscreen';
 import { getPlanPeekData, type PlanPeekData } from '$lib/server/functions';
 import { cn } from '$lib/ui';
-import { Link } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { Icon } from './Icon';
 import { PlannedSessionRow, UnplannedRow } from './WeekPlanBoard';
 import { buttonClass } from './ui/Button';
 
 const shell =
-	'rounded-xl border border-line bg-[color-mix(in_srgb,var(--color-panel)_92%,rgba(16,20,15,0.88))] shadow-[0_8px_28px_rgba(0,0,0,0.28)] backdrop-blur-sm';
+	'rounded-xl border border-line bg-surface shadow-[0_8px_28px_rgba(0,0,0,0.28)]';
 
 type Peek = PlanPeekData;
 
@@ -24,16 +22,16 @@ function MapNextUpBody({ peek }: { peek: Peek }) {
 	const highlightHead = highlightSessions[0];
 	const todayUnplanned = nextUpTodayUnplanned(weekView, highlightHead);
 	const unloggedCount = weekView.sessions.filter((s) => s.unlogged).length;
-	const coachPlanSearch = { tab: 'plan' as const, planWeek: weekView.week.week };
-
 	if (highlightHead) {
-		const kicker = highlightHead.date ? planDayKicker(highlightHead.date) : 'Next up';
+		const allToday = highlightSessions.every((s) => s.isToday);
 		return (
 			<div className="flex flex-col gap-2 min-w-0">
-				<p className="m-0 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-accent-fg">
-					{kicker}
-				</p>
-				<div className="flex flex-col gap-1.5 min-w-0">
+				{allToday ? (
+					<p className="m-0 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-accent-fg">
+						Today
+					</p>
+				) : null}
+				<div className="flex flex-col min-w-0">
 					{highlightSessions.map((session, i) => (
 						<PlannedSessionRow
 							key={`${session.day}-${session.label}-${session.planIndex}`}
@@ -43,8 +41,11 @@ function MapNextUpBody({ peek }: { peek: Peek }) {
 							divided={i > 0}
 							layout="compact"
 							surface="nextUp"
+							nextUpTier="featured"
+							nextUpMulti={highlightSessions.length > 1}
+							nextUpMapFullscreen
 							coachPlanWeek={weekView.week.week}
-							sessionDate={i === 0 ? session.date : null}
+							sessionDate={null}
 						/>
 					))}
 					{todayUnplanned.map((item, i) => (
@@ -55,19 +56,6 @@ function MapNextUpBody({ peek }: { peek: Peek }) {
 						/>
 					))}
 				</div>
-				<Link
-					to="/coach"
-					search={coachPlanSearch}
-					className={buttonClass({
-						variant: 'ghost',
-						size: 'sm',
-						className: 'w-full justify-center gap-1.5 text-[0.82rem]'
-					})}
-					onClick={stopMapClick}
-				>
-					<Icon name="board" size={14} />
-					Week {weekView.week.week} in Coach
-				</Link>
 			</div>
 		);
 	}
@@ -81,19 +69,6 @@ function MapNextUpBody({ peek }: { peek: Peek }) {
 	return (
 		<div className="flex flex-col gap-2 min-w-0">
 			<p className="m-0 text-[0.95rem] font-semibold leading-snug">{title}</p>
-			<Link
-				to="/coach"
-				search={coachPlanSearch}
-				className={buttonClass({
-					variant: 'primary',
-					size: 'sm',
-					className: 'w-full justify-center gap-1.5'
-				})}
-				onClick={stopMapClick}
-			>
-				<Icon name="board" size={14} />
-				Open Coach
-			</Link>
 		</div>
 	);
 }
@@ -156,7 +131,7 @@ export function MapNextUpPanel({
 				<div
 					data-map-next-up
 					className={cn(
-						'absolute z-[3] left-[0.85rem] bottom-[0.85rem] max-w-[min(calc(100%-5.75rem),22rem)] pointer-events-auto',
+						'absolute z-[3] right-[0.85rem] bottom-[0.85rem] max-w-[min(calc(100%-5.75rem),22rem)] pointer-events-auto',
 						className
 					)}
 					onClick={stopMapClick}

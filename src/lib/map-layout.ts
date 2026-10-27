@@ -19,7 +19,7 @@ export const mapHeatmapLegend =
 	'absolute z-[2] right-[0.85rem] bottom-[0.85rem] flex flex-wrap items-center gap-x-2.5 gap-y-1 px-[0.55rem] py-[0.3rem] rounded-full bg-[rgba(16,20,15,0.85)] border border-line text-muted text-[0.72rem]';
 
 export const liveShareHost =
-	'fixed z-[55] inset-x-0 bottom-[calc(1.15rem+var(--safe-bottom))] flex justify-center px-4 pointer-events-none max-sm:bottom-(--tab-bar-offset) max-sm:px-3';
+	'fixed z-[55] inset-x-0 top-[calc(var(--app-header-height)+0.65rem)] flex justify-center px-4 pointer-events-none max-sm:px-3';
 
 export const liveWatchMapShell = 'fixed inset-0 z-[20000] m-0 border-0 rounded-none bg-inset';
 

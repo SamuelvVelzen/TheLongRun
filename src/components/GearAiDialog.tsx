@@ -2,20 +2,18 @@ import { isoDateLocal } from '$lib/date-range';
 import { applyGearImport, buildGearPrompt, injectGearExtra, type GearContext } from '$lib/gear';
 import { gearImportSummary, parseGearReplyText, planGearImport } from '$lib/gear-schema';
 import { cn } from '$lib/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AiPromptFlow } from './AiPromptFlow';
 import { Icon } from './Icon';
 import { JsonPasteForm } from './JsonPasteForm';
 import { Button, Checkbox, Dialog } from './ui';
 
-export function GearAiDialog({
-	open,
+export function GearAiImportPanel({
 	gear,
 	busy,
 	onClose,
 	onSave
 }: {
-	open: boolean;
 	gear: GearContext;
 	busy: boolean;
 	onClose: () => void;
@@ -24,12 +22,6 @@ export function GearAiDialog({
 	const [extra, setExtra] = useState('');
 	const [changes, setChanges] = useState<ReturnType<typeof planGearImport>>([]);
 	const [picked, setPicked] = useState<Set<string>>(new Set());
-
-	useEffect(() => {
-		if (open) return;
-		setChanges([]);
-		setPicked(new Set());
-	}, [open]);
 
 	const template = useMemo(() => buildGearPrompt(gear, isoDateLocal(new Date())), [gear]);
 	const prompt = injectGearExtra(template, extra);
@@ -43,6 +35,8 @@ export function GearAiDialog({
 		);
 		if (ok) {
 			setExtra('');
+			setChanges([]);
+			setPicked(new Set());
 			onClose();
 		}
 	}
@@ -50,25 +44,7 @@ export function GearAiDialog({
 	const count = picked.size;
 
 	return (
-		<Dialog
-			open={open}
-			title="Import kit with AI"
-			className="sm:max-w-[38rem]"
-			onClose={busy ? () => {} : onClose}
-			actions={
-				changes.length ? (
-					<>
-						<Button variant="ghost" disabled={busy} onClick={() => setChanges([])}>
-							Back
-						</Button>
-						<Button variant="primary" disabled={busy || count === 0} onClick={() => void save()}>
-							<Icon name="check" size={16} />
-							{busy ? 'Saving…' : `Save ${count}`}
-						</Button>
-					</>
-				) : undefined
-			}
-		>
+		<div className="grid gap-4">
 			{changes.length ? (
 				<>
 					<p className={cn('text-muted', 'm-0')}>Untick anything you don't want to keep.</p>
@@ -106,6 +82,15 @@ export function GearAiDialog({
 							/>
 						))}
 					</div>
+					<div className="flex justify-end gap-2">
+						<Button variant="ghost" disabled={busy} onClick={() => setChanges([])}>
+							Back
+						</Button>
+						<Button variant="primary" disabled={busy || count === 0} onClick={() => void save()}>
+							<Icon name="check" size={16} />
+							{busy ? 'Saving…' : `Save ${count}`}
+						</Button>
+					</div>
 				</>
 			) : (
 				<AiPromptFlow
@@ -139,6 +124,31 @@ export function GearAiDialog({
 					}
 				/>
 			)}
+		</div>
+	);
+}
+
+export function GearAiDialog({
+	open,
+	gear,
+	busy,
+	onClose,
+	onSave
+}: {
+	open: boolean;
+	gear: GearContext;
+	busy: boolean;
+	onClose: () => void;
+	onSave: (next: GearContext, okMessage: string) => Promise<boolean>;
+}) {
+	return (
+		<Dialog
+			open={open}
+			title="Import kit with AI"
+			className="sm:max-w-[38rem]"
+			onClose={busy ? () => {} : onClose}
+		>
+			<GearAiImportPanel gear={gear} busy={busy} onClose={onClose} onSave={onSave} />
 		</Dialog>
 	);
 }

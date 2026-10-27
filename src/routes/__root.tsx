@@ -32,7 +32,7 @@ import {
 import { NetworkStatus } from '../components/NetworkStatus';
 import { PwaInstall } from '../components/PwaInstall';
 import { ScrollToTop } from '../components/ScrollToTop';
-import { destructiveNavLinkClass, SnackbarProvider } from '../components/ui';
+import { AppErrorBoundary, destructiveNavLinkClass, SnackbarProvider } from '../components/ui';
 import { ThemeToggle } from '../components/ThemeToggle';
 
 export const Route = createRootRoute({
@@ -178,7 +178,9 @@ function RootShell() {
 					<NetworkStatus />
 					<LiveShareBanner />
 					<main data-app-scroll className={appScroll}>
-						<Outlet />
+						<AppErrorBoundary>
+							<Outlet />
+						</AppErrorBoundary>
 					</main>
 					<nav data-tab-bar className={tabBar} aria-label="Primary">
 						{tabs.map((tab) => (

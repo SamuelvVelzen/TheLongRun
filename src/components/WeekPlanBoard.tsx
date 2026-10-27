@@ -89,10 +89,12 @@ function UnplannedBadge() {
 }
 
 export function UnplannedRow({ item, divided }: { item: UnplannedActivity; divided: boolean }) {
+	const to = item.groupId ? '/groups/$id' : '/runs/$slug';
+	const params = item.groupId ? { id: item.groupId } : { slug: item.slug };
 	return (
 		<Link
-			to="/runs/$slug"
-			params={{ slug: item.slug }}
+			to={to}
+			params={params}
 			className={cn(
 				'flex flex-col gap-[0.2rem] min-w-0 text-inherit no-underline rounded-inset -mx-1 px-1 py-1 hover:bg-accent/6',
 				divided && 'pt-3 mt-0 border-t border-dashed border-line'
@@ -117,9 +119,10 @@ export function UnplannedRow({ item, divided }: { item: UnplannedActivity; divid
 }
 
 function sessionSportLine(session: WeekSessionView): string {
-	return [activityLabel(session.activity_type ?? 'run'), sessionMeasureLabel(session)]
-		.filter(Boolean)
-		.join(' · ');
+	const planned = sessionMeasureLabel(session);
+	const logged =
+		session.done && session.logDistanceKm != null ? `${session.logDistanceKm} km logged` : '';
+	return [activityLabel(session.activity_type ?? 'run'), planned, logged].filter(Boolean).join(' · ');
 }
 
 export function PlannedSessionRow({
@@ -153,7 +156,8 @@ export function PlannedSessionRow({
 	const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 	const [routePickerMode, setRoutePickerMode] = useState<PlanRoutePickerMode>('link');
 	const [confirmUnlink, setConfirmUnlink] = useState(false);
-	const logSlug = session.done ? session.logSlug : null;
+	const logGroupId = session.done ? session.logGroupId : null;
+	const logSlug = session.done && !logGroupId ? session.logSlug : null;
 	const linked = Boolean(session.route && !session.done);
 	const compact = layout === 'compact';
 	const isNextUp = surface === 'nextUp';
@@ -173,7 +177,15 @@ export function PlannedSessionRow({
 			{titleSuffix}
 		</>
 	);
-	const titleContent = logSlug ? (
+	const titleContent = logGroupId ? (
+		<Link
+			to="/groups/$id"
+			params={{ id: logGroupId }}
+			className="text-inherit no-underline hover:text-accent-fg"
+		>
+			{titleInner}
+		</Link>
+	) : logSlug ? (
 		<Link
 			to="/runs/$slug"
 			params={{ slug: logSlug }}
@@ -192,7 +204,7 @@ export function PlannedSessionRow({
 		divided && compact && !isNextUpStacked && 'pt-2 border-t border-line/80',
 		session.done && 'opacity-80',
 		session.skipped && 'opacity-55',
-		logSlug && 'rounded-inset -mx-1 px-1 py-1'
+		(logSlug || logGroupId) && 'rounded-inset -mx-1 px-1 py-1'
 	);
 
 	const stackedRowClass = cn(

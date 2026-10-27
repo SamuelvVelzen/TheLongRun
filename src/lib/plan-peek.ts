@@ -1,4 +1,5 @@
-import type { PlanCalendar, SessionRouteRef, WeekView } from '$lib/types';
+import type { PlanCalendar, WeekView } from '$lib/plan';
+import type { SessionRouteRef } from '$lib/types';
 
 export type PlanPeekData = {
 	weekView: WeekView;

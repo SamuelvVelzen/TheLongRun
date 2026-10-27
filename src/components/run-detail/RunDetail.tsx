@@ -26,7 +26,7 @@ import {
 } from '$lib/strength';
 import { activityTitlePart } from '$lib/title';
 import { cn } from '$lib/ui';
-import { Link, useRouter } from '@tanstack/react-router';
+import { Link, useRouter, getRouteApi  } from '@tanstack/react-router';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { ActivityForm } from '../ActivityForm';
 import { BestEffortBadges } from '../BestEffortBadges';
@@ -55,10 +55,9 @@ import {
 } from '../ui';
 import { buttonClass } from '../ui/Button';
 import { runTitleClass } from '../ui/Chrome';
-import { InlineText } from './InlineText';
+import { fieldLabel, InlineText } from './InlineText';
 import { FeelTile } from './FeelTile';
 import { routeIdFrom } from './route-id';
-import { getRouteApi } from '@tanstack/react-router';
 
 const RouteMap = lazy(() =>
 	import('../RouteMap').then((m) => ({ default: m.RouteMap }))
@@ -208,7 +207,7 @@ export function RunDetail() {
 			{group && (
 				<Panel className="mb-4">
 					Part of a grouped session.{' '}
-					<Link className="text-accent-fg font-semibold" to="/groups/$id" params={{ id: group.id }}>
+					<Link className="font-semibold text-accent-fg" to="/groups/$id" params={{ id: group.id }}>
 						Open grouped activity
 					</Link>
 				</Panel>
@@ -384,7 +383,7 @@ export function RunDetail() {
 							<Metric className="flex-[1.4_1_9rem]">
 								<div className="flex items-baseline gap-1">
 									<b>{r.avg_hr ?? '—'}</b>
-									<span className="text-muted text-[0.95rem]">/</span>
+									<span className="text-[0.95rem] text-muted">/</span>
 									<strong className="font-display text-[1.05rem] text-warn">
 										{r.max_hr ?? '—'}
 									</strong>
@@ -392,7 +391,7 @@ export function RunDetail() {
 								<span>HR avg / max</span>
 								{hrFill != null && (
 									<div
-										className="mt-[0.45rem] h-1 rounded-full bg-white/8 overflow-hidden"
+										className="mt-[0.45rem] h-1 overflow-hidden rounded-full bg-white/8"
 										aria-hidden="true"
 									>
 										<div
@@ -493,11 +492,11 @@ export function RunDetail() {
 
 					{strength && strength.exercises.length > 0 && (
 						<Panel className="mb-4">
-							<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
+							<div className="mb-[0.85rem] flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem]">
 								<PanelTitle>Sets</PanelTitle>
 								<p className={cn('text-muted', 'text-[0.85rem]')}>weight, reps, or time</p>
 							</div>
-							<div className="hidden sm:grid grid-cols-[minmax(6rem,1.4fr)_2fr_auto_auto] gap-x-[0.9rem] gap-y-1.5 items-center py-[0.32rem] border-b border-line text-[0.72rem] uppercase tracking-[0.06em] text-muted pb-1.5">
+							<div className="hidden grid-cols-[minmax(6rem,1.4fr)_2fr_auto_auto] items-center gap-x-[0.9rem] gap-y-1.5 border-b border-line py-[0.32rem] pb-1.5 text-[0.72rem] tracking-[0.06em] text-muted uppercase sm:grid">
 								<span>Exercise</span>
 								<span>Sets</span>
 								<span>Top</span>
@@ -507,21 +506,21 @@ export function RunDetail() {
 								const t = topSet(ex);
 								return (
 									<div
-										className="grid grid-cols-[minmax(6rem,1.4fr)_2fr_auto_auto] gap-x-[0.9rem] gap-y-1.5 items-center py-[0.32rem] border-b border-[rgba(232,240,226,0.06)] text-[0.9rem] last:border-b-0 max-sm:grid-cols-1 max-sm:gap-[0.2rem] max-sm:py-3"
+										className="grid grid-cols-[minmax(6rem,1.4fr)_2fr_auto_auto] items-center gap-x-[0.9rem] gap-y-1.5 border-b border-[rgba(232,240,226,0.06)] py-[0.32rem] text-[0.9rem] last:border-b-0 max-sm:grid-cols-1 max-sm:gap-[0.2rem] max-sm:py-3"
 										key={i}
 									>
-										<span className="min-w-0 break-words max-sm:font-semibold">{ex.name}</span>
-										<span className={cn('text-muted', 'min-w-0 break-words')}>
+										<span className="min-w-0 wrap-break-word max-sm:font-semibold">{ex.name}</span>
+										<span className={cn('text-muted', 'min-w-0 wrap-break-word')}>
 											{ex.sets.map((s) => formatSetDisplay(s, ex.kind)).join(', ')}
 										</span>
 										<span className="font-display font-bold text-accent-fg">
-											<span className="sm:hidden font-sans font-normal text-muted text-[0.72rem] uppercase tracking-[0.05em] mr-1.5">
+											<span className="mr-1.5 font-sans text-[0.72rem] font-normal tracking-wider text-muted uppercase sm:hidden">
 												Top
 											</span>
 											{t ? formatSetTop(t, ex.kind) : '—'}
 										</span>
 										<span className={'text-muted'}>
-											<span className="sm:hidden font-sans text-[0.72rem] uppercase tracking-[0.05em] mr-1.5">
+											<span className="mr-1.5 font-sans text-[0.72rem] tracking-wider uppercase sm:hidden">
 												Total
 											</span>
 											{exerciseTotalLabel(ex)}
@@ -548,11 +547,11 @@ export function RunDetail() {
 					/>
 
 					{r.route && routeId && (
-						<Panel className="mb-4 p-0 overflow-hidden">
+						<Panel className="mb-4 overflow-hidden p-0">
 							<div className="p-[1.1rem_1.2rem_0.6rem]">
 								<PanelTitle className="m-0">Route</PanelTitle>
 							</div>
-							<Suspense fallback={<p className="text-muted text-sm p-4">Loading map…</p>}>
+							<Suspense fallback={<p className="p-4 text-sm text-muted">Loading map…</p>}>
 								<RouteMap
 									routeId={routeId}
 									activityType={r.activity_type}
@@ -564,7 +563,7 @@ export function RunDetail() {
 
 					{bestEfforts && bestEfforts.length > 0 && (
 						<Panel className="mb-4">
-							<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.85rem]">
+							<div className="mb-[0.85rem] flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem]">
 								<PanelTitle>Best efforts</PanelTitle>
 								<p className={cn('text-muted', 'text-[0.85rem]')}>
 									Top 3 all-time for this distance
@@ -585,7 +584,7 @@ export function RunDetail() {
 
 					{fuel.length > 0 && (
 						<Panel className="mb-4">
-							<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.6rem]">
+							<div className="mb-[0.6rem] flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem]">
 								<PanelTitle>Fuel</PanelTitle>
 								<Link to="/fuel" className={cn('text-muted', 'text-[0.85rem]')}>
 									Fuel log
@@ -598,13 +597,13 @@ export function RunDetail() {
 					)}
 
 					<Panel className="mb-4">
-						<div className="flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem] mb-[0.9rem]">
+						<div className="mb-[0.9rem] flex flex-wrap items-baseline gap-x-[0.85rem] gap-y-[0.45rem]">
 							<PanelTitle>Notes &amp; conditions</PanelTitle>
 							<p className={cn('text-muted', 'text-[0.85rem]')}>
 								{authed ? 'Tap a field to update it' : 'Conditions for this session'}
 							</p>
 						</div>
-						<div className="grid grid-cols-1 gap-3 mb-4 min-w-0 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3">
+						<div className="mb-4 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3">
 							{showsField(r.activity_type, 'weather') && (
 								<InlineText
 									label="Weather"
@@ -649,7 +648,7 @@ export function RunDetail() {
 									/>
 								))}
 							{showsFeel(r.activity_type, 'wanted_faster') && (
-								<div className="flex flex-col gap-[0.28rem] min-w-0">
+								<div className="flex min-w-0 flex-col gap-[0.28rem]">
 									<span className={fieldLabel}>Wanted faster</span>
 									{authed ? (
 										<div
@@ -667,10 +666,10 @@ export function RunDetail() {
 														key={opt || 'none'}
 														type="button"
 														className={cn(
-															'flex-1 min-h-11 min-w-0 border rounded-lg p-[0.5rem_0.4rem] font-inherit text-[0.9rem] cursor-pointer hover:border-accent active:border-accent',
+															'font-inherit min-h-11 min-w-0 flex-1 cursor-pointer rounded-lg border p-[0.5rem_0.4rem] text-[0.9rem] hover:border-accent active:border-accent',
 															active
-																? 'border-accent bg-accent/12 text-fg font-semibold'
-																: 'bg-white/[0.03] border-line text-muted'
+																? 'border-accent bg-accent/12 font-semibold text-fg'
+																: 'border-line bg-white/3 text-muted'
 														)}
 														onClick={() => {
 															void patchRun({
@@ -763,7 +762,7 @@ export function RunDetail() {
 				<p className={cn('text-muted', 'm-0')}>
 					Imported GPX files stay as they are. Same calendar day is listed first.
 				</p>
-				<div className="grid gap-1.5 max-h-[50vh] overflow-y-auto">
+				<div className="grid max-h-[50vh] gap-1.5 overflow-y-auto">
 					{(groupOptions ?? [])
 						.filter((o) => !o.grouped)
 						.slice()
@@ -779,7 +778,7 @@ export function RunDetail() {
 									key={opt.id}
 									type="button"
 									className={cn(
-										'flex items-center justify-between gap-3 min-h-11 px-3 py-2 rounded-xl border text-left',
+										'flex min-h-11 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left',
 										on ? 'border-accent bg-accent/10' : 'border-line bg-transparent'
 									)}
 									aria-pressed={on}
@@ -803,7 +802,7 @@ export function RunDetail() {
 												.join(' · ')}
 										</span>
 									</span>
-									<span className="text-accent-fg font-bold">{on ? '✓' : ''}</span>
+									<span className="font-bold text-accent-fg">{on ? '✓' : ''}</span>
 								</button>
 							);
 						})}

@@ -26,7 +26,7 @@ import {
 	type PlanCalendar
 } from '$lib/plan';
 import { feelCell, hrCell } from '$lib/prompt';
-import type { PlanWeek, RunRecord } from '$lib/types';
+import type { ActivityGroupInfo, PlanWeek, RunRecord } from '$lib/types';
 import { parseStrengthNotes, strengthCompact } from '$lib/strength';
 import { byDateNewestFirst, isImportNote } from './run-sort';
 
@@ -64,7 +64,8 @@ export function formatTrainingPlanBrief(
 	targetWeek: number,
 	cal: PlanCalendar,
 	runs: RunRecord[],
-	today: Date
+	today: Date,
+	groups: ActivityGroupInfo[] = []
 ): string {
 	const byWeek = new Map(plan.map((w) => [w.week, w]));
 	const previous = plan
@@ -82,7 +83,7 @@ export function formatTrainingPlanBrief(
 
 	const parts = previous.map((w) =>
 		formatWeekPlanMarkdown(
-			buildWeekView({ ...w, dates: planWeekDateRange(w.week, cal) }, runs, cal, today)
+			buildWeekView({ ...w, dates: planWeekDateRange(w.week, cal) }, runs, cal, today, groups)
 		).replace(/^## /, '### ')
 	);
 	parts.push(`Week ${targetWeek} is the week to plan — its JSON is under When you reply.`);

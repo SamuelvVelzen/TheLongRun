@@ -1,6 +1,7 @@
 import type { BestEffort } from '$lib/best-efforts';
 import type { BodyScore } from '$lib/body-scores';
 import type { PlanStrengthExercise, RunWorkout } from '$lib/plan-schema';
+import type { PlanSessionFuel } from '$lib/plan-session-extras';
 
 export type RunDay = string;
 export type SessionType =
@@ -118,7 +119,6 @@ export type {
 	RunWorkout,
 	RunWorkoutType
 } from '$lib/plan-schema';
-import type { PlanSessionFuel } from '$lib/plan-session-extras';
 
 export type { PlanSessionFuel };
 

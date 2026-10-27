@@ -38,16 +38,19 @@ import { debriefRaceHint, debriefRunSummary, expandDebriefFeatured, feelingsExam
 /** Root-loader data shared by every page: sign-in state + the open body notes to score. */
 
 export const getDebriefPrompt = createServerFn({ method: 'GET' })
-	.validator((d: { id?: string; slug?: string; includePlan?: boolean } | string) => {
-		if (typeof d === 'string') return { id: d, slug: '', includePlan: false };
-		return {
-			id: typeof d?.id === 'string' ? d.id : '',
-			slug: typeof d?.slug === 'string' ? d.slug : '',
-			includePlan: d?.includePlan === true
-		};
-	})
+	.validator(
+		(d: { id?: string; slug?: string; includePlan?: boolean; idsOnly?: boolean } | string) => {
+			if (typeof d === 'string') return { id: d, slug: '', includePlan: false, idsOnly: false };
+			return {
+				id: typeof d?.id === 'string' ? d.id : '',
+				slug: typeof d?.slug === 'string' ? d.slug : '',
+				includePlan: d?.includePlan === true,
+				idsOnly: d?.idsOnly === true
+			};
+		}
+	)
 	.handler(async ({ data }) => {
-		const { id: idRaw, slug: slugRaw, includePlan } = data;
+		const { id: idRaw, slug: slugRaw, includePlan, idsOnly } = data;
 		const [
 			allRuns,
 			week,
@@ -73,7 +76,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		]);
 		const { goals } = training.store;
 		const { calendar } = training;
-		const weekView = week ? buildWeekView(week, allRuns, calendar) : null;
+		const weekView = week ? buildWeekView(week, allRuns, calendar, undefined, activityGroups) : null;
 		const weekStart = week ? planWeekStartIso(week.week, calendar) : '';
 		let weekEnd = weekStart;
 		if (weekStart) {
@@ -97,13 +100,16 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 						return row ? [row] : [];
 					})()
 				: [];
-		const featured = expandDebriefFeatured(
-			featuredUnsorted,
-			allRuns,
-			weekStart,
-			weekEnd,
-			activityGroups
-		);
+		const featured =
+			idsOnly && featuredUnsorted.length
+				? featuredUnsorted
+				: expandDebriefFeatured(
+						featuredUnsorted,
+						allRuns,
+						weekStart,
+						weekEnd,
+						activityGroups
+					);
 		const units = collapseDebriefSessions(featured, activityGroups, allRuns);
 		if (!units.length) {
 			return {
@@ -175,14 +181,14 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 					const r = u.members[0]!;
 					return formatPlannedForActivity(
 						r,
-						plannedSessionForActivity(r, training.plan, allRuns, calendar)
+						plannedSessionForActivity(r, training.plan, allRuns, calendar, activityGroups)
 					);
 				}
 				const title = groupedSessionTitle(u.group, u.members.length, u.stats.date);
 				const parts = u.members.map((r) =>
 					formatPlannedForActivity(
 						r,
-						plannedSessionForActivity(r, training.plan, allRuns, calendar)
+						plannedSessionForActivity(r, training.plan, allRuns, calendar, activityGroups)
 					)
 				);
 				return [`- ${title} (grouped)`, ...parts.map((p) => p.replace(/^- /, '  - '))].join('\n');

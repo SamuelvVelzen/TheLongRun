@@ -9,10 +9,10 @@ import {
 	type EffortHighlight
 } from '$lib/best-efforts';
 import { planSessionRouteKey, withSessionRoutes, type WeekView } from '$lib/plan';
-import type { RunRecord, SessionRouteRef } from '$lib/types';
+import type { RunRecord, RunWithMap, SessionRouteRef } from '$lib/types';
 import { listPlanRouteRefs } from './planned-routes';
 import { listRouteEffortSources, routeIdForRun } from './route-analytics';
-import { listRuns, runHasMap, setRunBestEfforts, type RunWithMap } from './runs';
+import { listRuns, runHasMap, setRunBestEfforts } from './runs';
 
 export const withMap = (runs: RunRecord[], routeIds: Set<string>): RunWithMap[] =>
 	runs.map((r) => ({ ...r, has_map: runHasMap(r, routeIds) }));

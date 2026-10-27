@@ -16,7 +16,8 @@ import {
 } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import { cn } from '$lib/ui';
-import { createFileRoute, Link, notFound, useRouter } from '@tanstack/react-router';
+import { entityNotFound } from '$lib/not-found';
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import { EditButton, TrashIcon } from '../components/DeleteButton';
@@ -54,7 +55,7 @@ export const Route = createFileRoute('/routes/$slug')({
 	}),
 	loader: async ({ params }) => {
 		const route = await getPlannedRouteDetail({ data: params.slug });
-		if (!route) throw notFound();
+		if (!route) throw entityNotFound('route');
 		return route;
 	},
 	head: ({ loaderData }) => appHead(loaderData?.name, 'Routes'),

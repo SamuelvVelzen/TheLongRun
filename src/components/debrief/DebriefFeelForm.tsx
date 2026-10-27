@@ -102,7 +102,6 @@ function feelValuesFromRun(run: DebriefFeelRun, bodyAreas: BodyArea[]): FeelForm
 function buildFeelSavePayload({
 	id,
 	activityType,
-	writeup,
 	habitDraft,
 	value,
 	detailsOpen,
@@ -110,18 +109,15 @@ function buildFeelSavePayload({
 }: {
 	id: number;
 	activityType: ReturnType<typeof normalizeActivityType>;
-	writeup: string;
 	habitDraft: HabitPair;
 	value: FeelFormValues;
 	detailsOpen: boolean;
 	scoresOpen: boolean;
 }) {
-	const writeupNotes = writeup.trim();
 	return {
 		id,
 		before_notes: habitDraft.before,
 		after_notes: habitDraft.after,
-		...(writeupNotes ? { notes: writeupNotes } : {}),
 		...(detailsOpen && activityType === 'run'
 			? {
 					session: value.session,
@@ -147,7 +143,6 @@ function DebriefFeelAutosave({
 	run,
 	mirrorIds,
 	activityType,
-	writeup,
 	habitDraft,
 	formValues,
 	detailsOpen,
@@ -158,7 +153,6 @@ function DebriefFeelAutosave({
 	run: DebriefFeelRun;
 	mirrorIds: number[];
 	activityType: ReturnType<typeof normalizeActivityType>;
-	writeup: string;
 	habitDraft: HabitPair;
 	formValues: FeelFormValues;
 	detailsOpen: boolean;
@@ -178,7 +172,6 @@ function DebriefFeelAutosave({
 	const payload = buildFeelSavePayload({
 		id: run.id,
 		activityType,
-		writeup,
 		habitDraft,
 		value: formValues,
 		detailsOpen,
@@ -378,7 +371,6 @@ export function DebriefFeelForm({
 								run={run}
 								mirrorIds={mirrorIds}
 								activityType={activityType}
-								writeup={writeup}
 								habitDraft={habitDraft}
 								formValues={formValues}
 								detailsOpen={detailsOpen}

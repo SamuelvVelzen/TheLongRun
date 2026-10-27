@@ -1,10 +1,13 @@
 import type { RangeKind } from '$lib/date-range';
 import { getCoachPlan, getDebriefPrompt } from '$lib/server/functions';
-import type { CoachTab } from '$lib/coach/search';
+import type { CoachSearch, CoachTab } from '$lib/coach/search';
 
 export const DEFAULT_BRIEF_RANGE: RangeKind = '30d';
 
-export function withCoachSearch(search: CoachSearch, extra: Partial<CoachSearch> = {}): CoachSearch {
+export function withCoachSearch(
+	search: CoachSearch,
+	extra: Partial<CoachSearch> = {}
+): CoachSearch {
 	const id = extra.id !== undefined ? extra.id : search.id;
 	const slug = extra.slug !== undefined ? extra.slug : search.slug;
 	const includePlan = extra.includePlan !== undefined ? extra.includePlan : search.includePlan;

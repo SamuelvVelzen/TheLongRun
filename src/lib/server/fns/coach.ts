@@ -22,6 +22,7 @@ import type { CreateRunInput, UpdateRunInput } from '$lib/run-input';
 import { createServerFn } from '@tanstack/react-start';
 import { requireAuth } from '../auth';
 import { loadActivityHabits, loadGear, loadFuelLog, loadWardrobe, loadSettings, loadTrainingContext, saveWeekSetupSetting, weekSetupFromSettings } from '../context';
+import { listActivityGroups } from '../groups';
 import { listPlannedRoutes, listPlanRouteRefs } from '../planned-routes';
 import { listRuns } from '../runs';
 import { fetchDailyForecast, formatDailyForecast } from '../weather';
@@ -37,24 +38,25 @@ import { formatRunBriefLine } from '../debrief-prompt';
 /** Root-loader data shared by every page: sign-in state + the open body notes to score. */
 
 export const getCoachPlan = createServerFn({ method: 'GET' }).handler(async () => {
-	const [runs, training, planRefs, plannedRoutes] = await Promise.all([
+	const [runs, training, planRefs, plannedRoutes, groups] = await Promise.all([
 		listRuns(),
 		loadTrainingContext(),
 		listPlanRouteRefs(),
-		listPlannedRoutes()
+		listPlannedRoutes(),
+		listActivityGroups()
 	]);
 	const { plan, calendar, activeGoal } = training;
 	const views = keepSoonestNext(
 		plan
 			.filter((w) => (w.sessions?.length ?? 0) > 0)
 			.sort((a, b) => a.week - b.week)
-			.map((w) => attachPlanRoutes(buildWeekView(w, runs, calendar), planRefs))
+			.map((w) => attachPlanRoutes(buildWeekView(w, runs, calendar, undefined, groups), planRefs))
 			.filter((v): v is NonNullable<typeof v> => v != null)
 	);
 	return {
 		views,
 		currentWeek: weekToPlan(calendar),
-		generateWeek: weekToGenerate(plan, runs, calendar),
+		generateWeek: weekToGenerate(plan, runs, calendar, undefined, groups),
 		calendar,
 		activeGoal,
 		intentions: openIntentions(training.store.goals),
@@ -95,7 +97,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 		const range = data.range;
 		// Before reading gear.md: the first load moves its fuel section into the fuel log.
 		const fuelLog = await loadFuelLog();
-		const [allRuns, training, gearInventory, settings, habits, wardrobe, profile] =
+		const [allRuns, training, gearInventory, settings, habits, wardrobe, profile, activityGroups] =
 			await Promise.all([
 				listRuns(),
 				loadTrainingContext(),
@@ -103,7 +105,8 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 				loadSettings(),
 				loadActivityHabits(),
 				loadWardrobe(),
-				loadProfile()
+				loadProfile(),
+				listActivityGroups()
 			]);
 		const { plan, calendar, activeGoal, medals, store } = training;
 		const defaultSetup = data.defaultSetup ?? weekSetupFromSettings(settings);
@@ -117,7 +120,7 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 			activeGoal != null ? Math.max(0, daysUntil(activeGoal.date, today) ?? 0) : null;
 
 		const curWeek = Math.min(calendar.weekCount, Math.max(1, planWeekIndex(calendar, today)));
-		const targetWeek = weekToGenerate(plan, allRuns, calendar, today);
+		const targetWeek = weekToGenerate(plan, allRuns, calendar, today, activityGroups);
 		const weekPhrase = targetWeek > curWeek ? 'next week' : 'this week';
 		const todayIso = isoDateLocal(today);
 		const weekRange = (n: number) => planWeekDateRange(n, calendar);
@@ -137,7 +140,9 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 
 		const savedTarget = plan.find((w) => w.week === targetWeek);
 		const revising = weekHasSessions(savedTarget);
-		const targetView = savedTarget ? buildWeekView(savedTarget, allRuns, calendar, today) : null;
+		const targetView = savedTarget
+			? buildWeekView(savedTarget, allRuns, calendar, today, activityGroups)
+			: null;
 		const unplannedSection = targetView?.unplanned.length
 			? `## Unplanned activities (${weekPhrase})
 These logs fall in week ${targetWeek} but did not match a planned session (extra session, rest/empty day, or different sport). They are **already done extra load** — do not add a plan row just to file them. Account for that load when ${revising ? 'revising remaining sessions' : 'planning the week'}.
@@ -160,8 +165,8 @@ ${formatUnplannedBrief(targetView.unplanned)}`
 		);
 		const wardrobeSection = formatWardrobeSection(wardrobe);
 		const wardrobeBit = hasWardrobe
-			? `My clothing${forecast.length ? ' and that day’s forecast' : ''} for \`kit\``
-			: 'forecast and what I own for \`kit\`';
+			? `My clothing${forecast.length ? ' and that day’s forecast' : ''} for 'kit'`
+			: "forecast and what I own for 'kit'";
 		const planFuelKitRules = ` On run, walk, and bike sessions where it matters, add \`"fuel"\` and/or \`"kit"\` (omit on strength or when nothing specific is needed). This is **planned** fuel/kit on the session — saved in the training plan, **not** in my fuel log (the log is only for what I actually tried). \`fuel\`: array of \`{"phase":"before"|"during"|"after","item","timing"}\` with optional \`"notes"\` — use separate rows per phase; default to what worked in my Fuel log; never suggest timings that caused trouble. \`kit\`: one short string sentence — ${wardrobeBit}; long or wet runs → long-run-safe bottoms. Example fuel: ${JSON.stringify(PLAN_SESSION_FUEL_JSON_EXAMPLE)}. Example kit: ${JSON.stringify(PLAN_SESSION_KIT_JSON_EXAMPLE)}. Keep coaching intent in \`"detail"\` — do not duplicate fuel or kit there. If the weather calls for something I don’t own, say so once in prose or in \`kit\`.`;
 		const thisWeekLogs = allRuns
 			.filter((r) => r.date >= weekStartIso && r.date <= weekEndIso)
@@ -285,7 +290,9 @@ ${HOW_TO_READ}`,
 				liftTopsSection,
 				section(
 					'Training plan',
-					plan.length ? formatTrainingPlanBrief(plan, targetWeek, calendar, allRuns, today) : ''
+					plan.length
+						? formatTrainingPlanBrief(plan, targetWeek, calendar, allRuns, today, activityGroups)
+						: ''
 				),
 				unplannedSection,
 				alreadyLoggedSection,

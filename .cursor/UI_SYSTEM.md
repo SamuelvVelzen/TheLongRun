@@ -18,7 +18,7 @@
 ## Page shell
 
 1. `PageHero` (`variant="quiet"` on utility pages without in-page tabs)
-2. **`TabbedPageHeader`** when a page has section tabs (Coach, Goals, Fuel, Add activity) — one sticky chrome block: compact title + `PageTabs` (`sticky={false}` inside the header). Title collapses on scroll; tabs stay pinned in the band.
+2. **`TabbedPageHeader`** when a page has section tabs (Coach, Goals, Gear, Fuel, Add activity) — one sticky chrome block: compact title + `PageTabs` (`sticky={false}` inside the header). Title collapses on scroll; tabs stay pinned in the band.
 3. Standalone `PageTabs` only when not using `TabbedPageHeader` (rare)
 4. Stack of `Panel` / `PageSection` — avoid bare primary content on the canvas
 

@@ -100,8 +100,12 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 						return row ? [row] : [];
 					})()
 				: [];
+		const onlyRequested =
+			idsOnly ||
+			requestedIds.length === 1 ||
+			(legacySlugs.length === 1 && !requestedIds.length);
 		const featured =
-			idsOnly && featuredUnsorted.length
+			onlyRequested && featuredUnsorted.length
 				? featuredUnsorted
 				: expandDebriefFeatured(
 						featuredUnsorted,

@@ -808,7 +808,13 @@ export function RunDetail() {
 						})}
 				</div>
 			</Dialog>
-			<FeelAiDialog open={feelAiOpen} run={r} onClose={() => setFeelAiOpen(false)} />
+			<FeelAiDialog
+				open={feelAiOpen}
+				run={r}
+				gear={gear}
+				gearWear={gearWear}
+				onClose={() => setFeelAiOpen(false)}
+			/>
 			{leaveGuard}
 			<ConfirmDialog
 				open={pendingDelete}

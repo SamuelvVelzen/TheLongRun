@@ -1,7 +1,10 @@
-import { activityLabel, normalizeActivityType } from '$lib/activity';
-import { HABIT_PLACEHOLDERS, emptyActivityHabits, type HabitPair } from '$lib/activity-habits';
+import { emptyActivityHabits, type HabitPair } from '$lib/activity-habits';
 import type { BodySuggestion } from '$lib/body-notes';
-import { composeDebriefPrompt, type DebriefWriteupRun } from '$lib/debrief';
+import {
+	composeDebriefPrompt,
+	debriefWriteupUnitsFromCoach,
+	type DebriefWriteupRun
+} from '$lib/debrief';
 import {
 	clearDebriefHabits,
 	readDebriefHabits,
@@ -14,119 +17,154 @@ import {
 	writeDebriefWriteups
 } from '$lib/debrief-writeups';
 import type { FuelEntry } from '$lib/fuel';
+import type { GearContext, GearKind, GearWear } from '$lib/gear';
 import { getDebriefPrompt, saveActivityFeel, saveDebrief } from '$lib/server/functions';
 import { cn } from '$lib/ui';
 import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { AiPromptFlow } from './AiPromptFlow';
 import { BodySuggestionsDialog } from './BodySuggestionsDialog';
+import {
+	DebriefFeelForm,
+	type DebriefDraftClearPick,
+	type DebriefFeelRun
+} from './DebriefFeelForm';
 import { FuelSuggestionsDialog } from './FuelSuggestionsDialog';
-import { Icon } from './Icon';
 import { JsonPasteForm } from './JsonPasteForm';
-import { Actions, Button, Checkbox, Dialog, Field, FormGrid, Textarea, useSnackbar } from './ui';
+import { Checkbox, Dialog, Panel, useSnackbar } from './ui';
 
 type DebriefData = Awaited<ReturnType<typeof getDebriefPrompt>>;
 
-/** Activity page → More → Feel with AI: same fields as Coach → After an activity, for one run. */
+/** Activity page → More → Feel with AI: same debrief prompt + form as Coach → After an activity. */
 export function FeelAiDialog({
 	open,
 	run,
+	gear,
+	gearWear,
 	onClose
 }: {
 	open: boolean;
 	run: DebriefWriteupRun;
+	gear: GearContext;
+	gearWear: Record<GearKind, Record<string, GearWear>>;
 	onClose: () => void;
 }) {
 	const router = useRouter();
 	const snack = useSnackbar();
 	const [debrief, setDebrief] = useState<DebriefData | null>(null);
-	const [attempt, setAttempt] = useState(0);
-	const [busy, setBusy] = useState(false);
+	const [loading, setLoading] = useState(false);
 	const [failed, setFailed] = useState(false);
-	const [includePlan, setIncludePlan] = useState(true);
+	const [includePlan, setIncludePlan] = useState(false);
 	const [writeup, setWriteup] = useState('');
 	const [habitDrafts, setHabitDrafts] = useState<Record<string, HabitPair>>(readDebriefHabits);
 	const [fuelSuggestions, setFuelSuggestions] = useState<FuelEntry[]>([]);
 	const [bodySuggestions, setBodySuggestions] = useState<BodySuggestion[]>([]);
 	const [bodySuggestionsQueued, setBodySuggestionsQueued] = useState<BodySuggestion[]>([]);
 
-	const activityType = normalizeActivityType(run.activity_type ?? 'run');
-	const sport = activityLabel(activityType).toLowerCase();
-	const habitDraft = habitDrafts[run.slug] ?? { before: '', after: '' };
+	const writeupUnits = debrief
+		? debriefWriteupUnitsFromCoach(debrief)
+		: [{ slug: run.slug, members: [run] }];
+	const unit = writeupUnits[0]!;
+	const habitDraft = habitDrafts[unit.slug] ?? { before: '', after: '' };
 
-	// Fresh drafts whenever the dialog opens for this activity.
 	useEffect(() => {
 		if (!open) return;
 		setWriteup(readDebriefWriteups()[run.slug] ?? '');
 		setHabitDrafts(readDebriefHabits());
 		setDebrief(null);
-		setAttempt(0);
-		setBusy(false);
+		setLoading(false);
 		setFailed(false);
 	}, [open, run.slug]);
 
-	// Fetch only once Generate is pressed; toggling the checkbox refetches after that.
 	useEffect(() => {
-		if (!open || attempt === 0) return;
+		if (!open) return;
 		let cancelled = false;
-		setBusy(true);
+		setLoading(true);
 		setFailed(false);
 		setDebrief(null);
 		getDebriefPrompt({ data: { id: String(run.id), includePlan, idsOnly: true } }).then(
 			(next) => {
 				if (!cancelled) {
 					setDebrief(next);
-					setBusy(false);
+					setLoading(false);
 				}
 			},
 			() => {
 				if (!cancelled) {
 					setFailed(true);
-					setBusy(false);
+					setLoading(false);
 				}
 			}
 		);
 		return () => {
 			cancelled = true;
 		};
-	}, [open, run.slug, includePlan, attempt]);
+	}, [open, run.id, includePlan]);
 
-	// Seed this run's before/after draft from its saved notes / usual habits (same as coach).
 	useEffect(() => {
 		if (!open) return;
-		setHabitDrafts((prev) =>
-			seedDebriefHabits([run], debrief?.habits ?? emptyActivityHabits(), prev)
-		);
-	}, [open, run, debrief]);
+		const units = debrief
+			? debriefWriteupUnitsFromCoach(debrief)
+			: [{ slug: run.slug, members: [run] }];
+		const seeds = units.map((u) => {
+			const lead = u.members[0]!;
+			return {
+				slug: u.slug,
+				activity_type: lead.activity_type,
+				before_notes: lead.before_notes,
+				after_notes: lead.after_notes
+			};
+		});
+		setHabitDrafts((prev) => seedDebriefHabits(seeds, debrief?.habits ?? emptyActivityHabits(), prev));
+	}, [open, debrief, run]);
 
 	const prompt = debrief?.prompt
 		? composeDebriefPrompt(
 				debrief.prompt,
-				[{ slug: run.slug, members: [run] }],
-				{ [run.slug]: writeup },
-				{ [run.slug]: habitDraft },
+				writeupUnits,
+				{ [unit.slug]: writeup },
+				{ [unit.slug]: habitDraft },
 				debrief.habits ?? emptyActivityHabits()
 			)
 		: '';
 
-	function generate() {
-		setAttempt((n) => n + 1);
-	}
-
 	function onWriteupChange(text: string) {
 		setWriteup(text);
 		const next = readDebriefWriteups();
-		if (text) next[run.slug] = text;
-		else delete next[run.slug];
+		if (text) next[unit.slug] = text;
+		else delete next[unit.slug];
 		writeDebriefWriteups(next);
 	}
 
 	function onHabitChange(field: keyof HabitPair, text: string) {
-		setHabitDrafts((prev) => setDebriefHabitField(run.slug, field, text, prev));
+		setHabitDrafts((prev) => setDebriefHabitField(unit.slug, field, text, prev));
+	}
+
+	function clearDebriefDraft(slugKey: string, pick: DebriefDraftClearPick) {
+		if (pick.writeup) {
+			if (slugKey === unit.slug) setWriteup('');
+			writeDebriefWriteups(clearDebriefWriteups([slugKey], readDebriefWriteups()));
+		}
+		if (pick.before || pick.after) {
+			setHabitDrafts((prev) => {
+				let next = prev;
+				if (pick.before) next = setDebriefHabitField(slugKey, 'before', '', next);
+				if (pick.after) next = setDebriefHabitField(slugKey, 'after', '', next);
+				const pair = next[slugKey];
+				if (pair && !pair.before.trim() && !pair.after.trim()) {
+					next = clearDebriefHabits([slugKey], next);
+				}
+				return next;
+			});
+		}
+	}
+
+	async function refreshRun() {
+		await router.invalidate();
 	}
 
 	async function saveReply(json: string) {
-		const h = habitDrafts[run.slug];
+		const h = habitDrafts[unit.slug];
 		if (h) {
 			await saveActivityFeel({
 				data: { id: run.id, before_notes: h.before, after_notes: h.after }
@@ -156,13 +194,17 @@ export function FeelAiDialog({
 			: '';
 		snack.success(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
 		if (res.feelingsUpdatedSlugs.length) {
-			if (res.feelingsUpdatedSlugs.includes(run.slug)) setWriteup('');
+			if (res.feelingsUpdatedSlugs.includes(unit.slug)) setWriteup('');
 			setHabitDrafts((prev) => clearDebriefHabits(res.feelingsUpdatedSlugs, prev));
 			clearDebriefWriteups(res.feelingsUpdatedSlugs, readDebriefWriteups());
 		}
-		await router.invalidate();
+		await refreshRun();
 		if (!res.fuelSuggestions.length && !res.bodySuggestions.length) onClose();
 	}
+
+	const feelRun = (debrief?.runs?.[0] ?? debrief?.run ?? run) as DebriefFeelRun;
+	const feelParts =
+		unit.members.length > 1 ? (unit.members as DebriefFeelRun[]) : undefined;
 
 	return (
 		<>
@@ -173,29 +215,41 @@ export function FeelAiDialog({
 				className="sm:max-w-[min(42rem,100%)]!"
 				onClose={onClose}
 			>
-				<AiPromptFlow
-					intro={
-						<p className="m-0">
-							Write how it felt, generate the prompt, copy it into your AI, then paste the JSON back
-							— scores and notes land on this activity.
-						</p>
-					}
-					extraLabel="What happened"
-					extra={writeup}
-					onExtraChange={onWriteupChange}
-					extraPlaceholder={`Today’s ${
-						activityType === 'strength' ? 'session' : sport
-					} was… After: … Should I…?`}
-					extraRows={6}
-					prompt={prompt}
-					promptReady={Boolean(prompt)}
-					promptRows={10}
-					result={
+				<div className="grid gap-4">
+					<DebriefFeelForm
+						run={feelRun}
+						parts={feelParts}
+						writeup={writeup}
+						habitDraft={habitDraft}
+						gear={gear}
+						gearWear={gearWear}
+						onWriteupChange={onWriteupChange}
+						onHabitChange={onHabitChange}
+						onClearDrafts={(pick) => clearDebriefDraft(unit.slug, pick)}
+						onSaved={refreshRun}
+					/>
+					{debrief?.error && !prompt ? (
+						<p className={cn('text-muted', 'm-0')}>{debrief.error}</p>
+					) : null}
+					{loading && !prompt ? (
+						<p className={cn('text-muted', 'm-0')}>Building prompt…</p>
+					) : null}
+					{failed && !loading && !prompt ? (
+						<p className={cn('text-muted', 'm-0')}>Could not build the prompt.</p>
+					) : null}
+					{prompt ? (
+						<Panel form>
+							<AiPromptFlow prompt={prompt} promptRows={14} />
+							<Checkbox
+								checked={includePlan}
+								onChange={setIncludePlan}
+								label="New chat — include my plan and standing info"
+								hint="On for a new chat; off to keep the prompt small in an ongoing thread."
+							/>
+						</Panel>
+					) : null}
+					{prompt ? (
 						<JsonPasteForm
-							description={
-								<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Paste the AI's reply</p>
-							}
-							rows={5}
 							placeholder={
 								includePlan
 									? '{ "feelings": { "id": 42, "notes": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
@@ -206,49 +260,8 @@ export function FeelAiDialog({
 							errorLabel="Could not save debrief."
 							onSubmit={saveReply}
 						/>
-					}
-				>
-					<FormGrid>
-						<Field label="Before">
-							<Textarea
-								rows={2}
-								placeholder={HABIT_PLACEHOLDERS[activityType].before}
-								value={habitDraft.before}
-								onChange={(e) => onHabitChange('before', e.target.value)}
-							/>
-						</Field>
-						<Field label="After">
-							<Textarea
-								rows={2}
-								placeholder={HABIT_PLACEHOLDERS[activityType].after}
-								value={habitDraft.after}
-								onChange={(e) => onHabitChange('after', e.target.value)}
-							/>
-						</Field>
-					</FormGrid>
-					<Checkbox
-						checked={includePlan}
-						onChange={setIncludePlan}
-						label="New chat — include my plan and standing info"
-						hint="On for a new chat; off to keep the prompt small in an ongoing thread."
-					/>
-					{!prompt &&
-						(debrief?.error ? (
-							<p className={cn('text-muted', 'm-0')}>{debrief.error}</p>
-						) : (
-							<>
-								<Actions>
-									<Button variant="primary" disabled={busy} onClick={generate}>
-										<Icon name="sparkle" size={16} />
-										{busy ? 'Building…' : failed ? 'Try again' : 'Generate prompt'}
-									</Button>
-								</Actions>
-								{failed && !busy ? (
-									<p className={cn('text-muted', 'm-0')}>Could not build the prompt.</p>
-								) : null}
-							</>
-						))}
-				</AiPromptFlow>
+					) : null}
+				</div>
 			</Dialog>
 			<FuelSuggestionsDialog
 				suggestions={fuelSuggestions}

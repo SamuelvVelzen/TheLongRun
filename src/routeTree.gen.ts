@@ -24,6 +24,7 @@ import { Route as TimelineRouteImport } from './routes/timeline'
 import { Route as GroupsIdRouteImport } from './routes/groups.$id'
 import { Route as RoutesIndexRouteImport } from './routes/routes.index'
 import { Route as RoutesSlugRouteImport } from './routes/routes.$slug'
+import { Route as RoutesDrawRouteImport } from './routes/routes.draw'
 import { Route as RunsSlugRouteImport } from './routes/runs.$slug'
 
 const IndexRoute = IndexRouteImport.update({
@@ -101,6 +102,11 @@ const RoutesSlugRoute = RoutesSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => RoutesRoute,
 } as any)
+const RoutesDrawRoute = RoutesDrawRouteImport.update({
+  id: '/draw',
+  path: '/draw',
+  getParentRoute: () => RoutesRoute,
+} as any)
 const RunsSlugRoute = RunsSlugRouteImport.update({
   id: '/runs/$slug',
   path: '/runs/$slug',
@@ -122,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/timeline': typeof TimelineRoute
   '/groups/$id': typeof GroupsIdRoute
   '/routes/$slug': typeof RoutesSlugRoute
+  '/routes/draw': typeof RoutesDrawRoute
   '/runs/$slug': typeof RunsSlugRoute
   '/routes/': typeof RoutesIndexRoute
 }
@@ -139,6 +146,7 @@ export interface FileRoutesByTo {
   '/timeline': typeof TimelineRoute
   '/groups/$id': typeof GroupsIdRoute
   '/routes/$slug': typeof RoutesSlugRoute
+  '/routes/draw': typeof RoutesDrawRoute
   '/runs/$slug': typeof RunsSlugRoute
   '/routes': typeof RoutesIndexRoute
 }
@@ -158,6 +166,7 @@ export interface FileRoutesById {
   '/timeline': typeof TimelineRoute
   '/groups/$id': typeof GroupsIdRoute
   '/routes/$slug': typeof RoutesSlugRoute
+  '/routes/draw': typeof RoutesDrawRoute
   '/runs/$slug': typeof RunsSlugRoute
   '/routes/': typeof RoutesIndexRoute
 }
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
     | '/timeline'
     | '/groups/$id'
     | '/routes/$slug'
+    | '/routes/draw'
     | '/runs/$slug'
     | '/routes/'
   fileRoutesByTo: FileRoutesByTo
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
     | '/timeline'
     | '/groups/$id'
     | '/routes/$slug'
+    | '/routes/draw'
     | '/runs/$slug'
     | '/routes'
   id:
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | '/timeline'
     | '/groups/$id'
     | '/routes/$slug'
+    | '/routes/draw'
     | '/runs/$slug'
     | '/routes/'
   fileRoutesById: FileRoutesById
@@ -341,6 +353,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RoutesSlugRouteImport
       parentRoute: typeof RoutesRoute
     }
+    '/routes/draw': {
+      id: '/routes/draw'
+      path: '/draw'
+      fullPath: '/routes/draw'
+      preLoaderRoute: typeof RoutesDrawRouteImport
+      parentRoute: typeof RoutesRoute
+    }
     '/runs/$slug': {
       id: '/runs/$slug'
       path: '/runs/$slug'
@@ -353,11 +372,13 @@ declare module '@tanstack/react-router' {
 
 interface RoutesRouteChildren {
   RoutesSlugRoute: typeof RoutesSlugRoute
+  RoutesDrawRoute: typeof RoutesDrawRoute
   RoutesIndexRoute: typeof RoutesIndexRoute
 }
 
 const RoutesRouteChildren: RoutesRouteChildren = {
   RoutesSlugRoute: RoutesSlugRoute,
+  RoutesDrawRoute: RoutesDrawRoute,
   RoutesIndexRoute: RoutesIndexRoute,
 }
 

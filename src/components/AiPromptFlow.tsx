@@ -24,9 +24,7 @@ export function usePromptUpdated(
 	root: RefObject<HTMLElement | null>
 ) {
 	const [updatedAt, setUpdatedAt] = useState(() => Date.now());
-	const [flash, setFlash] = useState(false);
 	const committed = useRef(prompt);
-	const skipFlash = useRef(true);
 	const inputFocused = useRef(false);
 	const promptRef = useRef(prompt);
 	const enabledRef = useRef(enabled);
@@ -39,27 +37,15 @@ export function usePromptUpdated(
 		if (next === committed.current) return;
 		committed.current = next;
 		setUpdatedAt(Date.now());
-		if (skipFlash.current) {
-			skipFlash.current = false;
-			return;
-		}
-		setFlash(true);
 	}
 
 	useEffect(() => {
 		if (!enabled) {
 			committed.current = prompt;
-			skipFlash.current = true;
 			return;
 		}
 		if (!inputFocused.current) commitIfNew();
 	}, [prompt, enabled]);
-
-	useEffect(() => {
-		if (!flash) return;
-		const t = window.setTimeout(() => setFlash(false), 1400);
-		return () => window.clearTimeout(t);
-	}, [flash]);
 
 	useEffect(() => {
 		const el = root.current;
@@ -90,19 +76,21 @@ export function usePromptUpdated(
 		};
 	}, [enabled, root]);
 
+	const isSaving = enabled && prompt !== committed.current;
+
 	return {
 		updatedAt,
-		flash,
+		isSaving,
 		label: `Updated ${formatUpdatedAt(updatedAt)}`
 	};
 }
 
 export function PromptSummary({
-	flash,
+	isSaving,
 	label,
 	className
 }: {
-	flash: boolean;
+	isSaving: boolean;
 	label: string;
 	className?: string;
 }) {
@@ -110,13 +98,13 @@ export function PromptSummary({
 		<span
 			className={cn(
 				'inline-flex items-center gap-1.5 text-[0.85rem] transition-colors duration-300 shrink-0',
-				flash ? 'text-accent-fg' : 'text-muted',
+				isSaving ? 'text-accent-fg' : 'text-muted',
 				className
 			)}
 		>
 			<span>{label}</span>
-			{flash ? (
-				<Icon name="spinner" size={14} className="animate-spin text-accent-fg" />
+			{isSaving ? (
+				<Icon name="spinner" size={14} className="animate-spin text-accent-fg" aria-hidden />
 			) : (
 				<Icon name="save" size={14} className="text-muted/80" aria-hidden />
 			)}
@@ -167,7 +155,7 @@ export function AiPromptFlow({
 	const [copied, setCopied] = useState(false);
 	const [promptOpen, setPromptOpen] = useState(false);
 	const flowRef = useRef<HTMLDivElement>(null);
-	const { flash, label } = usePromptUpdated(prompt, promptReady, flowRef);
+	const { isSaving, label } = usePromptUpdated(prompt, promptReady, flowRef);
 
 	async function copy() {
 		try {
@@ -240,7 +228,7 @@ export function AiPromptFlow({
 								/>
 							</span>
 						</button>
-						<PromptSummary flash={flash} label={label} className="ml-auto" />
+						<PromptSummary isSaving={isSaving} label={label} className="ml-auto" />
 					</div>
 					<div className={cn(!promptOpen && 'hidden')} aria-hidden={!promptOpen}>
 						<Textarea

@@ -1,6 +1,6 @@
 /**
  * Point this clone at .githooks/ so pre-push runs lint:ci before push to main.
- * Invoked from npm prepare after install.
+ * Invoked from npm prepare after install (skipped in CI — no git hooks needed there).
  */
 const { execFileSync, execSync } = require('node:child_process');
 const fs = require('node:fs');
@@ -9,8 +9,17 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const hooksDir = path.join(root, '.githooks');
 
-function git(args) {
-	return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+if (process.env.CI) {
+	process.exit(0);
+}
+
+function git(args, { optional = false } = {}) {
+	try {
+		return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+	} catch {
+		if (optional) return undefined;
+		throw new Error(`git ${args.join(' ')} failed`);
+	}
 }
 
 try {
@@ -34,7 +43,7 @@ if (fs.existsSync(prePush)) {
 	}
 }
 
-const current = git(['config', '--get', 'core.hooksPath']);
+const current = git(['config', '--get', 'core.hooksPath'], { optional: true });
 if (current === '.githooks') {
 	process.exit(0);
 }

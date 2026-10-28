@@ -1,0 +1,16 @@
+#!/bin/sh
+# Same checks as .github/workflows/ci.yml (typecheck + eslint --quiet).
+run_lint=
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+	case "$remote_ref" in
+	refs/heads/main) run_lint=1 ;;
+	esac
+done
+
+if [ -n "$run_lint" ]; then
+	printf '%s\n' 'pre-push: running npm run lint:ci before push to main…'
+	npm run lint:ci || exit 1
+fi
+
+exit 0

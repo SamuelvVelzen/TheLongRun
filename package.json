@@ -26,7 +26,8 @@
 		"lint:eslint:ci": "eslint src vite.config.ts eslint.config.js --quiet",
 		"lint:eslint": "eslint .",
 		"lint:eslint:fix": "eslint . --fix",
-		"format": "prettier --write ."
+		"format": "prettier --write .",
+		"prepare": "node scripts/install-githooks.cjs"
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "^1.50.0",

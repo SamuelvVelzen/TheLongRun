@@ -13,7 +13,7 @@ import { AiPromptFlow } from './AiPromptFlow';
 import { JsonPasteForm } from './JsonPasteForm';
 import { Dialog, Field, Textarea, errorMessage, useSnackbar } from './ui';
 
-/** Describe in your own words → copy prompt → paste the AI's JSON → saved (zod-checked) with Undo. */
+/** Describe in your own words → copy prompt → paste the AI response → saved (zod-checked) with Undo. */
 export function FuelDescribeDialog({
 	open,
 	log,
@@ -63,8 +63,8 @@ export function FuelDescribeDialog({
 			<AiPromptFlow
 				intro={
 					<p className="m-0">
-						Describe what you ate in your own words, copy the prompt into your AI, then paste JSON
-						back. Checked entries save when you confirm
+						Describe what you ate in your own words, copy the prompt into your AI, then paste the
+						AI response back. Checked entries save when you confirm
 						{log.entries.length ? ' — existing food names are reused' : ''}.
 					</p>
 				}

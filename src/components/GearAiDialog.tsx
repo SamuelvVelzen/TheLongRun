@@ -97,7 +97,7 @@ export function GearAiImportPanel({
 					intro={
 						<p className="m-0">
 							List shoes or bikes you own, or ask what to retire. Copy the prompt into your AI,
-							paste JSON back — you choose what to save.
+							paste the AI response back — you choose what to save.
 						</p>
 					}
 					extraLabel="Extra for the prompt"
@@ -107,9 +107,6 @@ export function GearAiImportPanel({
 					prompt={prompt}
 					result={
 						<JsonPasteForm
-							description={
-								<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Paste the AI's reply</p>
-							}
 							rows={5}
 							placeholder='{ "items": [ { "kind": "shoes", "name": "Saucony Speed 4", "role": "active" } ] }'
 							submitLabel="Check reply"

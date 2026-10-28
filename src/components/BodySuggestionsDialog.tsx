@@ -81,7 +81,7 @@ export function BodySuggestionsDialog({
 			}
 		>
 			<p className={cn('text-muted', 'm-0')}>
-				From your debrief JSON — new areas, status changes, or niggles marked resolved. Nothing is
+				From your debrief response — new areas, status changes, or niggles marked resolved. Nothing is
 				written to Profile until you save here.
 			</p>
 			<div className="grid">

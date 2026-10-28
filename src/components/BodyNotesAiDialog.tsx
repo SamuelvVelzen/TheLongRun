@@ -123,8 +123,8 @@ export function BodyNotesAiDialog({
 					<AiPromptFlow
 						intro={
 							<p className="m-0">
-								List niggles, injuries, or what cleared up. Copy the prompt into your AI, paste JSON
-								back — you choose what to save.
+								List niggles, injuries, or what cleared up. Copy the prompt into your AI, paste the
+								AI response back — you choose what to save.
 							</p>
 						}
 						extraLabel="Extra for the prompt"
@@ -134,9 +134,6 @@ export function BodyNotesAiDialog({
 						prompt={prompt}
 						result={
 							<JsonPasteForm
-								description={
-									<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Paste the AI's reply</p>
-								}
 								rows={5}
 								placeholder='{ "body": [ { "area": "shins", "status": "monitoring", "trigger": "hard surfaces", "helps": "trails" } ] }'
 								submitLabel="Check reply"

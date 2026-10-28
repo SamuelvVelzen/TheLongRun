@@ -198,7 +198,7 @@ export function GoalCopyAiDialog({
 					<AiPromptFlow
 						intro={
 							<p className="m-0">
-								Training context plus this goal. Copy the prompt, paste the JSON back, then pick
+								Training context plus this goal. Copy the prompt, paste the AI response back, then pick
 								which fields to apply to the form.
 							</p>
 						}
@@ -211,9 +211,6 @@ export function GoalCopyAiDialog({
 						promptRows={12}
 						result={
 							<JsonPasteForm
-								description={
-									<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Paste the AI's reply</p>
-								}
 								rows={8}
 								placeholder={kind === 'race' ? RACE_PLACEHOLDER : INTENTION_PLACEHOLDER}
 								submitLabel="Check reply"

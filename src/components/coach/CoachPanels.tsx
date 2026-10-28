@@ -680,7 +680,7 @@ export function CoachPanels({
 							)}
 						</li>
 						<li>
-							<strong>4. Paste the AI’s JSON</strong>
+							<strong>4. Paste the AI response</strong>
 							{authed ? (
 								<JsonPasteForm
 									className="mt-3"
@@ -832,7 +832,7 @@ export function CoachPanels({
 						title={`Save ${weekPhrase}’s plan`}
 						description={
 							<p className={cn('text-muted', 'mt-[0.3rem]')}>
-								Paste the JSON block your AI returned — merged by week number. Session{' '}
+								Paste the AI response your model returned — merged by week number. Session{' '}
 								<code className="text-[0.85em]">fuel</code> /{' '}
 								<code className="text-[0.85em]">kit</code> are saved on the plan (not the fuel
 								log). Check that pinned activities kept their day.

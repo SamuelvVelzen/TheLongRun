@@ -125,7 +125,7 @@ export function WardrobeAiImportPanel({
 					intro={
 						<p className="m-0">
 							List what you own, or ask what you're missing. Copy the prompt into your AI, then
-							paste its JSON back — you choose what to keep.
+							paste the AI response back — you choose what to keep.
 						</p>
 					}
 					extraLabel="Extra for the prompt"
@@ -135,9 +135,6 @@ export function WardrobeAiImportPanel({
 					prompt={prompt}
 					result={
 						<JsonPasteForm
-							description={
-								<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>Paste the AI's reply</p>
-							}
 							rows={5}
 							placeholder='{ "items": [ { "category": "bottom", "name": "Shorts + long liner", "count": 2 } ] }'
 							submitLabel="Check reply"
@@ -156,7 +153,7 @@ export function WardrobeAiImportPanel({
 	);
 }
 
-/** Describe or ask → copy prompt → paste the AI's JSON → pick what to keep. Nothing saves until confirmed. */
+/** Describe or ask → copy prompt → paste the AI response → pick what to keep. Nothing saves until confirmed. */
 export function WardrobeAiDialog({
 	open,
 	wardrobe,

@@ -218,7 +218,7 @@ export function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 					<>
 						<p className={cn('text-muted', 'm-0 max-sm:hidden')}>
 							Copy this week (live status plus JSON) into a new chat, or every week that already has
-							sessions. Paste an updated JSON block back below.
+							sessions. Paste the updated AI response below.
 						</p>
 						<Actions>
 							<IconLabelButton
@@ -257,7 +257,7 @@ export function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 			{authed && (
 				<JsonPasteForm
 					className="mt-4"
-					title="Paste updated JSON"
+					title="Paste updated AI response"
 					description={
 						<p className={cn('text-muted', 'mt-[0.3rem]')}>
 							Same shape as Generate — per-session <code className="text-[0.85em]">fuel</code> arrays

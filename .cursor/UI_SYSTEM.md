@@ -51,7 +51,7 @@ Nothing from `fuel` or `body` is written until you tick rows and choose **Save**
 
 ## Import with AI (gear, clothing, fuel, profile, goals)
 
-Toolbar button **Import with AI** opens a dialog built on **`AiPromptFlow`**: optional extra text → generated prompt → copy → paste JSON → confirm (fuel saves on submit; gear/clothing/body notes and goal copy show a pick list like debrief body notes). Pair with **Copy kit for AI** where you only need context in chat. Prompts live in `$lib/*-prompt.ts`; JSON is parsed with `$lib/*-schema.ts` (zod). Implementations: `GearAiDialog`, `WardrobeAiDialog`, `FuelDescribeDialog`, `BodyNotesAiDialog`, `GoalCopyAiDialog`.
+Toolbar button **Import with AI** opens a dialog built on **`AiPromptFlow`**: optional extra text → generated prompt → copy → paste AI response → confirm (fuel saves on submit; gear/clothing/body notes and goal copy show a pick list like debrief body notes). Pair with **Copy kit for AI** where you only need context in chat. Prompts live in `$lib/*-prompt.ts`; JSON is parsed with `$lib/*-schema.ts` (zod). Implementations: `GearAiDialog`, `WardrobeAiDialog`, `FuelDescribeDialog`, `BodyNotesAiDialog`, `GoalCopyAiDialog`.
 
 ## Component catalog (`src/components/ui/index.ts`)
 

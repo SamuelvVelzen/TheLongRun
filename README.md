@@ -19,7 +19,8 @@ No filesystem at runtime — runs, GeoJSON route tracks, and context docs are al
 ## Quick start (local)
 
 ```bash
-npm install                   # sets git hooksPath → .githooks (pre-push lint on main)
+npm install
+npm run setup:hooks          # once per clone — pre-push lint before push to main
 npm run login                 # same Cloudflare account that owns the D1 database
 npm run d1:apply:local        # creates the local SQLite file if needed
 npm run d1:pull               # optional: copy remote D1 into local
@@ -74,10 +75,11 @@ check the session cookie.
 
 ## Checks
 
-GitHub CI on every push/PR runs `npm run lint:ci` (`tsc --noEmit` + `eslint --quiet` on `src/`).
+GitHub CI runs `npm ci`, then `npm run check` and `npm run lint:eslint:ci` (same as `npm run lint:ci`).
 
-After `npm install`, this repo sets `core.hooksPath` to `.githooks`. **Pushing to `main`** runs the
-same `lint:ci` locally first. Override with `git push --no-verify` only when you mean to skip it.
+**Locally before you push to `main`:** run `npm run setup:hooks` once, then each `git push` to `main`
+runs `npm run lint:ci` on your machine first (not on GitHub). Skip with `git push --no-verify` only
+when you mean to.
 
 Full local lint (includes Prettier): `npm run lint`.
 

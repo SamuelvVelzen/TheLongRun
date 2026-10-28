@@ -27,7 +27,7 @@
 		"lint:eslint": "eslint .",
 		"lint:eslint:fix": "eslint . --fix",
 		"format": "prettier --write .",
-		"prepare": "node scripts/install-githooks.cjs"
+		"setup:hooks": "node scripts/install-githooks.cjs"
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "^1.50.0",

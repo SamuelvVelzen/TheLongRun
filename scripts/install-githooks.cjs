@@ -1,5 +1,5 @@
 /**
- * One-time local setup: point this clone at .githooks/ (pre-push runs lint:ci before push to main).
+ * One-time local setup: point this clone at .githooks/ (pre-push runs ci:check before push).
  * Not wired into npm install — run `npm run setup:hooks` yourself after clone.
  */
 const { execFileSync, execSync } = require('node:child_process');

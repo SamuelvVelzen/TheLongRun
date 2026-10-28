@@ -75,11 +75,11 @@ check the session cookie.
 
 ## Checks
 
-GitHub CI runs `npm ci`, then `npm run check` and `npm run lint:eslint:ci` (same as `npm run lint:ci`).
+GitHub CI runs `npm ci`, then **`npm run ci:check`** (`tsc --noEmit` + `eslint --quiet` on `src/`).
 
-**Locally before you push to `main`:** run `npm run setup:hooks` once, then each `git push` to `main`
-runs `npm run lint:ci` on your machine first (not on GitHub). Skip with `git push --no-verify` only
-when you mean to.
+**Before you push:** run `npm run setup:hooks` once, then each `git push` runs **`npm run ci:check`** locally (no reinstall). Same as CI except `npm ci`. Skip with `git push --no-verify` only when you mean to.
+
+Manual run anytime: `npm run ci:check`.
 
 Full local lint (includes Prettier): `npm run lint`.
 

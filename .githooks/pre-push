@@ -1,16 +1,16 @@
 #!/bin/sh
-# Same checks as .github/workflows/ci.yml (typecheck + eslint --quiet).
-run_lint=
+# Mirrors .github/workflows/ci.yml lint job after npm ci: typecheck + eslint --quiet.
+run_ci=
 
 while read -r local_ref local_sha remote_ref remote_sha; do
 	case "$remote_ref" in
-	refs/heads/main) run_lint=1 ;;
+	refs/heads/*) run_ci=1 ;;
 	esac
 done
 
-if [ -n "$run_lint" ]; then
-	printf '%s\n' 'pre-push: running npm run lint:ci before push to main…'
-	npm run lint:ci || exit 1
+if [ -n "$run_ci" ]; then
+	printf '%s\n' 'pre-push: npm run ci:check (same as GitHub CI, without npm ci)…'
+	npm run ci:check || exit 1
 fi
 
 exit 0

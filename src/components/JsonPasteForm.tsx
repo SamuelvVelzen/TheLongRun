@@ -1,10 +1,11 @@
+import { formatAiJsonText } from '$lib/ai-json';
 import { z } from 'zod';
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from './Icon';
-import { Actions, Form, errorMessage, useAppForm, useSnackbar } from './ui';
+import { Actions, Button, Form, errorMessage, useAppForm, useSnackbar } from './ui';
 
 const jsonPasteSchema = z.object({
-	json: z.string().trim().min(1, 'Paste the JSON first.')
+	json: z.string().trim().min(1, 'Paste the AI response first.')
 });
 
 export function JsonPasteForm({
@@ -56,7 +57,29 @@ export function JsonPasteForm({
 			<form.AppField
 				name="json"
 				children={(field) => (
-					<field.TextAreaField variant="editor" rows={rows} placeholder={placeholder} />
+					<field.TextAreaField
+						label="AI response"
+						labelAction={
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								disabled={!field.state.value.trim()}
+								onClick={() => {
+									try {
+										field.handleChange(formatAiJsonText(field.state.value));
+									} catch (e) {
+										snack.error(errorMessage(e, 'Could not format that response.'));
+									}
+								}}
+							>
+								Prettify
+							</Button>
+						}
+						variant="editor"
+						rows={rows}
+						placeholder={placeholder}
+					/>
 				)}
 			/>
 			<Actions>

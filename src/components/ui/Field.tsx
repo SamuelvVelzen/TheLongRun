@@ -8,6 +8,7 @@ export const reqClass = ui.req;
 
 export function Field({
 	label,
+	labelAction,
 	required,
 	hint,
 	error,
@@ -16,6 +17,7 @@ export function Field({
 	children
 }: {
 	label?: ReactNode;
+	labelAction?: ReactNode;
 	required?: boolean;
 	hint?: ReactNode;
 	error?: ReactNode;
@@ -26,7 +28,14 @@ export function Field({
 	const Tag = as;
 	return (
 		<Tag className={cn(ui.field, className)}>
-			{label != null ? <span className={required ? ui.req : undefined}>{label}</span> : null}
+			{label != null && labelAction != null ? (
+				<div className="flex items-center justify-between gap-2">
+					<span className={required ? ui.req : undefined}>{label}</span>
+					<span className="shrink-0">{labelAction}</span>
+				</div>
+			) : label != null ? (
+				<span className={required ? ui.req : undefined}>{label}</span>
+			) : null}
 			{children}
 			{hint != null ? <span className={cn(ui.fieldHint, ui.muted)}>{hint}</span> : null}
 			{error != null ? <span className={cn(ui.fieldHint, 'text-warn')}>{error}</span> : null}

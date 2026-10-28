@@ -94,6 +94,7 @@ export function NumberField({
 
 export function TextAreaField({
 	label,
+	labelAction,
 	required,
 	hint,
 	variant = 'default',
@@ -101,6 +102,7 @@ export function TextAreaField({
 	...input
 }: {
 	label?: ReactNode;
+	labelAction?: ReactNode;
 	required?: boolean;
 	hint?: ReactNode;
 	variant?: TextareaVariant;
@@ -110,6 +112,7 @@ export function TextAreaField({
 	return (
 		<Field
 			label={label}
+			labelAction={labelAction}
 			required={required}
 			hint={hint}
 			error={shownError(field.state.meta)}

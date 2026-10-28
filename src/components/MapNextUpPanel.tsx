@@ -43,7 +43,6 @@ function MapNextUpBody({ peek }: { peek: Peek }) {
 							surface="nextUp"
 							nextUpTier="featured"
 							nextUpMulti={highlightSessions.length > 1}
-							nextUpMapFullscreen
 							coachPlanWeek={weekView.week.week}
 							sessionDate={null}
 						/>

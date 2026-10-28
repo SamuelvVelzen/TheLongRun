@@ -71,7 +71,7 @@ export type GearFilterOption = {
 
 /** Gear names that appear on logged activities, with inventory role labels when known. */
 export function gearFilterOptions(
-	runs: Pick<RunRecord, 'activity_type' | 'gear'>[],
+	runs: { activity_type: string; gear?: string }[],
 	gearCtx: GearContext
 ): GearFilterOption[] {
 	const namesByKind: Record<GearKind, string[]> = {

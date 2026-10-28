@@ -27,6 +27,7 @@ import {
 	leafletMapOptions,
 	type MapChromeHandle
 } from '$lib/map-chrome';
+import { liveShareHost } from '$lib/map-layout';
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
 import {
 	getLiveLocation,

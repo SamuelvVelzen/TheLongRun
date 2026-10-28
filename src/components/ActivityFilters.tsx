@@ -19,7 +19,6 @@ type FilterRun = Pick<
 	| 'province'
 	| 'place'
 	| 'session'
-	| 'has_map'
 	| 'gear'
 	| 'activity_type'
 	| 'effort'
@@ -29,7 +28,7 @@ type FilterRun = Pick<
 	| 'wanted_faster'
 	| 'surface'
 	| 'notes'
->;
+> & { has_map?: boolean };
 
 export function ActivityFilters({
 	to,

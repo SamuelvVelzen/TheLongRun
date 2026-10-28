@@ -27,7 +27,7 @@ import {
 	leafletMapOptions,
 	type MapChromeHandle
 } from '$lib/map-chrome';
-import { liveShareHost } from '$lib/map-layout';
+import { liveShareHost, liveWatchCanvas, liveWatchMapShell, mapWrap } from '$lib/map-layout';
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
 import {
 	getLiveLocation,
@@ -36,7 +36,6 @@ import {
 	stopLiveLocation
 } from '$lib/server/functions';
 import { setScreenWakeLock } from '$lib/wake-lock';
-import { liveWatchCanvas, liveWatchMapShell, mapWrap } from '$lib/map-layout';
 import { cn } from '$lib/ui';
 import {
 	useCallback,

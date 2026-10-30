@@ -1,10 +1,14 @@
 import type { DateRange, RangeKind } from '$lib/date-range';
 import { cn } from '$lib/ui';
 import { useNavigate } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { z } from 'zod';
 import { Icon } from './Icon';
-import { Button, SegmentedToggle, useAppForm } from './ui';
+import { Field } from './ui/Field';
+import { Input } from './ui/Input';
+import { SegmentedToggle, useAppForm } from './ui';
+import { ui } from './ui/tokens';
+import { useDeferFilterUntilDone, useFilterSheetCommit } from './ui/filter-sheet-commit';
 
 export type RangeSearch = { range?: RangeKind; from?: string; to?: string };
 
@@ -31,9 +35,14 @@ const presets: { kind: RangeKind; label: string; shortLabel: string }[] = [
 	{ kind: '7d', label: '7 days', shortLabel: '7d' }
 ];
 
+const customDateFieldClass = cn(
+	'min-w-0 max-sm:flex-none sm:[&_span]:text-[0.78rem]',
+	ui.filterControlInput
+);
+
 export function DateRangeFilter({
 	range,
-	to,
+	to: routeTo,
 	defaultKind = 'all'
 }: {
 	range: DateRange;
@@ -41,6 +50,7 @@ export function DateRangeFilter({
 	defaultKind?: RangeKind;
 }) {
 	const navigate = useNavigate();
+	const deferCustom = useDeferFilterUntilDone();
 	const [customOpen, setCustomOpen] = useState(false);
 	const form = useAppForm({
 		defaultValues: { from: '', to: '' },
@@ -50,18 +60,33 @@ export function DateRangeFilter({
 				to: z.string()
 			})
 		},
-		onSubmit: ({ value }) => {
+		onSubmit: () => {}
+	});
+
+	const applyCustom = useCallback(
+		(from: string, toDate: string) => {
+			if (range.kind === 'custom' && range.from === from && range.to === toDate) return;
 			navigate({
-				to,
+				to: routeTo,
 				replace: true,
 				resetScroll: false,
-				search: (prev: Record<string, unknown>) => ({
+				search: (prev) => ({
 					...prev,
-					...rangeToSearch('custom', value.from, value.to)
+					...rangeToSearch('custom', from, toDate)
 				})
 			});
-		}
-	});
+		},
+		[navigate, range.from, range.kind, range.to, routeTo]
+	);
+
+	const commitCustomDraft = useCallback(() => {
+		const { from, to: toDate } = form.state.values;
+		if (!from && !toDate) return;
+		applyCustom(from, toDate);
+	}, [applyCustom, form]);
+
+	const customEditing = customOpen || range.kind === 'custom';
+	useFilterSheetCommit(commitCustomDraft, deferCustom && customEditing);
 
 	useEffect(() => {
 		if (range.kind === 'custom') {
@@ -70,7 +95,7 @@ export function DateRangeFilter({
 		} else {
 			setCustomOpen(false);
 		}
-	}, [range.kind, range.from, range.to]);
+	}, [range.kind, range.from, range.to, form]);
 
 	function openCustom() {
 		setCustomOpen(true);
@@ -79,10 +104,23 @@ export function DateRangeFilter({
 		}
 	}
 
+	function onDateChange(field: 'from' | 'to', value: string) {
+		form.setFieldValue(field, value);
+		if (deferCustom) return;
+		const from = field === 'from' ? value : form.state.values.from;
+		const toDate = field === 'to' ? value : form.state.values.to;
+		if (from || toDate) applyCustom(from, toDate);
+	}
+
 	return (
-		<div className="contents" role="group" aria-label="Date range">
+		<div
+			className={cn('contents', customEditing && 'max-sm:flex max-sm:flex-col max-sm:gap-3 sm:contents')}
+			role="group"
+			aria-label="Date range"
+		>
 			<SegmentedToggle
-				className="sm:[&_button]:min-h-9 sm:[&_button]:px-2.5 sm:[&_button]:text-[0.82rem] sm:[&_button]:gap-1"
+				fill
+				className="max-sm:w-full sm:[&_button]:min-h-9 sm:[&_button]:px-2.5 sm:[&_button]:text-[0.82rem] sm:[&_button]:gap-1 sm:w-fit sm:max-w-none"
 				value={range.kind === 'custom' || customOpen ? 'custom' : range.kind}
 				onChange={(kind) => {
 					if (kind === 'custom') openCustom();
@@ -96,7 +134,7 @@ export function DateRangeFilter({
 								<span className="hidden sm:inline">{preset.shortLabel}</span>
 							</>
 						),
-						to,
+						to: routeTo,
 						search: (prev: Record<string, unknown>) => ({
 							...prev,
 							...rangeToSearch(preset.kind, undefined, undefined, defaultKind)
@@ -114,48 +152,40 @@ export function DateRangeFilter({
 				]}
 			/>
 
-			{(customOpen || range.kind === 'custom') && (
-				<form
+			{customEditing ? (
+				<div
 					className={cn(
 						'flex items-end gap-2 shrink-0',
-						'max-sm:basis-full max-sm:flex-wrap max-sm:grid max-sm:grid-cols-2 max-sm:gap-3',
+						'max-sm:grid max-sm:grid-cols-2 max-sm:gap-3',
 						'sm:flex-nowrap'
 					)}
-					onSubmit={(e) => {
-						e.preventDefault();
-						e.stopPropagation();
-						void form.handleSubmit();
-					}}
 				>
-					<form.AppField
-						name="from"
-						children={(field) => (
-							<field.TextField
-								label="From"
-								type="date"
-								className="min-w-0 max-sm:flex-none sm:[&_span]:text-[0.78rem] [&_input]:min-h-11 sm:[&_input]:min-h-9 sm:[&_input]:px-2 sm:[&_input]:text-[0.82rem]"
-							/>
+					<form.Field name="from">
+						{(field) => (
+							<Field label="From" className={customDateFieldClass}>
+								<Input
+									type="date"
+									value={field.state.value ?? ''}
+									onChange={(e) => onDateChange('from', e.target.value)}
+									onBlur={field.handleBlur}
+								/>
+							</Field>
 						)}
-					/>
-					<form.AppField
-						name="to"
-						children={(field) => (
-							<field.TextField
-								label="To"
-								type="date"
-								className="min-w-0 max-sm:flex-none sm:[&_span]:text-[0.78rem] [&_input]:min-h-11 sm:[&_input]:min-h-9 sm:[&_input]:px-2 sm:[&_input]:text-[0.82rem]"
-							/>
+					</form.Field>
+					<form.Field name="to">
+						{(field) => (
+							<Field label="To" className={customDateFieldClass}>
+								<Input
+									type="date"
+									value={field.state.value ?? ''}
+									onChange={(e) => onDateChange('to', e.target.value)}
+									onBlur={field.handleBlur}
+								/>
+							</Field>
 						)}
-					/>
-					<Button
-						type="submit"
-						variant="primary"
-						className="shrink-0 min-h-11 max-sm:col-span-full max-sm:w-full sm:min-h-9 sm:px-3 sm:text-[0.82rem]"
-					>
-						Apply
-					</Button>
-				</form>
-			)}
+					</form.Field>
+				</div>
+			) : null}
 		</div>
 	);
 }

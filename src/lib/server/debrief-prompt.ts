@@ -33,7 +33,8 @@ export { hasFeel };
  * No scores and no real write-up yet — still waiting on After an activity.
  * Only fields the user can actually set for that sport count as evidence of a
  * debrief: surface is run/walk-only (it used to be auto-filled on strength logs,
- * hiding them from the list), body scores are run/walk, wanted-faster is run.
+ * hiding them from the list). Strength plan text in notes is not a debrief — only
+ * effort / legs / energy (and run/walk body scores, etc.) count.
  */
 export function stillNeedsDebrief(r: RunRecord): boolean {
 	const t = normalizeActivityType(r.activity_type);
@@ -42,8 +43,8 @@ export function stillNeedsDebrief(r: RunRecord): boolean {
 	if (showsFeel(t, 'wanted_faster') && r.wanted_faster != null) return false;
 	if (showsField(t, 'surface') && (r.surface ?? '').trim() !== '') return false;
 	if (t === 'strength') {
-		const extra = parseStrengthNotes(r.notes).extra.trim();
-		return !extra || isImportNote(extra);
+		// Lift lines and plan intent live in notes — only scores above mean debrief is done.
+		return true;
 	}
 	const notes = (r.notes ?? '').trim();
 	return !notes || isImportNote(notes);

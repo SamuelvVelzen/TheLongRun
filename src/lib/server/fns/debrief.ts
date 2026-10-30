@@ -31,7 +31,7 @@ import { getMaxHrAllTime, getRunById, listRuns, updateRunFeelings, type Feelings
 import { byDateNewestFirst } from '../run-sort';
 import { fuelRunRefs, runDatesBySlug } from '../fuel-prompt';
 import { applyFeelingsRows, mergePlanWeeks, parseJsonPayload, planWeekCandidates } from '../plan-mutations';
-import { debriefRaceHint, debriefRunSummary, expandDebriefFeatured, feelingsExample, formatDebriefSessionUnit, formatFeelForUnit, formatPlannedForActivity, formatRunBriefLine, parseDebriefIds, parseDebriefSlugLabels, plannedSessionForActivity } from '../debrief-prompt';
+import { debriefRaceHint, debriefRunSummary, expandDebriefFeatured, feelingsExample, formatDebriefSessionUnit, formatFeelForUnit, formatPlannedForActivity, formatRunBriefLine, parseDebriefIds, parseDebriefSlugLabels, plannedSessionForActivity, stillNeedsDebrief } from '../debrief-prompt';
 
 // ---------- reads ----------
 
@@ -96,7 +96,13 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 						.filter((r): r is RunRecord => r != null)
 				: weekStart
 				? (() => {
-						const row = allRuns.find((r) => r.date >= weekStart && r.date <= weekEnd);
+						const inWeek = allRuns.filter(
+							(r) => r.date >= weekStart && r.date <= weekEnd
+						);
+						const row =
+							inWeek.find((r) => stillNeedsDebrief(r)) ??
+							inWeek[0] ??
+							null;
 						return row ? [row] : [];
 					})()
 				: [];

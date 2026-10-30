@@ -7,7 +7,7 @@ import { type PlanCalendar } from '$lib/plan';
 import { createRun } from '$lib/server/functions';
 import { fillStrengthNotesFromTops, type RecentLiftTop } from '$lib/strength';
 import type { PlanWeek } from '$lib/types';
-import { useRouter } from '@tanstack/react-router';
+import { useNavigate, useRouter } from '@tanstack/react-router';
 import { ActivityForm } from './ActivityForm';
 import { Icon } from './Icon';
 import { IconLabelLink, errorMessage, useSnackbar } from './ui';
@@ -43,6 +43,7 @@ export function LogForm({
 	onIntentionalLeave?: () => void;
 }) {
 	const router = useRouter();
+	const navigate = useNavigate();
 	const snack = useSnackbar();
 	const todayIso = new Date().toISOString().slice(0, 10);
 	const fromPlan = prefill?.activityType === 'strength';
@@ -99,11 +100,27 @@ export function LogForm({
 					const input = toCreateRunInput(values);
 					const res = await createRun({ data: input });
 					await router.invalidate();
-					if (input.session === 'race') {
+					const goDebrief = input.session === 'race' || fromPlan;
+					if (goDebrief) {
+						const debriefSearch = { tab: 'debrief' as const, id: String(res.id) };
+						snack.success(fromPlan ? 'Logged as planned' : 'Race logged', {
+							action: {
+								label: 'Continue debrief',
+								onClick: () => {
+									onIntentionalLeave?.();
+									void navigate({
+										to: '/coach',
+										search: debriefSearch,
+										replace: true,
+										resetScroll: false
+									});
+								}
+							}
+						});
 						onIntentionalLeave?.();
-						router.navigate({
+						void navigate({
 							to: '/coach',
-							search: { tab: 'debrief', id: String(res.id) },
+							search: debriefSearch,
 							replace: true,
 							resetScroll: false
 						});

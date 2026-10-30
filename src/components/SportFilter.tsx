@@ -1,3 +1,4 @@
+import { filterSegWrapClass } from './filter-seg-classes';
 import { segItemClass, segToggleClass } from './ui/SegmentedToggle';
 import {
 	ACTIVITY_TYPES,
@@ -8,6 +9,7 @@ import {
 import { cn } from '$lib/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { sportChipLabel } from './Icon';
+import { gearFilterApplies, mapFilterApplies, sessionFilterApplies } from '$lib/activity-filter-scope';
 
 const OPTIONS: { value: 'all' | ActivityType; label: string }[] = [
 	{ value: 'all', label: 'All' },
@@ -102,9 +104,11 @@ export function SportFilter({
 
 	return (
 		<div className="contents">
+			<div className={cn(filterSegWrapClass, 'sm:contents')}>
 			<div
 				className={cn(
 					segToggleClass,
+					'max-sm:flex max-sm:w-full max-sm:min-w-0',
 					'sm:[&_button]:min-h-9 sm:[&_button]:px-2.5 sm:[&_button]:text-[0.82rem] sm:[&_button]:gap-1'
 				)}
 				role="group"
@@ -123,11 +127,18 @@ export function SportFilter({
 								const next = toggleSport(sport, o.value, defaultSport, availableTypes);
 								const current = sport === defaultSport ? undefined : sport;
 								if (next === current) return;
+								const sportParam = next ?? 'all';
+								const clearsSession = !sessionFilterApplies(sportParam);
+								const clearsMap = !mapFilterApplies(sportParam);
+								const clearsGear = !gearFilterApplies(sportParam);
 								navigate({
 									to,
-									search: (prev: Record<string, unknown>) => ({
+									search: (prev) => ({
 										...prev,
-										sport: next
+										sport: next,
+										session: clearsSession ? undefined : prev.session,
+										map: clearsMap ? undefined : prev.map,
+										gear: clearsGear ? undefined : prev.gear
 									}),
 									replace: true,
 									resetScroll: false
@@ -138,6 +149,7 @@ export function SportFilter({
 						</button>
 					);
 				})}
+			</div>
 			</div>
 		</div>
 	);

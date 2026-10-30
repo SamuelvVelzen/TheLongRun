@@ -1,6 +1,9 @@
+import { mapFilterApplies, runsMatchingSport } from '$lib/activity-filter-scope';
 import { cn } from '$lib/ui';
 import { useNavigate } from '@tanstack/react-router';
-import { segItemClass, segToggleClass } from './ui/SegmentedToggle';
+import { Icon } from './Icon';
+import { filterSegButtonClass, filterSegToggleClass, filterSegWrapClass } from './filter-seg-classes';
+import { FilterRow } from './FilterRow';
 
 export type MapFilterKind = 'all' | 'mapped' | 'unmapped';
 
@@ -15,7 +18,12 @@ export function parseMapSearch(raw: unknown): MapFilterKind | undefined {
 	return undefined;
 }
 
-export function matchesMapFilter(hasMap: boolean | undefined, map: string): boolean {
+export function matchesMapFilter(
+	hasMap: boolean | undefined,
+	map: string,
+	sport: string
+): boolean {
+	if (!mapFilterApplies(sport)) return true;
 	if (!map || map === 'all') return true;
 	if (map === 'mapped') return !!hasMap;
 	if (map === 'unmapped') return !hasMap;
@@ -32,47 +40,39 @@ export function mapSummaryLabel(map: string): string {
 	return 'All routes';
 }
 
-type MapRun = { has_map?: boolean };
+type MapRun = { has_map?: boolean; activity_type: string };
 
-/** Shown when the log mix includes both mapped and unmapped activities. */
+/** Shown when scoped activities include both mapped and unmapped GPS routes. */
 export function MapFilter({
 	map,
+	sport,
 	to,
 	runs,
 	defaultMap = 'all'
 }: {
 	map: string;
+	sport: string;
 	to: string;
 	runs: MapRun[];
 	defaultMap?: MapFilterKind;
 }) {
 	const navigate = useNavigate();
-	const hasMapped = runs.some((r) => r.has_map);
-	const hasUnmapped = runs.some((r) => !r.has_map);
+	if (!mapFilterApplies(sport)) return null;
+	const scoped = runsMatchingSport(runs, sport);
+	const hasMapped = scoped.some((r) => r.has_map);
+	const hasUnmapped = scoped.some((r) => !r.has_map);
 	if (!hasMapped || !hasUnmapped) return null;
 
 	const current = (map === 'mapped' || map === 'unmapped' ? map : 'all') as MapFilterKind;
 
-	return (
-		<div
-			className={cn(
-				'inline-flex items-center shrink-0',
-				'max-sm:w-full max-sm:overflow-x-auto max-sm:[scrollbar-width:none] max-sm:[&::-webkit-scrollbar]:hidden'
-			)}
-		>
-			<div
-				className={cn(
-					segToggleClass,
-					'sm:[&_button]:min-h-9 sm:[&_button]:px-2.5 sm:[&_button]:text-[0.82rem]'
-				)}
-				role="group"
-				aria-label="Route map"
-			>
+	const group = (
+		<div className={filterSegWrapClass}>
+			<div className={filterSegToggleClass} role="group" aria-label="Route map">
 				{OPTIONS.map((o) => (
 					<button
 						key={o.value}
 						type="button"
-						className={segItemClass}
+						className={filterSegButtonClass}
 						aria-pressed={current === o.value}
 						onClick={() => {
 							const next = o.value === defaultMap ? undefined : o.value === 'all' ? undefined : o.value;
@@ -95,5 +95,11 @@ export function MapFilter({
 				))}
 			</div>
 		</div>
+	);
+
+	return (
+		<FilterRow label="Routes" icon={<Icon name="map" size={14} />}>
+			{group}
+		</FilterRow>
 	);
 }

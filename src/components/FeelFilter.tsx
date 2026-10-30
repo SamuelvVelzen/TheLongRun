@@ -1,7 +1,9 @@
+import { runsMatchingSport } from '$lib/activity-filter-scope';
 import type { FeelFilterKind } from '$lib/feel';
-import { cn } from '$lib/ui';
 import { useNavigate } from '@tanstack/react-router';
-import { segItemClass, segToggleClass } from './ui/SegmentedToggle';
+import { filterSegButtonClass, filterSegToggleClass, filterSegWrapClass } from './filter-seg-classes';
+import { FilterRow } from './FilterRow';
+import { Icon } from './Icon';
 
 const OPTIONS: { value: FeelFilterKind; label: string }[] = [
 	{ value: 'all', label: 'All feel' },
@@ -9,47 +11,38 @@ const OPTIONS: { value: FeelFilterKind; label: string }[] = [
 	{ value: 'no', label: 'No feel yet' }
 ];
 
-type FeelRun = { effort?: number | null };
+type FeelRun = { effort?: number | null; activity_type: string };
 
 /** Coach-style debrief completeness — only shown when both filled and missing exist. */
 export function FeelFilter({
 	feel,
+	sport,
 	to,
 	runs,
 	hasFeelForRun
 }: {
 	feel: string;
+	sport: string;
 	to: string;
 	runs: FeelRun[];
 	hasFeelForRun: (run: FeelRun) => boolean;
 }) {
 	const navigate = useNavigate();
-	const hasYes = runs.some((r) => hasFeelForRun(r));
-	const hasNo = runs.some((r) => !hasFeelForRun(r));
+	const scoped = runsMatchingSport(runs, sport);
+	const hasYes = scoped.some((r) => hasFeelForRun(r));
+	const hasNo = scoped.some((r) => !hasFeelForRun(r));
 	if (!hasYes || !hasNo) return null;
 
 	const current = (feel === 'yes' || feel === 'no' ? feel : 'all') as FeelFilterKind;
 
-	return (
-		<div
-			className={cn(
-				'inline-flex items-center shrink-0',
-				'max-sm:w-full max-sm:overflow-x-auto max-sm:[scrollbar-width:none] max-sm:[&::-webkit-scrollbar]:hidden'
-			)}
-		>
-			<div
-				className={cn(
-					segToggleClass,
-					'sm:[&_button]:min-h-9 sm:[&_button]:px-2.5 sm:[&_button]:text-[0.82rem]'
-				)}
-				role="group"
-				aria-label="How it felt"
-			>
+	const group = (
+		<div className={filterSegWrapClass}>
+			<div className={filterSegToggleClass} role="group" aria-label="How it felt">
 				{OPTIONS.map((o) => (
 					<button
 						key={o.value}
 						type="button"
-						className={segItemClass}
+						className={filterSegButtonClass}
 						aria-pressed={current === o.value}
 						onClick={() => {
 							const next = o.value === 'all' ? undefined : o.value;
@@ -71,5 +64,11 @@ export function FeelFilter({
 				))}
 			</div>
 		</div>
+	);
+
+	return (
+		<FilterRow label="Feel" icon={<Icon name="sparkle" size={14} />}>
+			{group}
+		</FilterRow>
 	);
 }

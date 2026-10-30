@@ -57,9 +57,6 @@ function stampServiceWorker(): Plugin {
 }
 
 export default defineConfig({
-	test: {
-		include: ['src/**/*.test.ts']
-	},
 	resolve: {
 		alias: {
 			$lib: fileURLToPath(new URL('./src/lib', import.meta.url))

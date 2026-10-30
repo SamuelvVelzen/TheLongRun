@@ -53,7 +53,7 @@ import type { ActivityGroupInfo, RunWithMap } from '$lib/types';
 import { cn } from '$lib/ui';
 import { createFileRoute, Link, useRouter, getRouteApi  } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
-import { ActivityFilters } from '../ActivityFilters';
+import { ActivityFilters, activityFilterEmptyMessage } from '../ActivityFilters';
 import { BestEffortBadges, BestEffortBoard } from '../BestEffortBadges';
 import { type RangeSearch } from '../DateRangeFilter';
 import { DeferredData } from '../DeferredData';
@@ -62,6 +62,7 @@ import { MoreMenu } from '../MoreMenu';
 import { FeelBadge } from '../FeelBadge';
 import { ActivityTag, Icon } from '../Icon';
 import { matchesFeelFilter } from '$lib/feel';
+import { gearKindsForSport, runsMatchingSport } from '$lib/activity-filter-scope';
 import { gearFilterOptions, matchesGearFilter } from '$lib/gear-filter';
 import type { GearContext } from '$lib/gear';
 import { matchesMapFilter } from '../MapFilter';
@@ -283,10 +284,10 @@ export function TimelineBody({
 
 	const scoped = allRuns
 		.filter((r) => matchesSportFilter(r.activity_type, sport))
-		.filter((r) => matchesSessionFilter(r.session, session))
-		.filter((r) => matchesMapFilter(r.has_map, map))
+		.filter((r) => matchesSessionFilter(r.session, session, sport))
+		.filter((r) => matchesMapFilter(r.has_map, map, sport))
 		.filter((r) => matchesFeelFilter(r, feel))
-		.filter((r) => matchesGearFilter(r, gearFilter))
+		.filter((r) => matchesGearFilter(r, gearFilter, sport))
 		.filter((r) => country === 'all' || r.country === country)
 		.filter((r) => province === 'all' || r.province === province)
 		.filter((r) => place === 'all' || r.place === place);
@@ -310,7 +311,15 @@ export function TimelineBody({
 	const totalAllTime = allRuns.length;
 	const neverLogged = totalAllTime === 0;
 	const filteredEmpty = totalAllTime > 0 && !months.length;
-	const gearOptions = useMemo(() => gearFilterOptions(allRuns, gear), [allRuns, gear]);
+	const gearOptions = useMemo(
+		() =>
+			gearFilterOptions(
+				runsMatchingSport(allRuns, sport),
+				gear,
+				gearKindsForSport(sport)
+			),
+		[allRuns, gear, sport]
+	);
 	const summary = filterSummary(
 		sport,
 		range,
@@ -477,13 +486,14 @@ export function TimelineBody({
 				<EmptyState>No activities yet.</EmptyState>
 			) : filteredEmpty ? (
 				<EmptyState
+					className="text-[0.92rem] leading-relaxed"
 					action={
 						<Link className={buttonClass({ variant: 'ghost' })} to="/timeline" search={{}}>
-							Show all time
+							Reset filters
 						</Link>
 					}
 				>
-					No {activityPlural(sport)} in {range.label.toLowerCase()}.
+					{activityFilterEmptyMessage(summary)}
 				</EmptyState>
 			) : (
 				<div className={selecting && authed ? 'pb-24' : undefined}>

@@ -24,7 +24,7 @@ import { buildTrainingTrends } from '$lib/trends';
 import { cn } from '$lib/ui';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Fragment, lazy, Suspense, useMemo } from 'react';
-import { ActivityFilters } from '../components/ActivityFilters';
+import { ActivityFilters, activityFilterEmptyMessage } from '../components/ActivityFilters';
 import { rangeToSearch, type RangeSearch } from '../components/DateRangeFilter';
 import { DeferredData } from '../components/DeferredData';
 import { FeelBadge } from '../components/FeelBadge';
@@ -39,11 +39,25 @@ import {
 	MapBadge,
 	Panel,
 	RunTitle,
-	SectionTitle
+	SectionTitle,
+	filterSummary
 } from '../components/ui';
 import type { RouteMeta } from '../components/RoutesHeatmap';
 import { feelFilterActive, matchesFeelFilter, parseFeelSearch } from '$lib/feel';
-import { gearFilterIsAll, matchesGearFilter, parseGearSearch } from '$lib/gear-filter';
+import {
+	gearFilterIsAll,
+	gearFilterIsNone,
+	gearFilterOptions,
+	matchesGearFilter,
+	parseGearSearch
+} from '$lib/gear-filter';
+import {
+	gearFilterApplies,
+	gearKindsForSport,
+	mapFilterApplies,
+	runsMatchingSport,
+	sessionFilterApplies
+} from '$lib/activity-filter-scope';
 import { mapFilterActive, matchesMapFilter, parseMapSearch } from '../components/MapFilter';
 import {
 	matchesSessionFilter,
@@ -152,10 +166,10 @@ function DashboardBody({
 	const availableSports = new Set(allRuns.map((r) => normalizeActivityType(r.activity_type)));
 	const scoped = allRuns
 		.filter((r) => matchesSportFilter(r.activity_type, sport))
-		.filter((r) => matchesSessionFilter(r.session, session))
-		.filter((r) => matchesMapFilter(r.has_map, map))
+		.filter((r) => matchesSessionFilter(r.session, session, sport))
+		.filter((r) => matchesMapFilter(r.has_map, map, sport))
 		.filter((r) => matchesFeelFilter(r, feel))
-		.filter((r) => matchesGearFilter(r, gear))
+		.filter((r) => matchesGearFilter(r, gear, sport))
 		.filter((r) => country === 'all' || r.country === country)
 		.filter((r) => province === 'all' || r.province === province)
 		.filter((r) => place === 'all' || r.place === place);
@@ -163,10 +177,11 @@ function DashboardBody({
 	const trackIds = routeIdsForRuns(runs);
 	const locationActive = country !== 'all' || province !== 'all' || place !== 'all';
 	const sportFilterActive = !sportIsAll(sport);
-	const sessionFilterActive = !sessionIsAll(session);
-	const mapFilterOn = mapFilterActive(map);
+	const sessionFilterActive = !sessionIsAll(session) && sessionFilterApplies(sport);
+	const mapFilterOn = mapFilterActive(map) && mapFilterApplies(sport);
 	const feelFilterOn = feelFilterActive(feel);
-	const gearFilterOn = !gearFilterIsAll(gear);
+	const gearFilterOn =
+		(!gearFilterIsAll(gear) || gearFilterIsNone(gear)) && gearFilterApplies(sport);
 	const extraFilterActive = sessionFilterActive || mapFilterOn || feelFilterOn || gearFilterOn;
 	const tracks =
 		range.kind === 'all' && !sportFilterActive && !locationActive && !extraFilterActive
@@ -227,6 +242,38 @@ function DashboardBody({
 
 	const totalAllTime = allRuns.length;
 	const filteredEmpty = totalAllTime > 0 && stats.runCount === 0;
+	const emptyFilterSummary = useMemo(
+		() =>
+			filterSummary(
+				sport,
+				range,
+				{ country, province, place },
+				{
+					session,
+					map,
+					feel,
+					gear,
+					gearOptions: gearFilterOptions(
+						runsMatchingSport(allRuns, sport),
+						data.gear,
+						gearKindsForSport(sport)
+					)
+				}
+			),
+		[
+			sport,
+			range,
+			country,
+			province,
+			place,
+			session,
+			map,
+			feel,
+			gear,
+			allRuns,
+			data.gear
+		]
+	);
 	const rangeActive = range.kind !== 'all';
 	const timelineSearch = rangeToSearch(range.kind, range.from ?? undefined, range.to ?? undefined);
 	return (
@@ -306,13 +353,14 @@ function DashboardBody({
 
 			{filteredEmpty ? (
 				<EmptyState
+					className="text-[0.92rem] leading-relaxed"
 					action={
 						<Link className={buttonClass({ variant: 'ghost' })} to="/" search={{}}>
-							Show all time
+							Reset filters
 						</Link>
 					}
 				>
-					No {activityPlural(sport)} in {range.label.toLowerCase()}.
+					{activityFilterEmptyMessage(emptyFilterSummary)}
 				</EmptyState>
 			) : (
 				<>

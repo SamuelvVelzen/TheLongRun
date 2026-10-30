@@ -8,6 +8,7 @@ import {
 	type GearContext,
 	type GearKind
 } from '$lib/gear';
+import { gearFilterApplies } from '$lib/activity-filter-scope';
 import type { RunRecord } from '$lib/types';
 
 /** URL token: `shoes:normalized-name-key` */
@@ -35,10 +36,17 @@ export function selectedGearTokens(gear: string): string[] {
 }
 
 export function gearFilterIsAll(gear: string): boolean {
-	return selectedGearTokens(gear).length === 0;
+	return !gear || gear === 'all' || (selectedGearTokens(gear).length === 0 && !gearFilterIsNone(gear));
+}
+
+export const GEAR_FILTER_NONE = 'none';
+
+export function gearFilterIsNone(gear: string): boolean {
+	return gear === GEAR_FILTER_NONE;
 }
 
 export function parseGearSearch(raw: unknown): string | undefined {
+	if (raw === GEAR_FILTER_NONE) return GEAR_FILTER_NONE;
 	if (typeof raw !== 'string' || !raw.trim()) return undefined;
 	const tokens = raw
 		.split(',')
@@ -50,8 +58,15 @@ export function parseGearSearch(raw: unknown): string | undefined {
 
 export function matchesGearFilter(
 	run: Pick<RunRecord, 'activity_type' | 'gear'>,
-	gear: string
+	gear: string,
+	sport: string
 ): boolean {
+	if (!gearFilterApplies(sport)) return true;
+	if (gearFilterIsNone(gear)) {
+		const kind = gearKindForActivity(run.activity_type);
+		const name = String(run.gear ?? '').trim();
+		return !kind || !name;
+	}
 	const selected = selectedGearTokens(gear);
 	if (!selected.length) return true;
 	const kind = gearKindForActivity(run.activity_type);
@@ -72,7 +87,8 @@ export type GearFilterOption = {
 /** Gear names that appear on logged activities, with inventory role labels when known. */
 export function gearFilterOptions(
 	runs: { activity_type: string; gear?: string }[],
-	gearCtx: GearContext
+	gearCtx: GearContext,
+	allowedKinds: Set<GearKind> | null = null
 ): GearFilterOption[] {
 	const namesByKind: Record<GearKind, string[]> = {
 		shoes: [],
@@ -97,6 +113,7 @@ export function gearFilterOptions(
 
 	const out: GearFilterOption[] = [];
 	for (const kind of GEAR_KINDS) {
+		if (allowedKinds && !allowedKinds.has(kind)) continue;
 		const names = namesByKind[kind];
 		if (!names.length) continue;
 		const picker = gearPickerOptions(gearCtx[kind], names);
@@ -129,6 +146,14 @@ export function gearOptionsByKind(options: GearFilterOption[]): Map<GearKind, Ge
 	return map;
 }
 
+/** Max distinct gear names before the filter falls back to a select. */
+export const GEAR_FILTER_CHIP_MAX = 5;
+
+export function gearOptionLabel(opt: GearFilterOption): string {
+	const hint = gearChipHint(opt);
+	return hint ? `${opt.name} (${hint})` : opt.name;
+}
+
 export function gearChipHint(opt: GearFilterOption): string {
 	const meta = gearMeta(opt.kind);
 	if (opt.role === 'active') return meta.activeLabel.toLowerCase();
@@ -136,15 +161,20 @@ export function gearChipHint(opt: GearFilterOption): string {
 	return '';
 }
 
+function gearTokenFallbackLabel(token: string): string {
+	const parsed = parseGearFilterToken(token);
+	if (!parsed) return token;
+	return parsed.key.replace(/-/g, ' ');
+}
+
 export function gearSummaryLabel(gear: string, options: GearFilterOption[]): string {
+	if (gearFilterIsNone(gear)) return 'No gear';
 	const selected = selectedGearTokens(gear);
 	if (!selected.length) return 'All gear';
 	const labels = selected.map((token) => {
 		const hit = options.find((o) => o.token === token);
-		if (!hit) return token;
-		const hint = gearChipHint(hit);
-		const name = hint ? `${hit.name} (${hint})` : hit.name;
-		return `${hit.section} · ${name}`;
+		if (!hit) return gearTokenFallbackLabel(token);
+		return gearOptionLabel(hit);
 	});
 	if (labels.length === 1) return labels[0];
 	return labels.join(' + ');

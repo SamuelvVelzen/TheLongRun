@@ -28,6 +28,7 @@
 		"lint:eslint": "eslint .",
 		"lint:eslint:fix": "eslint . --fix",
 		"format": "prettier --write .",
+		"test": "vitest run",
 		"setup:hooks": "node scripts/install-githooks.cjs"
 	},
 	"devDependencies": {
@@ -49,6 +50,7 @@
 		"prettier": "^3.8.3",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.71.2",
+		"vitest": "^3.2.4",
 		"vite": "^8.0.16",
 		"wrangler": "^4.118.0"
 	},

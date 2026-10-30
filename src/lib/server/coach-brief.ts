@@ -111,11 +111,11 @@ export function briefTableRow(r: RunRecord): string {
 	const isStrength = normalizeActivityType(r.activity_type) === 'strength';
 	const metric = isStrength ? r.time?.trim() || '–' : metricText(r);
 	const km = isStrength ? '–' : (r.distance_km ?? '–');
-	return `| ${r.date} | ${activityLabel(r.activity_type)} | ${km} | ${metric} | ${hrCell(r)} | ${feelCell(r)} | ${notesForBriefRow(r)} |`;
+	return `| ${r.id} | ${r.date} | ${activityLabel(r.activity_type)} | ${km} | ${metric} | ${hrCell(r)} | ${feelCell(r)} | ${notesForBriefRow(r)} |`;
 }
 
-export const BRIEF_TABLE_HEAD = `| Date | Type | km | pace/speed/time | HR avg/max | Feel | Notes |
-|------|------|----|-----------|-----------|------|-------|`;
+export const BRIEF_TABLE_HEAD = `| Id | Date | Type | km | pace/speed/time | HR avg/max | Feel | Notes |
+|------|------|------|----|-----------|-----------|------|-------|`;
 
 export function catalogLinesForBrief(catalog: GearCatalog, kind: GearKind, runs: RunRecord[]): string[] {
 	const wear = wearByAllGear(runs)[kind];

@@ -221,7 +221,7 @@ export function formatTimelineClipboard(
 
 	const rows = ordered
 		.map((r) => {
-			return `| ${r.date} | ${activityLabel(r.activity_type)} | ${kmCell(r)} | ${metricText(r)} | ${r.time || '–'} | ${hrCell(r)} | ${feelCell(r)} | ${sessionCell(r)} | ${notesForRow(r)} |`;
+			return `| ${r.id} | ${r.date} | ${activityLabel(r.activity_type)} | ${kmCell(r)} | ${metricText(r)} | ${r.time || '–'} | ${hrCell(r)} | ${feelCell(r)} | ${sessionCell(r)} | ${notesForRow(r)} |`;
 		})
 		.join('\n');
 
@@ -241,8 +241,8 @@ ${weekLines ? `## Weekly volume (Monday weeks, newest first)\n${weekLines}` : ''
 ${
 	rows
 		? `## Activities (newest first)
-| Date | Type | km | pace/speed | time | HR avg/max | Feel | Session | Notes |
-|------|------|----|-----------|------|-----------|------|---------|-------|
+| Id | Date | Type | km | pace/speed | time | HR avg/max | Feel | Session | Notes |
+|------|------|------|----|-----------|------|-----------|------|---------|-------|
 ${rows}`
 		: ''
 }`);

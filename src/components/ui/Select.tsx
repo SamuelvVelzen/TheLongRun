@@ -1,4 +1,5 @@
 import { OverlayPortal, useOverlayLock } from '$lib/overlay';
+import { useMobileSheet } from '$lib/use-mobile-sheet';
 import { cn } from '$lib/ui';
 import { ui } from './tokens';
 import {
@@ -96,20 +97,6 @@ function menuBox(trigger: HTMLElement, menu: HTMLElement): CSSProperties {
 	return { position: 'fixed', top, left, width, maxHeight, zIndex: 20001 };
 }
 
-function useMobileSheet() {
-	const [mobile, setMobile] = useState(() =>
-		typeof window !== 'undefined' ? window.matchMedia('(max-width: 640px)').matches : false
-	);
-	useEffect(() => {
-		const mq = window.matchMedia('(max-width: 640px)');
-		const sync = () => setMobile(mq.matches);
-		sync();
-		mq.addEventListener('change', sync);
-		return () => mq.removeEventListener('change', sync);
-	}, []);
-	return mobile;
-}
-
 export function Select({
 	value: valueProp,
 	defaultValue,
@@ -121,6 +108,7 @@ export function Select({
 	className,
 	placeholder,
 	size = 'default',
+	appearance = 'default',
 	'aria-label': ariaLabel,
 	'aria-labelledby': ariaLabelledBy
 }: {
@@ -134,6 +122,8 @@ export function Select({
 	className?: string;
 	placeholder?: string;
 	size?: 'default' | 'compact';
+	/** Filter bar: pill shape like segmented toggles, no focus ring halo. */
+	appearance?: 'default' | 'filter';
 	'aria-label'?: string;
 	'aria-labelledby'?: string;
 }) {
@@ -144,6 +134,8 @@ export function Select({
 	const [activeIndex, setActiveIndex] = useState(() => indexOfValue(options, value));
 	const [box, setBox] = useState<CSSProperties>({});
 	const mobile = useMobileSheet();
+	const look = appearance === 'default' && size === 'compact' ? 'filter' : appearance;
+	const filterLook = look === 'filter';
 	const autoId = useId();
 	const listId = `${autoId}-list`;
 	const triggerId = id ?? `${autoId}-trigger`;
@@ -395,13 +387,19 @@ export function Select({
 				aria-activedescendant={!mobile && open ? `${listId}-${activeIndex}` : undefined}
 				aria-labelledby={labelledBy}
 				className={cn(
-					'appearance-none inline-flex items-center justify-between gap-2 w-full border border-solid border-line bg-inset text-left font-inherit leading-[1.3] cursor-pointer outline-none touch-manipulation transition-[border-color,box-shadow] duration-150',
-					'enabled:hover:border-[color-mix(in_srgb,var(--accent)_40%,transparent)]',
-					'focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)] focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_12%,transparent)]',
-					'aria-expanded:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]',
+					'appearance-none inline-flex items-center justify-between gap-2 w-full border border-solid border-line text-left font-inherit leading-[1.3] cursor-pointer outline-none touch-manipulation transition-[border-color,box-shadow] duration-150',
+					filterLook
+						? 'bg-canvas/85 enabled:hover:border-accent/35'
+						: 'bg-inset enabled:hover:border-[color-mix(in_srgb,var(--accent)_40%,transparent)]',
+					filterLook
+						? 'focus:border-accent/55 focus:shadow-none aria-expanded:border-accent/55'
+						: 'focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)] focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_12%,transparent)] aria-expanded:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]',
 					'disabled:opacity-55 disabled:cursor-not-allowed',
 					size === 'compact'
-						? 'min-h-11 px-3 py-2 rounded-lg text-[0.88rem] sm:min-h-9 sm:px-2 sm:py-1 sm:text-[0.82rem]'
+						? cn(
+								'min-h-11 px-3 py-2 text-[0.88rem] sm:min-h-9 sm:px-[0.85rem] sm:py-2 sm:text-[0.82rem]',
+								filterLook ? 'rounded-full' : 'rounded-lg'
+							)
 						: 'min-h-11 px-[0.8rem] py-[0.7rem] rounded-xl text-base'
 				)}
 				onClick={() => (open ? close() : openMenu())}

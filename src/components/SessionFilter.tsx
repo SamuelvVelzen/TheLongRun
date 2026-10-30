@@ -1,17 +1,25 @@
+import { normalizeActivityType } from '$lib/activity';
+import { sessionFilterApplies } from '$lib/activity-filter-scope';
 import { ACTIVITY_SESSIONS } from '$lib/activity-form';
-import { cn } from '$lib/ui';
+import { useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { segItemClass, segToggleClass } from './ui/SegmentedToggle';
+import { FilterRow } from './FilterRow';
+import { Icon } from './Icon';
+import { Select } from './ui';
+import { matchesSportFilter } from './SportFilter';
 
 const SESSION_SET = new Set<string>(ACTIVITY_SESSIONS);
 
-const OPTIONS: { value: 'all' | (typeof ACTIVITY_SESSIONS)[number]; label: string }[] = [
-	{ value: 'all', label: 'All kinds' },
-	...ACTIVITY_SESSIONS.map((s) => ({
-		value: s,
-		label: s === 'other' ? 'Other' : s.charAt(0).toUpperCase() + s.slice(1)
-	}))
-];
+const SESSION_LABELS: Record<(typeof ACTIVITY_SESSIONS)[number], string> = {
+	easy: 'Easy',
+	quality: 'Quality',
+	tempo: 'Tempo',
+	steady: 'Steady',
+	long: 'Long',
+	shakeout: 'Shakeout',
+	race: 'Race',
+	other: 'Other'
+};
 
 export function normalizeRunSession(session: string | null | undefined): string {
 	const s = String(session ?? 'other').trim().toLowerCase();
@@ -26,6 +34,8 @@ export function selectedSessions(session: string): (typeof ACTIVITY_SESSIONS)[nu
 export function sessionIsAll(session: string): boolean {
 	return !session || session === 'all';
 }
+
+export { sessionFilterApplies };
 
 /** Parse `?session=` — comma-separated session kinds. Invalid tokens dropped. */
 export function parseSessionSearch(raw: unknown): string | undefined {
@@ -43,8 +53,10 @@ export function parseSessionSearch(raw: unknown): string | undefined {
 
 export function matchesSessionFilter(
 	runSession: string | null | undefined,
-	session: string
+	session: string,
+	sport: string
 ): boolean {
+	if (!sessionFilterApplies(sport)) return true;
 	const selected = selectedSessions(session);
 	if (selected.length === 0) return true;
 	return selected.includes(normalizeRunSession(runSession) as (typeof ACTIVITY_SESSIONS)[number]);
@@ -52,114 +64,87 @@ export function matchesSessionFilter(
 
 export function sessionSummaryLabel(session: string): string {
 	const selected = selectedSessions(session);
-	if (selected.length === 0) return 'All kinds';
-	if (selected.length === 1) {
-		const o = OPTIONS.find((x) => x.value === selected[0]);
-		return o?.label ?? selected[0];
-	}
-	return selected
-		.map((s) => OPTIONS.find((x) => x.value === s)?.label ?? s)
-		.join(' + ');
+	if (selected.length === 0) return 'All';
+	if (selected.length === 1) return SESSION_LABELS[selected[0]];
+	return selected.map((s) => SESSION_LABELS[s]).join(' + ');
 }
 
-function toggleSession(
-	current: string,
-	clicked: 'all' | (typeof ACTIVITY_SESSIONS)[number],
-	defaultSession: string,
-	availableKinds: (typeof ACTIVITY_SESSIONS)[number][]
-): string | undefined {
-	let next: string;
-	if (clicked === 'all') {
-		next = 'all';
-	} else if (sessionIsAll(current)) {
-		next = clicked;
-	} else {
-		const selected = selectedSessions(current);
-		const remaining = selected.includes(clicked)
-			? selected.filter((s) => s !== clicked)
-			: ACTIVITY_SESSIONS.filter((t) => t === clicked || selected.includes(t));
-		next = remaining.length === 0 ? 'all' : remaining.join(',');
-	}
-
-	const selectedNow = selectedSessions(next);
-	if (availableKinds.length > 1 && availableKinds.every((t) => selectedNow.includes(t))) {
-		next = 'all';
-	}
-
-	return next === defaultSession ? undefined : next;
-}
+type SessionRun = { activity_type: string; session?: string | null };
 
 /**
- * Run session kind (easy / long / quality / …). Multi-select like sport; hidden when
- * fewer than two kinds appear in `available`.
+ * Compact run-kind filter (easy / long / …). Hidden for non-run sports and when
+ * fewer than two kinds appear on scoped runs.
  */
 export function SessionFilter({
 	session,
+	sport,
 	to,
-	defaultSession = 'all',
-	available
+	runs
 }: {
 	session: string;
+	sport: string;
 	to: string;
-	defaultSession?: string;
-	available?: Set<string>;
+	runs: SessionRun[];
 }) {
 	const navigate = useNavigate();
-	const options = OPTIONS.filter(
-		(o) => o.value === 'all' || !available || available.has(o.value)
+
+	const runRows = useMemo(
+		() =>
+			runs.filter(
+				(r) =>
+					normalizeActivityType(r.activity_type) === 'run' &&
+					matchesSportFilter(r.activity_type, sport)
+			),
+		[runs, sport]
 	);
-	const availableKinds = options
-		.map((o) => o.value)
-		.filter((v): v is (typeof ACTIVITY_SESSIONS)[number] => v !== 'all');
-	if (availableKinds.length < 2) return null;
+
+	const availableKinds = useMemo(() => {
+		const set = new Set<(typeof ACTIVITY_SESSIONS)[number]>();
+		for (const r of runRows) {
+			const k = normalizeRunSession(r.session) as (typeof ACTIVITY_SESSIONS)[number];
+			if (k !== 'other') set.add(k);
+		}
+		return ACTIVITY_SESSIONS.filter((t) => set.has(t));
+	}, [runRows]);
+
+	if (!sessionFilterApplies(sport) || availableKinds.length < 2) return null;
 
 	const selected = selectedSessions(session);
-	const allSelected = sessionIsAll(session);
+	const selectValue =
+		selected.length === 1
+			? selected[0]
+			: selected.length > 1
+				? session
+				: 'all';
 
 	return (
-		<div
-			className={cn(
-				'inline-flex items-center shrink-0',
-				'max-sm:w-full max-sm:overflow-x-auto max-sm:[scrollbar-width:none] max-sm:[&::-webkit-scrollbar]:hidden'
-			)}
-		>
-			<div
-				className={cn(
-					segToggleClass,
-					'sm:[&_button]:min-h-9 sm:[&_button]:px-2.5 sm:[&_button]:text-[0.82rem]'
-				)}
-				role="group"
+		<FilterRow label="Kind" icon={<Icon name="run" size={14} />}>
+			<Select
+				size="compact"
+				appearance="filter"
+				value={selectValue}
 				aria-label="Run kind"
-			>
-				{options.map((o) => {
-					const pressed =
-						o.value === 'all' ? allSelected : selected.includes(o.value as (typeof ACTIVITY_SESSIONS)[number]);
-					return (
-						<button
-							key={o.value}
-							type="button"
-							className={segItemClass}
-							aria-pressed={pressed}
-							onClick={() => {
-								const next = toggleSession(session, o.value, defaultSession, availableKinds);
-								const current = session === defaultSession ? undefined : session;
-								if (next === current) return;
-								navigate({
-									to,
-									search: (prev: Record<string, unknown>) => ({
-										...prev,
-										session: next
-									}),
-									replace: true,
-									resetScroll: false
-								});
-							}}
-						>
-							{o.label}
-						</button>
-					);
-				})}
-			</div>
-		</div>
+				onChange={(next) =>
+					navigate({
+						to,
+						replace: true,
+						resetScroll: false,
+						search: (prev) => ({
+							...prev,
+							session: next === 'all' ? undefined : next
+						})
+					})
+				}
+				options={[
+					{ value: 'all', label: 'All kinds' },
+					...(selected.length > 1
+						? [{ value: session, label: sessionSummaryLabel(session) }]
+						: []),
+					...availableKinds
+						.filter((k) => selected.length <= 1 || !selected.includes(k))
+						.map((k) => ({ value: k, label: SESSION_LABELS[k] }))
+				]}
+			/>
+		</FilterRow>
 	);
 }

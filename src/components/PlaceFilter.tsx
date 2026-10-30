@@ -1,5 +1,6 @@
-import { cn } from '$lib/ui';
 import { useNavigate } from '@tanstack/react-router';
+import { FilterRow } from './FilterRow';
+import { Icon } from './Icon';
 import { Select } from './ui';
 
 type PlaceRun = { country?: string; province?: string; place?: string };
@@ -7,9 +8,6 @@ type PlaceRun = { country?: string; province?: string; place?: string };
 function distinct(arr: (string | undefined)[]) {
 	return [...new Set(arr.filter(Boolean) as string[])].sort();
 }
-
-const filterLabel =
-	'inline-flex items-center gap-1 shrink-0 text-[0.8rem] max-sm:grid max-sm:gap-[0.3rem] max-sm:w-full';
 
 /**
  * Cascading country / province / place selects. Options shrink as parents are chosen.
@@ -41,18 +39,12 @@ export function PlaceFilter({
 	if (!showCountry && !showProvince && !showPlace) return null;
 
 	return (
-		<div
-			className={cn(
-				'inline-flex items-center shrink-0',
-				'max-sm:flex-col max-sm:items-stretch max-sm:w-full max-sm:gap-3',
-				'sm:gap-1.5'
-			)}
-		>
-			{showCountry && (
-				<label className={filterLabel}>
-					<span className={'text-muted'}>Country</span>
+		<>
+			{showCountry ? (
+				<FilterRow label="Country" icon={<Icon name="map" size={14} />}>
 					<Select
 						size="compact"
+						appearance="filter"
 						value={country}
 						aria-label="Country"
 						onChange={(next) =>
@@ -60,7 +52,7 @@ export function PlaceFilter({
 								to,
 								replace: true,
 								resetScroll: false,
-								search: (prev: Record<string, unknown>) => ({
+								search: (prev) => ({
 									...prev,
 									country: next === 'all' ? undefined : next,
 									province: undefined,
@@ -73,16 +65,13 @@ export function PlaceFilter({
 							...availableCountries.map((c) => ({ value: c, label: c }))
 						]}
 					/>
-				</label>
-			)}
-			{showProvince && (
-				<label className={filterLabel}>
-					<span className={'text-muted'}>
-						<span className="sm:hidden">Province</span>
-						<span className="hidden sm:inline">Prov.</span>
-					</span>
+				</FilterRow>
+			) : null}
+			{showProvince ? (
+				<FilterRow label="Province" icon={<Icon name="locate" size={14} />}>
 					<Select
 						size="compact"
+						appearance="filter"
 						value={province}
 						aria-label="Province"
 						onChange={(next) =>
@@ -90,7 +79,7 @@ export function PlaceFilter({
 								to,
 								replace: true,
 								resetScroll: false,
-								search: (prev: Record<string, unknown>) => ({
+								search: (prev) => ({
 									...prev,
 									province: next === 'all' ? undefined : next,
 									place: undefined
@@ -102,13 +91,13 @@ export function PlaceFilter({
 							...availableProvinces.map((p) => ({ value: p, label: p }))
 						]}
 					/>
-				</label>
-			)}
-			{showPlace && (
-				<label className={filterLabel}>
-					<span className={'text-muted'}>Place</span>
+				</FilterRow>
+			) : null}
+			{showPlace ? (
+				<FilterRow label="Place" icon={<Icon name="locate" size={14} />}>
 					<Select
 						size="compact"
+						appearance="filter"
 						value={place}
 						aria-label="Place"
 						onChange={(next) =>
@@ -116,7 +105,7 @@ export function PlaceFilter({
 								to,
 								replace: true,
 								resetScroll: false,
-								search: (prev: Record<string, unknown>) => ({
+								search: (prev) => ({
 									...prev,
 									place: next === 'all' ? undefined : next
 								})
@@ -127,8 +116,8 @@ export function PlaceFilter({
 							...availablePlaces.map((p) => ({ value: p, label: p }))
 						]}
 					/>
-				</label>
-			)}
-		</div>
+				</FilterRow>
+			) : null}
+		</>
 	);
 }

@@ -3,9 +3,13 @@ import type { MouseEvent, ReactNode } from 'react';
 import { Icon } from './Icon';
 import { buttonClass } from './ui/Button';
 
-/** Smaller ⋮ trigger for dense rows (plan sessions, routes toolbar, etc.). */
-const compactMoreTriggerClass =
-	'inline-flex items-center justify-center appearance-none bg-transparent border border-solid border-line text-muted cursor-pointer transition-colors duration-150 hover:text-fg hover:bg-fg/[0.08] size-7 min-h-7! min-w-7! p-0! px-0! py-0! rounded-full leading-none shrink-0 self-center box-border max-sm:!size-7 max-sm:!min-h-7 max-sm:!min-w-7 max-sm:!p-0 max-sm:!px-0 max-sm:!py-0';
+import { compactIconButtonClass } from './ui/IconButtons';
+
+/** Compact ⋮ trigger — same footprint as `EditButton` compact. */
+const compactMoreTriggerClass = cn(
+	compactIconButtonClass,
+	'inline-flex items-center justify-center appearance-none bg-transparent border border-solid border-line text-muted cursor-pointer transition-colors duration-150 hover:text-fg hover:bg-fg/[0.08]'
+);
 
 export type MoreMenuItem = {
 	label: string;

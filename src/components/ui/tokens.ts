@@ -24,7 +24,7 @@ export const ui = {
 	formGrid: 'grid grid-cols-1 gap-[0.9rem] items-start min-[721px]:grid-cols-2',
 	formSection: 'mt-[1.35rem] first-of-type:mt-0',
 	formSectionTitle:
-		'font-display text-[0.8rem] uppercase tracking-[0.08em] text-muted m-0 mb-[0.7rem] pb-1.5 border-b border-line',
+		'font-display text-[0.8rem] uppercase tracking-[0.08em] text-muted m-0 mb-3',
 	actions:
 		'flex flex-wrap justify-end gap-3 max-sm:gap-[0.55rem] max-sm:w-full max-sm:[&>a]:flex-1 max-sm:[&>a]:min-w-[min(100%,9rem)] max-sm:[&>button]:flex-1 max-sm:[&>button]:min-w-[min(100%,9rem)]',
 	hero: 'grid gap-5 mb-8 max-sm:gap-[0.95rem] max-sm:mb-[1.35rem] [&_h1]:text-[clamp(2.4rem,6vw,4.2rem)] [&_h1]:max-w-[12ch] max-sm:[&_h1]:text-[clamp(1.55rem,8vw,2.1rem)] max-sm:[&_h1]:max-w-none [&_p]:max-w-[68ch] [&_p]:text-muted [&_p]:text-[1.05rem] max-sm:[&_p]:text-[0.98rem] max-sm:[&_p]:max-w-none',
@@ -90,8 +90,8 @@ export const ui = {
 		'overlay-root fixed inset-0 z-[20000] flex items-end justify-center p-0 sm:items-center sm:p-4',
 	dialogBackdrop: 'absolute inset-0 bg-black/55',
 	dialogPanel:
-		'relative z-[1] flex w-full max-h-[min(88dvh,100%)] flex-col gap-4 overflow-y-auto [overscroll-behavior:contain] border border-line border-b-0 rounded-t-box bg-surface p-[1.15rem_1.2rem_calc(1.15rem+env(safe-area-inset-bottom,0px))] shadow-lift sm:max-w-[26rem] sm:border-b sm:rounded-box sm:p-[1.25rem_1.35rem]',
-	dialogPanelMedal: 'sm:max-w-[min(34rem,100%)]! sm:p-[1.35rem_1.5rem]!',
+		'relative z-[1] flex w-full max-h-[min(88dvh,100%)] flex-col border border-line border-b-0 rounded-t-box bg-surface shadow-lift sm:max-w-[26rem] sm:border-b sm:rounded-box',
+	dialogPanelMedal: 'sm:max-w-[min(34rem,100%)]!',
 	statusPill:
 		'inline-flex items-center gap-1 shrink-0 px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] tracking-[0.06em] uppercase font-bold',
 	routeChip:

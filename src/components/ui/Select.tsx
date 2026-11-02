@@ -398,9 +398,9 @@ export function Select({
 					size === 'compact'
 						? cn(
 								'min-h-11 px-3 py-2 text-[0.88rem] sm:min-h-9 sm:px-[0.85rem] sm:py-2 sm:text-[0.82rem]',
-								filterLook ? 'rounded-full' : 'rounded-lg'
+								'rounded-full'
 							)
-						: 'min-h-11 px-[0.8rem] py-[0.7rem] rounded-xl text-base'
+						: 'min-h-11 px-[0.85rem] py-[0.65rem] rounded-full text-base'
 				)}
 				onClick={() => (open ? close() : openMenu())}
 				onKeyDown={onTriggerKeyDown}
@@ -435,7 +435,7 @@ export function Select({
 				<OverlayPortal>
 					<div className={ui.dialogRoot} role="dialog" aria-modal="true" aria-labelledby={titleId}>
 						<div className={ui.dialogBackdrop} onClick={close} aria-hidden="true" />
-						<div className={cn(ui.dialogPanel, 'overflow-hidden')}>
+						<div className={cn(ui.dialogPanel, 'overflow-hidden gap-4 p-[1.15rem_1.2rem_calc(1.15rem+env(safe-area-inset-bottom,0px))] sm:p-[1.25rem_1.35rem]')}>
 							<div
 								className="w-9 h-[0.28rem] mx-auto -mt-1 mb-[0.1rem] rounded-full bg-line shrink-0"
 								aria-hidden="true"

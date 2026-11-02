@@ -16,9 +16,7 @@ export function PageSection({
 }) {
 	return (
 		<Panel form={form} className={cn('mb-4', className)}>
-			{title != null ? (
-				<PanelTitle className="m-0 mb-[0.7rem] pb-1.5 border-b border-line">{title}</PanelTitle>
-			) : null}
+			{title != null ? <PanelTitle className="m-0 mb-3 border-b-0! pb-0!">{title}</PanelTitle> : null}
 			{children}
 		</Panel>
 	);

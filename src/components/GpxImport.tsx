@@ -17,15 +17,13 @@ import {
 	Actions,
 	Button,
 	ConfirmDialog,
-	Form,
-	InsetRow,
 	Tag,
 	errorMessage,
-	useAppForm,
 	useSnackbar
 } from './ui';
 import { buttonClass } from './ui/Button';
 import { dropzoneClass } from './ui/Chrome';
+import { ui } from './ui/tokens';
 
 export type GpxImportResult = {
 	name: string;
@@ -84,14 +82,25 @@ function previewWarn(parsed: ParsedGpx): string | undefined {
 	return undefined;
 }
 
+function filePreviewLine(preview: FilePreview): string {
+	const parts = [preview.date];
+	if (preview.startClock) parts.push(preview.startClock);
+	if (preview.distanceKm != null) parts.push(`${preview.distanceKm} km`);
+	parts.push(preview.pointCount >= 2 ? 'GPS track' : 'No GPS track');
+	return parts.join(' · ');
+}
+
 export function GpxImport({
 	onImported,
 	coachAfter,
-	onDirtyChange
+	onDirtyChange,
+	compactList
 }: {
 	onImported?: (ok: GpxImportResult[]) => void;
 	coachAfter?: boolean;
 	onDirtyChange?: (dirty: boolean) => void;
+	/** Tighter file cards (Coach debrief). */
+	compactList?: boolean;
 }) {
 	const navigate = useNavigate();
 	const router = useRouter();
@@ -106,12 +115,6 @@ export function GpxImport({
 	const [progress, setProgress] = useState('');
 	const [results, setResults] = useState<GpxImportResult[]>([]);
 	const [pendingFile, setPendingFile] = useState<string | null>(null);
-	const form = useAppForm({
-		defaultValues: { activityType: '' },
-		onSubmit: async ({ value }) => {
-			await runImport(value.activityType);
-		}
-	});
 
 	useEffect(() => {
 		onDirtyChange?.(files.length > 0);
@@ -164,15 +167,13 @@ export function GpxImport({
 		});
 	}
 
-	function effectiveType(name: string, globalOverride: string): ActivityType {
-		const global = globalOverride.trim();
-		if (global) return importActivityType(global);
+	function effectiveType(name: string): ActivityType {
 		const picked = perFileType[name];
 		if (picked) return picked;
 		return previews[name]?.resolved ?? 'run';
 	}
 
-	async function runImport(globalActivityType: string) {
+	async function runImport() {
 		if (!files.length) return;
 		setBusy(true);
 		setResults([]);
@@ -190,7 +191,7 @@ export function GpxImport({
 			setProgress(`Importing ${i + 1} / ${files.length}: ${f.name}`);
 			try {
 				const xml = await f.text();
-				const activityType = effectiveType(f.name, globalActivityType);
+				const activityType = effectiveType(f.name);
 				const res = await importGpx({ data: { xml, activityType } });
 				out.push({
 					name: f.name,
@@ -290,46 +291,69 @@ export function GpxImport({
 			</label>
 
 			{files.length > 0 && (
-				<ul className="list-none m-[0.9rem_0_0] p-0 grid gap-3">
+				<ul
+					className={cn(
+						'list-none m-0 grid gap-2 p-0',
+						compactList ? 'mt-3' : 'mt-[0.9rem]'
+					)}
+				>
 					{files.map((f) => {
 						const preview = previews[f.name];
 						const err = previewErrors[f.name];
 						const chosen = perFileType[f.name] ?? preview?.resolved ?? 'run';
 						return (
-							<li key={f.name} className="list-none">
-								<InsetRow className="flex-col! items-stretch! gap-2">
-									<div className="flex flex-wrap items-center gap-2 min-w-0">
-										<code className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-											{f.name}
-										</code>
-										<span className={'text-muted'}>{(f.size / 1024).toFixed(0)} KB</span>
-										<DeleteButton
-											label={`Delete ${f.name}`}
-											disabled={busy}
-											onClick={() => setPendingFile(f.name)}
-										/>
-									</div>
+							<li
+								key={f.name}
+								className={cn(
+									'list-none overflow-hidden rounded-box border border-line bg-canvas',
+									compactList ? 'text-[0.88rem]' : 'text-[0.9rem]'
+								)}
+							>
+								<div className="flex items-center gap-2 border-b border-line bg-inset/40 px-3 py-2">
+									<Icon name="upload" size={16} className="shrink-0 text-muted" />
+									<span className="min-w-0 flex-1 truncate font-semibold text-fg">
+										{f.name}
+									</span>
+									<span className="shrink-0 text-[0.82rem] text-muted">
+										{(f.size / 1024).toFixed(0)} KB
+									</span>
+									<DeleteButton
+										compact
+										className="text-muted hover:text-fg"
+										label={`Remove ${f.name}`}
+										disabled={busy}
+										onClick={() => setPendingFile(f.name)}
+									/>
+								</div>
+								<div className="grid gap-2 px-3 py-2.5">
 									{previewing && !preview && !err && (
 										<p className={cn('text-muted', 'm-0 text-[0.88rem]')}>Reading file…</p>
 									)}
 									{err && <p className={cn('text-muted', 'm-0 text-[0.88rem]')}>{err}</p>}
 									{preview && (
 										<>
-											<p className={cn('text-muted', 'm-0 text-[0.88rem]')}>
-												{preview.date}
-												{preview.startClock ? ` · ${preview.startClock}` : ''}
-												{preview.distanceKm != null ? ` · ${preview.distanceKm} km` : ''}
-												{preview.pointCount > 0
-													? ` · ${preview.pointCount} pts`
-													: ' · no GPS track'}
+											<p className={cn('text-muted', 'm-0 leading-snug')}>
+												{filePreviewLine(preview)}
 											</p>
-											<p className={cn('text-muted', 'm-0 text-[0.88rem]')}>
-												{importDetectionSummary(preview.detectedRaw, preview.resolved)}
-											</p>
-											{preview.warn && (
-												<p className={cn('text-muted', 'm-0 text-[0.82rem]')}>{preview.warn}</p>
+											{chosen === preview.resolved ? (
+												<p className={cn('text-muted', 'm-0 leading-snug')}>
+													{importDetectionSummary(preview.detectedRaw, preview.resolved)}
+												</p>
+											) : (
+												<p className="m-0 flex flex-wrap items-center gap-1.5 leading-snug">
+													<span className="text-muted">Logs as</span>
+													<ActivityTag type={chosen} />
+													<span className="text-muted">
+														(file looks like {activityLabel(preview.resolved)})
+													</span>
+												</p>
 											)}
-											<div className="flex flex-wrap items-center gap-1.5">
+											{preview.warn && (
+												<p className={cn('text-muted', 'm-0 text-[0.82rem] leading-snug')}>
+													{preview.warn}
+												</p>
+											)}
+											<div className="flex flex-wrap items-center gap-1.5 pt-0.5">
 												<span className={cn('text-muted', 'text-[0.82rem]')}>Log as</span>
 												{ACTIVITY_TYPES.map((t) => (
 													<button
@@ -337,11 +361,10 @@ export function GpxImport({
 														type="button"
 														disabled={busy}
 														className={cn(
-															buttonClass({
-																variant: chosen === t ? 'primary' : 'ghost',
-																size: 'sm'
-															}),
-															'gap-1.5!'
+															ui.choiceChip,
+															'min-h-9! px-2.5! py-1! text-[0.78rem]',
+															chosen === t &&
+																'bg-accent! text-accent-ink! border-accent!'
 														)}
 														onClick={() =>
 															setPerFileType((prev) => ({ ...prev, [f.name]: t }))
@@ -351,67 +374,32 @@ export function GpxImport({
 													</button>
 												))}
 											</div>
-											{chosen !== preview.resolved && (
-												<ActivityTag type={chosen} className="self-start" />
-											)}
 										</>
 									)}
-								</InsetRow>
+								</div>
 							</li>
 						);
 					})}
 				</ul>
 			)}
 
-			<Form
-				onSubmit={(e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					if (!files.length || hasPreviewBlockers) return;
-					void form.handleSubmit();
-				}}
-			>
-				<form.AppField
-					name="activityType"
-					children={(field) => (
-						<field.SelectField
-							label="Same type for every file"
-							placeholder="Use detection above (per file)"
-							hint="Optional — overrides the per-file buttons"
-							options={[
-								{ value: '', label: 'Per file (from detection)' },
-								...ACTIVITY_TYPES.map((t) => ({
-									value: t,
-									label: activityLabel(t)
-								}))
-							]}
-						/>
+			<Actions>
+				<Button
+					type="button"
+					variant="primary"
+					disabled={busy || files.length === 0 || previewing || hasPreviewBlockers}
+					onClick={() => void runImport()}
+				>
+					{busy ? (
+						progress || 'Importing…'
+					) : (
+						<>
+							<Icon name="upload" size={16} />
+							{`Import ${files.length || ''} ${files.length === 1 ? 'file' : 'files'}`.trim()}
+						</>
 					)}
-				/>
-
-				<Actions>
-					<form.Subscribe selector={(s) => s.isSubmitting}>
-						{(submitting) => (
-							<Button
-								type="submit"
-								variant="primary"
-								disabled={
-									submitting || files.length === 0 || previewing || hasPreviewBlockers
-								}
-							>
-								{submitting ? (
-									progress || 'Importing…'
-								) : (
-									<>
-										<Icon name="upload" size={16} />
-										{`Import ${files.length || ''} ${files.length === 1 ? 'file' : 'files'}`.trim()}
-									</>
-								)}
-							</Button>
-						)}
-					</form.Subscribe>
-				</Actions>
-			</Form>
+				</Button>
+			</Actions>
 
 			{results.length > 0 && (
 				<div className="mt-4">

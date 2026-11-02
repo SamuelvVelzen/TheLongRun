@@ -47,11 +47,12 @@ import type { ActivityType } from '$lib/activity';
 import {
 	formatWeekSetupProse,
 	weekSetupsEqual,
+	weekSetupChangeLines,
 	type DayLimit,
 	type WeekSetup
 } from '$lib/week-mix';
 import { createFileRoute, Link, useRouter, getRouteApi  } from '@tanstack/react-router';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { DateRangeFilter, type RangeSearch } from '../DateRangeFilter';
 import { DebriefActivityTitle } from '../DebriefActivityTitle';
 import { DebriefFeelForm, type DebriefDraftClearPick } from '../DebriefFeelForm';
@@ -67,12 +68,15 @@ import {
 	Actions,
 	Button,
 	Checkbox,
+	ConfirmDialog,
 	Field,
 	Form,
 	IconLabelButton,
+	PageSection,
 	Panel,
 	TabbedPageHeader,
 	PanelTitle,
+	StatusPill,
 	Select,
 	Textarea,
 	errorMessage,
@@ -167,6 +171,14 @@ export function CoachPanels({
 		});
 	}
 
+	function patchGenerateText(partial: Partial<Pick<GenerateDraft, 'mixNote' | 'question'>>) {
+		setGenerateDraft((prev) => {
+			const next = { ...prev, ...partial, brief: '' };
+			scheduleWriteGenerateDraft(next);
+			return next;
+		});
+	}
+
 	const [debrief, setDebrief] = useState(initialDebrief);
 	const [writeups, setWriteups] = useState(readDebriefWriteups);
 	const [habitDrafts, setHabitDrafts] = useState(readDebriefHabits);
@@ -189,6 +201,9 @@ export function CoachPanels({
 	const [savedSetup, setSavedSetup] = useState<WeekSetup>(initialSetup);
 	const [mixBusy, setMixBusy] = useState(false);
 	const mixBusyRef = useRef(false);
+	const [saveSetupOpen, setSaveSetupOpen] = useState(false);
+	const [briefBusy, setBriefBusy] = useState(false);
+	const briefGenRef = useRef({ structureKey: '', inFlight: false });
 
 	// Fresh loader data (e.g. after save) replaces the debrief prompt.
 	useEffect(() => {
@@ -340,17 +355,28 @@ export function CoachPanels({
 	const defaultQ = defaultQuestion(planningNext);
 	const setup: WeekSetup = { pattern: toPattern(usual), dayLimits, plannedSports };
 	const mixDirty = !weekSetupsEqual(setup, savedSetup);
+	const setupChangeLines = mixDirty ? weekSetupChangeLines(savedSetup, setup) : [];
+	const briefStructureKey = useMemo(
+		() =>
+			JSON.stringify({
+				range: range.kind,
+				from: range.from,
+				to: range.to,
+				planningNext,
+				pattern: toPattern(usual),
+				dayLimits,
+				plannedSports
+			}),
+		[range.kind, range.from, range.to, planningNext, usual, dayLimits, plannedSports]
+	);
 
 	// Leaving /coach with a dirty week setup loses the unsaved mix — confirm first.
-	// Tab switches keep this component mounted (the mix survives them) but still
-	// remind, since the unsaved state is only visible on the training tab.
+	// Coach tabs are sequential steps; switching tabs keeps this tree mounted so the
+	// draft mix survives — only navigating away from Coach should prompt.
 	const { guard: leaveGuard } = useLeaveGuard({
 		dirty: authed && mixDirty,
 		title: 'Unsaved week setup',
-		description: 'Your week setup is unsaved — leaving Coach will lose it.',
-		challengeSameRoute: (currentSearch, nextSearch) =>
-			(currentSearch as { tab?: string } | undefined)?.tab !==
-			(nextSearch as { tab?: string } | undefined)?.tab
+		description: 'Your week setup is unsaved — leaving Coach will lose it.'
 	});
 
 	function applySetup(next: WeekSetup) {
@@ -377,6 +403,33 @@ export function CoachPanels({
 		} catch (e) {
 			snack.error(errorMessage(e, 'Could not build the prompt.'));
 		}
+	}
+
+	async function rebuildBrief() {
+		if (!authed || tab !== 'generate' || briefGenRef.current.inFlight) return;
+		briefGenRef.current.inFlight = true;
+		setBriefBusy(true);
+		patchGenerateDraft({ brief: '' });
+		try {
+			const question = generateDraft.question ?? defaultQ;
+			await generateBrief(generateDraft.mixNote, question);
+		} finally {
+			briefGenRef.current.structureKey = briefStructureKey;
+			briefGenRef.current.inFlight = false;
+			setBriefBusy(false);
+		}
+	}
+
+	useEffect(() => {
+		if (tab !== 'generate' || !authed) return;
+		if (briefGenRef.current.structureKey === briefStructureKey) return;
+		void rebuildBrief();
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- rebuild when structure inputs change, not every draft keystroke
+	}, [tab, authed, briefStructureKey]);
+
+	function onGenerateFieldsBlur() {
+		if (tab !== 'generate' || !authed) return;
+		void rebuildBrief();
 	}
 
 	async function saveDefaultMix() {
@@ -470,143 +523,152 @@ export function CoachPanels({
 			/>
 
 			{tab === 'training' && (
-				<Panel form className="mb-4">
-					<Field as="div" label="Week setup">
-						{authed ? (
-							<span className={cn('text-muted', 'font-normal')}>
-								Saved default: {formatWeekSetupProse(savedSetup)}.
-							</span>
-						) : null}
-						<WeekPatternEditor
-							rows={usual}
-							onChange={setUsual}
-							dayLimits={dayLimits}
-							onDayLimitsChange={setDayLimits}
-							plannedSports={plannedSports}
-							onPlannedSportsChange={setPlannedSports}
-							disabled={mixBusy}
-							readOnly={!authed}
+				<>
+					{!authed ? (
+						<SignInPanel
+							title="Sign in to edit your default week"
+							body="You can still view the pattern below."
 						/>
-					</Field>
-					{authed && (mixDirty || mixBusy) && (
-						<>
-							<p className={cn('text-muted', 'm-0')}>
-								Unsaved — Generate will use this setup, not your saved default.
+					) : null}
+					<PageSection title="Default week" form>
+						{authed ? (
+							<p className={cn('text-muted', 'm-0 text-[0.88rem] leading-relaxed')}>
+								<span className="font-semibold text-fg">Saved · </span>
+								{formatWeekSetupProse(savedSetup)}
 							</p>
-							<Actions className="mt-[0.35rem]">
-								<button
-									className={buttonClass({ variant: 'ghost' })}
+						) : null}
+						<div className={authed ? 'mt-4' : undefined}>
+							<WeekPatternEditor
+								rows={usual}
+								onChange={setUsual}
+								dayLimits={dayLimits}
+								onDayLimitsChange={setDayLimits}
+								plannedSports={plannedSports}
+								onPlannedSportsChange={setPlannedSports}
+								disabled={mixBusy}
+								readOnly={!authed}
+							/>
+						</div>
+					</PageSection>
+					{authed && (mixDirty || mixBusy) ? (
+						<Actions
+							sticky
+							className={cn(
+								'z-30',
+								mixDirty && !mixBusy && '!items-center !justify-between max-sm:!flex-col max-sm:!items-stretch'
+							)}
+						>
+							{mixDirty && !mixBusy ? (
+								<p className="m-0 min-w-0 text-[0.85rem] leading-snug text-muted max-sm:mb-0.5">
+									<StatusPill className="mr-2 border border-accent/35 bg-accent/10 text-accent-fg">
+										Unsaved draft
+									</StatusPill>
+									Generate uses this setup until you save.
+								</p>
+							) : null}
+							<div className="flex shrink-0 flex-wrap items-center justify-end gap-3 max-sm:w-full max-sm:gap-[0.55rem] max-sm:[&>button]:flex-1 max-sm:[&>button]:min-w-[min(100%,9rem)]">
+								<Button
+									variant="ghost"
 									type="button"
 									onClick={() => applySetup(savedSetup)}
 									disabled={mixBusy}
 								>
 									Revert to saved
-								</button>
-								<button
-									className={buttonClass()}
+								</Button>
+								<Button
 									type="button"
-									onClick={saveDefaultMix}
-									disabled={mixBusy}
+									onClick={() => setSaveSetupOpen(true)}
+									disabled={mixBusy || !mixDirty}
 									aria-busy={mixBusy}
+									stickyPrimary
 								>
 									<Icon name={mixBusy ? 'calendar' : 'check'} size={16} />
 									{mixBusy ? 'Saving…' : 'Save as my default week'}
-								</button>
-							</Actions>
-						</>
-					)}
-				</Panel>
+								</Button>
+							</div>
+						</Actions>
+					) : null}
+				</>
 			)}
 
 			{tab === 'debrief' && (
-				<Panel className="mb-4">
-					<ol className="m-0 flex list-none flex-col gap-6 p-0 max-sm:gap-[1.15rem] [&>li>strong]:block [&>li>strong]:text-[1.05rem]">
-						<li className={sessionCount ? '[&>strong]:text-accent-fg' : undefined}>
-							<strong>1. Import the GPX</strong>
-							{sessionCount > 0 && (
-								<div className="mt-[0.45rem] mb-0 font-semibold max-sm:wrap-anywhere">
-									<p className="m-0">
-										{many
-											? `${sessionCount} sessions in the prompt:`
-											: coachUnits[0]?.kind === 'group'
-												? 'Grouped session in the prompt:'
-												: 'In the prompt:'}
-									</p>
-									<ul className="m-[0.35rem_0_0] grid list-none gap-1 p-0">
-										{coachUnits.map((u) => (
-												<li key={u.slug}>
-													{u.kind === 'group' && u.members.length > 1 ? (
-														<span>
-															Grouped · {u.members.length} parts
-															{u.run.hasFeel ? '' : ' · no feel yet'}
-														</span>
-													) : (
-														<>
-															<DebriefActivityTitle run={u.run} link />
-															{u.run.hasFeel ? '' : ' · no feel yet'}
-														</>
-													)}
-												</li>
-										))}
-									</ul>
-									{canGroupDebrief && (
-										<Actions className="mt-2">
-											<button
-												type="button"
-												className={buttonClass({ variant: 'ghost' })}
-												onClick={() => void groupDebriefSessions()}
-											>
-												<Icon name="grid" size={16} />
-												Group into one session
-											</button>
-										</Actions>
-									)}
-								</div>
-							)}
-							<Panel form className="mt-3">
-								{authed ? (
-									<GpxImport
-										onImported={(ok) => {
-											// Merge with the ids already in the URL instead of replacing
-											// them — an earlier activity that is still being written up must
-											// not vanish from the list mid-debrief.
-											const current = (search.id ?? '')
-												.split(',')
-												.map((s) => s.trim())
-												.filter(Boolean);
-											const fresh = ok
-												.map((r) => (r.id != null ? String(r.id) : ''))
-												.filter(Boolean);
-											const merged = [...new Set([...current, ...fresh])];
-											if (merged.length) {
-												router.navigate({
-													to: '/coach',
-													search: withCoachSearch(search, {
-														tab: 'debrief',
-														id: merged.join(',')
-													}),
-													replace: true,
-													resetScroll: false
-												});
-											}
-										}}
-									/>
-								) : (
-									<SignInPanel title="Sign in to import a GPX" />
-								)}
-							</Panel>
-							<p className={cn('text-muted', 'mt-2')}>
-								No GPS?{' '}
-								<Link to="/import" search={{ mode: 'manual' }}>
-									Log manually
-								</Link>
-								.
-							</p>
-						</li>
-						<li className={sessionCount && allWrote ? '[&>strong]:text-accent-fg' : undefined}>
-							<strong>2. How it felt</strong>
-							{sessionCount > 0 &&
-								coachUnits.map((u) => {
+				<>
+					<PageSection title="1. Import GPX" form>
+						{sessionCount > 0 ? (
+							<div className="mb-3 font-semibold max-sm:wrap-anywhere">
+								<p className="m-0 text-[0.9rem]">
+									{many
+										? `${sessionCount} sessions in the prompt:`
+										: coachUnits[0]?.kind === 'group'
+											? 'Grouped session in the prompt:'
+											: 'In the prompt:'}
+								</p>
+								<ul className="m-[0.35rem_0_0] grid list-none gap-1 p-0">
+									{coachUnits.map((u) => (
+										<li key={u.slug}>
+											{u.kind === 'group' && u.members.length > 1 ? (
+												<span>
+													Grouped · {u.members.length} parts
+													{u.run.hasFeel ? '' : ' · no feel yet'}
+												</span>
+											) : (
+												<>
+													<DebriefActivityTitle run={u.run} link />
+													{u.run.hasFeel ? '' : ' · no feel yet'}
+												</>
+											)}
+										</li>
+									))}
+								</ul>
+								{canGroupDebrief ? (
+									<Actions className="mt-2 justify-start max-sm:w-auto max-sm:[&>button]:flex-none">
+										<Button
+											type="button"
+											variant="ghost"
+											onClick={() => void groupDebriefSessions()}
+										>
+											<Icon name="grid" size={16} />
+											Group into one session
+										</Button>
+									</Actions>
+								) : null}
+							</div>
+						) : null}
+						{authed ? (
+							<GpxImport
+								compactList
+								onImported={(ok) => {
+									const current = (search.id ?? '')
+										.split(',')
+										.map((s) => s.trim())
+										.filter(Boolean);
+									const fresh = ok
+										.map((r) => (r.id != null ? String(r.id) : ''))
+										.filter(Boolean);
+									const merged = [...new Set([...current, ...fresh])];
+									if (merged.length) {
+										router.navigate({
+											to: '/coach',
+											search: withCoachSearch(search, {
+												tab: 'debrief',
+												id: merged.join(',')
+											}),
+											replace: true,
+											resetScroll: false
+										});
+									}
+								}}
+							/>
+						) : (
+							<SignInPanel title="Sign in to import a GPX" />
+						)}
+					</PageSection>
+
+					{sessionCount > 0 ? (
+						<>
+							<PageSection title="2. How it felt" form>
+								<div className="grid gap-4">
+									{coachUnits.map((u) => {
 									const mirrorIds =
 										u.kind === 'group' && u.members.length > 1
 											? u.members.map((m) => m.id)
@@ -614,14 +676,14 @@ export function CoachPanels({
 									return (
 										<div key={u.slug}>
 											{u.kind === 'group' && u.groupId ? (
-												<Actions className="mb-1">
-													<button
+												<Actions className="mb-1 justify-start max-sm:w-auto max-sm:[&>button]:flex-none">
+													<Button
 														type="button"
-														className={buttonClass({ variant: 'ghost' })}
+														variant="ghost"
 														onClick={() => void ungroupDebriefSession(u.groupId!)}
 													>
 														Ungroup session
-													</button>
+													</Button>
 												</Actions>
 											) : null}
 											<DebriefFeelForm
@@ -650,98 +712,96 @@ export function CoachPanels({
 											})}
 										</div>
 									);
-								})}
-							{!sessionCount && (
-								<p className={cn('text-muted', 'mt-[0.4rem]')}>
-									Import a GPX (or log manually) first.
-								</p>
-							)}
-						</li>
-						<li>
-							<strong>3. Copy the prompt</strong>
-							{debrief.error && !debriefPrompt && (
-								<p className={cn('text-muted', 'mt-[0.4rem]')}>{debrief.error}</p>
-							)}
-							{debriefPrompt && (
-								<Panel form className="mt-3">
-									<AiPromptFlow
-										prompt={debriefPrompt}
-										promptEditable
-										onPromptChange={setDebriefPrompt}
-										promptRows={14}
-									/>
-									<Checkbox
-										checked={includePlan}
-										onChange={setIncludePlan}
-										label="New chat — include my plan and standing info"
-										hint="On for a new chat; off to keep the prompt small in an ongoing thread."
-									/>
-								</Panel>
-							)}
-						</li>
-						<li>
-							<strong>4. Paste the AI response</strong>
-							{authed ? (
-								<JsonPasteForm
-									className="mt-3"
-									placeholder={
-										includePlan
-											? '{ "feelings": { "id": 42, "notes": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
-											: '{ "feelings": { "id": 42, "notes": "…" } }'
-									}
-									submitLabel="Save reply"
-									submitIcon="check"
-									errorLabel="Could not save debrief."
-									onSubmit={async (json) => {
-										for (const u of writeupUnits) {
-											const h = habitDrafts[u.slug];
-											if (!h) continue;
-											const ids = u.members.map((m) => m.id);
-											for (const id of ids) {
-												await saveActivityFeel({
-													data: {
-														id,
-														before_notes: h.before,
-														after_notes: h.after
-													}
-												});
-											}
-										}
-										const res = await saveDebrief({ data: json });
-										const bits: string[] = [];
-										if (res.feelingsUpdated) {
-											bits.push(
-												`feelings on ${res.feelingsUpdated} activit${res.feelingsUpdated === 1 ? 'y' : 'ies'}`
-											);
-										}
-										if (res.planUpdated.length)
-											bits.push(`week ${res.planUpdated.join(', ')} updated`);
-										if (res.fuelSuggestions.length) {
-											bits.push('food found — review it');
-											setFuelSuggestions(res.fuelSuggestions);
-											if (res.bodySuggestions.length) {
-												bits.push('body notes next');
-												setBodySuggestionsQueued(res.bodySuggestions);
-											}
-										} else if (res.bodySuggestions.length) {
-											bits.push('body notes found — review them');
-											setBodySuggestions(res.bodySuggestions);
-										}
-										const miss = res.feelingsMissing.length
-											? ` (${res.feelingsMissing.length} id(s) not found)`
-											: '';
-										snack.success(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
-										if (res.feelingsUpdatedSlugs.length) {
-											setWriteups((prev) => clearDebriefWriteups(res.feelingsUpdatedSlugs, prev));
-											setHabitDrafts((prev) => clearDebriefHabits(res.feelingsUpdatedSlugs, prev));
-										}
-										// Drop finished sessions from ?id= (and refresh step 1–3) once feelings landed.
-										await refreshDebrief();
-									}}
+									})}
+								</div>
+							</PageSection>
+
+							<PageSection title="3. Copy the prompt" form>
+						{debrief.error && !debriefPrompt ? (
+							<p className={cn('text-muted', 'm-0')}>{debrief.error}</p>
+						) : null}
+						{debriefPrompt ? (
+							<>
+								<AiPromptFlow
+									prompt={debriefPrompt}
+									promptEditable
+									onPromptChange={setDebriefPrompt}
+									promptRows={14}
 								/>
-							) : null}
-						</li>
-					</ol>
+								<Checkbox
+									checked={includePlan}
+									onChange={setIncludePlan}
+									label="New chat — include my plan and standing info"
+									hint="On for a new chat; off to keep the prompt small in an ongoing thread."
+								/>
+							</>
+						) : null}
+					</PageSection>
+
+					<PageSection title="4. Paste the AI response" form>
+						{authed ? (
+							<JsonPasteForm
+								placeholder={
+									includePlan
+										? '{ "feelings": { "id": 42, "notes": "…" }, "week": { "week": 3, "sessions": [ … ] } }'
+										: '{ "feelings": { "id": 42, "notes": "…" } }'
+								}
+								submitLabel="Save reply"
+								submitIcon="check"
+								errorLabel="Could not save debrief."
+								onSubmit={async (json) => {
+									for (const u of writeupUnits) {
+										const h = habitDrafts[u.slug];
+										if (!h) continue;
+										const ids = u.members.map((m) => m.id);
+										for (const id of ids) {
+											await saveActivityFeel({
+												data: {
+													id,
+													before_notes: h.before,
+													after_notes: h.after
+												}
+											});
+										}
+									}
+									const res = await saveDebrief({ data: json });
+									const bits: string[] = [];
+									if (res.feelingsUpdated) {
+										bits.push(
+											`feelings on ${res.feelingsUpdated} activit${res.feelingsUpdated === 1 ? 'y' : 'ies'}`
+										);
+									}
+									if (res.planUpdated.length)
+										bits.push(`week ${res.planUpdated.join(', ')} updated`);
+									if (res.fuelSuggestions.length) {
+										bits.push('food found — review it');
+										setFuelSuggestions(res.fuelSuggestions);
+										if (res.bodySuggestions.length) {
+											bits.push('body notes next');
+											setBodySuggestionsQueued(res.bodySuggestions);
+										}
+									} else if (res.bodySuggestions.length) {
+										bits.push('body notes found — review them');
+										setBodySuggestions(res.bodySuggestions);
+									}
+									const miss = res.feelingsMissing.length
+										? ` (${res.feelingsMissing.length} id(s) not found)`
+										: '';
+									snack.success(`Saved — ${bits.join(' · ') || 'nothing changed'}${miss}.`);
+									if (res.feelingsUpdatedSlugs.length) {
+										setWriteups((prev) => clearDebriefWriteups(res.feelingsUpdatedSlugs, prev));
+										setHabitDrafts((prev) => clearDebriefHabits(res.feelingsUpdatedSlugs, prev));
+									}
+									await refreshDebrief();
+								}}
+							/>
+						) : (
+							<SignInPanel title="Sign in to save the debrief" />
+						)}
+							</PageSection>
+						</>
+					) : null}
+
 					<FuelSuggestionsDialog
 						suggestions={fuelSuggestions}
 						onClose={() => {
@@ -756,23 +816,22 @@ export function CoachPanels({
 						suggestions={bodySuggestions}
 						onClose={() => setBodySuggestions([])}
 					/>
-				</Panel>
+				</>
 			)}
 
 			{tab === 'plan' && <PlanWeekPanel planData={planData} />}
 
 			{tab === 'generate' && authed && (
 				<>
-					<Panel form className="mb-4">
+					<PageSection title="Context" form>
 						<Field as="div" label="History window">
-							<div className="flex flex-wrap items-center gap-x-6 gap-y-[0.55rem]">
-								<DateRangeFilter range={range} to="/coach" defaultKind={DEFAULT_BRIEF_RANGE} />
-							</div>
+							<DateRangeFilter range={range} to="/coach" defaultKind={DEFAULT_BRIEF_RANGE} />
 						</Field>
-						<p className={cn('text-muted', 'mt-[0.4rem] mb-0 text-[0.88rem]')}>
-							Activity window: {range.label.toLowerCase()}. Long-term totals always included.{' '}
+						<p className={cn('text-muted', 'm-0 text-[0.88rem] leading-relaxed')}>
+							Activity window: {range.label.toLowerCase()}. Long-term totals always included.
 							{planData.activeGoal ? (
 								<>
+									{' '}
 									Week {planData.generateWeek} of {planData.calendar.weekCount} toward{' '}
 									{planData.activeGoal.name}.
 								</>
@@ -793,64 +852,112 @@ export function CoachPanels({
 								</>
 							) : null}
 						</p>
+					</PageSection>
+
+					<PageSection title="Your question" form>
 						<GenerateBriefForm
 							weekPhrase={weekPhrase}
 							mixNote={generateDraft.mixNote}
 							question={generateDraft.question ?? defaultQ}
 							questionPlaceholder={defaultQ}
-							hasBrief={Boolean(generateDraft.brief)}
-							onMixNoteChange={(mixNote) => patchGenerateDraft({ mixNote })}
+							briefBusy={briefBusy}
+							onMixNoteChange={(mixNote) => patchGenerateText({ mixNote })}
 							onQuestionChange={(question) =>
-								patchGenerateDraft({ question: question === defaultQ ? null : question })
+								patchGenerateText({ question: question === defaultQ ? null : question })
 							}
-							onGenerate={generateBrief}
+							onFieldsBlur={onGenerateFieldsBlur}
 						/>
-					</Panel>
+					</PageSection>
 
-					{generateDraft.brief && (
-						<Panel form>
-							<PanelTitle className="m-0 mb-2 border-b-0 pb-0">Prompt</PanelTitle>
-							<AiPromptFlow
-								className="mt-2"
-								prompt={generateDraft.brief}
-								promptEditable
-								onPromptChange={(brief) => patchGenerateDraft({ brief })}
-								promptRows={16}
-								afterCopy={
-									<IconLabelButton
-										label="Download .md"
-										icon={<Icon name="download" size={16} />}
-										onClick={download}
+					{(generateDraft.brief || briefBusy) && (
+						<PageSection title="Prompt for AI" form>
+							{briefBusy && !generateDraft.brief ? (
+								<p className="m-0 flex items-center gap-2.5 text-[0.9rem] text-muted">
+									<Icon
+										name="spinner"
+										size={20}
+										className="animate-spin text-accent-fg"
+										aria-hidden
 									/>
-								}
-							/>
-						</Panel>
+									Building prompt…
+								</p>
+							) : (
+								<>
+									{briefBusy ? (
+										<p className="m-0 mb-3 flex items-center gap-2 text-[0.85rem] text-muted">
+											<Icon
+												name="spinner"
+												size={16}
+												className="animate-spin text-accent-fg"
+												aria-hidden
+											/>
+											Updating prompt…
+										</p>
+									) : null}
+									<AiPromptFlow
+									prompt={generateDraft.brief}
+									promptEditable
+									onPromptChange={(brief) => patchGenerateDraft({ brief })}
+									promptRows={16}
+									afterCopy={
+										<IconLabelButton
+											label="Download .md"
+											icon={<Icon name="download" size={16} />}
+											onClick={download}
+										/>
+									}
+								/>
+								</>
+							)}
+						</PageSection>
 					)}
 
-					<JsonPasteForm
-						className="mt-4"
-						title={`Save ${weekPhrase}’s plan`}
-						description={
-							<p className={cn('text-muted', 'mt-[0.3rem]')}>
-								Paste the AI response your model returned — merged by week number. Session{' '}
-								<code className="text-[0.85em]">fuel</code> /{' '}
-								<code className="text-[0.85em]">kit</code> are saved on the plan (not the fuel
-								log). Check that pinned activities kept their day.
-							</p>
-						}
-						placeholder='{ "week": 3, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'
-						submitLabel="Add to plan"
-						errorLabel="Could not save plan."
-						onSubmit={async (json) => {
-							const res = await savePlanWeeks({ data: json });
-							snack.success(
-								`Saved — plan now has ${res.weeks} weeks (updated week ${res.updated.join(', ')}).`
-							);
-							await router.invalidate();
-						}}
-					/>
+					<PageSection title={`Save ${weekPhrase}’s plan`} form className="mt-4">
+						<JsonPasteForm
+							description={
+								<p className={cn('text-muted', 'm-0 text-[0.88rem]')}>
+									Paste the AI response — merged by week number. Session{' '}
+									<code className="text-[0.85em]">fuel</code> /{' '}
+									<code className="text-[0.85em]">kit</code> are saved on the plan (not the fuel
+									log). Check pinned activities kept their day.
+								</p>
+							}
+							placeholder='{ "week": 3, "dates": "…", "phase": "build", "focus": "…", "sessions": [ … ] }'
+							submitLabel="Add to plan"
+							errorLabel="Could not save plan."
+							onSubmit={async (json) => {
+								const res = await savePlanWeeks({ data: json });
+								snack.success(
+									`Saved — plan now has ${res.weeks} weeks (updated week ${res.updated.join(', ')}).`
+								);
+								await router.invalidate();
+							}}
+						/>
+					</PageSection>
 				</>
 			)}
+			<ConfirmDialog
+				open={saveSetupOpen}
+				title="Save as your default week?"
+				description={
+					setupChangeLines.length ? (
+						<ul className="m-0 grid list-disc gap-1.5 pl-5 text-[0.92rem]">
+							{setupChangeLines.map((line) => (
+								<li key={line}>{line}</li>
+							))}
+						</ul>
+					) : (
+						'Replace your saved default week with this setup.'
+					)
+				}
+				confirmLabel="Save"
+				cancelLabel="Keep editing"
+				onClose={() => setSaveSetupOpen(false)}
+				onConfirm={() => {
+					setSaveSetupOpen(false);
+					void saveDefaultMix();
+				}}
+			/>
 			{leaveGuard}
 		</>
 	);

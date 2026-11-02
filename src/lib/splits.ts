@@ -48,6 +48,34 @@ export function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: 
 	return 2 * EARTH_M * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
+/** Whole-km pins along a route polyline (no timestamps). */
+export function kmMarkersFromCoords(coords: [number, number][]): KmMarker[] {
+	const markers: KmMarker[] = [];
+	if (coords.length < 2) return markers;
+	let cum = 0;
+	let nextKm = 1000;
+	for (let i = 1; i < coords.length; i++) {
+		const a = coords[i - 1]!;
+		const b = coords[i]!;
+		const seg = haversineMeters(a[0], a[1], b[0], b[1]);
+		if (!Number.isFinite(seg) || seg <= 0 || seg > 200) continue;
+		const startCum = cum;
+		const endCum = cum + seg;
+		while (nextKm <= endCum) {
+			const t = seg > 0 ? (nextKm - startCum) / seg : 0;
+			const clamped = Math.min(1, Math.max(0, t));
+			markers.push({
+				km: nextKm / 1000,
+				lat: a[0] + (b[0] - a[0]) * clamped,
+				lng: a[1] + (b[1] - a[1]) * clamped
+			});
+			nextKm += 1000;
+		}
+		cum = endCum;
+	}
+	return markers;
+}
+
 /** Warn when a planned route's start and finish are farther than this (straight-line). */
 export const OPEN_ROUTE_GAP_M = 200;
 

@@ -306,6 +306,63 @@ export function weekSetupsEqual(a: WeekSetup, b: WeekSetup): boolean {
 	);
 }
 
+function slotIdentity(s: WeekSlot): string {
+	return `${s.day}\0${s.activity_type}\0${s.constraint ?? 'preference'}\0${(s.notes ?? '').trim()}`;
+}
+
+/** Human-readable diff for confirming a default-week save. */
+export function weekSetupChangeLines(before: WeekSetup, after: WeekSetup): string[] {
+	if (weekSetupsEqual(before, after)) return [];
+	const lines: string[] = [];
+	const beforeSports = new Set(before.plannedSports);
+	const afterSports = new Set(after.plannedSports);
+	for (const t of ACTIVITY_TYPES) {
+		if (afterSports.has(t) && !beforeSports.has(t)) {
+			lines.push(`Coach will plan ${activityLabel(t).toLowerCase()}.`);
+		} else if (beforeSports.has(t) && !afterSports.has(t)) {
+			lines.push(`Coach will no longer plan ${activityLabel(t).toLowerCase()}.`);
+		}
+	}
+	const beforeSlots = new Map(sortPattern(before.pattern).map((s) => [slotIdentity(s), s]));
+	const afterSlots = new Map(sortPattern(after.pattern).map((s) => [slotIdentity(s), s]));
+	for (const [key, s] of afterSlots) {
+		if (!beforeSlots.has(key)) {
+			lines.push(
+				`Add ${s.day} ${activityLabel(s.activity_type).toLowerCase()} (${slotConstraintLabel(s.constraint).toLowerCase()}).`
+			);
+		}
+	}
+	for (const [key, s] of beforeSlots) {
+		if (!afterSlots.has(key)) {
+			lines.push(
+				`Remove ${s.day} ${activityLabel(s.activity_type).toLowerCase()} (${slotConstraintLabel(s.constraint).toLowerCase()}).`
+			);
+		}
+	}
+	const beforeLimits = new Map(normalizeDayLimits(before.dayLimits).map((l) => [l.day, l]));
+	const afterLimits = new Map(normalizeDayLimits(after.dayLimits).map((l) => [l.day, l]));
+	for (const day of WEEKDAYS) {
+		const prev = beforeLimits.get(day);
+		const next = afterLimits.get(day);
+		if (!prev && next) {
+			lines.push(
+				next.kind === 'off'
+					? `${day} off${next.notes?.trim() ? `: ${next.notes.trim()}` : ''}.`
+					: `${day} limited: ${next.notes?.trim() || '…'}.`
+			);
+		} else if (prev && !next) {
+			lines.push(`Remove ${day} day limit.`);
+		} else if (
+			prev &&
+			next &&
+			(prev.kind !== next.kind || (prev.notes ?? '').trim() !== (next.notes ?? '').trim())
+		) {
+			lines.push(`Update ${day} day limit.`);
+		}
+	}
+	return lines;
+}
+
 const MAX_COUNT = 10;
 
 export function normalizeWeekMix(raw: unknown): WeekMix {

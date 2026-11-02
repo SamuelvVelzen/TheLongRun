@@ -2,12 +2,15 @@ import { subscribeAppResume } from '$lib/app-resume';
 import { useAuthed } from '$lib/auth';
 import { loadLeaflet } from '$lib/leaflet';
 import {
+	LIVE_LOCATION_ACTIVE_PING_MS,
 	LIVE_LOCATION_PING_MS,
+	LIVE_MAP_PATH,
+	LIVE_MAP_NAV_EVENT,
 	LIVE_PING_EVENT,
 	LIVE_SHARE_EVENT,
 	LIVE_SHARE_REQUEST,
-	LIVE_WATCH_REQUEST,
 	dispatchLivePing,
+	livePingFollowerCopy,
 	liveShareRouteSlug,
 	liveShareWanted,
 	requestLiveShare,
@@ -20,23 +23,18 @@ import {
 	type LiveShareDetail,
 	type LiveShareRequestDetail
 } from '$lib/live-location';
+import { fetchLiveLocation } from '$lib/fetch-live-location';
 import { getLastHeading, noteGpsHeading } from '$lib/location-heading';
 import {
-	addBasemap,
-	attachMapChrome,
-	leafletMapOptions,
-	type MapChromeHandle
-} from '$lib/map-chrome';
-import { liveShareHost, liveWatchCanvas, liveWatchMapShell, mapWrap } from '$lib/map-layout';
-import { OverlayPortal, useOverlayLock } from '$lib/overlay';
-import {
-	getLiveLocation,
 	getLiveShareRouteOptions,
+	getLiveWatchActive,
 	pingLiveLocation,
 	stopLiveLocation
 } from '$lib/server/functions';
+import { LiveLocationPoll } from './LiveLocationPoll';
 import { setScreenWakeLock } from '$lib/wake-lock';
 import { cn } from '$lib/ui';
+import { useNavigate, useRouterState } from '@tanstack/react-router';
 import {
 	useCallback,
 	useEffect,
@@ -46,7 +44,7 @@ import {
 	type MouseEventHandler
 } from 'react';
 import { Icon } from './Icon';
-import { Dialog, Field, Select, SnackAction, errorMessage, useSnackbar } from './ui';
+import { Dialog, Field, Select, errorMessage, useSnackbar } from './ui';
 import { buttonClass } from './ui/Button';
 
 function currentPosition(): Promise<GeolocationPosition> {
@@ -65,7 +63,28 @@ function currentPosition(): Promise<GeolocationPosition> {
 
 export function LiveLocationShare() {
 	const authed = useAuthed();
-	return authed ? <LiveLocationBroadcaster /> : <LiveLocationWatch />;
+	useLayoutEffect(() => {
+		if (!authed) syncLiveShareDom(false, false);
+	}, [authed]);
+	return (
+		<>
+			<LiveLocationNavBridge />
+			{authed ? <LiveLocationBroadcaster /> : null}
+			<LiveLocationPoll />
+		</>
+	);
+}
+
+function LiveLocationNavBridge() {
+	const navigate = useNavigate();
+	useEffect(() => {
+		const go = () => {
+			void navigate({ to: LIVE_MAP_PATH });
+		};
+		window.addEventListener(LIVE_MAP_NAV_EVENT, go);
+		return () => window.removeEventListener(LIVE_MAP_NAV_EVENT, go);
+	}, [navigate]);
+	return null;
 }
 
 function LiveLocationBroadcaster() {
@@ -75,8 +94,16 @@ function LiveLocationBroadcaster() {
 	const [routeSlug, setRouteSlug] = useState('');
 	const [routeOptions, setRouteOptions] = useState<{ slug: string; label: string }[]>([]);
 	const sharingRef = useRef(false);
+	const shareEpochRef = useRef(0);
 	const routeSlugRef = useRef<string | null>(null);
-	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const clearPingTimer = () => {
+		if (timerRef.current != null) {
+			clearTimeout(timerRef.current);
+			timerRef.current = null;
+		}
+	};
 
 	const setOn = useCallback((on: boolean) => {
 		sharingRef.current = on;
@@ -87,7 +114,9 @@ function LiveLocationBroadcaster() {
 
 	const ping = useCallback(async (force = false) => {
 		if (!force && !sharingRef.current) return;
+		const epoch = shareEpochRef.current;
 		const pos = await currentPosition();
+		if (!sharingRef.current || epoch !== shareEpochRef.current) return;
 		noteGpsHeading(pos.coords);
 		await pingLiveLocation({
 			data: {
@@ -98,22 +127,58 @@ function LiveLocationBroadcaster() {
 				routeSlug: routeSlugRef.current
 			}
 		});
+		if (!sharingRef.current || epoch !== shareEpochRef.current) {
+			try {
+				await stopLiveLocation();
+				dispatchLivePing(null);
+			} catch {
+				/* ignore — stop already ran or server busy */
+			}
+		}
 	}, []);
 
+	const scheduleNextPing = useCallback(() => {
+		clearPingTimer();
+		if (!sharingRef.current) return;
+		void getLiveWatchActive()
+			.then(({ active }) => (active ? LIVE_LOCATION_ACTIVE_PING_MS : LIVE_LOCATION_PING_MS))
+			.catch(() => LIVE_LOCATION_PING_MS)
+			.then((ms) => {
+				if (!sharingRef.current) return;
+				timerRef.current = setTimeout(() => {
+					void ping()
+						.catch(() => {
+							/* keep sharing; retry next interval */
+						})
+						.finally(() => scheduleNextPing());
+				}, ms);
+			});
+	}, [ping]);
+
 	const stop = useCallback(async () => {
-		if (timerRef.current) {
-			clearInterval(timerRef.current);
-			timerRef.current = null;
-		}
-		await setScreenWakeLock(false);
+		clearPingTimer();
+		shareEpochRef.current += 1;
 		setOn(false);
 		setConfirmOpen(false);
+		routeSlugRef.current = null;
+		setLiveShareRouteSlug(null);
+		setRouteSlug('');
+		await setScreenWakeLock(false);
 		try {
 			await stopLiveLocation();
+			dispatchLivePing(null);
 		} catch (e) {
 			snack.error(errorMessage(e, 'Could not stop sharing.'));
 		}
 	}, [setOn, snack]);
+
+	const closeConfirm = useCallback(() => {
+		setConfirmOpen(false);
+		if (!sharingRef.current) {
+			setRouteSlug('');
+			setLiveShareRouteSlug(null);
+		}
+	}, []);
 
 	const start = useCallback(async () => {
 		setConfirmOpen(false);
@@ -134,18 +199,23 @@ function LiveLocationBroadcaster() {
 			return;
 		}
 		setOn(true);
-		if (timerRef.current) clearInterval(timerRef.current);
-		timerRef.current = setInterval(() => {
-			void ping().catch(() => {
-				/* keep sharing; retry next interval */
-			});
-		}, LIVE_LOCATION_PING_MS);
+		clearPingTimer();
+		scheduleNextPing();
 		void setScreenWakeLock(true);
-	}, [ping, routeSlug, setOn, snack]);
+		try {
+			const view = await fetchLiveLocation();
+			if (view) {
+				dispatchLivePing(view);
+				requestLiveWatch(view);
+			}
+		} catch {
+			requestLiveWatch();
+		}
+	}, [ping, routeSlug, scheduleNextPing, setOn, snack]);
 
 	useEffect(() => {
 		if (!confirmOpen) return;
-		setRouteSlug(liveShareRouteSlug() ?? '');
+		setRouteSlug(sharingRef.current ? (liveShareRouteSlug() ?? '') : '');
 		let cancelled = false;
 		void getLiveShareRouteOptions()
 			.then((options) => {
@@ -160,6 +230,10 @@ function LiveLocationBroadcaster() {
 	}, [confirmOpen]);
 
 	useLayoutEffect(() => {
+		if (liveShareWanted() && !sharingRef.current) {
+			sharingRef.current = true;
+			setSharing(true);
+		}
 		syncLiveShareDom(true, sharingRef.current);
 	}, []);
 
@@ -167,20 +241,15 @@ function LiveLocationBroadcaster() {
 		if (liveShareWanted() && !sharingRef.current) void start();
 	}, [start]);
 
-	useEffect(() => {
-		return () => {
-			if (timerRef.current) {
-				clearInterval(timerRef.current);
-				timerRef.current = null;
-			}
-		};
-	}, []);
+	useEffect(() => () => clearPingTimer(), []);
 
 	useEffect(() => {
 		const onRequest = (e: Event) => {
 			const want = (e as CustomEvent<LiveShareRequestDetail>).detail?.want;
-			if (want === true && !sharingRef.current) setConfirmOpen(true);
-			else if (want === false && sharingRef.current) void stop();
+			if (want === true) {
+				if (sharingRef.current || liveShareWanted()) return;
+				setConfirmOpen(true);
+			} else if (want === false && sharingRef.current) void stop();
 		};
 		const onResume = () => {
 			if (!sharingRef.current) return;
@@ -202,13 +271,13 @@ function LiveLocationBroadcaster() {
 			<Dialog
 				open={confirmOpen}
 				title="Share live location"
-				onClose={() => setConfirmOpen(false)}
+				onClose={closeConfirm}
 				actions={
 					<>
 						<button
 							className={buttonClass({ variant: 'ghost' })}
 							type="button"
-							onClick={() => setConfirmOpen(false)}
+							onClick={closeConfirm}
 						>
 							Cancel
 						</button>
@@ -220,8 +289,9 @@ function LiveLocationBroadcaster() {
 			>
 				<div className="grid gap-3">
 					<p className={cn('text-muted', 'm-0 leading-[1.45]')}>
-						Anyone looking at this site will see where you are on the map. The pin updates about every
-						30 seconds while this app stays open. You can stop at any time.
+						Anyone looking at this site will see where you are on the map. Updates every 5 seconds
+						while someone is watching the live map, otherwise about every 30 seconds, while this app
+						stays open. You can stop at any time.
 					</p>
 					{routeOptions.length > 0 ? (
 						<Field
@@ -250,185 +320,101 @@ function LiveLocationBroadcaster() {
 	);
 }
 
-/** In-flow banner under the app header — not a floating toast. */
+/** In-flow banner under the app header — sharing yours or watching someone live. */
 export function LiveShareBanner() {
 	const authed = useAuthed();
+	const onLiveMap = useRouterState({ select: (s) => s.location.pathname === LIVE_MAP_PATH });
 	const [sharing, setSharing] = useState(false);
+	const [ping, setPing] = useState<LiveLocationView | null>(null);
+	const [, tick] = useState(0);
 
 	useEffect(() => {
 		if (!authed) {
 			setSharing(false);
-			return;
+		} else {
+			setSharing(liveShareOnSafe() || liveShareWanted());
 		}
-		setSharing(liveShareOnSafe());
-		const on = (e: Event) => {
+		const onShare = (e: Event) => {
 			const next = (e as CustomEvent<LiveShareDetail>).detail?.sharing;
 			if (typeof next === 'boolean') setSharing(next);
 		};
-		window.addEventListener(LIVE_SHARE_EVENT, on);
-		return () => window.removeEventListener(LIVE_SHARE_EVENT, on);
+		const onPing = (e: Event) => {
+			setPing((e as CustomEvent<LivePingDetail>).detail?.ping ?? null);
+		};
+		window.addEventListener(LIVE_SHARE_EVENT, onShare);
+		window.addEventListener(LIVE_PING_EVENT, onPing);
+		const refresh = window.setInterval(() => tick((n) => n + 1), 30_000);
+		return () => {
+			window.removeEventListener(LIVE_SHARE_EVENT, onShare);
+			window.removeEventListener(LIVE_PING_EVENT, onPing);
+			window.clearInterval(refresh);
+		};
 	}, [authed]);
 
-	if (!authed || !sharing) return null;
+	if (onLiveMap) return null;
+
+	if (sharing) {
+		return (
+			<div data-live-share-banner role="status" className={liveLocationBannerClass}>
+				<span className="size-2 shrink-0 rounded-full bg-live" aria-hidden="true" />
+				<span className="flex-1 min-w-0">Location is being shared on the map.</span>
+				<div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+					<button
+						type="button"
+						className={cn(buttonClass({ variant: 'ghost', size: 'sm' }), 'max-sm:px-3')}
+						onClick={() => requestLiveWatch()}
+					>
+						Show on map
+					</button>
+					<button
+						type="button"
+						className={cn(buttonClass({ variant: 'ghost', size: 'sm' }), 'max-sm:px-3')}
+						onClick={() => requestLiveShare(false)}
+					>
+						Stop sharing
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	if (!ping) return null;
+
+	const copy = livePingFollowerCopy(ping);
+	const muted = copy.signal !== 'fresh';
 
 	return (
 		<div
-			data-live-share-banner
+			data-live-watch-banner
 			role="status"
-			className={cn(
-				'flex flex-none items-center gap-2 px-3 py-2 text-[0.82rem] leading-snug',
-				'border-b border-live/35 bg-surface text-fg',
-				'max-sm:px-[max(0.625rem,env(safe-area-inset-left,0px))] max-sm:pr-[max(0.625rem,env(safe-area-inset-right,0px))]'
-			)}
+			className={cn(liveLocationBannerClass, muted && 'text-muted')}
 		>
-			<span className="size-2 shrink-0 rounded-full bg-live" aria-hidden="true" />
-			<span className="flex-1 min-w-0">Location is being shared on the map.</span>
+			<span
+				className={cn('size-2 shrink-0 rounded-full', muted ? 'bg-muted' : 'bg-live')}
+				aria-hidden="true"
+			/>
+			<span className="flex-1 min-w-0 grid gap-0.5">
+				<span>{copy.title}</span>
+				{copy.detail ? (
+					<span className="text-[0.75rem] leading-snug text-muted">{copy.detail}</span>
+				) : null}
+			</span>
 			<button
 				type="button"
-				className={cn(
-					buttonClass({ variant: 'ghost', size: 'sm' }),
-					'shrink-0 max-sm:px-3'
-				)}
-				onClick={() => requestLiveShare(false)}
+				className={cn(buttonClass({ variant: 'ghost', size: 'sm' }), 'shrink-0 max-sm:px-3')}
+				onClick={() => requestLiveWatch()}
 			>
-				Stop sharing
+				Open map
 			</button>
 		</div>
 	);
 }
 
-function LiveLocationWatch() {
-	const [ping, setPing] = useState<LiveLocationView | null>(null);
-	const [watching, setWatching] = useState(false);
-	const pingRef = useRef<LiveLocationView | null>(null);
-	pingRef.current = ping;
-
-	useLayoutEffect(() => {
-		syncLiveShareDom(false, false);
-	}, []);
-
-	const openWatch = useCallback(() => {
-		if (!pingRef.current) return;
-		setWatching(true);
-	}, []);
-
-	const closeWatch = useCallback(() => {
-		setWatching(false);
-	}, []);
-
-	useEffect(() => {
-		let cancelled = false;
-		const poll = () => {
-			void getLiveLocation()
-				.then((next) => {
-					if (cancelled) return;
-					setPing(next);
-					dispatchLivePing(next);
-					if (!next) setWatching(false);
-				})
-				.catch(() => {
-					/* ignore */
-				});
-		};
-		poll();
-		const timer = setInterval(poll, LIVE_LOCATION_PING_MS);
-		const offResume = subscribeAppResume(poll);
-		return () => {
-			cancelled = true;
-			clearInterval(timer);
-			offResume();
-			dispatchLivePing(null);
-		};
-	}, []);
-
-	useEffect(() => {
-		const onWatchRequest = () => openWatch();
-		window.addEventListener(LIVE_WATCH_REQUEST, onWatchRequest);
-		return () => window.removeEventListener(LIVE_WATCH_REQUEST, onWatchRequest);
-	}, [openWatch]);
-
-	if (!ping) return null;
-
-	return (
-		<>
-			{!watching ? (
-				<div data-live-watch-host className={liveShareHost}>
-					<div
-						className="pointer-events-auto flex items-center gap-[0.45rem] w-[min(32rem,100%)] py-[0.65rem] pr-[0.45rem] pl-[0.9rem] rounded-[14px] border border-live/40 bg-panel shadow-lift"
-						role="status"
-					>
-						<span className="size-2 shrink-0 rounded-full bg-live" aria-hidden="true" />
-						<p className="m-0 flex-1 text-[0.88rem] leading-[1.35]">Live location is on the map.</p>
-						<SnackAction type="button" onClick={openWatch}>
-							Open map
-						</SnackAction>
-					</div>
-				</div>
-			) : null}
-			{watching ? <LiveWatchMap ping={ping} onClose={closeWatch} /> : null}
-		</>
-	);
-}
-
-function LiveWatchMap({ ping, onClose }: { ping: LiveLocationView; onClose: () => void }) {
-	const wrapRef = useRef<HTMLDivElement>(null);
-	const containerRef = useRef<HTMLDivElement>(null);
-	const pingRef = useRef(ping);
-	const onCloseRef = useRef(onClose);
-	pingRef.current = ping;
-	onCloseRef.current = onClose;
-	useOverlayLock(true);
-
-	useEffect(() => {
-		let cancelled = false;
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		let map: any = null;
-		let chrome: MapChromeHandle | null = null;
-
-		(async () => {
-			try {
-				const L = await loadLeaflet();
-				if (cancelled || !containerRef.current || !wrapRef.current) return;
-				const start = pingRef.current;
-				map = L.map(containerRef.current, {
-					...leafletMapOptions(),
-					dragging: true
-				});
-				addBasemap(L, map);
-				const fit = () => {
-					const next = pingRef.current;
-					map.setView([next.lat, next.lng], Math.max(map.getZoom?.() ?? 15, 15), { animate: true });
-				};
-				map.setView([start.lat, start.lng], 15);
-				chrome = attachMapChrome({
-					map,
-					wrap: wrapRef.current,
-					onFit: fit,
-					alwaysPan: true,
-					followLive: true,
-					onClose: () => onCloseRef.current()
-				});
-				requestAnimationFrame(() => map.invalidateSize?.());
-			} catch {
-				if (!cancelled) onCloseRef.current();
-			}
-		})();
-
-		return () => {
-			cancelled = true;
-			chrome?.destroy();
-			map?.remove?.();
-		};
-	}, []);
-
-	return (
-		<OverlayPortal>
-			<div data-map-wrap className={cn(mapWrap, liveWatchMapShell)} ref={wrapRef}>
-				<div data-route-map className={liveWatchCanvas} ref={containerRef} />
-			</div>
-		</OverlayPortal>
-	);
-}
+const liveLocationBannerClass = cn(
+	'flex flex-none items-center gap-2 px-3 py-2 text-[0.82rem] leading-snug',
+	'border-b border-line bg-surface text-fg',
+	'max-sm:px-[max(0.625rem,env(safe-area-inset-left,0px))] max-sm:pr-[max(0.625rem,env(safe-area-inset-right,0px))]'
+);
 
 export function LiveLocationMenuItem({
 	className,
@@ -442,24 +428,33 @@ export function LiveLocationMenuItem({
 	const [liveOnMap, setLiveOnMap] = useState(false);
 
 	useEffect(() => {
-		if (authed) {
-			setSharing(liveShareOnSafe());
-			const on = (e: Event) => {
-				const next = (e as CustomEvent<LiveShareDetail>).detail?.sharing;
-				if (typeof next === 'boolean') setSharing(next);
-			};
-			window.addEventListener(LIVE_SHARE_EVENT, on);
-			return () => window.removeEventListener(LIVE_SHARE_EVENT, on);
-		}
+		const onShare = (e: Event) => {
+			const next = (e as CustomEvent<LiveShareDetail>).detail?.sharing;
+			if (typeof next === 'boolean') setSharing(next);
+		};
 		const onPing = (e: Event) => {
 			setLiveOnMap(!!(e as CustomEvent<LivePingDetail>).detail?.ping);
 		};
+		if (authed) {
+			setSharing(liveShareOnSafe() || liveShareWanted());
+		}
+		window.addEventListener(LIVE_SHARE_EVENT, onShare);
 		window.addEventListener(LIVE_PING_EVENT, onPing);
-		return () => window.removeEventListener(LIVE_PING_EVENT, onPing);
+		void fetchLiveLocation()
+			.then((ping) => {
+				setLiveOnMap(!!ping);
+				dispatchLivePing(ping);
+			})
+			.catch(() => {
+				/* ignore */
+			});
+		return () => {
+			window.removeEventListener(LIVE_SHARE_EVENT, onShare);
+			window.removeEventListener(LIVE_PING_EVENT, onPing);
+		};
 	}, [authed]);
 
-	if (!authed) {
-		if (!liveOnMap) return null;
+	if (liveOnMap && !sharing) {
 		return (
 			<button
 				type="button"
@@ -475,17 +470,48 @@ export function LiveLocationMenuItem({
 		);
 	}
 
+	if (!authed) return null;
+
+	if (sharing) {
+		return (
+			<>
+				<button
+					type="button"
+					className={className}
+					onClick={(e) => {
+						onClick?.(e);
+						requestLiveWatch();
+					}}
+				>
+					<Icon name="map" size={18} />
+					Show on map
+				</button>
+				<button
+					type="button"
+					className={className}
+					onClick={(e) => {
+						onClick?.(e);
+						requestLiveShare(false);
+					}}
+				>
+					<Icon name="locate" size={18} />
+					Stop sharing location
+				</button>
+			</>
+		);
+	}
+
 	return (
 		<button
 			type="button"
 			className={className}
 			onClick={(e) => {
 				onClick?.(e);
-				requestLiveShare(!sharing);
+				requestLiveShare(true);
 			}}
 		>
 			<Icon name="locate" size={18} />
-			{sharing ? 'Stop sharing location' : 'Share live location'}
+			Share live location
 		</button>
 	);
 }

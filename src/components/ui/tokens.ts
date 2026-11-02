@@ -91,7 +91,7 @@ export const ui = {
 	dialogBackdrop: 'absolute inset-0 bg-black/55',
 	dialogPanel:
 		'relative z-[1] flex w-full max-h-[min(88dvh,100%)] flex-col border border-line border-b-0 rounded-t-box bg-surface shadow-lift sm:max-w-[26rem] sm:border-b sm:rounded-box',
-	dialogPanelMedal: 'sm:max-w-[min(34rem,100%)]!',
+	dialogPanelWide: 'sm:max-w-[min(34rem,100%)]!',
 	statusPill:
 		'inline-flex items-center gap-1 shrink-0 px-[0.5rem] py-[0.12rem] rounded-full text-[0.68rem] tracking-[0.06em] uppercase font-bold',
 	routeChip:

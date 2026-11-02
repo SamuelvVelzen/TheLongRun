@@ -223,7 +223,7 @@ export function MedalDialog({
 	const distanceLine = goal ? formatMedalDistanceLine(goal, goal.result) : '';
 
 	return (
-		<Dialog open={open} title={goal?.name ?? 'Medal'} onClose={onClose} size="medal">
+		<Dialog open={open} title={goal?.name ?? 'Medal'} onClose={onClose} size="wide">
 			{goal && (
 				<div className="relative grid gap-4">
 					<Confetti active={celebrate} />

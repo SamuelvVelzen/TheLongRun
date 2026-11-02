@@ -98,7 +98,7 @@ function BodyNoteDialog({
 			open={open}
 			title={note ? `Edit · ${capitalize(note.area)}` : 'Add body note'}
 			onClose={busy ? () => {} : onClose}
-			size="medal"
+			size="wide"
 			className="sm:max-w-[min(38rem,100%)]!"
 		>
 			<Form

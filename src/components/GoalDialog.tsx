@@ -87,7 +87,7 @@ export function GoalDialog({
 				open={open}
 				title={title}
 				onClose={requestClose}
-				size="medal"
+				size="wide"
 				className="sm:max-w-[min(42rem,100%)]!"
 			>
 				<p className={cn('text-muted', 'm-0')}>{description}</p>

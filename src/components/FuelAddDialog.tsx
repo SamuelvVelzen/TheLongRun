@@ -20,7 +20,7 @@ export function FuelAddDialog({
 	return (
 		<Dialog
 			open={open}
-			size="medal"
+			size="wide"
 			title={`Add · ${FUEL_PHASE_META[phase].label}`}
 			onClose={busy ? () => {} : onClose}
 			className="sm:max-w-[min(38rem,100%)]!"

@@ -61,7 +61,7 @@ Toolbar button **Import with AI** opens a dialog built on **`AiPromptFlow`**: op
 | `Button`                                      | Primary / ghost / danger actions                                               |
 | `Checkbox`                                    | Accessible checkbox + label                                                    |
 | `ChoiceChips`                                 | Single-select pill options                                                     |
-| `ConfirmDialog` / `Dialog`                    | Modal; `Dialog size="medal"` for wide medal flows                              |
+| `ConfirmDialog` / `Dialog`                    | Modal; `Dialog size="wide"` for wider content-heavy dialogs                    |
 | `DestructiveLink` / `destructiveNavLinkClass` | Warn-styled links (e.g. sign out)                                              |
 | `DeleteButton` / `EditButton`                 | Icon actions for lists                                                         |
 | `IconLabelButton`                             | Toolbar ghost control: label on `sm+`, icon-only on mobile (`aria-label` kept) |

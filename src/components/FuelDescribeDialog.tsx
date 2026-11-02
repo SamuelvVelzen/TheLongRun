@@ -55,7 +55,7 @@ export function FuelDescribeDialog({
 	return (
 		<Dialog
 			open={open}
-			size="medal"
+			size="wide"
 			title="Import fuel with AI"
 			onClose={onClose}
 			className="sm:max-w-[min(42rem,100%)]!"

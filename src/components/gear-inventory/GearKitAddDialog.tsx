@@ -61,7 +61,7 @@ export function GearKitAddDialog({
 		<Dialog
 			open={open}
 			title="Add kit"
-			size="medal"
+			size="wide"
 			className="sm:max-w-[min(38rem,100%)]!"
 			onClose={busy ? () => {} : onClose}
 		>

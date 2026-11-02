@@ -11,7 +11,7 @@ const dialogHeaderPad =
 const dialogBodyPad = 'px-[1.15rem] py-4 sm:px-[1.35rem]';
 const dialogFooterPad =
 	'px-[1.15rem] pt-3 pb-[calc(1.15rem+env(safe-area-inset-bottom,0px))] sm:px-[1.35rem] sm:pb-[1.25rem]';
-const dialogMedalPad = 'sm:px-[1.5rem]';
+const dialogWidePad = 'sm:px-[1.5rem]';
 
 export function Dialog({
 	open,
@@ -28,7 +28,7 @@ export function Dialog({
 	onClose: () => void;
 	children?: ReactNode;
 	actions?: ReactNode;
-	size?: 'default' | 'medal';
+	size?: 'default' | 'wide';
 	className?: string;
 	compactClose?: boolean;
 }) {
@@ -48,9 +48,9 @@ export function Dialog({
 
 	if (!open) return null;
 
-	const padX = size === 'medal' ? cn(dialogHeaderPad, dialogMedalPad) : dialogHeaderPad;
-	const bodyPadX = size === 'medal' ? cn(dialogBodyPad, dialogMedalPad) : dialogBodyPad;
-	const footerPadX = size === 'medal' ? cn(dialogFooterPad, dialogMedalPad) : dialogFooterPad;
+	const padX = size === 'wide' ? cn(dialogHeaderPad, dialogWidePad) : dialogHeaderPad;
+	const bodyPadX = size === 'wide' ? cn(dialogBodyPad, dialogWidePad) : dialogBodyPad;
+	const footerPadX = size === 'wide' ? cn(dialogFooterPad, dialogWidePad) : dialogFooterPad;
 
 	return (
 		<OverlayPortal>
@@ -59,9 +59,9 @@ export function Dialog({
 				<div
 					className={cn(
 						ui.dialogPanel,
-						size === 'medal' && ui.dialogPanelMedal,
+						size === 'wide' && ui.dialogPanelWide,
 						'!gap-0 overflow-hidden !p-0',
-						size === 'medal' && '!sm:p-0',
+						size === 'wide' && '!sm:p-0',
 						className
 					)}
 					onClick={(e) => e.stopPropagation()}

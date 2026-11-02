@@ -210,7 +210,7 @@ export function FeelAiDialog({
 		<>
 			<Dialog
 				open={open}
-				size="medal"
+				size="wide"
 				title="Feel with AI"
 				className="sm:max-w-[min(42rem,100%)]!"
 				onClose={onClose}

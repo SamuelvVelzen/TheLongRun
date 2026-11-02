@@ -188,7 +188,10 @@ export function FilterSheet({
 							<div
 								ref={panelRef}
 								id={panelId}
-								className={cn(ui.dialogPanel, 'sm:max-w-none')}
+								className={cn(
+									ui.dialogPanel,
+									'sm:max-w-none gap-4 overflow-y-auto overscroll-contain p-[1.15rem_1.2rem_calc(1.15rem+env(safe-area-inset-bottom,0px))] sm:p-[1.25rem_1.35rem]'
+								)}
 								style={panelStyle}
 								role="dialog"
 								aria-modal="true"

@@ -6,6 +6,13 @@ import { Actions } from './Actions';
 import { Button } from './Button';
 import { ui } from './tokens';
 
+const dialogHeaderPad =
+	'px-[1.15rem] pt-[1.15rem] pb-3 sm:px-[1.35rem] sm:pt-[1.25rem] sm:pb-3.5';
+const dialogBodyPad = 'px-[1.15rem] py-4 sm:px-[1.35rem]';
+const dialogFooterPad =
+	'px-[1.15rem] pt-3 pb-[calc(1.15rem+env(safe-area-inset-bottom,0px))] sm:px-[1.35rem] sm:pb-[1.25rem]';
+const dialogMedalPad = 'sm:px-[1.5rem]';
+
 export function Dialog({
 	open,
 	title,
@@ -41,16 +48,31 @@ export function Dialog({
 
 	if (!open) return null;
 
+	const padX = size === 'medal' ? cn(dialogHeaderPad, dialogMedalPad) : dialogHeaderPad;
+	const bodyPadX = size === 'medal' ? cn(dialogBodyPad, dialogMedalPad) : dialogBodyPad;
+	const footerPadX = size === 'medal' ? cn(dialogFooterPad, dialogMedalPad) : dialogFooterPad;
+
 	return (
 		<OverlayPortal>
 			<div className={ui.dialogRoot} role="dialog" aria-modal="true" aria-labelledby={titleId}>
 				<div className={ui.dialogBackdrop} onClick={onClose} aria-hidden="true" />
 				<div
-					className={cn(ui.dialogPanel, size === 'medal' && ui.dialogPanelMedal, className)}
+					className={cn(
+						ui.dialogPanel,
+						size === 'medal' && ui.dialogPanelMedal,
+						'!gap-0 overflow-hidden !p-0',
+						size === 'medal' && '!sm:p-0',
+						className
+					)}
 					onClick={(e) => e.stopPropagation()}
 					onPointerDown={(e) => e.stopPropagation()}
 				>
-					<div className="flex items-start justify-between gap-3">
+					<div
+						className={cn(
+							padX,
+							'shrink-0 flex items-start justify-between gap-3 border-b border-line bg-surface'
+						)}
+					>
 						<strong id={titleId} className="font-display text-[1.2rem] tracking-[-0.03em]">
 							{title}
 						</strong>
@@ -58,7 +80,7 @@ export function Dialog({
 							variant="ghost"
 							size="icon"
 							className={cn(
-								'text-[1.25rem]',
+								'shrink-0 text-[1.25rem]',
 								compactClose &&
 									'size-8! min-h-8! min-w-8! max-sm:!size-8 max-sm:!min-h-8 max-sm:!min-w-8'
 							)}
@@ -68,8 +90,24 @@ export function Dialog({
 							<Icon name="close" size={compactClose ? 14 : 16} />
 						</Button>
 					</div>
-					{children}
-					{actions && <Actions>{actions}</Actions>}
+					<div
+						className={cn(
+							bodyPadX,
+							'min-h-0 flex-1 overflow-y-auto overscroll-contain [overscroll-behavior:contain]'
+						)}
+					>
+						{children}
+					</div>
+					{actions ? (
+						<div
+							className={cn(
+								footerPadX,
+								'shrink-0 border-t border-line bg-surface/95 backdrop-blur-[6px]'
+							)}
+						>
+							<Actions>{actions}</Actions>
+						</div>
+					) : null}
 				</div>
 			</div>
 		</OverlayPortal>

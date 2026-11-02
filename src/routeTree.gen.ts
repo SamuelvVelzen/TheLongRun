@@ -15,6 +15,7 @@ import { Route as FuelRouteImport } from './routes/fuel'
 import { Route as GearRouteImport } from './routes/gear'
 import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as ImportRouteImport } from './routes/import'
+import { Route as LiveRouteImport } from './routes/live'
 import { Route as LogRouteImport } from './routes/log'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LogoutRouteImport } from './routes/logout'
@@ -55,6 +56,11 @@ const GoalsRoute = GoalsRouteImport.update({
 const ImportRoute = ImportRouteImport.update({
   id: '/import',
   path: '/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveRoute = LiveRouteImport.update({
+  id: '/live',
+  path: '/live',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LogRoute = LogRouteImport.update({
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/gear': typeof GearRoute
   '/goals': typeof GoalsRoute
   '/import': typeof ImportRoute
+  '/live': typeof LiveRoute
   '/log': typeof LogRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
@@ -139,6 +146,7 @@ export interface FileRoutesByTo {
   '/gear': typeof GearRoute
   '/goals': typeof GoalsRoute
   '/import': typeof ImportRoute
+  '/live': typeof LiveRoute
   '/log': typeof LogRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
@@ -158,6 +166,7 @@ export interface FileRoutesById {
   '/gear': typeof GearRoute
   '/goals': typeof GoalsRoute
   '/import': typeof ImportRoute
+  '/live': typeof LiveRoute
   '/log': typeof LogRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
@@ -179,6 +188,7 @@ export interface FileRouteTypes {
     | '/gear'
     | '/goals'
     | '/import'
+    | '/live'
     | '/log'
     | '/login'
     | '/logout'
@@ -198,6 +208,7 @@ export interface FileRouteTypes {
     | '/gear'
     | '/goals'
     | '/import'
+    | '/live'
     | '/log'
     | '/login'
     | '/logout'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/gear'
     | '/goals'
     | '/import'
+    | '/live'
     | '/log'
     | '/login'
     | '/logout'
@@ -236,6 +248,7 @@ export interface RootRouteChildren {
   GearRoute: typeof GearRoute
   GoalsRoute: typeof GoalsRoute
   ImportRoute: typeof ImportRoute
+  LiveRoute: typeof LiveRoute
   LogRoute: typeof LogRoute
   LoginRoute: typeof LoginRoute
   LogoutRoute: typeof LogoutRoute
@@ -288,6 +301,13 @@ declare module '@tanstack/react-router' {
       path: '/import'
       fullPath: '/import'
       preLoaderRoute: typeof ImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/live': {
+      id: '/live'
+      path: '/live'
+      fullPath: '/live'
+      preLoaderRoute: typeof LiveRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/log': {
@@ -392,6 +412,7 @@ const rootRouteChildren: RootRouteChildren = {
   GearRoute: GearRoute,
   GoalsRoute: GoalsRoute,
   ImportRoute: ImportRoute,
+  LiveRoute: LiveRoute,
   LogRoute: LogRoute,
   LoginRoute: LoginRoute,
   LogoutRoute: LogoutRoute,

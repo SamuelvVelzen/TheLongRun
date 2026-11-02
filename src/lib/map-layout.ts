@@ -21,6 +21,7 @@ export const mapHeatmapLegend =
 export const liveShareHost =
 	'fixed z-[55] inset-x-0 top-[calc(var(--app-header-height)+0.65rem)] flex justify-center px-4 pointer-events-none max-sm:px-3';
 
-export const liveWatchMapShell = 'fixed inset-0 z-[20000] m-0 border-0 rounded-none bg-inset';
+export const liveWatchMapShell =
+	'overlay-root fixed inset-0 z-[20000] m-0 border-0 rounded-none bg-inset';
 
 export const liveWatchCanvas = 'size-full min-h-full';

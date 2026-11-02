@@ -2,9 +2,11 @@
 import { subscribeAppResume } from '$lib/app-resume';
 import type { LeafletGlobal } from '$lib/leaflet';
 import {
+	LIVE_LOCATION_ACTIVE_PING_MS,
 	LIVE_LOCATION_PING_MS,
 	LIVE_SHARE_EVENT,
 	liveAgo,
+	livePingSignal,
 	liveShareAuthed,
 	liveShareOn,
 	requestLiveShare,
@@ -18,7 +20,8 @@ import {
 	retainHeadingTrack,
 	subscribeHeading
 } from '$lib/location-heading';
-import { getLiveLocation } from '$lib/server/functions';
+import { fetchLiveLocation } from '$lib/fetch-live-location';
+import { kmMarkersFromCoords } from '$lib/splits';
 import { cssColor, getTheme, THEME_EVENT } from '$lib/theme';
 
 export type MapChromeHandle = {
@@ -497,7 +500,9 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			? (() => {
 					const row = document.createElement('div');
 					row.className =
-						'map-chrome-history inline-flex gap-[0.35rem] max-sm:gap-[0.3rem]';
+						'map-chrome-history absolute z-1100 bottom-[max(4.75rem,calc(0.65rem+env(safe-area-inset-bottom,0px)))] right-[max(0.65rem,env(safe-area-inset-right,0px))] hidden group-data-[map-fullscreen=true]/map:inline-flex gap-[0.35rem] max-sm:gap-[0.3rem] pointer-events-auto';
+					row.setAttribute('role', 'group');
+					row.setAttribute('aria-label', 'Pin history');
 					row.append(btnUndo, btnRedo);
 					return row;
 				})()
@@ -806,6 +811,8 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let liveRouteCasing: any = null;
 	let liveRouteSlug: string | null = null;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let liveRouteKmMarkers: any[] = [];
 	let liveTimer: ReturnType<typeof setInterval> | null = null;
 	let offLiveResume = () => {};
 	let releaseHeading: (() => void) | null = null;
@@ -944,8 +951,10 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	const clearLiveRoute = () => {
 		liveRouteLine?.remove?.();
 		liveRouteCasing?.remove?.();
+		for (const m of liveRouteKmMarkers) m.remove?.();
 		liveRouteLine = null;
 		liveRouteCasing = null;
+		liveRouteKmMarkers = [];
 		liveRouteSlug = null;
 	};
 
@@ -973,10 +982,21 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		liveRouteLine = route.line;
 		liveRouteCasing = route.casing;
 		liveRouteSlug = slug;
+		for (const m of kmMarkersFromCoords(coords)) {
+			liveRouteKmMarkers.push(
+				L.marker([m.lat, m.lng], {
+					icon: kmMarkerIcon(L, m.km),
+					keyboard: false,
+					interactive: false,
+					zIndexOffset: 400
+				}).addTo(map)
+			);
+		}
 	};
 
 	const showLivePing = (ping: LiveLocationView | null) => {
-		if (!L || !ping || liveShareAuthed()) {
+		const hideForSharer = liveShareAuthed() && liveShareOn() && !followLive;
+		if (!L || !ping || hideForSharer) {
 			liveWatcherPing = null;
 			syncShareChrome();
 			clearLiveOverlay();
@@ -987,8 +1007,15 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		showLiveRoute(ping);
 		const latlng = L.latLng(ping.lat, ping.lng);
 		const acc = ping.accuracy && ping.accuracy > 0 ? ping.accuracy : 0;
-		const tip = `Live · ${liveAgo(ping.updatedAt)}`;
-		const liveColor = cssColor('--live', '#ff4ec8');
+		const signal = livePingSignal(ping);
+		const tip =
+			signal === 'stale'
+				? `Live · paused · ${liveAgo(ping.updatedAt)}`
+				: signal === 'idle'
+					? `Live · no movement · ${liveAgo(ping.lastMovedAt ?? ping.updatedAt)}`
+					: `Live · ${liveAgo(ping.updatedAt)}`;
+		const liveColor =
+			signal === 'fresh' ? cssColor('--live', '#ff4ec8') : cssColor('--muted', '#8a9488');
 		if (!liveMarker) {
 			liveMarker = L.marker(latlng, {
 				icon: liveLocationIcon(L),
@@ -1010,7 +1037,11 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			liveMarker.setTooltipContent?.(tip);
 			liveAccuracy?.setLatLng?.(latlng);
 			if (acc > 0) liveAccuracy?.setRadius?.(acc);
+			liveAccuracy?.setStyle?.({ color: liveColor, fillColor: liveColor });
 		}
+		const el = liveMarker?.getElement?.() as HTMLElement | undefined;
+		el?.classList.toggle('is-stale', signal === 'stale');
+		el?.classList.toggle('is-idle', signal === 'idle');
 		applyMarkerHeading(liveMarker?.getElement?.(), ping.heading);
 		if (followLive && !locUserPan) {
 			const z = map.getZoom?.() ?? 15;
@@ -1019,11 +1050,11 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	};
 
 	const pollLive = () => {
-		if (liveShareAuthed()) {
+		if (liveShareAuthed() && liveShareOn() && !followLive) {
 			clearLiveOverlay();
 			return;
 		}
-		void getLiveLocation()
+		void fetchLiveLocation()
 			.then((ping) => {
 				showLivePing(ping);
 			})
@@ -1033,7 +1064,8 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	};
 	if (!isPinEditor) {
 		pollLive();
-		liveTimer = setInterval(pollLive, LIVE_LOCATION_PING_MS);
+		const pollMs = followLive ? LIVE_LOCATION_ACTIVE_PING_MS : LIVE_LOCATION_PING_MS;
+		liveTimer = setInterval(pollLive, pollMs);
 		offLiveResume = subscribeAppResume(pollLive);
 	}
 
@@ -1051,14 +1083,18 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			L?.DomEvent?.disableClickPropagation?.(hint);
 			L?.DomEvent?.disableScrollPropagation?.(hint);
 		}
+		if (pinHistory) {
+			L?.DomEvent?.disableClickPropagation?.(pinHistory);
+			L?.DomEvent?.disableScrollPropagation?.(pinHistory);
+		}
 	} catch {
 		/* ignore */
 	}
 
 	bar.append(texts);
-	if (pinHistory) bar.append(pinHistory);
 	bar.append(icons);
 	wrap.appendChild(bar);
+	if (pinHistory) wrap.appendChild(pinHistory);
 
 	return {
 		destroy: () => {
@@ -1088,6 +1124,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 				mapEl.style.removeProperty('touch-action');
 			}
 			hint?.remove();
+			pinHistory?.remove();
 			bar.remove();
 			cssFullscreen = false;
 			if (mapEl) applyFsBox(wrap, mapEl, false, false);

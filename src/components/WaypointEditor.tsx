@@ -7,7 +7,6 @@ import { cn } from '$lib/ui';
 import { type ReactNode, type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { GpsWaypointMap } from './GpsWaypointMap';
-import { Icon } from './Icon';
 
 export type WaypointEditorSave = {
 	waypoints: GpsWaypoint[];
@@ -205,30 +204,6 @@ export function WaypointEditor({
 					)
 				: null}
 			<div className="flex flex-wrap items-center gap-2">
-				{mapFullscreen ? null : (
-					<>
-						<button
-							className={buttonClass({ variant: 'ghost', size: 'icon' })}
-							type="button"
-							disabled={busy || past.length === 0}
-							aria-label="Undo pin"
-							title="Undo"
-							onClick={undo}
-						>
-							<Icon name="undo" size={16} />
-						</button>
-						<button
-							className={buttonClass({ variant: 'ghost', size: 'icon' })}
-							type="button"
-							disabled={busy || future.length === 0}
-							aria-label="Redo pin"
-							title="Redo"
-							onClick={redo}
-						>
-							<Icon name="redo" size={16} />
-						</button>
-					</>
-				)}
 				<button
 					className={buttonClass({ variant: 'ghost', size: 'sm' })}
 					type="button"

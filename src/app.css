@@ -672,6 +672,25 @@ html.overlay-open .overlay-root {
 	text-transform: uppercase;
 }
 
+.live-loc.is-stale .live-loc-pulse,
+.live-loc.is-idle .live-loc-pulse {
+	animation: none;
+	opacity: 0.35;
+	background: color-mix(in srgb, var(--muted) 40%, transparent);
+}
+
+.live-loc.is-stale .live-loc-dot,
+.live-loc.is-idle .live-loc-dot {
+	background: var(--muted);
+	border-color: color-mix(in srgb, var(--muted) 70%, var(--line));
+}
+
+.live-loc.is-stale .live-loc-label,
+.live-loc.is-idle .live-loc-label {
+	color: var(--muted);
+	border-color: color-mix(in srgb, var(--muted) 55%, var(--line));
+}
+
 html.map-fs-active [data-live-share-host],
 body.map-fs-active [data-live-share-host],
 html.map-fs-active [data-live-watch-host],

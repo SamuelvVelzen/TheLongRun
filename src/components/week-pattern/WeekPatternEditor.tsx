@@ -1,6 +1,7 @@
-import { ConfirmDialog, Dialog, Field, IconLabelButton } from '../ui';
+import { ConfirmDialog, Dialog, Field, FormSection, ChoiceChips, EditButton } from '../ui';
 import { buttonClass } from '../ui/Button';
 import { fieldClass, fieldHintClass } from '../ui/Field';
+import { ui } from '../ui/tokens';
 import { ACTIVITY_TYPES, activityLabel, type ActivityType } from '$lib/activity';
 import { cn } from '$lib/ui';
 import {
@@ -17,9 +18,8 @@ import {
 	type WeekSlotConstraint
 } from '$lib/week-mix';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChoiceChips } from '../ChoiceChips';
-import { DeleteButton } from '../DeleteButton';
 import { ActivityIcon, Icon, sportChipLabel } from '../Icon';
+import { MoreMenu } from '../MoreMenu';
 
 export type SlotRow = WeekSlot & { id: string };
 
@@ -125,8 +125,17 @@ function limitPlaceholder(kind: DayLimitKind): string {
 	return kind === 'off' ? "Kids' swimming" : 'Only before 8:00, max 45 min';
 }
 
-const chip =
-	'appearance-none inline-flex items-center justify-center gap-1 min-h-8! min-w-0 px-2.5 py-1 rounded-full border border-solid text-[0.75rem] font-semibold leading-none cursor-pointer transition-[color,background-color,border-color] duration-150 disabled:opacity-35 disabled:cursor-not-allowed';
+function constraintIcon(constraint: WeekSlotConstraint): 'locate' | 'skip' | 'sparkle' {
+	if (constraint === 'fixed') return 'locate';
+	if (constraint === 'optional') return 'skip';
+	return 'sparkle';
+}
+
+function limitKindIcon(kind: DayLimitKind): 'moon' | 'warning' {
+	return kind === 'off' ? 'moon' : 'warning';
+}
+
+const rowChipClass = cn(ui.choiceChip, 'min-h-9! px-2.5! py-1! text-[0.78rem]');
 
 function RowChip({
 	pressed,
@@ -144,12 +153,7 @@ function RowChip({
 	return (
 		<button
 			type="button"
-			className={cn(
-				chip,
-				pressed
-					? 'bg-accent text-accent-ink border-accent'
-					: 'bg-transparent text-muted border-line hover:text-fg hover:border-accent/35'
-			)}
+			className={rowChipClass}
 			aria-pressed={pressed}
 			aria-label={ariaLabel}
 			disabled={disabled}
@@ -163,10 +167,12 @@ function RowChip({
 	);
 }
 
-const staticChip =
-	'inline-flex items-center justify-center gap-1 min-h-8 min-w-0 px-2.5 py-1 rounded-full border border-solid text-[0.75rem] font-semibold leading-none';
+const staticChip = cn(ui.tag, 'min-h-9 px-2.5 py-1 text-[0.78rem] font-semibold text-fg');
 
-const blockLabel = 'm-0 text-[0.72rem] tracking-[0.08em] uppercase font-bold text-accent-fg';
+const listShell = 'rounded-box border border-line bg-canvas overflow-hidden divide-y divide-line';
+
+const sectionActionClass =
+	'appearance-none bg-transparent border-0 p-0 min-h-11 text-accent-fg font-semibold cursor-pointer text-[0.85rem] whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed';
 
 export function WeekPatternEditor({
 	rows,
@@ -189,12 +195,10 @@ export function WeekPatternEditor({
 }) {
 	const [draft, setDraft] = useState<Draft | null>(null);
 	const [pending, setPending] = useState<SlotRow | null>(null);
-	const [noteId, setNoteId] = useState<string | null>(null);
-	const [noteText, setNoteText] = useState('');
+	const [pendingLimitDay, setPendingLimitDay] = useState<Weekday | null>(null);
 	const [flashId, setFlashId] = useState<string | null>(null);
 	const [limitDraft, setLimitDraft] = useState<LimitDraft | null>(null);
 	const flashRef = useRef<HTMLDivElement | null>(null);
-	const noteRef = useRef<HTMLTextAreaElement | null>(null);
 
 	const grouped = WEEKDAYS.map((day) => ({
 		day,
@@ -209,12 +213,6 @@ export function WeekPatternEditor({
 		return () => window.clearTimeout(t);
 	}, [flashId]);
 
-	useEffect(() => {
-		if (!noteId) return;
-		noteRef.current?.focus();
-		noteRef.current?.select();
-	}, [noteId]);
-
 	function togglePlanned(t: ActivityType) {
 		const set = new Set(plannedSports);
 		if (set.has(t)) set.delete(t);
@@ -223,52 +221,15 @@ export function WeekPatternEditor({
 	}
 
 	function openAdd() {
-		setNoteId(null);
 		setDraft(emptyDraft('Monday'));
 	}
 
 	function openEdit(row: SlotRow) {
-		setNoteId(null);
 		setDraft(draftFromRow(row));
 	}
 
 	function replaceRow(id: string, slot: WeekSlot) {
 		onChange(rows.map((r) => (r.id === id ? { id: r.id, ...slot } : r)));
-	}
-
-	function setConstraint(row: SlotRow, value: WeekSlotConstraint) {
-		replaceRow(
-			row.id,
-			compactSlot({
-				day: row.day,
-				activity_type: row.activity_type,
-				notes: row.notes,
-				constraint: value
-			})
-		);
-	}
-
-	function openNotes(row: SlotRow) {
-		setDraft(null);
-		setNoteId(row.id);
-		setNoteText(row.notes ?? '');
-	}
-
-	function saveNotes() {
-		if (!noteId) return;
-		const row = rows.find((r) => r.id === noteId);
-		if (row) {
-			replaceRow(
-				row.id,
-				compactSlot({
-					day: row.day,
-					activity_type: row.activity_type,
-					constraint: row.constraint,
-					notes: noteText
-				})
-			);
-		}
-		setNoteId(null);
 	}
 
 	function saveDraft() {
@@ -318,18 +279,15 @@ export function WeekPatternEditor({
 	const editing = draft?.id != null;
 	const atCap = rows.length >= MAX_WEEK_SLOTS;
 	const limitNoteMissing = limitDraft?.kind === 'limited' && !limitDraft.notes.trim();
-	const limitReplaces =
-		limitDraft != null && limitDraft.day !== limitDraft.editing && limitByDay.has(limitDraft.day);
 
 	return (
-		<div className="grid gap-5 mt-[0.45rem]">
-			<div className="grid gap-[0.4rem]">
-				<p className={blockLabel}>Coach plans</p>
-				<div className="flex flex-wrap gap-1.5">
+		<div className={ui.form}>
+			<FormSection title="Coach plans">
+				<div className={ui.choiceChips}>
 					{ACTIVITY_TYPES.map((t) =>
 						readOnly ? (
 							plannedSports.includes(t) ? (
-								<span key={t} className={cn(staticChip, 'bg-accent text-accent-ink border-accent')}>
+								<span key={t} className={cn(staticChip, ui.tagAccent)}>
 									{activityLabel(t)}
 								</span>
 							) : null
@@ -356,10 +314,23 @@ export function WeekPatternEditor({
 						as load from your history.
 					</span>
 				)}
-			</div>
+			</FormSection>
 
-			<div className="grid gap-3">
-				<p className={blockLabel}>Pinned activities</p>
+			<FormSection
+				title="Pinned activities"
+				action={
+					readOnly ? undefined : (
+						<button
+							type="button"
+							className={sectionActionClass}
+							disabled={disabled || atCap}
+							onClick={openAdd}
+						>
+							+ Pin activity
+						</button>
+					)
+				}
+			>
 				{grouped.length === 0 && (
 					<p className={cn('text-muted', 'm-0')}>
 						{readOnly
@@ -370,142 +341,71 @@ export function WeekPatternEditor({
 				{grouped.map((group) => {
 					const offDay = limitByDay.get(group.day)?.kind === 'off';
 					return (
-						<div key={group.day} className="grid gap-[0.4rem]">
-							<p className="m-0 text-[0.8rem] font-semibold text-fg">{group.day}</p>
+						<div key={group.day} className="grid gap-2">
+							<p className="m-0 text-[0.82rem] font-semibold tracking-[-0.01em] text-fg">{group.day}</p>
 							{offDay && (
 								<p className={cn(fieldHintClass, 'm-0')}>
 									{group.day} is marked off, but has pinned activities — those still happen.
 								</p>
 							)}
-							<div className="border border-line rounded-xl bg-inset overflow-hidden">
-								{group.rows.map((row, i) => {
+							<div className={listShell}>
+								{group.rows.map((row) => {
 									const notes = row.notes?.trim();
-									const editingNote = noteId === row.id;
 									const constraint = row.constraint ?? 'preference';
 									return (
 										<div
 											key={row.id}
 											ref={row.id === flashId ? flashRef : undefined}
-											className={i > 0 ? 'border-t border-line' : undefined}
+											className="px-3 py-2.5"
 										>
-											<div className="relative flex items-center gap-2 min-h-11 px-3">
-												{readOnly ? null : (
-													<button
-														type="button"
-														className="absolute inset-0 z-0 appearance-none m-0 p-0 border-0 rounded-none bg-transparent cursor-pointer hover:bg-accent/8 disabled:opacity-35 disabled:cursor-not-allowed"
-														aria-label={`Edit ${group.day} ${activityLabel(row.activity_type)}`}
-														disabled={disabled}
-														onClick={() => openEdit(row)}
-													/>
-												)}
-												<div className="relative z-[1] flex flex-wrap items-center gap-2 min-w-0 flex-1 pointer-events-none">
+											<div className="flex items-start gap-2 min-h-8">
+												<div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
 													<span className="inline-flex items-center gap-2 text-fg font-semibold">
 														<ActivityIcon type={row.activity_type} size={16} />
 														{activityLabel(row.activity_type)}
 													</span>
-													<div
+													<span
 														className={cn(
-															'flex flex-wrap items-center gap-1.5',
-															!readOnly && 'pointer-events-auto'
+															staticChip,
+															'inline-flex items-center gap-1 bg-transparent text-muted border-line font-semibold'
 														)}
 													>
-														{readOnly ? (
-															<>
-																<span
-																	className={cn(
-																		staticChip,
-																		constraint === 'preference'
-																			? 'bg-transparent text-muted border-line'
-																			: 'bg-accent text-accent-ink border-accent'
-																	)}
-																>
-																	{slotConstraintLabel(constraint)}
-																</span>
-																{notes ? (
-																	<span
-																		className={cn(
-																			staticChip,
-																			'max-w-[min(100%,16rem)] bg-transparent text-muted border-line font-normal'
-																		)}
-																	>
-																		<span className="truncate">{notes}</span>
-																	</span>
-																) : null}
-															</>
-														) : (
-															<>
-																{CONSTRAINTS.map((c) => (
-																	<RowChip
-																		key={c}
-																		pressed={constraint === c}
-																		disabled={disabled}
-																		aria-label={slotConstraintLabel(c)}
-																		onClick={() => setConstraint(row, c)}
-																	>
-																		{slotConstraintLabel(c)}
-																	</RowChip>
-																))}
-																{!editingNote && (
-																	<button
-																		type="button"
-																		className={cn(
-																			chip,
-																			notes
-																				? 'max-w-[min(100%,16rem)] bg-transparent text-muted border-line font-normal hover:text-fg hover:border-accent/35'
-																				: 'bg-transparent text-muted border-dashed border-line hover:text-fg hover:border-accent/35'
-																		)}
-																		disabled={disabled}
-																		aria-label={notes ? 'Edit notes' : 'Add notes'}
-																		onClick={(event) => {
-																			event.stopPropagation();
-																			openNotes(row);
-																		}}
-																	>
-																		<span className={notes ? 'truncate' : undefined}>
-																			{notes || '+ note'}
-																		</span>
-																	</button>
-																)}
-															</>
-														)}
-													</div>
+														<Icon name={constraintIcon(constraint)} size={12} />
+														{slotConstraintLabel(constraint)}
+													</span>
 												</div>
 												{readOnly ? null : (
-													<div className="relative z-[1] shrink-0">
-														<DeleteButton
+													<div className="flex shrink-0 items-center gap-0.5">
+														<EditButton
 															compact
-															label={`Delete ${group.day} ${activityLabel(row.activity_type)}`}
+															className="text-muted hover:text-fg"
+															label={`Edit ${group.day} ${activityLabel(row.activity_type)}`}
 															disabled={disabled}
-															onClick={(event) => {
-																event.stopPropagation();
-																setPending(row);
-															}}
+															onClick={() => openEdit(row)}
+														/>
+														<MoreMenu
+															compact
+															label={`More for ${activityLabel(row.activity_type)}`}
+															items={[
+																{
+																	label: 'Unpin',
+																	icon: <Icon name="close" size={16} />,
+																	danger: true,
+																	onClick: () => setPending(row)
+																}
+															]}
 														/>
 													</div>
 												)}
 											</div>
-											{editingNote && (
-												<Field as="label" className="relative z-[1] px-3 pb-2.5">
-													<textarea
-														ref={noteRef}
-														rows={2}
-														value={noteText}
-														disabled={disabled}
-														placeholder={notesPlaceholder(constraint)}
-														onChange={(event) => setNoteText(event.target.value)}
-														onBlur={saveNotes}
-														onKeyDown={(event) => {
-															if (event.key === 'Escape') {
-																event.preventDefault();
-																setNoteId(null);
-															}
-															if (event.key === 'Enter' && !event.shiftKey) {
-																event.preventDefault();
-																event.currentTarget.blur();
-															}
-														}}
-													/>
-												</Field>
+											{notes ? (
+												<p className="m-0 mt-1.5 text-[0.85rem] leading-snug text-muted">
+													{notes}
+												</p>
+											) : readOnly ? null : (
+												<p className="m-0 mt-1.5 text-[0.82rem] text-muted/70 italic">
+													No note — edit to add context for the coach.
+												</p>
 											)}
 										</div>
 									);
@@ -514,19 +414,23 @@ export function WeekPatternEditor({
 						</div>
 					);
 				})}
-				{readOnly ? null : (
-					<IconLabelButton
-						label="Pin an activity"
-						size="default"
-						disabled={disabled || atCap}
-						icon={<Icon name="plus" size={16} />}
-						onClick={openAdd}
-					/>
-				)}
-			</div>
+			</FormSection>
 
-			<div className="grid gap-[0.4rem]">
-				<p className={blockLabel}>Day limits</p>
+			<FormSection
+				title="Day limits"
+				action={
+					readOnly ? undefined : (
+						<button
+							type="button"
+							className={sectionActionClass}
+							disabled={disabled || dayLimits.length >= WEEKDAYS.length}
+							onClick={openAddLimit}
+						>
+							+ Day limit
+						</button>
+					)
+				}
+			>
 				{dayLimits.length === 0 ? (
 					<p className={cn('text-muted', 'm-0')}>
 						{readOnly
@@ -534,67 +438,60 @@ export function WeekPatternEditor({
 							: 'Every day is available. Add a limit for days you can’t train, or only part of the day.'}
 					</p>
 				) : (
-					<div className="border border-line rounded-xl bg-inset overflow-hidden">
-						{dayLimits.map((limit, i) => (
-							<div
-								key={limit.day}
-								className={cn(
-									'relative flex items-center gap-2 min-h-11 px-3',
-									i > 0 && 'border-t border-line'
-								)}
-							>
-								{readOnly ? null : (
-									<button
-										type="button"
-										className="absolute inset-0 z-0 appearance-none m-0 p-0 border-0 rounded-none bg-transparent cursor-pointer hover:bg-accent/8 disabled:opacity-35 disabled:cursor-not-allowed"
-										aria-label={`Edit ${limit.day} limit`}
-										disabled={disabled}
-										onClick={() => openEditLimit(limit)}
-									/>
-								)}
-								<div className="relative z-[1] flex flex-wrap items-center gap-2 min-w-0 flex-1 pointer-events-none">
-									<span className="text-fg font-semibold">{limit.day}</span>
-									<span className={cn(staticChip, 'bg-accent text-accent-ink border-accent')}>
-										{limit.kind === 'off' ? 'Off' : 'Limited'}
-									</span>
-									{limit.notes ? (
+					<div className={listShell}>
+						{dayLimits.map((limit) => (
+							<div key={limit.day} className="px-3 py-2.5">
+								<div className="flex items-start gap-2 min-h-8">
+									<div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+										<span className="text-fg font-semibold">{limit.day}</span>
 										<span
 											className={cn(
-												'text-muted',
-												'text-[0.85rem] truncate max-w-[min(100%,20rem)]'
+												staticChip,
+												'inline-flex items-center gap-1 bg-transparent text-muted border-line font-semibold'
 											)}
 										>
-											{limit.notes}
+											<Icon name={limitKindIcon(limit.kind)} size={12} />
+											{limit.kind === 'off' ? 'Off' : 'Limited'}
 										</span>
-									) : null}
-								</div>
-								{readOnly ? null : (
-									<div className="relative z-[1] shrink-0">
-										<DeleteButton
-											compact
-											label={`Delete ${limit.day} limit`}
-											disabled={disabled}
-											onClick={(event) => {
-												event.stopPropagation();
-												removeLimit(limit.day);
-											}}
-										/>
 									</div>
-								)}
+									{readOnly ? null : (
+										<div className="flex shrink-0 items-center gap-0.5">
+											<EditButton
+												compact
+												className="text-muted hover:text-fg"
+												label={`Edit ${limit.day} limit`}
+												disabled={disabled}
+												onClick={() => openEditLimit(limit)}
+											/>
+											<MoreMenu
+												compact
+												label={`More for ${limit.day} limit`}
+												items={[
+													{
+														label: 'Remove limit',
+														icon: <Icon name="close" size={16} />,
+														danger: true,
+														onClick: () => setPendingLimitDay(limit.day)
+													}
+												]}
+											/>
+										</div>
+									)}
+								</div>
+								{limit.notes ? (
+									<p className="m-0 mt-1.5 text-[0.85rem] leading-snug text-muted">
+										{limit.notes}
+									</p>
+								) : limit.kind === 'limited' ? (
+									<p className="m-0 mt-1.5 text-[0.82rem] text-muted/70 italic">
+										No window set — edit to describe when training fits.
+									</p>
+								) : null}
 							</div>
 						))}
 					</div>
 				)}
-				{readOnly ? null : (
-					<IconLabelButton
-						label="Day limit"
-						size="default"
-						disabled={disabled || dayLimits.length >= WEEKDAYS.length}
-						icon={<Icon name="plus" size={16} />}
-						onClick={openAddLimit}
-					/>
-				)}
-			</div>
+			</FormSection>
 
 			<Dialog
 				open={draft != null}
@@ -693,16 +590,28 @@ export function WeekPatternEditor({
 					<div className="grid gap-4">
 						<div className={fieldClass}>
 							<span>Day</span>
-							<ChoiceChips
-								aria-label="Day"
-								value={limitDraft.day}
-								options={DAY_OPTIONS}
-								disabled={disabled}
-								onChange={(day) => setLimitDraft({ ...limitDraft, day })}
-							/>
-							{limitReplaces ? (
+							<div className={ui.choiceChips}>
+								{DAY_OPTIONS.map((opt) => {
+									const taken =
+										limitByDay.has(opt.value) && opt.value !== limitDraft.editing;
+									return (
+										<button
+											key={opt.value}
+											type="button"
+											className={rowChipClass}
+											aria-pressed={limitDraft.day === opt.value}
+											disabled={disabled || taken}
+											onClick={() => setLimitDraft({ ...limitDraft, day: opt.value })}
+										>
+											{opt.label}
+										</button>
+									);
+								})}
+							</div>
+							{limitDraft.editing == null && dayLimits.length >= WEEKDAYS.length - 1 ? (
 								<span className={fieldHintClass}>
-									Replaces the limit already set for {limitDraft.day}.
+									Each day can have at most one limit. Days that already have a limit are
+									disabled.
 								</span>
 							) : null}
 						</div>
@@ -738,16 +647,37 @@ export function WeekPatternEditor({
 
 			<ConfirmDialog
 				open={pending != null}
-				title="Remove this pinned activity?"
+				title="Unpin this activity?"
 				description={
 					pending
-						? `${pending.day} ${activityLabel(pending.activity_type).toLowerCase()} will be removed from your week setup.`
+						? `${pending.day} ${activityLabel(pending.activity_type).toLowerCase()} comes off your draft week setup. Your saved default week does not change until you choose Save as my default week.`
 						: null
 				}
+				confirmLabel="Unpin"
+				cancelLabel="Keep"
 				onClose={() => setPending(null)}
 				onConfirm={() => {
 					if (!pending) return;
 					onChange(rows.filter((r) => r.id !== pending.id));
+					setPending(null);
+				}}
+			/>
+
+			<ConfirmDialog
+				open={pendingLimitDay != null}
+				title="Remove this day limit?"
+				description={
+					pendingLimitDay
+						? `${pendingLimitDay} goes back to a normal training day in your draft week setup.`
+						: null
+				}
+				confirmLabel="Remove"
+				cancelLabel="Keep"
+				onClose={() => setPendingLimitDay(null)}
+				onConfirm={() => {
+					if (!pendingLimitDay) return;
+					removeLimit(pendingLimitDay);
+					setPendingLimitDay(null);
 				}}
 			/>
 		</div>

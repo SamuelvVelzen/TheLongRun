@@ -7,17 +7,44 @@ import type { CreateRunInput, UpdateRunInput } from '$lib/run-input';
 import { createServerFn } from '@tanstack/react-start';
 import { requireAuth } from '../auth';
 import { clearLiveLocation, loadLiveLocation, saveLiveLocation } from '../context';
+import { liveWatchersActive, touchLiveWatchSession } from '../live-watch-touch';
 import { getPlannedRouteTrack } from '../planned-routes';
 
 // ---------- reads ----------
 
 /** Root-loader data shared by every page: sign-in state + the open body notes to score. */
 
-export const getLiveLocation = createServerFn({ method: 'GET' }).handler(async () => {
-	const ping = await loadLiveLocation();
-	if (!ping) return null;
-	const routeTrack = ping.routeSlug ? await getPlannedRouteTrack(ping.routeSlug) : null;
-	return { ...ping, routeTrack };
+export const getLiveLocation = createServerFn({ method: 'GET' })
+	.validator((input: unknown) => {
+		const bump =
+			typeof input === 'object' && input != null && 'bump' in input
+				? Number((input as { bump: unknown }).bump)
+				: 0;
+		return { bump: Number.isFinite(bump) ? bump : 0 };
+	})
+	.handler(async () => {
+		const ping = await loadLiveLocation();
+		if (!ping) return null;
+		let routeTrack = null;
+		if (ping.routeSlug) {
+			try {
+				routeTrack = await getPlannedRouteTrack(ping.routeSlug);
+			} catch {
+				routeTrack = null;
+			}
+		}
+		const watchersActive = await liveWatchersActive();
+		return { ...ping, routeTrack, watchersActive };
+	});
+
+/** Heartbeat while someone has the live watch map open — speeds up the broadcaster’s pings. */
+export const touchLiveWatch = createServerFn({ method: 'POST' }).handler(async () => {
+	await touchLiveWatchSession();
+	return { ok: true as const };
+});
+
+export const getLiveWatchActive = createServerFn({ method: 'GET' }).handler(async () => {
+	return { active: await liveWatchersActive() };
 });
 
 export const pingLiveLocation = createServerFn({ method: 'POST' })

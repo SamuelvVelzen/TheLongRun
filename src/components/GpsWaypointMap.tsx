@@ -16,8 +16,9 @@ import {
 	waypointPinIcon,
 	type MapChromeHandle
 } from '$lib/map-chrome';
+import { cn } from '$lib/ui';
 import { cssColor } from '$lib/theme';
-import { useEffect, useRef } from 'react';
+import { type RefObject, useEffect, useRef } from 'react';
 
 const NL_LAT = 52.35;
 const NL_LNG = 5.63;
@@ -30,6 +31,8 @@ export function GpsWaypointMap({
 	status,
 	emptyHint = 'Tap to drop pins along how you travelled',
 	mapClassName,
+	mapWrapRef,
+	pinHistory,
 	onChange
 }: {
 	waypoints: GpsWaypoint[];
@@ -38,6 +41,13 @@ export function GpsWaypointMap({
 	status?: string;
 	emptyHint?: string;
 	mapClassName?: string;
+	mapWrapRef?: RefObject<HTMLDivElement | null>;
+	pinHistory?: {
+		onUndo: () => void;
+		onRedo: () => void;
+		canUndo: boolean;
+		canRedo: boolean;
+	};
 	onChange: (next: GpsWaypoint[]) => void;
 }) {
 	const wrapRef = useRef<HTMLDivElement>(null);
@@ -46,11 +56,14 @@ export function GpsWaypointMap({
 	const contextRef = useRef(contextTracks);
 	const previewRef = useRef(previewCoords);
 	const onChangeRef = useRef(onChange);
+	const pinHistoryRef = useRef(pinHistory);
 	const redrawRef = useRef<(() => void) | null>(null);
+	const chromeRef = useRef<MapChromeHandle | null>(null);
 	waypointsRef.current = waypoints;
 	contextRef.current = contextTracks;
 	previewRef.current = previewCoords;
 	onChangeRef.current = onChange;
+	pinHistoryRef.current = pinHistory;
 
 	const lineForKm =
 		previewCoords && previewCoords.length >= 2
@@ -226,24 +239,55 @@ export function GpsWaypointMap({
 			redrawRef.current = redraw;
 			redraw();
 			fit();
-			chrome = attachMapChrome({ map, wrap: wrapRef.current, onFit: fit, alwaysPan: true });
+			chrome = attachMapChrome({
+				map,
+				wrap: wrapRef.current,
+				onFit: fit,
+				alwaysPan: true,
+				pinEditor: pinHistoryRef.current
+					? {
+							onUndo: () => pinHistoryRef.current?.onUndo(),
+							onRedo: () => pinHistoryRef.current?.onRedo()
+						}
+					: undefined
+			});
+			chromeRef.current = chrome;
+			chrome.setPinHistory?.(
+				Boolean(pinHistoryRef.current?.canUndo),
+				Boolean(pinHistoryRef.current?.canRedo)
+			);
 		})();
 
 		return () => {
 			cancelled = true;
 			redrawRef.current = null;
+			chromeRef.current = null;
 			chrome?.destroy();
 			map?.remove?.();
 		};
 	}, []);
 
 	useEffect(() => {
+		chromeRef.current?.setPinHistory?.(
+			Boolean(pinHistory?.canUndo),
+			Boolean(pinHistory?.canRedo)
+		);
+	}, [pinHistory?.canUndo, pinHistory?.canRedo]);
+
+	useEffect(() => {
 		redrawRef.current?.();
 	}, [waypoints, previewCoords]);
 
 	return (
-		<div data-map-wrap className={mapWrap} ref={wrapRef}>
-			<p className="absolute z-[2] left-[0.85rem] top-[0.85rem] m-0 px-[0.65rem] py-[0.35rem] rounded-full bg-[rgba(16,20,15,0.85)] border border-line text-muted text-[0.78rem] pointer-events-none max-sm:left-2 max-sm:top-2">
+		<div
+			data-map-wrap
+			className={cn(mapWrap, 'group/map')}
+			ref={(node) => {
+				wrapRef.current = node;
+				if (mapWrapRef) mapWrapRef.current = node;
+			}}
+		>
+			<p className="absolute z-[2] left-[0.85rem] top-[0.85rem] m-0 max-w-[calc(100%-7.5rem)] px-[0.65rem] py-[0.35rem] rounded-full bg-[rgba(16,20,15,0.85)] border border-line text-muted text-[0.78rem] pointer-events-none max-sm:left-2 max-sm:top-2 max-sm:max-w-[calc(100%-5.5rem)] group-data-[map-fullscreen=true]/map:max-w-[min(100%,18rem)] group-data-[map-fullscreen=true]/map:top-[max(0.85rem,env(safe-area-inset-top,0px))]">
 				{status
 					? status
 					: waypoints.length === 0

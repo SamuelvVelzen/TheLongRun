@@ -2,8 +2,10 @@ import { Checkbox } from './ui';
 import { buttonClass } from './ui/Button';
 import type { GpsContextTrack, GpsPoint, GpsWaypoint } from '$lib/gps-repair';
 import { previewGpsNetwork } from '$lib/server/functions';
+import { useMapWrapFullscreen } from '$lib/map-fullscreen';
 import { cn } from '$lib/ui';
 import { type ReactNode, type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { GpsWaypointMap } from './GpsWaypointMap';
 import { Icon } from './Icon';
 
@@ -70,6 +72,8 @@ export function WaypointEditor({
 	const [followNetwork, setFollowNetwork] = useState(true);
 	const [routePreview, setRoutePreview] = useState<GpsPoint[]>([]);
 	const [routing, setRouting] = useState(false);
+	const mapWrapRef = useRef<HTMLDivElement>(null);
+	const mapFullscreen = useMapWrapFullscreen(mapWrapRef);
 
 	function apply(next: GpsWaypoint[]) {
 		setPast((p) => [...p, waypoints].slice(-40));
@@ -146,6 +150,13 @@ export function WaypointEditor({
 				waypoints={waypoints}
 				contextTracks={contextTracks}
 				mapClassName={mapClassName}
+				mapWrapRef={mapWrapRef}
+				pinHistory={{
+					onUndo: undo,
+					onRedo: redo,
+					canUndo: past.length > 0,
+					canRedo: future.length > 0
+				}}
 				emptyHint={emptyHint}
 				previewCoords={
 					followNetwork && routePreview.length >= 2
@@ -161,27 +172,63 @@ export function WaypointEditor({
 				}
 				onChange={apply}
 			/>
+			{mapFullscreen && mapWrapRef.current && !embedded
+				? createPortal(
+						<div className="absolute z-[1200] inset-x-0 bottom-0 flex flex-wrap items-center justify-end gap-2 px-3 py-3 pointer-events-auto border-t border-line bg-surface/95 shadow-[0_-8px_24px_rgba(0,0,0,0.35)] pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]">
+							{onClose ? (
+								<button
+									className={buttonClass({ variant: 'ghost', size: 'sm' })}
+									type="button"
+									disabled={busy}
+									onClick={onClose}
+								>
+									{closeLabel}
+								</button>
+							) : null}
+							<button
+								className={buttonClass({ size: 'sm' })}
+								type="button"
+								disabled={busy || waypoints.length < 2 || !onSave}
+								onClick={() =>
+									void onSave?.({
+										waypoints,
+										followNetwork,
+										networkCoords:
+											followNetwork && routePreview.length >= 2 ? routePreview : []
+									})
+								}
+							>
+								{busy ? 'Saving…' : (saveLabel ?? 'Save')}
+							</button>
+						</div>,
+						mapWrapRef.current
+					)
+				: null}
 			<div className="flex flex-wrap items-center gap-2">
-				<button
-					className={buttonClass({ variant: 'ghost', size: 'icon' })}
-					type="button"
-					disabled={busy || past.length === 0}
-					aria-label="Undo pin"
-					title="Undo"
-					onClick={undo}
-				>
-					<Icon name="undo" size={16} />
-				</button>
-				<button
-					className={buttonClass({ variant: 'ghost', size: 'icon' })}
-					type="button"
-					disabled={busy || future.length === 0}
-					aria-label="Redo pin"
-					title="Redo"
-					onClick={redo}
-				>
-					<Icon name="redo" size={16} />
-				</button>
+				{mapFullscreen ? null : (
+					<>
+						<button
+							className={buttonClass({ variant: 'ghost', size: 'icon' })}
+							type="button"
+							disabled={busy || past.length === 0}
+							aria-label="Undo pin"
+							title="Undo"
+							onClick={undo}
+						>
+							<Icon name="undo" size={16} />
+						</button>
+						<button
+							className={buttonClass({ variant: 'ghost', size: 'icon' })}
+							type="button"
+							disabled={busy || future.length === 0}
+							aria-label="Redo pin"
+							title="Redo"
+							onClick={redo}
+						>
+							<Icon name="redo" size={16} />
+						</button>
+					</>
+				)}
 				<button
 					className={buttonClass({ variant: 'ghost', size: 'sm' })}
 					type="button"
@@ -208,7 +255,9 @@ export function WaypointEditor({
 					className={cn(
 						'flex flex-wrap justify-end gap-2',
 						stickyFooter &&
-							'sticky bottom-0 z-10 -mx-[0.05rem] mt-1 px-3 py-3 border-t border-line rounded-b-box bg-surface shadow-[0_-8px_24px_rgba(0,0,0,0.22)] max-sm:-mx-0 max-sm:px-2 max-sm:[&>button]:min-w-[min(48%,9rem)]'
+							!mapFullscreen &&
+							'sticky bottom-0 z-10 -mx-[0.05rem] mt-1 px-3 py-3 border-t border-line rounded-b-box bg-surface shadow-[0_-8px_24px_rgba(0,0,0,0.22)] max-sm:-mx-0 max-sm:px-2 max-sm:[&>button]:min-w-[min(48%,9rem)]',
+						mapFullscreen && 'hidden'
 					)}
 					data-sticky-actions={stickyFooter ? '' : undefined}
 				>

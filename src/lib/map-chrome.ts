@@ -25,6 +25,8 @@ export type MapChromeHandle = {
 	destroy: () => void;
 	setFullscreen: (on: boolean) => void;
 	isFullscreen: () => boolean;
+	/** Pin editor — sync undo/redo disabled state from React. */
+	setPinHistory?: (canUndo: boolean, canRedo: boolean) => void;
 };
 
 type AttachOpts = {
@@ -32,7 +34,9 @@ type AttachOpts = {
 	map: any;
 	wrap: HTMLElement;
 	/** Called when user hits “fit” — typically fitBounds of the route(s). */
-	onFit: () => void;
+	onFit?: () => void;
+	/** Waypoint / route draw editor — undo/redo on the map; no fit or live share. */
+	pinEditor?: { onUndo: () => void; onRedo: () => void };
 	/** One-finger pan on phones (waypoint editor). Default keeps page-scroll until two fingers / fullscreen. */
 	alwaysPan?: boolean;
 	/** Keep the view on the live ping (visitor watch overlay). */
@@ -202,7 +206,7 @@ function iconBtn(label: string, title: string, svg: string): HTMLButtonElement {
 	const btn = document.createElement('button');
 	btn.type = 'button';
 	btn.className =
-		'map-chrome-btn inline-flex items-center justify-center size-11 min-w-11 min-h-11 p-0 rounded-inset border border-line bg-surface/90 text-fg cursor-pointer shadow-lift transition-colors duration-150 hover:border-accent/45 hover:text-accent-fg active:border-accent/45 active:text-accent-fg focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2';
+		'map-chrome-btn inline-flex items-center justify-center size-11 min-w-11 min-h-11 p-0 rounded-inset border border-line bg-surface/90 text-fg cursor-pointer shadow-lift transition-colors duration-150 hover:border-accent/45 hover:text-accent-fg active:border-accent/45 active:text-accent-fg focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-line disabled:hover:text-fg';
 	btn.title = title;
 	btn.setAttribute('aria-label', title);
 	btn.style.touchAction = 'manipulation';
@@ -228,6 +232,10 @@ const SVG_MINUS =
 	'<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M5 11h14v2H5z"/></svg>';
 const SVG_LOCATE =
 	'<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0-6a1 1 0 0 1 1 1v1.07A8.001 8.001 0 0 1 20.93 11H22a1 1 0 1 1 0 2h-1.07A8.001 8.001 0 0 1 13 20.93V22a1 1 0 1 1-2 0v-1.07A8.001 8.001 0 0 1 11 3.07V2a1 1 0 0 1 1-1zm0 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/></svg>';
+const SVG_UNDO =
+	'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8H4v4"/><path d="M4.4 12a8 8 0 1 0 2.2-6.5"/></svg>';
+const SVG_REDO =
+	'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8h4v4"/><path d="M19.6 12a8 8 0 1 1-2.2-6.5"/></svg>';
 
 /** Staggered invalidateSize — FS transition / address-bar resize settle slowly. */
 const SIZE_REFRESH_MS = [0, 50, 100, 250, 400] as const;
@@ -414,7 +422,8 @@ function applyFsBox(wrap: HTMLElement, mapEl: HTMLElement, on: boolean, nativeFs
  * Returns a handle for cleanup.
  */
 export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
-	const { map, wrap, onFit, alwaysPan, followLive, onClose } = opts;
+	const { map, wrap, onFit, pinEditor, alwaysPan, followLive, onClose } = opts;
+	const isPinEditor = Boolean(pinEditor);
 	const mapEl: HTMLElement =
 		(typeof map.getContainer === 'function' ? map.getContainer() : null) ??
 		(wrap.querySelector('.leaflet-container') as HTMLElement);
@@ -447,25 +456,28 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 
 	const bar = document.createElement('div');
 	bar.className =
-		'map-chrome absolute z-[1100] top-[0.65rem] right-[0.65rem] flex flex-col items-end gap-[0.35rem] pointer-events-auto max-sm:top-[0.85rem] max-sm:right-[0.85rem] max-sm:gap-[0.3rem]';
+		'map-chrome absolute z-[1100] top-[0.65rem] right-[0.65rem] flex flex-col items-end gap-[0.35rem] pointer-events-auto max-sm:top-[0.85rem] max-sm:right-[0.85rem] max-sm:gap-[0.3rem] group-data-[map-fullscreen=true]/map:top-[max(0.65rem,env(safe-area-inset-top,0px))] group-data-[map-fullscreen=true]/map:right-[max(0.65rem,env(safe-area-inset-right,0px))]';
 	bar.setAttribute('role', 'toolbar');
 	bar.setAttribute('aria-label', 'Map controls');
 
 	const coarse = isCoarsePointer();
 	const btnPlus = iconBtn('Zoom in', 'Zoom in', SVG_PLUS);
 	const btnMinus = iconBtn('Zoom out', 'Zoom out', SVG_MINUS);
-	const btnFit = textBtn('Fit', 'Fit route');
+	const btnFit = isPinEditor ? null : textBtn('Fit', 'Fit route');
+	const btnUndo = isPinEditor ? iconBtn('Undo', 'Undo last pin change', SVG_UNDO) : null;
+	const btnRedo = isPinEditor ? iconBtn('Redo', 'Redo pin change', SVG_REDO) : null;
 	const btnLocate = iconBtn('My location', 'My location', SVG_LOCATE);
 	const btnFull = textBtn('Fullscreen', 'Fullscreen');
 	btnFull.classList.add('map-chrome-btn-fs');
 	btnLocate.classList.add('map-chrome-btn-loc');
-	const btnShare = textBtn('Share', 'Share live location on the map');
-	btnShare.classList.add('map-chrome-btn-share');
+	const btnShare = isPinEditor ? null : textBtn('Share', 'Share live location on the map');
+	btnShare?.classList.add('map-chrome-btn-share');
 
 	const texts = document.createElement('div');
 	texts.className =
 		'map-chrome-texts inline-flex w-fit items-stretch overflow-hidden border border-line rounded-full bg-surface/90 shadow-lift';
-	texts.append(btnFull, btnFit);
+	texts.append(btnFull);
+	if (btnFit) texts.append(btnFit);
 	if (onClose) {
 		const btnClose = textBtn('Close', 'Close live map');
 		btnClose.addEventListener(
@@ -480,9 +492,29 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		texts.append(btnClose);
 	}
 
+	const pinHistory =
+		isPinEditor && btnUndo && btnRedo
+			? (() => {
+					const row = document.createElement('div');
+					row.className =
+						'map-chrome-history inline-flex gap-[0.35rem] max-sm:gap-[0.3rem]';
+					row.append(btnUndo, btnRedo);
+					return row;
+				})()
+			: null;
+
 	const icons = document.createElement('div');
 	icons.className = 'map-chrome-zoom flex flex-col gap-[0.35rem] max-sm:gap-[0.3rem]';
 	icons.append(btnPlus, btnMinus, btnLocate);
+
+	const syncPinHistory = (canUndo: boolean, canRedo: boolean) => {
+		if (!btnUndo || !btnRedo) return;
+		btnUndo.disabled = !canUndo;
+		btnRedo.disabled = !canRedo;
+		btnUndo.setAttribute('aria-disabled', canUndo ? 'false' : 'true');
+		btnRedo.setAttribute('aria-disabled', canRedo ? 'false' : 'true');
+	};
+	if (isPinEditor) syncPinHistory(false, false);
 
 	btnPlus.addEventListener('click', (e) => {
 		e.stopPropagation();
@@ -536,6 +568,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	};
 
 	const syncShareButton = () => {
+		if (!btnShare) return;
 		const on = liveShareOn();
 		btnShare.textContent = on ? 'Sharing' : 'Share';
 		btnShare.title = on ? 'Stop sharing live location' : 'Share live location on the map';
@@ -546,6 +579,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	let liveWatcherPing: LiveLocationView | null = null;
 
 	const syncShareChrome = () => {
+		if (!btnShare) return;
 		if (liveShareAuthed()) {
 			if (!btnShare.isConnected) texts.append(btnShare);
 			syncShareButton();
@@ -559,7 +593,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			btnShare.remove();
 		}
 	};
-	syncShareChrome();
+	if (!isPinEditor) syncShareChrome();
 
 	const isOn = () => isNativeFullscreen(wrap) || cssFullscreen;
 
@@ -773,6 +807,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	let liveRouteCasing: any = null;
 	let liveRouteSlug: string | null = null;
 	let liveTimer: ReturnType<typeof setInterval> | null = null;
+	let offLiveResume = () => {};
 	let releaseHeading: (() => void) | null = null;
 	let unsubHeading: (() => void) | null = null;
 
@@ -867,18 +902,28 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	map.on('dragstart', onDragStart);
 	map.on('dragend', onDragEnd);
 
-	btnFit.addEventListener('click', (e) => {
+	btnFit?.addEventListener('click', (e) => {
 		e.stopPropagation();
 		locPanNext = false;
 		locUserPan = false;
-		onFit();
+		onFit?.();
+	});
+	btnUndo?.addEventListener('click', (e) => {
+		e.stopPropagation();
+		if (btnUndo.disabled) return;
+		pinEditor?.onUndo();
+	});
+	btnRedo?.addEventListener('click', (e) => {
+		e.stopPropagation();
+		if (btnRedo.disabled) return;
+		pinEditor?.onRedo();
 	});
 	btnLocate.addEventListener('click', (e) => {
 		e.stopPropagation();
 		locUserPan = false;
 		startLocate(true);
 	});
-	btnShare.addEventListener(
+	btnShare?.addEventListener(
 		'click',
 		(e) => {
 			e.preventDefault();
@@ -986,16 +1031,18 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 				/* ignore — map still works without the ping */
 			});
 	};
-	pollLive();
-	liveTimer = setInterval(pollLive, LIVE_LOCATION_PING_MS);
-	const offLiveResume = subscribeAppResume(pollLive);
+	if (!isPinEditor) {
+		pollLive();
+		liveTimer = setInterval(pollLive, LIVE_LOCATION_PING_MS);
+		offLiveResume = subscribeAppResume(pollLive);
+	}
 
 	const onShareEvent = () => {
 		syncShareChrome();
 		if (liveShareAuthed()) clearLiveOverlay();
 		else pollLive();
 	};
-	window.addEventListener(LIVE_SHARE_EVENT, onShareEvent);
+	if (!isPinEditor) window.addEventListener(LIVE_SHARE_EVENT, onShareEvent);
 
 	try {
 		L?.DomEvent?.disableClickPropagation?.(bar);
@@ -1009,6 +1056,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	}
 
 	bar.append(texts);
+	if (pinHistory) bar.append(pinHistory);
 	bar.append(icons);
 	wrap.appendChild(bar);
 
@@ -1020,7 +1068,7 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			clearLiveOverlay();
 			if (liveTimer != null) clearInterval(liveTimer);
 			offLiveResume();
-			window.removeEventListener(LIVE_SHARE_EVENT, onShareEvent);
+			if (!isPinEditor) window.removeEventListener(LIVE_SHARE_EVENT, onShareEvent);
 			clearSizeTimers();
 			window.removeEventListener('keydown', onKey);
 			window.removeEventListener('resize', onResize);
@@ -1049,7 +1097,8 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 		setFullscreen: (on) => {
 			void applyFullscreen(on);
 		},
-		isFullscreen: () => isOn()
+		isFullscreen: () => isOn(),
+		...(isPinEditor ? { setPinHistory: syncPinHistory } : {})
 	};
 }
 

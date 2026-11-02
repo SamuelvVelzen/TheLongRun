@@ -126,7 +126,7 @@ function DrawRoutePage() {
 					closeLabel="Cancel"
 					busy={busy}
 					stickyFooter
-					mapClassName="h-[min(220px,32vh)] w-full z-0 sm:h-[min(300px,38vh)]"
+					mapClassName="h-[min(280px,42vh)] w-full z-0 sm:h-[min(380px,52vh)]"
 					onDirtyChange={setPinsDirty}
 					onClose={requestCloseDraw}
 					onSave={saveDrawn}

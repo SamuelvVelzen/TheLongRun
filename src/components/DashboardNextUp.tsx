@@ -69,7 +69,7 @@ function iconForPlanDate(date: string | null): 'sun' | 'calendar' | 'arrow' {
 	return 'arrow';
 }
 
-function WeekProgressStrip({
+export function WeekProgressStrip({
 	view,
 	calendar,
 	coachSearch,

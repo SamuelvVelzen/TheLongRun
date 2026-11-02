@@ -1,100 +1,66 @@
-import { emptyActivityHabits } from '$lib/activity-habits';
-import { SignInPanel, useAuthed } from '$lib/auth';
-import { dateRangeFromSearch, type RangeKind } from '$lib/date-range';
-import { composeDebriefPrompt, debriefWriteupUnitsFromCoach } from '$lib/debrief';
-import {
-	readGenerateDraft,
-	scheduleWriteGenerateDraft,
-	type GenerateDraft
-} from '$lib/generate-draft';
-import {
-	clearDebriefHabits,
-	readDebriefHabits,
-	seedDebriefHabits,
-	setDebriefHabitField
-} from '$lib/debrief-habits';
-import {
-	clearDebriefWriteups,
-	readDebriefWriteups,
-	writeDebriefWriteups
-} from '$lib/debrief-writeups';
-import type { BodySuggestion } from '$lib/body-notes';
-import type { FuelEntry } from '$lib/fuel';
-import type { GearContext, GearKind, GearWear } from '$lib/gear';
-import { formatHorizonShort } from '$lib/goals';
+import { useAuthed } from '$lib/auth';
 import {
 	formatAllWeeksClipboard,
 	formatWeekPlanClipboard,
 	isoDateLocal,
-	planWeekDateRange,
 	planWeekDateRangeShort
 } from '$lib/plan';
-import {
-	createActivityGroupFn,
-	getCoachBrief,
-	getCoachPlan,
-	getDebriefPrompt,
-	getWeekPattern,
-	saveActivityFeel,
-	saveDebrief,
-	savePlanWeeks,
-	saveWeekPattern,
-	ungroupActivitiesFn
-} from '$lib/server/functions';
-import { appHead } from '$lib/title';
 import { cn } from '$lib/ui';
-import type { ActivityType } from '$lib/activity';
-import {
-	formatWeekSetupProse,
-	weekSetupsEqual,
-	type DayLimit,
-	type WeekSetup
-} from '$lib/week-mix';
-import { createFileRoute, Link, useRouter, getRouteApi  } from '@tanstack/react-router';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { DateRangeFilter, type RangeSearch } from '../DateRangeFilter';
-import { DebriefActivityTitle } from '../DebriefActivityTitle';
-import { DebriefFeelForm, type DebriefDraftClearPick } from '../DebriefFeelForm';
-import { DebriefRacePanel } from '../DebriefRacePanel';
-import { AiPromptFlow } from '../AiPromptFlow';
-import { DeferredData } from '../DeferredData';
-import { BodySuggestionsDialog } from '../BodySuggestionsDialog';
-import { FuelSuggestionsDialog } from '../FuelSuggestionsDialog';
-import { GpxImport } from '../GpxImport';
+import { Link, useRouter, getRouteApi } from '@tanstack/react-router';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../Icon';
-import { JsonPasteForm } from '../JsonPasteForm';
-import {
-	Actions,
-	Button,
-	Checkbox,
-	Field,
-	Form,
-	IconLabelButton,
-	PageHero,
-	PageTabs,
-	Panel,
-	PanelTitle,
-	Select,
-	Textarea,
-	errorMessage,
-	useLeaveGuard,
-	useSnackbar
-} from '../ui';
-import { buttonClass } from '../ui/Button';
-import {
-	rowsFrom,
-	toPattern,
-	WeekPatternEditor,
-	type SlotRow
-} from '../WeekPatternEditor';
+import { MoreMenu } from '../MoreMenu';
 import { WeekPlanBoard } from '../WeekPlanBoard';
-import {
-	type CoachTab,
-	withCoachSearch
-} from '$lib/coach/search';
-
+import { Button, FormSection, PageSection, Select, useSnackbar } from '../ui';
+import { ui } from '../ui/tokens';
+import { withCoachSearch } from '$lib/coach/search';
 import { weekTag, type CoachPlanData } from './coach-utils';
+
 const coachRoute = getRouteApi('/coach');
+
+function weekPlanStatus(hasPlan: boolean): string {
+	return hasPlan ? 'Planned' : 'No plan';
+}
+
+function planBlockExplanation(planData: CoachPlanData): string {
+	const { calendar, activeGoal } = planData;
+	if (calendar.rolling) {
+		return 'No race goal — planning one week at a time.';
+	}
+	if (activeGoal?.date) {
+		return `${calendar.weekCount} weeks from plan start to race week · ${activeGoal.name}.`;
+	}
+	return `${calendar.weekCount}-week plan block.`;
+}
+
+const PAGER_WINDOW = 5;
+
+/** Sliding window of 5 weeks + first/last, e.g. `1 2 3 4 5 … 9` or `1 … 3 4 5 6 7 … 9`. */
+function weekPagerItems(selected: number, total: number): Array<number | 'gap'> {
+	if (total <= PAGER_WINDOW + 1) {
+		return Array.from({ length: total }, (_, i) => i + 1);
+	}
+
+	let winStart = selected - Math.floor(PAGER_WINDOW / 2);
+	winStart = Math.max(1, Math.min(winStart, total - PAGER_WINDOW + 1));
+	const winEnd = winStart + PAGER_WINDOW - 1;
+
+	const out: Array<number | 'gap'> = [];
+
+	if (winStart > 1) {
+		out.push(1);
+		if (winStart > 2) out.push('gap');
+	}
+
+	for (let n = winStart; n <= winEnd; n++) out.push(n);
+
+	if (winEnd < total) {
+		if (winEnd < total - 1) out.push('gap');
+		out.push(total);
+	}
+
+	return out;
+}
 
 export function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 	const search = coachRoute.useSearch();
@@ -108,6 +74,9 @@ export function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 	const byWeek = new Map(planData.views.map((v) => [v.week.week, v]));
 	const view = byWeek.get(selected) ?? null;
 	const [copied, setCopied] = useState<'week' | 'all' | null>(null);
+	const blockHint = planBlockExplanation(planData);
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const useScrollStrip = weekCount <= 6;
 
 	function setWeek(n: number) {
 		const week = Math.min(weekCount, Math.max(1, n));
@@ -119,164 +88,218 @@ export function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 		});
 	}
 
+	useEffect(() => {
+		if (useScrollStrip) return;
+		const root = scrollRef.current;
+		if (!root) return;
+		const el = root.querySelector<HTMLElement>(`[data-week="${selected}"]`);
+		el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+	}, [selected, useScrollStrip, weekCount]);
+
 	async function copyText(kind: 'week' | 'all', text: string) {
 		try {
 			await navigator.clipboard.writeText(text);
 			setCopied(kind);
 			setTimeout(() => setCopied((prev) => (prev === kind ? null : prev)), 1800);
+			snack.success(kind === 'week' ? 'Week copied' : 'All planned weeks copied');
 		} catch {
 			snack.error('Could not copy — select and copy the text instead.');
 		}
 	}
 
 	const todayIso = isoDateLocal(new Date());
+	const boardTitle =
+		selected === current ? 'This week' : selected === upcomingWeek ? 'Next week' : `Week ${selected}`;
+
+	const copyMenu =
+		authed && (view || planData.views.length)
+			? [
+					{
+						label: copied === 'week' ? 'Copied this week' : 'Copy this week',
+						icon: <Icon name={copied === 'week' ? 'check' : 'copy'} size={16} />,
+						disabled: !view,
+						onClick: () => view && void copyText('week', formatWeekPlanClipboard(view, todayIso))
+					},
+					{
+						label: copied === 'all' ? 'Copied all weeks' : 'Copy all planned weeks',
+						icon: <Icon name={copied === 'all' ? 'check' : 'copy'} size={16} />,
+						disabled: !planData.views.length,
+						onClick: () => void copyText('all', formatAllWeeksClipboard(planData.views, todayIso))
+					}
+				]
+			: [];
+
+	const copyMenuButton =
+		copyMenu.length > 0 ? (
+			<MoreMenu compact items={copyMenu} label="Copy for AI" />
+		) : null;
+
+	const weekOptions = Array.from({ length: weekCount }, (_, i) => {
+		const n = i + 1;
+		const tag = weekTag(n, current, upcomingWeek);
+		const dates = planWeekDateRangeShort(n, planData.calendar);
+		const hasPlan = byWeek.has(n);
+		const status = weekPlanStatus(hasPlan);
+		const tagBit = tag ? ` · ${tag}` : '';
+		const full = `Week ${n}${tagBit} · ${dates} · ${status}`;
+		return {
+			value: String(n),
+			label: `${n}${tagBit} · ${dates} · ${status}`,
+			text: full
+		};
+	});
+
+	const pager = weekPagerItems(selected, weekCount);
+
+	function weekChip(n: number) {
+		const tag = weekTag(n, current, upcomingWeek);
+		const dates = planWeekDateRangeShort(n, planData.calendar);
+		const hasPlan = byWeek.has(n);
+		const pressed = n === selected;
+		return (
+			<button
+				key={n}
+				type="button"
+				data-week={n}
+				aria-pressed={pressed}
+				aria-label={`Week ${n}, ${dates}, ${weekPlanStatus(hasPlan)}`}
+				className={cn(
+					ui.segItem,
+					'snap-center shrink-0 flex-col gap-0.5 min-h-[3.25rem] min-w-[5rem] px-2 py-2.5 leading-tight',
+					!hasPlan && 'opacity-75'
+				)}
+				onClick={() => {
+					if (!pressed) setWeek(n);
+				}}
+			>
+				<span className="text-[0.82rem] font-semibold tabular-nums whitespace-nowrap">
+					{tag ? `${n} · ${tag}` : n} · {weekPlanStatus(hasPlan)}
+				</span>
+				<span className="text-[0.68rem] font-medium opacity-90 whitespace-nowrap">{dates}</span>
+			</button>
+		);
+	}
 
 	return (
-		<>
-			<Panel form className="mb-4">
-				<Field as="div" label="Week">
-					<div className="hidden flex-col gap-[0.35rem] max-sm:flex">
-						<div className="flex items-stretch gap-2">
-							<button
-								type="button"
-								className={buttonClass({ variant: 'ghost', size: 'icon' })}
-								aria-label="Previous week"
-								disabled={selected <= 1}
-								onClick={() => setWeek(selected - 1)}
-							>
-								<Icon name="arrow" size={18} className="rotate-180" />
-							</button>
-							<Select
-								aria-label="Plan week"
-								className="flex-1"
-								value={String(selected)}
-								onChange={(next) => setWeek(Number(next))}
-								options={Array.from({ length: weekCount }, (_, i) => {
-									const n = i + 1;
-									const tag = weekTag(n, current, upcomingWeek);
-									const dates = planWeekDateRangeShort(n, planData.calendar);
-									const planned = byWeek.has(n);
-									return {
-										value: String(n),
-										label: `Week ${n}${tag ? ` · ${tag}` : ''} · ${dates}${planned ? '' : ' · no plan'}`
-									};
-								})}
-							/>
-							<button
-								type="button"
-								className={buttonClass({ variant: 'ghost', size: 'icon' })}
-								aria-label="Next week"
-								disabled={selected >= weekCount}
-								onClick={() => setWeek(selected + 1)}
-							>
-								<Icon name="arrow" size={18} />
-							</button>
+		<PageSection form>
+			<FormSection title="Pick a week" action={copyMenuButton ?? undefined}>
+				{/* Narrow / tablet: one select — no second row */}
+				<div className="flex min-w-0 items-stretch gap-1.5 sm:gap-2 lg:hidden">
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="shrink-0"
+						aria-label="Previous week"
+						disabled={selected <= 1}
+						onClick={() => setWeek(selected - 1)}
+					>
+						<Icon name="arrow" size={18} className="rotate-180" />
+					</Button>
+					<Select
+						aria-label="Plan week"
+						className="min-w-0 flex-1 [&_button]:min-h-12 [&_button]:gap-1 [&_button]:py-2.5 [&_button]:text-[0.82rem] sm:[&_button]:text-[0.88rem] [&_button_span]:truncate"
+						value={String(selected)}
+						onChange={(next) => setWeek(Number(next))}
+						options={weekOptions}
+					/>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="shrink-0"
+						aria-label="Next week"
+						disabled={selected >= weekCount}
+						onClick={() => setWeek(selected + 1)}
+					>
+						<Icon name="arrow" size={18} />
+					</Button>
+				</div>
+
+				{/* Wide: scroll strip (≤6 weeks) or paginated chips (7+) — never alongside select */}
+				<div className="hidden min-w-0 items-stretch gap-2 lg:flex">
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="shrink-0"
+						aria-label="Previous week"
+						disabled={selected <= 1}
+						onClick={() => setWeek(selected - 1)}
+					>
+						<Icon name="arrow" size={18} className="rotate-180" />
+					</Button>
+					{useScrollStrip ? (
+						<div
+							ref={scrollRef}
+							className={cn(
+								ui.segToggle,
+								'min-w-0 flex-1 snap-x snap-mandatory scroll-smooth overflow-x-auto'
+							)}
+						>
+							{Array.from({ length: weekCount }, (_, i) => weekChip(i + 1))}
 						</div>
-						<p className={cn('text-muted', 'm-0 text-[0.82rem]')}>
-							{planWeekDateRange(selected, planData.calendar)}
-							{byWeek.has(selected) ? '' : ' · no plan yet'}
-						</p>
-					</div>
-					<div className="max-sm:hidden" role="group" aria-label="Plan week">
-						<div className="flex flex-wrap gap-[0.4rem]">
-							{Array.from({ length: weekCount }, (_, i) => {
-								const n = i + 1;
-								const tag = weekTag(n, current, upcomingWeek);
-								const dates = planWeekDateRangeShort(n, planData.calendar);
-								const planned = byWeek.has(n);
-								const pressed = n === selected;
-								return (
-									<button
-										key={n}
-										type="button"
-										aria-pressed={pressed}
-										aria-label={`Week ${n}, ${dates}${tag ? `, ${tag}` : ''}${planned ? '' : ', no plan yet'}`}
-										className={cn(
-											'inline-flex min-h-[3.35rem] min-w-[4.4rem] cursor-pointer appearance-none flex-col items-center justify-center gap-[0.18rem] rounded-[14px] bg-transparent px-[0.7rem] py-[0.4rem] text-muted transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg',
-											planned
-												? 'border border-solid border-line hover:border-accent/35'
-												: 'border border-dashed border-line/80 text-muted/80 hover:border-accent/40 hover:text-muted',
-											'aria-pressed:border-solid! aria-pressed:border-accent! aria-pressed:bg-accent! aria-pressed:text-accent-ink! aria-pressed:hover:border-accent aria-pressed:hover:text-accent-ink'
-										)}
-										onClick={() => {
-											if (!pressed) setWeek(n);
-										}}
+					) : (
+						<div
+							ref={scrollRef}
+							className="flex min-w-0 flex-1 flex-nowrap items-stretch justify-center gap-0.5"
+						>
+							{pager.map((item, i) =>
+								item === 'gap' ? (
+									<span
+										key={`gap-${i}`}
+										className="flex shrink-0 items-center px-0.5 text-[0.9rem] font-semibold tabular-nums text-muted"
+										aria-hidden
 									>
-										<span className="text-[0.95rem] leading-none font-semibold">
-											{tag ? `${n} · ${tag}` : n}
-										</span>
-										<span className="leading-1.15 text-[0.68rem] font-medium whitespace-nowrap opacity-80">
-											{dates}
-										</span>
-									</button>
-								);
-							})}
+										…
+									</span>
+								) : (
+									weekChip(item)
+								)
+							)}
 						</div>
-					</div>
-				</Field>
-				{authed ? (
-					<>
-						<p className={cn('text-muted', 'm-0 max-sm:hidden')}>
-							Copy this week (live status plus JSON) into a new chat, or every week that already has
-							sessions. Paste the updated AI response below.
-						</p>
-						<Actions>
-							<IconLabelButton
-								label={copied === 'week' ? 'Copied' : 'Copy this week'}
-								disabled={!view}
-								icon={<Icon name={copied === 'week' ? 'check' : 'copy'} size={16} />}
-								onClick={() => view && copyText('week', formatWeekPlanClipboard(view, todayIso))}
-							/>
-							<IconLabelButton
-								label={copied === 'all' ? 'Copied' : 'Copy all planned weeks'}
-								disabled={!planData.views.length}
-								icon={<Icon name={copied === 'all' ? 'check' : 'copy'} size={16} />}
-								onClick={() => copyText('all', formatAllWeeksClipboard(planData.views, todayIso))}
-							/>
-						</Actions>
-					</>
-				) : null}
-			</Panel>
-			{view ? (
-				<WeekPlanBoard
-					view={view}
-					routes={planData.routes}
-					title={
-						selected === current
-							? 'This week'
-							: selected === upcomingWeek
-								? 'Next week'
-								: `Week ${selected}`
-					}
-				/>
-			) : (
-				<p className={cn('text-muted', 'mt-0 mb-4')}>
-					Week {selected} ({planWeekDateRange(selected, planData.calendar)}) is not in the plan yet.
+					)}
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="shrink-0"
+						aria-label="Next week"
+						disabled={selected >= weekCount}
+						onClick={() => setWeek(selected + 1)}
+					>
+						<Icon name="arrow" size={18} />
+					</Button>
+				</div>
+
+				<p className={cn('text-muted', 'm-0 mt-2 text-[0.76rem] leading-snug opacity-80')}>
+					{blockHint}
 				</p>
-			)}
-			{authed && (
-				<JsonPasteForm
-					className="mt-4"
-					title="Paste updated AI response"
-					description={
-						<p className={cn('text-muted', 'mt-[0.3rem]')}>
-							Same shape as Generate — per-session <code className="text-[0.85em]">fuel</code> arrays
-							and <code className="text-[0.85em]">kit</code> strings on run, walk, and bike rows.
-							Merged by week number.
-						</p>
-					}
-					placeholder='{ "week": 5, "sessions": [{ "day": "Sunday", "label": "Long", "fuel": [{ "phase": "during", "item": "Gel", "timing": "every 5 km" }], "kit": "Liner shorts; light jacket until warm." }] }'
-					submitLabel="Add to plan"
-					errorLabel="Could not save plan."
-					onSubmit={async (json) => {
-						const res = await savePlanWeeks({ data: json });
-						snack.success(
-							`Saved — plan now has ${res.weeks} weeks (updated week ${res.updated.join(', ')}).`
-						);
-						await router.invalidate();
-					}}
-				/>
-			)}
-		</>
+
+				{view?.week.focus ? (
+					<p className={cn('text-muted', 'm-0 mt-2 text-[0.84rem] leading-snug')}>
+						{view.week.focus}
+					</p>
+				) : null}
+			</FormSection>
+
+			<div className="mt-4 border-t border-line pt-4">
+				{view ? (
+					<WeekPlanBoard embedded view={view} routes={planData.routes} title={boardTitle} />
+				) : (
+					<p className={cn('text-muted', 'm-0 text-[0.9rem]')}>
+						Nothing scheduled for week {selected} yet.{' '}
+						<Link
+							className="font-semibold text-accent-fg"
+							to="/coach"
+							search={withCoachSearch(search, { tab: 'generate' })}
+						>
+							Generate a plan
+						</Link>{' '}
+						to fill it in.
+					</p>
+				)}
+			</div>
+		</PageSection>
 	);
 }

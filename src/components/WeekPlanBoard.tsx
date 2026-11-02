@@ -390,11 +390,13 @@ function isFinishedSession(session: WeekSessionView): boolean {
 export function WeekPlanBoard({
 	view,
 	title,
-	routes = []
+	routes = [],
+	embedded = false
 }: {
 	view: WeekView;
 	title?: string;
 	routes?: SessionRouteRef[];
+	embedded?: boolean;
 }) {
 	const [showCompleted, setShowCompleted] = useState(false);
 	const days = weekDayGroups(view);
@@ -407,10 +409,15 @@ export function WeekPlanBoard({
 		.filter((group) => group.sessions.length > 0 || group.unplanned.length > 0);
 
 	return (
-		<section className="mb-5" aria-labelledby="week-plan-heading">
-			<div className="mb-3 [&_h2]:text-[1.2rem] [&_h2]:font-bold [&_h2]:m-0 [&_p]:mt-1 [&_p]:mb-0 [&_p]:text-[0.92rem]">
-				<h2 id="week-plan-heading">{title ?? `Week ${view.week.week}`}</h2>
-				<p className={'text-muted'}>
+		<section
+			className={embedded ? undefined : 'mb-5'}
+			aria-labelledby={embedded ? undefined : 'week-plan-heading'}
+			aria-label={embedded ? (title ?? `Week ${view.week.week}`) : undefined}
+		>
+			{embedded ? null : (
+				<div className="mb-3 [&_h2]:text-[1.2rem] [&_h2]:font-bold [&_h2]:m-0 [&_p]:mt-1 [&_p]:mb-0 [&_p]:text-[0.92rem]">
+					<h2 id="week-plan-heading">{title ?? `Week ${view.week.week}`}</h2>
+					<p className={'text-muted'}>
 					{[view.week.dates, view.week.phase, view.week.focus].filter(Boolean).join(' · ')}
 					{view.unplanned.length ? ` · ${view.unplanned.length} unplanned logged` : ''}
 					{finishedCount > 0 && (
@@ -431,7 +438,8 @@ export function WeekPlanBoard({
 						</>
 					)}
 				</p>
-			</div>
+				</div>
+			)}
 			<div className="grid grid-cols-1 items-start gap-3 min-[720px]:grid-cols-2 min-[720px]:items-stretch">
 				{visibleDays.map((group) => {
 					const onlyUnplanned = group.sessions.length === 0 && group.unplanned.length > 0;

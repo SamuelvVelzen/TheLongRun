@@ -93,7 +93,7 @@ export function Dialog({
 					<div
 						className={cn(
 							bodyPadX,
-							'min-h-0 flex-1 overflow-y-auto overscroll-contain [overscroll-behavior:contain]'
+							'min-h-0 flex-1 overflow-y-auto overscroll-contain'
 						)}
 					>
 						{children}

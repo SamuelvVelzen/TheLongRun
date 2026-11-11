@@ -397,7 +397,7 @@ export function Select({
 					'disabled:opacity-55 disabled:cursor-not-allowed',
 					size === 'compact'
 						? cn(
-								'min-h-11 px-3 py-2 text-[0.88rem] sm:min-h-9 sm:px-[0.85rem] sm:py-2 sm:text-[0.82rem]',
+								'min-h-11 px-3 py-2 text-[0.88rem] sm:min-h-8 sm:px-2 sm:py-1.5 sm:text-[0.78rem]',
 								'rounded-full'
 							)
 						: 'min-h-11 px-[0.85rem] py-[0.65rem] rounded-full text-base'

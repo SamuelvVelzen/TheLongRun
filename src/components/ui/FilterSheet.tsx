@@ -236,7 +236,7 @@ export function FilterSheet({
 						ref={desktopScrollRef}
 						className="max-sm:hidden sm:min-w-0 sm:flex-1 sm:overflow-x-auto sm:overflow-y-hidden sm:overscroll-x-contain sm:pb-3 sm:[scrollbar-gutter:stable] sm:[scrollbar-width:thin]"
 					>
-						<div className="flex w-max flex-nowrap items-center gap-3 pr-1 pt-0.5">
+						<div className="flex w-max flex-nowrap items-center gap-2 pr-1 pt-0.5">
 							{children}
 						</div>
 					</div>

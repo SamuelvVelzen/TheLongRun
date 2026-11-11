@@ -3,6 +3,7 @@ import { cn } from '$lib/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useState } from 'react';
 import { z } from 'zod';
+import { filterBarDesktopGroupClass } from './filter-seg-classes';
 import { Icon } from './Icon';
 import { Field } from './ui/Field';
 import { Input } from './ui/Input';
@@ -120,7 +121,7 @@ export function DateRangeFilter({
 		>
 			<SegmentedToggle
 				fill
-				className="max-sm:w-full sm:[&_button]:min-h-9 sm:[&_button]:px-2.5 sm:[&_button]:text-[0.82rem] sm:[&_button]:gap-1 sm:w-fit sm:max-w-none"
+				className={cn('max-sm:w-full sm:w-fit sm:max-w-none', filterBarDesktopGroupClass)}
 				value={range.kind === 'custom' || customOpen ? 'custom' : range.kind}
 				onChange={(kind) => {
 					if (kind === 'custom') openCustom();

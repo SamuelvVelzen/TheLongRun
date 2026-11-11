@@ -1,4 +1,4 @@
-import { filterSegWrapClass } from './filter-seg-classes';
+import { filterBarDesktopGroupClass, filterSegWrapClass } from './filter-seg-classes';
 import { segItemClass, segToggleClass } from './ui/SegmentedToggle';
 import {
 	ACTIVITY_TYPES,
@@ -109,7 +109,7 @@ export function SportFilter({
 				className={cn(
 					segToggleClass,
 					'max-sm:flex max-sm:w-full max-sm:min-w-0',
-					'sm:[&_button]:min-h-9 sm:[&_button]:px-2.5 sm:[&_button]:text-[0.82rem] sm:[&_button]:gap-1'
+					filterBarDesktopGroupClass
 				)}
 				role="group"
 				aria-label="Activity type"

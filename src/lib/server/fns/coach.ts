@@ -4,7 +4,20 @@ import { dateRangeFromSearch, filterRunsByRange, type RangeKind } from '$lib/dat
 import { formatFuelSection } from '$lib/fuel';
 import { formatWardrobeSection, wardrobeHasItems } from '$lib/wardrobe';
 import { formatHorizonLabel, formatIntentionPromptLine, formatLaterRacePromptLine, isRaceGoal, openIntentions } from '$lib/goals';
-import { buildWeekView, daysUntil, formatUnplannedBrief, isoDateLocal, keepSoonestNext, planWeekDateRange, planWeekEndIso, planWeekIndex, planWeekStartIso, SKIP_STATUS_PROMPT, weekToGenerate, weekToPlan } from '$lib/plan';
+import {
+	buildWeekView,
+	daysUntil,
+	effectivePlanWeekStartIso,
+	formatUnplannedBrief,
+	isoDateLocal,
+	keepSoonestNext,
+	planWeekDateRange,
+	planWeekIndex,
+	planWeekStartIso,
+	SKIP_STATUS_PROMPT,
+	weekToGenerate,
+	weekToPlan
+} from '$lib/plan';
 import { PLAN_SESSION_FUEL_JSON_EXAMPLE, PLAN_SESSION_KIT_JSON_EXAMPLE } from '$lib/plan-session-extras';
 import { parsePlanWeeks } from '$lib/plan-schema';
 import { formatLiftTopsBrief } from '$lib/strength';
@@ -148,8 +161,14 @@ export const getCoachBrief = createServerFn({ method: 'GET' })
 These logs fall in week ${targetWeek} but did not match a planned session (extra session, rest/empty day, or different sport). They are **already done extra load** — do not add a plan row just to file them. Account for that load when ${revising ? 'revising remaining sessions' : 'planning the week'}.
 ${formatUnplannedBrief(targetView.unplanned)}`
 			: '';
-		const weekStartIso = planWeekStartIso(targetWeek, calendar);
-		const weekEndIso = planWeekEndIso(targetWeek, calendar);
+		const weekStartIso = savedTarget
+			? effectivePlanWeekStartIso(savedTarget, calendar)
+			: planWeekStartIso(targetWeek, calendar);
+		const weekEndIso = (() => {
+			const end = new Date(`${weekStartIso}T12:00:00`);
+			end.setDate(end.getDate() + 6);
+			return isoDateLocal(end);
+		})();
 		const hasWardrobe = wardrobeHasItems(wardrobe);
 		const forecast = (await fetchDailyForecast(weekStartIso, weekEndIso)).map((f) => {
 			const weekday = new Date(`${f.date}T12:00:00`).toLocaleDateString('en-GB', {

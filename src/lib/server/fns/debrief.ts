@@ -6,7 +6,14 @@ import { parseFuelSuggestions } from '$lib/fuel-schema';
 import { wearByAllGear } from '$lib/gear';
 import { collapseDebriefSessions, debriefUnitLead, debriefUnitSlug } from '$lib/debrief-group';
 import { groupedSessionTitle, sortGroupMembers } from '$lib/group';
-import { buildWeekView, formatUnplannedBrief, isoDateLocal, planWeekDateRange, planWeekStartIso, SKIP_STATUS_PROMPT } from '$lib/plan';
+import {
+	buildWeekView,
+	effectivePlanWeekStartIso,
+	formatUnplannedBrief,
+	isoDateLocal,
+	planWeekDateRange,
+	SKIP_STATUS_PROMPT
+} from '$lib/plan';
 import { withEffectiveHrZones, type RouteAnalytics } from '$lib/splits';
 import { parseFeelingsSuggestions } from '$lib/feelings-schema';
 import { looksLikePlanWeek, parsePlanWeeks } from '$lib/plan-schema';
@@ -77,7 +84,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 		const { goals } = training.store;
 		const { calendar } = training;
 		const weekView = week ? buildWeekView(week, allRuns, calendar, undefined, activityGroups) : null;
-		const weekStart = week ? planWeekStartIso(week.week, calendar) : '';
+		const weekStart = week ? effectivePlanWeekStartIso(week, calendar) : '';
 		let weekEnd = weekStart;
 		if (weekStart) {
 			const end = new Date(`${weekStart}T12:00:00`);

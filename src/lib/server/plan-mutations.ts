@@ -1,7 +1,7 @@
 import { mergeBodyScores, resolveAiBodyScores } from '$lib/body-scores';
 import { feelingsRowToPatch, type ParsedFeelingsActivity } from '$lib/feelings-schema';
 import { looksLikePlanWeek } from '$lib/plan-schema';
-import { planWeekDateRange, planWeekStartIso } from '$lib/plan';
+import { effectivePlanWeekStartIso, planWeekDateRange } from '$lib/plan';
 import type { PlanWeek } from '$lib/types';
 import { loadTrainingContext, loadPlan, savePlan, rememberGearName } from './context';
 import { loadBodyNotes } from './profile';
@@ -56,7 +56,7 @@ export async function mergePlanWeeks(
 	for (const w of incoming) {
 		byWeek.set(w.week, {
 			...w,
-			start: planWeekStartIso(w.week, calendar),
+			start: effectivePlanWeekStartIso(w, calendar),
 			dates: w.dates?.trim() ? w.dates : planWeekDateRange(w.week, calendar)
 		});
 	}

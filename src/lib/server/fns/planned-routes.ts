@@ -4,7 +4,7 @@ import {
 	isoDateLocal,
 	isRestLike,
 	planSessionRouteKey,
-	planWeekStartIso,
+	planWeekStartFromPlan,
 	sessionCanLinkRoute,
 	upcomingPlanSessions
 } from '$lib/plan';
@@ -43,7 +43,10 @@ export const getLiveShareRouteOptions = createServerFn({ method: 'GET' }).handle
 
 	for (const link of links) {
 		if (link.kind !== 'plan' || link.plan_week == null || !link.plan_day) continue;
-		const date = dateForSessionDay(planWeekStartIso(link.plan_week, calendar), link.plan_day);
+		const date = dateForSessionDay(
+			planWeekStartFromPlan(plan, link.plan_week, calendar),
+			link.plan_day
+		);
 		const weekRow = plan.find((w) => w.week === link.plan_week);
 		const session = weekRow?.sessions.find((s) => {
 			if (s.day.toLowerCase() !== link.plan_day!.toLowerCase()) return false;
@@ -127,7 +130,10 @@ export const getPlannedRouteDetail = createServerFn({ method: 'GET' })
 				id: link.id,
 				week: link.plan_week,
 				day: link.plan_day,
-				date: dateForSessionDay(planWeekStartIso(link.plan_week, calendar), link.plan_day),
+				date: dateForSessionDay(
+					planWeekStartFromPlan(plan, link.plan_week, calendar),
+					link.plan_day
+				),
 				label: session?.label || link.plan_label || 'Planned session',
 				activity_type: session?.activity_type || link.plan_activity_type || 'run',
 				distance_km: session?.distance_km ?? null

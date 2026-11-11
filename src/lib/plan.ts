@@ -160,6 +160,25 @@ export function planWeekStartIso(week: number, cal: PlanCalendar): string {
 	return isoDateLocal(start);
 }
 
+/** Saved week `start` when present (e.g. pre-block weeks before race plan_start); else calendar math. */
+export function effectivePlanWeekStartIso(
+	week: Pick<PlanWeek, 'week' | 'start'>,
+	cal: PlanCalendar
+): string {
+	if (week.start?.trim()) return mondayIso(week.start);
+	return planWeekStartIso(week.week, cal);
+}
+
+export function planWeekStartFromPlan(
+	plan: PlanWeek[],
+	weekNum: number,
+	cal: PlanCalendar
+): string {
+	const row = plan.find((w) => w.week === weekNum);
+	if (row) return effectivePlanWeekStartIso(row, cal);
+	return planWeekStartIso(weekNum, cal);
+}
+
 export function planWeekEndIso(week: number, cal: PlanCalendar): string {
 	const start = new Date(`${planWeekStartIso(week, cal)}T12:00:00`);
 	start.setDate(start.getDate() + 6);
@@ -374,8 +393,12 @@ export function buildWeekView(
 	groups: ActivityGroupInfo[] = []
 ): WeekView {
 	const todayIso = isoDateLocal(today);
-	const start = planWeekStartIso(week.week, cal);
-	const end = planWeekEndIso(week.week, cal);
+	const start = effectivePlanWeekStartIso(week, cal);
+	const end = (() => {
+		const d = new Date(`${start}T12:00:00`);
+		d.setDate(d.getDate() + 6);
+		return isoDateLocal(d);
+	})();
 	const matchRuns = runsForPlanMatching(runs, groups);
 	const runsById = new Map(runs.map((r) => [r.id, r] as const));
 	const buckets = new Map<string, WeekViewRun[]>();
@@ -596,7 +619,7 @@ export function weekDayGroupsCalendarOrder(
 	};
 	for (const s of view.sessions) bucket(s.day).sessions.push(s);
 	for (const u of view.unplanned) bucket(u.day).unplanned.push(u);
-	const weekStart = planWeekStartIso(view.week.week, cal);
+	const weekStart = effectivePlanWeekStartIso(view.week, cal);
 	const todayIso = isoDateLocal(today);
 	return WEEKDAYS.map((day) => {
 		const g = byDay.get(day);
@@ -787,7 +810,7 @@ export function upcomingPlanSessions(
 	const out: UpcomingPlanSession[] = [];
 	const weeks = [...plan].sort((a, b) => a.week - b.week);
 	for (const w of weeks) {
-		const start = planWeekStartIso(w.week, cal);
+		const start = effectivePlanWeekStartIso(w, cal);
 		for (const s of w.sessions) {
 			if (isRestLike(s.label)) continue;
 			if (hasSkipStatus(s)) continue;
@@ -818,7 +841,7 @@ export function sessionStreak(
 	);
 	const planned: string[] = [];
 	for (const w of plan) {
-		const start = planWeekStartIso(w.week, cal);
+		const start = effectivePlanWeekStartIso(w, cal);
 		for (const s of w.sessions) {
 			if (isRestLike(s.label)) continue;
 			if (sessionActivityType(s) !== 'run') continue;

@@ -20,14 +20,6 @@ Thumbs.db
 !.env.example
 !.env.test
 
-# Uploaded screenshots (keep folder via .gitkeep)
-data/uploads/*
-!data/uploads/.gitkeep
-
-# Imported GPS routes
-data/routes/*
-!data/routes/.gitkeep
-
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*

@@ -11,7 +11,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../Icon';
 import { MoreMenu } from '../MoreMenu';
 import { WeekPlanBoard } from '../WeekPlanBoard';
-import { Button, FormSection, PageSection, Select, useSnackbar } from '../ui';
+import { savePlanWeeks } from '$lib/server/functions';
+import { Button, Dialog, FormSection, PageSection, Select, useSnackbar } from '../ui';
+import { JsonPasteForm } from '../JsonPasteForm';
 import { ui } from '../ui/tokens';
 import { withCoachSearch } from '$lib/coach/search';
 import { weekTag, type CoachPlanData } from './coach-utils';
@@ -74,6 +76,8 @@ export function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 	const byWeek = new Map(planData.views.map((v) => [v.week.week, v]));
 	const view = byWeek.get(selected) ?? null;
 	const [copied, setCopied] = useState<'week' | 'all' | null>(null);
+	const [importOpen, setImportOpen] = useState(false);
+	const [importBusy, setImportBusy] = useState(false);
 	const blockHint = planBlockExplanation(planData);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const useScrollStrip = weekCount <= 6;
@@ -111,7 +115,7 @@ export function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 	const boardTitle =
 		selected === current ? 'This week' : selected === upcomingWeek ? 'Next week' : `Week ${selected}`;
 
-	const copyMenu =
+	const planMenu =
 		authed && (view || planData.views.length)
 			? [
 					{
@@ -125,14 +129,17 @@ export function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 						icon: <Icon name={copied === 'all' ? 'check' : 'copy'} size={16} />,
 						disabled: !planData.views.length,
 						onClick: () => void copyText('all', formatAllWeeksClipboard(planData.views, todayIso))
+					},
+					{
+						label: 'Import updated plan',
+						icon: <Icon name="upload" size={16} />,
+						onClick: () => setImportOpen(true)
 					}
 				]
 			: [];
 
-	const copyMenuButton =
-		copyMenu.length > 0 ? (
-			<MoreMenu compact items={copyMenu} label="Copy for AI" />
-		) : null;
+	const planMenuButton =
+		planMenu.length > 0 ? <MoreMenu compact items={planMenu} label="Plan" /> : null;
 
 	const weekOptions = Array.from({ length: weekCount }, (_, i) => {
 		const n = i + 1;
@@ -182,7 +189,7 @@ export function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 
 	return (
 		<PageSection form>
-			<FormSection title="Pick a week" action={copyMenuButton ?? undefined}>
+			<FormSection title="Pick a week" action={planMenuButton ?? undefined}>
 				{/* Narrow / tablet: one select — no second row */}
 				<div className="flex min-w-0 items-stretch gap-1.5 sm:gap-2 lg:hidden">
 					<Button
@@ -300,6 +307,41 @@ export function PlanWeekPanel({ planData }: { planData: CoachPlanData }) {
 					</p>
 				)}
 			</div>
+
+			<Dialog
+				open={importOpen}
+				title="Import updated plan"
+				className="sm:max-w-[38rem]"
+				onClose={importBusy ? () => {} : () => setImportOpen(false)}
+			>
+				<JsonPasteForm
+					description={
+						<p className={cn('text-muted', 'm-0 text-[0.88rem]')}>
+							Paste the AI response — merged by week number. Session{' '}
+							<code className="text-[0.85em]">fuel</code> /{' '}
+							<code className="text-[0.85em]">kit</code> are saved on the plan. Include{' '}
+							<code className="text-[0.85em]">start</code> when the week is not on the race
+							calendar yet.
+						</p>
+					}
+					placeholder='{ "week": 7, "dates": "09 Nov–15 Nov 2026", "start": "2026-11-09", "sessions": [ … ] }'
+					submitLabel="Merge into plan"
+					errorLabel="Could not save plan."
+					onSubmit={async (json) => {
+						setImportBusy(true);
+						try {
+							const res = await savePlanWeeks({ data: json });
+							snack.success(
+								`Saved — plan now has ${res.weeks} weeks (updated week ${res.updated.join(', ')}).`
+							);
+							setImportOpen(false);
+							await router.invalidate();
+						} finally {
+							setImportBusy(false);
+						}
+					}}
+				/>
+			</Dialog>
 		</PageSection>
 	);
 }

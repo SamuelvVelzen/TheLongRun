@@ -60,11 +60,15 @@ try {
 const sql = fs.readFileSync(BACKUP, 'utf8');
 
 try {
+	// Cloudflare's export order can INSERT into planned_route_links before CREATE runs.
+	// SQLite enforces FKs on those inserts unless we defer them for the import.
+	db.exec('PRAGMA foreign_keys=OFF');
 	db.exec('BEGIN');
 	for (const table of TABLES) db.exec(`DROP TABLE IF EXISTS ${table}`);
 	db.exec(sql);
 	const runs = db.prepare('SELECT COUNT(*) AS c, MAX(date) AS latest FROM runs').get();
 	db.exec('COMMIT');
+	db.exec('PRAGMA foreign_keys=ON');
 	console.log(`Imported ${runs.c} runs into the local D1 (latest activity ${runs.latest}).`);
 } catch (e) {
 	try {

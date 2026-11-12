@@ -258,3 +258,10 @@ export type ActivityGroupInfo = {
 	/** Combined rolling efforts for same-type run/walk groups; empty otherwise. */
 	best_efforts: BestEffort[];
 };
+
+export type PlannedRouteGroupInfo = {
+	id: string;
+	name: string;
+	created_on: string;
+	member_slugs: string[];
+};

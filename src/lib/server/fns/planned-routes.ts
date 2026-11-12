@@ -17,6 +17,8 @@ import { createServerFn } from '@tanstack/react-start';
 import { requireAuth } from '../auth';
 import { loadPlan, loadTrainingContext, savePlan } from '../context';
 import { attachRouteToActivity as dbAttachRouteToActivity, attachRouteToPlan as dbAttachRouteToPlan, deletePlannedRoute as dbDeletePlannedRoute, detachRouteLink as dbDetachRouteLink, replacePlannedRouteTrack as dbReplacePlannedRouteTrack, updatePlannedRoute as dbUpdatePlannedRoute, getPlannedRoute, listPlannedRoutes, listPlannedRouteTracks, listRouteLinks, savePlannedFromFile, savePlannedFromTrack } from '../planned-routes';
+import { listPlannedRouteGroups } from '../planned-route-groups';
+import { groupedRouteTitle, routeGroupLiveSlug } from '$lib/planned-route-group';
 import { getRun, listRuns } from '../runs';
 import { matchingPlanSession, startFinishWaypoints, trackFromDrawnPins } from '../planned-route-draw';
 
@@ -25,16 +27,25 @@ import { matchingPlanSession, startFinishWaypoints, trackFromDrawnPins } from '.
 /** Root-loader data shared by every page: sign-in state + the open body notes to score. */
 
 export const getPlannedRoutesData = createServerFn({ method: 'GET' }).handler(async () => {
-	const [routes, tracks] = await Promise.all([listPlannedRoutes(), listPlannedRouteTracks()]);
-	return { routes, tracks } satisfies { routes: PlannedRoute[]; tracks: RouteTrack[] };
+	const [routes, tracks, groups] = await Promise.all([
+		listPlannedRoutes(),
+		listPlannedRouteTracks(),
+		listPlannedRouteGroups()
+	]);
+	return { routes, tracks, groups } satisfies {
+		routes: PlannedRoute[];
+		tracks: RouteTrack[];
+		groups: import('$lib/types').PlannedRouteGroupInfo[];
+	};
 });
 
 /** Routes for live-share picker — plan-linked first, labels include upcoming plan day context. */
 export const getLiveShareRouteOptions = createServerFn({ method: 'GET' }).handler(async () => {
-	const [routes, links, training] = await Promise.all([
+	const [routes, links, training, groups] = await Promise.all([
 		listPlannedRoutes(),
 		listRouteLinks(),
-		loadTrainingContext()
+		loadTrainingContext(),
+		listPlannedRouteGroups()
 	]);
 	const { plan, calendar } = training;
 	const todayIso = isoDateLocal(new Date());
@@ -80,7 +91,8 @@ export const getLiveShareRouteOptions = createServerFn({ method: 'GET' }).handle
 		return a.name.localeCompare(b.name);
 	});
 
-	return sorted.map((route) => {
+	const bySlug = new Map(routes.map((r) => [r.slug, r]));
+	const routeOptions = sorted.map((route) => {
 		const hint = hints.get(route.slug)?.text;
 		const km =
 			route.distance_km != null && !/\bkm\b/i.test(route.name)
@@ -89,8 +101,27 @@ export const getLiveShareRouteOptions = createServerFn({ method: 'GET' }).handle
 		const base = `${route.name}${km}`;
 		return {
 			slug: route.slug,
-			label: hint ? `${base} · ${hint}` : base
+			label: hint ? `${base} · ${hint}` : base,
+			rank: hints.get(route.slug)?.rank ?? 5
 		};
+	});
+
+	const groupOptions = groups.map((group) => {
+		const members = group.member_slugs
+			.map((s) => bySlug.get(s))
+			.filter((r): r is NonNullable<typeof r> => r != null);
+		const dist = members.reduce((acc, m) => acc + (m.distance_km ?? 0), 0);
+		const km = dist > 0 ? ` · ${Math.round(dist * 10) / 10} km combined` : '';
+		return {
+			slug: routeGroupLiveSlug(group.id),
+			label: `${groupedRouteTitle(group, members.length)} (${members.length} routes)${km}`,
+			rank: 2
+		};
+	});
+
+	return [...routeOptions, ...groupOptions].sort((a, b) => {
+		if (a.rank !== b.rank) return a.rank - b.rank;
+		return a.label.localeCompare(b.label);
 	});
 });
 

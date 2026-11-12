@@ -9,5 +9,6 @@ export * from './fns/groups';
 export * from './fns/live-location';
 export * from './fns/misc';
 export * from './fns/planned-routes';
+export * from './fns/planned-route-groups';
 export * from './fns/profile';
 export * from './fns/runs';

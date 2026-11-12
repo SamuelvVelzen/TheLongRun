@@ -1,7 +1,10 @@
 /** Live location broadcast: one ping in the context table, polled by maps. */
 
+import { parseRouteGroupLiveSlug, ROUTE_GROUP_LIVE_PREFIX } from './planned-route-group';
 import { haversineMeters } from './splits';
 import type { RouteTrack } from './types';
+
+export { ROUTE_GROUP_LIVE_PREFIX, parseRouteGroupLiveSlug } from './planned-route-group';
 
 export const LIVE_LOCATION_PING_MS = 30_000;
 /** Faster poll / broadcast while someone is watching the live map. */
@@ -44,6 +47,8 @@ export type LivePingSignal = 'fresh' | 'stale' | 'idle';
 /** `getLiveLocation` adds route track and watcher hint when available. */
 export type LiveLocationView = LiveLocationPing & {
 	routeTrack: RouteTrack | null;
+	/** All tracks when sharing a route group on live map. */
+	routeTracks?: RouteTrack[] | null;
 	watchersActive?: boolean;
 };
 
@@ -144,6 +149,10 @@ export function parseLiveRouteSlug(raw: unknown): string | null {
 	if (raw == null || raw === '') return null;
 	const s = String(raw).trim();
 	if (!s || s.includes('..') || s.includes('/') || s.includes('\\')) return null;
+	if (s.startsWith(ROUTE_GROUP_LIVE_PREFIX)) {
+		return parseRouteGroupLiveSlug(s) ? s : null;
+	}
+	if (s.includes(':')) return null;
 	return s;
 }
 

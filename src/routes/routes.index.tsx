@@ -1,6 +1,13 @@
 import { AuthGate, useAuthed } from '$lib/auth';
 import {
+	collapsePlannedRoutes,
+	groupedRouteTitle,
+	type PlannedRouteListItem
+} from '$lib/planned-route-group';
+import {
+	createPlannedRouteGroupFn,
 	deletePlannedRoute,
+	deletePlannedRoutesFn,
 	getPlannedRoutesData,
 	importPlannedRoute
 } from '$lib/server/functions';
@@ -300,7 +307,66 @@ function PlannedRoutes() {
 	);
 }
 
+function RoutesSelectCheck({ on }: { on: boolean }) {
+	return (
+		<span
+			className={cn(
+				'inline-flex size-6 shrink-0 items-center justify-center rounded-[6px] border',
+				on ? 'border-accent bg-accent text-accent-ink' : 'border-line bg-canvas text-muted'
+			)}
+			aria-hidden
+		>
+			{on ? <Icon name="check" size={14} /> : null}
+		</span>
+	);
+}
+
+function RoutesMore({
+	canGroup,
+	onGroup,
+	onDelete
+}: {
+	canGroup: boolean;
+	onGroup: () => void;
+	onDelete: () => void;
+}) {
+	return (
+		<MoreMenu
+			items={[
+				{
+					label: 'Group',
+					icon: <Icon name="grid" size={16} />,
+					onClick: onGroup,
+					disabled: !canGroup
+				},
+				{
+					label: 'Delete',
+					icon: <TrashIcon className="size-4" />,
+					onClick: onDelete,
+					danger: true
+				}
+			]}
+		/>
+	);
+}
+
 function PlannedRoutesList({ data }: { data: Awaited<ReturnType<typeof getPlannedRoutesData>> }) {
+	const router = useRouter();
+	const snack = useSnackbar();
+	const authed = useAuthed();
+	const [selectMode, setSelectMode] = useState<'group' | 'delete' | null>(null);
+	const [picked, setPicked] = useState<string[]>([]);
+	const [pendingMass, setPendingMass] = useState(false);
+	const selecting = selectMode != null;
+	const groups = data.groups ?? [];
+	const items = useMemo(
+		() => collapsePlannedRoutes(data.routes, groups),
+		[data.routes, groups]
+	);
+	const groupedSlugs = useMemo(() => new Set(groups.flatMap((g) => g.member_slugs)), [groups]);
+	const ungroupedCount = data.routes.filter((r) => !groupedSlugs.has(r.slug)).length;
+	const canGroup = ungroupedCount >= 2;
+
 	const meta = useMemo<RouteMeta>(() => {
 		const out: RouteMeta = {};
 		for (const route of data.routes) {
@@ -319,6 +385,47 @@ function PlannedRoutesList({ data }: { data: Awaited<ReturnType<typeof getPlanne
 		}
 		return out;
 	}, [data.routes]);
+
+	function togglePick(slug: string) {
+		setPicked((prev) => (prev.includes(slug) ? prev.filter((x) => x !== slug) : [...prev, slug]));
+	}
+
+	function toggleGroupPick(slugs: string[]) {
+		setPicked((prev) => {
+			const allOn = slugs.every((s) => prev.includes(s));
+			if (allOn) return prev.filter((s) => !slugs.includes(s));
+			return [...new Set([...prev, ...slugs])];
+		});
+	}
+
+	function clearSelect() {
+		setSelectMode(null);
+		setPicked([]);
+	}
+
+	async function groupPicked() {
+		if (picked.length < 2) return;
+		try {
+			const res = await createPlannedRouteGroupFn({ data: { slugs: picked } });
+			clearSelect();
+			await router.invalidate();
+			await router.navigate({ to: '/route-groups/$id', params: { id: res.id } });
+		} catch (err) {
+			snack.error(errorMessage(err, 'Could not group those routes.'));
+		}
+	}
+
+	async function deletePicked() {
+		if (!picked.length) return;
+		try {
+			await deletePlannedRoutesFn({ data: picked });
+			clearSelect();
+			await router.invalidate();
+		} catch (err) {
+			snack.error(errorMessage(err, 'Could not delete those routes.'));
+			throw err;
+		}
+	}
 
 	return (
 		<>
@@ -344,17 +451,174 @@ function PlannedRoutesList({ data }: { data: Awaited<ReturnType<typeof getPlanne
 				</Suspense>
 			</section>
 
+			{authed && selecting ? (
+				<p className="text-muted text-[0.92rem] mb-3">
+					{selectMode === 'delete'
+						? 'Tap routes to delete. Grouped sets select every route in the group.'
+						: 'Tap routes to combine them. Already grouped sets stay together.'}
+				</p>
+			) : null}
+
 			<SectionTitle>
 				<div>
 					<h2>Saved routes</h2>
-					<p>{data.routes.length} total · open a route to attach it to a plan day</p>
+					<p>
+						{data.routes.length} total
+						{groups.length ? ` · ${groups.length} group${groups.length === 1 ? '' : 's'}` : ''} · open
+						a route to attach it to a plan day
+					</p>
 				</div>
+				{authed && items.length ? (
+					<Actions className="max-sm:self-start">
+						<RoutesMore
+							canGroup={canGroup}
+							onGroup={() => setSelectMode('group')}
+							onDelete={() => setSelectMode('delete')}
+						/>
+					</Actions>
+				) : null}
 			</SectionTitle>
-			<Grid>
-				{data.routes.map((route) => (
-					<PlannedRouteRow key={route.slug} route={route} />
-				))}
-			</Grid>
+			<div className={selecting && authed ? 'pb-24' : undefined}>
+				<Grid>
+					{items.map((item) => (
+						<PlannedRouteListItem
+							key={item.kind === 'group' ? item.group.id : item.route.slug}
+							item={item}
+							selecting={selecting && authed}
+							picked={picked}
+							onTogglePick={togglePick}
+							onToggleGroupPick={toggleGroupPick}
+						/>
+					))}
+				</Grid>
+			</div>
+			{authed && selecting ? (
+				<Actions sticky>
+					<Button variant="ghost" type="button" onClick={clearSelect}>
+						Cancel
+					</Button>
+					{selectMode === 'delete' ? (
+						<Button
+							variant="danger"
+							stickyPrimary
+							type="button"
+							disabled={!picked.length}
+							onClick={() => setPendingMass(true)}
+						>
+							Delete {picked.length || ''}
+						</Button>
+					) : (
+						<Button
+							stickyPrimary
+							type="button"
+							disabled={picked.length < 2}
+							onClick={() => void groupPicked()}
+						>
+							Group {picked.length || ''}
+						</Button>
+					)}
+				</Actions>
+			) : null}
+			<ConfirmDialog
+				open={pendingMass}
+				title={picked.length === 1 ? 'Delete this route?' : `Delete ${picked.length} routes?`}
+				description="This cannot be undone."
+				onClose={() => setPendingMass(false)}
+				onConfirm={deletePicked}
+			/>
+		</>
+	);
+}
+
+function PlannedRouteListItem({
+	item,
+	selecting,
+	picked,
+	onTogglePick,
+	onToggleGroupPick
+}: {
+	item: PlannedRouteListItem;
+	selecting: boolean;
+	picked: string[];
+	onTogglePick: (slug: string) => void;
+	onToggleGroupPick: (slugs: string[]) => void;
+}) {
+	if (item.kind === 'group') {
+		const slugs = item.members.map((m) => m.slug);
+		const allOn = slugs.every((s) => picked.includes(s));
+		if (selecting) {
+			return (
+				<button
+					type="button"
+					className={cn(
+						runRowClass(
+							'grid-cols-[auto_1fr_0.55fr_0.65fr] text-left w-full cursor-pointer',
+							allOn && 'border-accent bg-accent/8'
+						)
+					)}
+					aria-pressed={allOn}
+					onClick={() => onToggleGroupPick(slugs)}
+				>
+					<RoutesSelectCheck on={allOn} />
+					<PlannedRouteGroupBody item={item} />
+				</button>
+			);
+		}
+		return (
+			<Link
+				className={runRowClass(
+					'grid-cols-[1.35fr_0.55fr_0.65fr_0.65fr] border-[color-mix(in_srgb,var(--color-accent)_35%,var(--color-line))] bg-accent/4'
+				)}
+				to="/route-groups/$id"
+				params={{ id: item.group.id }}
+			>
+				<PlannedRouteGroupBody item={item} />
+			</Link>
+		);
+	}
+
+	if (selecting) {
+		const on = picked.includes(item.route.slug);
+		return (
+			<button
+				type="button"
+				className={cn(
+					runRowClass(
+						'grid-cols-[auto_1fr_0.55fr_0.65fr_0.65fr] text-left w-full cursor-pointer pr-[0.55rem]',
+						on && 'border-accent bg-accent/8'
+					)
+				)}
+				aria-pressed={on}
+				onClick={() => onTogglePick(item.route.slug)}
+			>
+				<RoutesSelectCheck on={on} />
+				<PlannedRouteRowBody route={item.route} hideActions />
+			</button>
+		);
+	}
+
+	return <PlannedRouteRow route={item.route} />;
+}
+
+function PlannedRouteGroupBody({ item }: { item: Extract<PlannedRouteListItem, { kind: 'group' }> }) {
+	const title = groupedRouteTitle(item.group, item.members.length);
+	return (
+		<>
+			<div className="col-span-1 min-w-0">
+				<div className={cn(runTitleClass, 'font-[650] mb-[0.15rem]')}>
+					<Icon name="grid" size={14} className="inline mr-1 opacity-70" />
+					{title}
+				</div>
+				<div className="text-muted text-[0.9rem]">
+					{item.members.length} routes
+					{item.stats.plan_link_count > 0
+						? ` · ${item.stats.plan_link_count} plan link${item.stats.plan_link_count === 1 ? '' : 's'}`
+						: ''}
+				</div>
+			</div>
+			<div>{item.stats.distance_km ?? '—'} km</div>
+			<div>combined</div>
+			<div className="text-muted text-[0.85rem]">open group</div>
 		</>
 	);
 }
@@ -386,6 +650,33 @@ function linkSummary(route: PlannedRoute) {
 			<LinkedFlag count={route.plan_link_count} kind="plan" />
 			<LinkedFlag count={route.activity_link_count} kind="activity" />
 		</div>
+	);
+}
+
+function PlannedRouteRowBody({
+	route,
+	hideActions
+}: {
+	route: PlannedRoute;
+	hideActions?: boolean;
+}) {
+	return (
+		<>
+			<div className={hideActions ? 'min-w-0' : undefined}>
+				<div className={cn(runTitleClass, 'font-[650] mb-[0.15rem]')}>
+					<span className="min-w-0">{route.name}</span>
+					{route.open_gap_m != null && <OpenRouteBadge gapMeters={route.open_gap_m} />}
+				</div>
+				<div className={'text-muted'}>{linkSummary(route)}</div>
+			</div>
+			<div>{route.distance_km ?? '—'} km</div>
+			<div>{route.elev_gain != null ? `↑ ${route.elev_gain} m` : 'Elevation —'}</div>
+			{route.waypoints.length > 0 ? (
+				<div>
+					{route.waypoints.length} waypoint{route.waypoints.length === 1 ? '' : 's'}
+				</div>
+			) : null}
+		</>
 	);
 }
 
@@ -433,20 +724,7 @@ function PlannedRouteRow({ route }: { route: PlannedRoute }) {
 					}
 				}}
 			>
-				<div>
-					<div className={cn(runTitleClass, 'font-[650] mb-[0.15rem]')}>
-						<span className="min-w-0">{route.name}</span>
-						{route.open_gap_m != null && <OpenRouteBadge gapMeters={route.open_gap_m} />}
-					</div>
-					<div className={'text-muted'}>{linkSummary(route)}</div>
-				</div>
-				<div>{route.distance_km ?? '—'} km</div>
-				<div>{route.elev_gain != null ? `↑ ${route.elev_gain} m` : 'Elevation —'}</div>
-				{route.waypoints.length > 0 ? (
-					<div>
-						{route.waypoints.length} waypoint{route.waypoints.length === 1 ? '' : 's'}
-					</div>
-				) : null}
+				<PlannedRouteRowBody route={route} />
 			</div>
 			<AuthGate>
 				<div

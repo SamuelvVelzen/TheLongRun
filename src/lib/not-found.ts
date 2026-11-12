@@ -12,7 +12,8 @@ export function entityNotFound(entity: NotFoundEntity) {
 const ROUTE_ENTITY: Record<string, NotFoundEntity> = {
 	'/runs/$slug': 'activity',
 	'/routes/$slug': 'route',
-	'/groups/$id': 'group'
+	'/groups/$id': 'group',
+	'/route-groups/$id': 'group'
 };
 
 export function entityFromNotFound(routeId: string, data: unknown): NotFoundEntity {

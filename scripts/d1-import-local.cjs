@@ -20,6 +20,8 @@ const TABLES = [
 	'activity_group_members',
 	'activity_groups',
 	'planned_route_links',
+	'planned_route_group_members',
+	'planned_route_groups',
 	'planned_routes',
 	'routes',
 	'runs',

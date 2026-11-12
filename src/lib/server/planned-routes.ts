@@ -363,10 +363,21 @@ export async function replacePlannedRouteTrack(
 
 export async function deletePlannedRoute(slug: string): Promise<boolean> {
 	if (!slug || slug.includes('..') || slug.includes('/') || slug.includes('\\')) return false;
+	const { pruneRouteGroupsForSlug } = await import('./planned-route-groups');
+	await pruneRouteGroupsForSlug(slug);
 	const sql = getSql();
 	const rows =
 		(await sql`DELETE FROM planned_routes WHERE slug = ${slug} RETURNING slug`) as unknown[];
 	return rows.length > 0;
+}
+
+export async function deletePlannedRoutes(slugs: string[]): Promise<number> {
+	const unique = [...new Set(slugs.map((s) => s.trim()).filter(Boolean))];
+	let n = 0;
+	for (const slug of unique) {
+		if (await deletePlannedRoute(slug)) n++;
+	}
+	return n;
 }
 
 export type RouteLinkRow = {

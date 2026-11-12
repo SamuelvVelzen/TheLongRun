@@ -807,9 +807,9 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let liveAccuracy: any = null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let liveRouteLine: any = null;
+	let liveRouteLines: any[] = [];
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let liveRouteCasing: any = null;
+	let liveRouteCasings: any[] = [];
 	let liveRouteSlug: string | null = null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let liveRouteKmMarkers: any[] = [];
@@ -949,11 +949,11 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 	};
 
 	const clearLiveRoute = () => {
-		liveRouteLine?.remove?.();
-		liveRouteCasing?.remove?.();
+		for (const line of liveRouteLines) line?.remove?.();
+		for (const casing of liveRouteCasings) casing?.remove?.();
 		for (const m of liveRouteKmMarkers) m.remove?.();
-		liveRouteLine = null;
-		liveRouteCasing = null;
+		liveRouteLines = [];
+		liveRouteCasings = [];
 		liveRouteKmMarkers = [];
 		liveRouteSlug = null;
 	};
@@ -970,27 +970,39 @@ export function attachMapChrome(opts: AttachOpts): MapChromeHandle {
 			clearLiveRoute();
 			return;
 		}
-		if (slug === liveRouteSlug && liveRouteLine) return;
+		if (slug === liveRouteSlug && liveRouteLines.length) return;
 		clearLiveRoute();
-		const coords = ping.routeTrack?.coords;
-		if (!coords || coords.length < 2) return;
-		const route = addRoutePolyline(L, map, coords, {
-			interactive: false,
-			weight: 4,
-			opacity: 0.78
-		});
-		liveRouteLine = route.line;
-		liveRouteCasing = route.casing;
+		const trackList =
+			ping.routeTracks && ping.routeTracks.length
+				? ping.routeTracks
+				: ping.routeTrack
+					? [ping.routeTrack]
+					: [];
+		if (!trackList.length) return;
 		liveRouteSlug = slug;
-		for (const m of kmMarkersFromCoords(coords)) {
-			liveRouteKmMarkers.push(
-				L.marker([m.lat, m.lng], {
-					icon: kmMarkerIcon(L, m.km),
-					keyboard: false,
-					interactive: false,
-					zIndexOffset: 400
-				}).addTo(map)
-			);
+		for (const track of trackList) {
+			const coords = track.coords;
+			if (!coords || coords.length < 2) continue;
+			const route = addRoutePolyline(L, map, coords, {
+				interactive: false,
+				weight: 4,
+				opacity: 0.78
+			});
+			liveRouteLines.push(route.line);
+			liveRouteCasings.push(route.casing);
+		}
+		const primary = trackList[0]?.coords;
+		if (primary && primary.length >= 2) {
+			for (const m of kmMarkersFromCoords(primary)) {
+				liveRouteKmMarkers.push(
+					L.marker([m.lat, m.lng], {
+						icon: kmMarkerIcon(L, m.km),
+						keyboard: false,
+						interactive: false,
+						zIndexOffset: 400
+					}).addTo(map)
+				);
+			}
 		}
 	};
 

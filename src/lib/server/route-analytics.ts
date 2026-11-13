@@ -1,6 +1,6 @@
 import { analyticsFromProperties, type RouteAnalytics, type TrackSample } from '$lib/splits';
 import type { RunRecord } from '$lib/types';
-import { getSql, parseJsonColumn } from './db';
+import { getSql, parseJsonColumn } from './db.server';
 import { polylineFromGeoJson, polylineJson } from './routes';
 
 /** Resolve the stored route id from a run (`/routes/{id}.json` or strava_id). */

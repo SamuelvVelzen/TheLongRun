@@ -1,5 +1,5 @@
 import type { RouteTrack } from '$lib/types';
-import { getSql } from './db';
+import { getSql } from './db.server';
 
 export type { RouteTrack };
 

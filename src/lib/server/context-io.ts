@@ -1,4 +1,4 @@
-import { getSql } from './db';
+import { getSql } from './db.server';
 
 export async function readContextFile(name: string): Promise<string> {
 	const sql = getSql();

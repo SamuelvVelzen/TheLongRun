@@ -3,7 +3,7 @@ import { combinedBestEfforts, sameTypeForEfforts, trackFromGeoJson } from '$lib/
 import { sortGroupMembers } from '$lib/group';
 import type { TrackSample } from '$lib/splits';
 import type { ActivityGroupInfo, RunRecord } from '$lib/types';
-import { getSql } from './db';
+import { getSql } from './db.server';
 import { getRouteGeoJson, routeIdForRun } from './route-analytics';
 import { getRunById } from './runs';
 

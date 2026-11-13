@@ -1,6 +1,6 @@
 import { sortGroupRoutes } from '$lib/planned-route-group';
 import type { PlannedRoute, PlannedRouteGroupInfo } from '$lib/types';
-import { getSql } from './db';
+import { getSql } from './db.server';
 import { getPlannedRoute, listPlannedRoutes } from './planned-routes';
 
 export type { PlannedRouteGroupInfo };

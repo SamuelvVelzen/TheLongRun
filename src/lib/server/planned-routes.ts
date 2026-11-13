@@ -2,7 +2,7 @@ import type { KmMarker } from '$lib/splits';
 import { analyticsToProperties, haversineMeters, openRouteGapMeters } from '$lib/splits';
 import type { PlannedRoute, PlannedWaypoint, RouteTrack, SessionRouteRef } from '$lib/types';
 import { WEEKDAYS } from '$lib/week-mix';
-import { getSql, parseJsonColumn } from './db';
+import { getSql, parseJsonColumn } from './db.server';
 import { reverseGeocode } from './geo';
 import { parsePlannedFile, plannedTrackStats, type ParsedPlannedRoute } from './planned-file';
 import { parsePolyline, polylineFromGeoJson, polylineJson } from './routes';

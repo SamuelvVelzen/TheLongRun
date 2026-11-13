@@ -4,7 +4,7 @@ import { parseBodyScores, worstBodyScore, type BodyScore } from '$lib/body-score
 import { normalizeStartTime } from '$lib/format';
 import { formatStrengthNotes, parseStrengthNotes } from '$lib/strength';
 import type { RunRecord } from '$lib/types';
-import { getSql } from './db';
+import { getSql } from './db.server';
 
 function toNum(value: unknown): number | null {
 	if (value === null || value === undefined || value === '') return null;

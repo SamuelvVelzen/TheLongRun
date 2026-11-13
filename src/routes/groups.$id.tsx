@@ -22,19 +22,14 @@ import {
 	groupTypeCaption,
 	sortGroupMembers
 } from '$lib/group';
-import {
-	addToActivityGroupFn,
-	exportGroupedActivity,
-	getGroupDetail,
-	removeFromActivityGroupFn,
-	ungroupActivitiesFn
-} from '$lib/server/functions';
+import { exportGroupedActivity, getGroupDetail, removeFromActivityGroupFn, ungroupActivitiesFn } from '$lib/server/functions';
 import { activityTitlePart, appHead } from '$lib/title';
 import { cn } from '$lib/ui';
 import { entityNotFound } from '$lib/not-found';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { BestEffortBadges } from '../components/BestEffortBadges';
+import { GroupSessionActions } from '../components/groups/GroupSessionActions';
 import { ActivityTag, Icon } from '../components/Icon';
 import { SplitsPanel } from '../components/SplitsPanel';
 
@@ -69,15 +64,14 @@ function GroupDetail() {
 		hrMaxManual,
 		hrMaxAllTime,
 		allRuns,
-		groups
+		groups,
+		gear
 	} = Route.useLoaderData();
 	const router = useRouter();
 	const snack = useSnackbar();
-	const [pendingUngroup, setPendingUngroup] = useState(false);
 	const [removeId, setRemoveId] = useState<number | null>(null);
-	const [addOpen, setAddOpen] = useState(false);
-	const [addPick, setAddPick] = useState<number | null>(null);
 	const [exporting, setExporting] = useState(false);
+	const [pendingUngroupAfterExport, setPendingUngroupAfterExport] = useState(false);
 
 	const title = groupedSessionTitle(group, members.length, stats.date);
 	const metric = headlineMetric(stats);
@@ -92,9 +86,6 @@ function GroupDetail() {
 	const canCombinedExport = !stats.mixed && withTrack.length > 0;
 	const canZipExport = withTrack.length > 0;
 
-	const groupedIds = new Set(groups.flatMap((g) => g.member_ids));
-	const addOptions = allRuns.filter((r) => !groupedIds.has(r.id));
-
 	async function onExport(kind: 'gpx' | 'tcx' | 'zip') {
 		setExporting(true);
 		try {
@@ -105,6 +96,7 @@ function GroupDetail() {
 			} else {
 				saveExportedFile(file);
 			}
+			setPendingUngroupAfterExport(true);
 		} catch (err) {
 			snack.error(errorMessage(err, 'Export failed'));
 		} finally {
@@ -132,21 +124,17 @@ function GroupDetail() {
 				lead={`${stats.date}. Source GPX files are unchanged — this is a grouped view.`}
 				actions={
 					<AuthGate>
-						<>
-							<IconLabelButton
-								label="Add part"
-								size="default"
-								icon={<Icon name="plus" size={16} />}
-								onClick={() => setAddOpen(true)}
-							/>
-							<button
-								type="button"
-								className={buttonClass({ variant: 'ghost' })}
-								onClick={() => setPendingUngroup(true)}
-							>
-								Ungroup
-							</button>
-						</>
+						<GroupSessionActions
+							layout="inline"
+							showEditLink={false}
+							group={group}
+							members={members}
+							stats={stats}
+							gear={gear}
+							allRuns={allRuns}
+							groups={groups}
+							segments={segments}
+						/>
 					</AuthGate>
 				}
 			/>
@@ -314,83 +302,21 @@ function GroupDetail() {
 				</p>
 			</Panel>
 
-			<Dialog
-				open={addOpen}
-				title="Add a part"
-				onClose={() => setAddOpen(false)}
-				actions={
-					<>
-						<button
-							type="button"
-							className={buttonClass({ variant: 'ghost' })}
-							onClick={() => setAddOpen(false)}
-						>
-							Cancel
-						</button>
-						<button
-							type="button"
-							className={buttonClass()}
-							disabled={!addPick}
-							onClick={async () => {
-								if (!addPick) return;
-								try {
-									await addToActivityGroupFn({ data: { groupId: group.id, id: addPick } });
-									setAddOpen(false);
-									setAddPick(null);
-									await router.invalidate();
-								} catch (err) {
-									snack.error(errorMessage(err, 'Could not add that activity.'));
-								}
-							}}
-						>
-							Add
-						</button>
-					</>
-				}
-			>
-				<div className="grid max-h-[50vh] gap-1.5 overflow-y-auto">
-					{addOptions.length ? (
-						addOptions.map((opt) => (
-							<button
-								key={opt.id}
-								type="button"
-								className={cn(
-									'flex min-h-11 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left',
-									addPick === opt.id ? 'border-accent bg-accent/10' : 'border-line'
-								)}
-								aria-pressed={addPick === opt.id}
-								onClick={() => setAddPick(opt.id)}
-							>
-								<span>
-									<strong>{opt.date}</strong>
-									<span className={cn('text-muted', 'block text-[0.82rem]')}>
-										{[
-											activityLabel(opt.activity_type),
-											opt.start_time || null,
-											opt.distance_km != null ? `${opt.distance_km} km` : null
-										]
-											.filter(Boolean)
-											.join(' · ')}
-									</span>
-								</span>
-							</button>
-						))
-					) : (
-						<p className={cn('text-muted', 'm-0')}>No ungrouped activities left to add.</p>
-					)}
-				</div>
-			</Dialog>
-
 			<ConfirmDialog
-				open={pendingUngroup}
-				title="Ungroup these activities?"
-				description="Each imported file becomes its own timeline card again. Nothing is deleted."
+				open={pendingUngroupAfterExport}
+				title="Remove grouped view from timeline?"
+				description="Your export is saved. Ungroup so each part shows as its own card again? Activities stay in your log."
 				confirmLabel="Ungroup"
-				onClose={() => setPendingUngroup(false)}
+				cancelLabel="Keep grouped"
+				onClose={() => setPendingUngroupAfterExport(false)}
 				onConfirm={async () => {
-					await ungroupActivitiesFn({ data: group.id });
-					await router.invalidate();
-					await router.navigate({ to: '/timeline' });
+					try {
+						await ungroupActivitiesFn({ data: group.id });
+						await router.invalidate();
+						await router.navigate({ to: '/timeline' });
+					} catch (err) {
+						snack.error(errorMessage(err, 'Could not ungroup.'));
+					}
 				}}
 			/>
 			<ConfirmDialog

@@ -10,10 +10,10 @@ import type { PlanPeekData } from '$lib/plan-peek';
 import type { CreateRunInput, UpdateRunInput } from '$lib/run-input';
 import { createServerFn } from '@tanstack/react-start';
 import { requireAuth } from '../auth';
-import { loadSettings } from '../context';
+import { loadGear, loadSettings } from '../context';
 import { addActivityToGroup, createActivityGroup, enrichAllGroupEfforts, enrichGroupEfforts, getActivityGroup, listActivityGroups, removeActivityFromGroup, tracksForMembers, ungroupActivities } from '../groups';
 import { routeIdForRun } from '../route-analytics';
-import { getMaxHrAllTime, listRouteIds, listRuns } from '../runs';
+import { deleteRun as dbDeleteRun, getMaxHrAllTime, listRouteIds, listRuns } from '../runs';
 import { hydrateBestEfforts, withMap } from '../run-orchestration';
 import { zipFilePayload } from '../export-zip';
 
@@ -26,12 +26,13 @@ export const getGroupDetail = createServerFn({ method: 'GET' })
 	.handler(async ({ data: id }) => {
 		const groupRaw = await getActivityGroup(id);
 		if (!groupRaw) return null;
-		const [allRuns, routeIds, settings, allTimeMaxHr, groupsRaw] = await Promise.all([
+		const [allRuns, routeIds, settings, allTimeMaxHr, groupsRaw, gear] = await Promise.all([
 			listRuns(),
 			listRouteIds(),
 			loadSettings(),
 			getMaxHrAllTime(),
-			listActivityGroups()
+			listActivityGroups(),
+			loadGear()
 		]);
 		await hydrateBestEfforts(allRuns);
 		const members = groupRaw.member_ids
@@ -74,7 +75,8 @@ export const getGroupDetail = createServerFn({ method: 'GET' })
 			hrMaxManual,
 			hrMaxAllTime: allTimeMaxHr,
 			allRuns: withMap(allRuns, routeIds),
-			groups: await enrichAllGroupEfforts(groupsRaw, allRuns)
+			groups: await enrichAllGroupEfforts(groupsRaw, allRuns),
+			gear
 		};
 	});
 
@@ -108,6 +110,18 @@ export const ungroupActivitiesFn = createServerFn({ method: 'POST' })
 	.handler(async ({ data: id }) => {
 		await ungroupActivities(id);
 		return { ok: true };
+	});
+
+export const deleteActivityGroupWithRunsFn = createServerFn({ method: 'POST' })
+	.middleware([requireAuth])
+	.validator((id: string) => id)
+	.handler(async ({ data: id }) => {
+		const groupRaw = await getActivityGroup(id);
+		if (!groupRaw) throw new Error('Group not found.');
+		for (const memberId of groupRaw.member_ids) {
+			await dbDeleteRun(memberId);
+		}
+		return { ok: true as const };
 	});
 
 export const exportGroupedActivity = createServerFn({ method: 'GET' })

@@ -67,6 +67,7 @@ import { gearFilterOptions, matchesGearFilter } from '$lib/gear-filter';
 import type { GearContext } from '$lib/gear';
 import { matchesMapFilter } from '../MapFilter';
 import { matchesSessionFilter } from '../SessionFilter';
+import { GroupSessionActions } from '../groups/GroupSessionActions';
 import {
 	matchesSportFilter,
 	selectedSports,
@@ -590,7 +591,7 @@ export function TimelineBody({
 												</div>
 												<div className="relative rounded-[14px] border border-accent/35 bg-accent/4 p-4 px-[1.1rem] transition-[border-color,background-color,transform] duration-150 group-hover:-translate-y-px group-hover:border-accent/55 max-sm:p-[0.85rem_0.95rem]">
 													<Link
-														className="block text-inherit"
+														className="block pr-22 text-inherit"
 														to="/groups/$id"
 														params={{ id: item.group.id }}
 													>
@@ -635,6 +636,16 @@ export function TimelineBody({
 															highlights={groupHighlights(item.group, item.stats, boardOwners)}
 														/>
 													</Link>
+													<AuthGate>
+														<GroupSessionActions
+															group={item.group}
+															members={item.members}
+															stats={item.stats}
+															gear={gear}
+															allRuns={allRuns}
+															groups={groups}
+														/>
+													</AuthGate>
 												</div>
 											</div>
 										)

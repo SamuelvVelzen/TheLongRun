@@ -1,5 +1,6 @@
 import { appHead } from '$lib/title';
-import { loadCoachPage } from '$lib/coach/loader';
+import { loadCoachPage, type CoachPageData } from '$lib/coach/loader';
+import { parseCoachPlanData } from '$lib/coach/plan-data';
 import { type CoachSearch, validateCoachSearch } from '$lib/coach/search';
 import { createFileRoute } from '@tanstack/react-router';
 import { DeferredData } from '../components/DeferredData';
@@ -20,12 +21,12 @@ function Coach() {
 
 	return (
 		<>
-			<DeferredData promise={page}>
+			<DeferredData<CoachPageData> promise={page}>
 				{(data) => (
 					<CoachPanels
 						debrief={data.debrief}
 						initialSetup={data.weekSetup}
-						planData={data.planData}
+						planData={parseCoachPlanData(data.planData)}
 						gear={data.debrief.gear}
 						gearWear={data.debrief.gearWear}
 					/>

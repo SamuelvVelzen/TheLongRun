@@ -96,6 +96,7 @@ import {
 	withCoachSearch
 } from '$lib/coach/search';
 
+import { parseCoachPlanData } from '$lib/coach/plan-data';
 import {
 	coachDebriefUnits,
 	defaultCoachTab,
@@ -124,6 +125,7 @@ export function CoachPanels({
 	gear: GearContext;
 	gearWear: Record<GearKind, Record<string, GearWear>>;
 }) {
+	const plan = parseCoachPlanData(planData);
 	const search = coachRoute.useSearch();
 	const router = useRouter();
 	const snack = useSnackbar();
@@ -131,7 +133,7 @@ export function CoachPanels({
 		search.range || search.from || search.to ? search : { range: DEFAULT_BRIEF_RANGE }
 	);
 	const authed = useAuthed();
-	const tab = visibleTab(search.tab ?? defaultCoachTab(planData), authed);
+	const tab = visibleTab(search.tab ?? defaultCoachTab(plan), authed);
 	const debriefIds = search.id ?? '';
 	const includePlan = search.includePlan === true;
 
@@ -151,11 +153,11 @@ export function CoachPanels({
 		if (search.tab !== undefined) return;
 		router.navigate({
 			to: '/coach',
-			search: withCoachSearch(search, { tab: defaultCoachTab(planData) }),
+			search: withCoachSearch(search, { tab: defaultCoachTab(plan) }),
 			replace: true,
 			resetScroll: false
 		});
-	}, [search.tab, planData.views.length, router, search]);
+	}, [search.tab, plan.views.length, router, search, plan]);
 
 	const [generateDraft, setGenerateDraft] = useState(readGenerateDraft);
 
@@ -349,7 +351,7 @@ export function CoachPanels({
 			resetScroll: false
 		});
 	}
-	const planningNext = planData.generateWeek > planData.currentWeek;
+	const planningNext = plan.generateWeek > plan.currentWeek;
 	const weekPhrase = planningNext ? 'next week' : 'this week';
 	const weekPhraseCap = planningNext ? 'Next week' : 'This week';
 	const defaultQ = defaultQuestion(planningNext);
@@ -819,7 +821,7 @@ export function CoachPanels({
 				</>
 			)}
 
-			{tab === 'plan' && <PlanWeekPanel planData={planData} />}
+			{tab === 'plan' && <PlanWeekPanel planData={plan} />}
 
 			{tab === 'generate' && authed && (
 				<>
@@ -829,11 +831,11 @@ export function CoachPanels({
 						</Field>
 						<p className={cn('text-muted', 'm-0 text-[0.88rem] leading-relaxed')}>
 							Activity window: {range.label.toLowerCase()}. Long-term totals always included.
-							{planData.activeGoal ? (
+							{plan.activeGoal ? (
 								<>
 									{' '}
-									Week {planData.generateWeek} of {planData.calendar.weekCount} toward{' '}
-									{planData.activeGoal.name}.
+									Week {plan.generateWeek} of {plan.calendar.weekCount} toward{' '}
+									{plan.activeGoal.name}.
 								</>
 							) : null}{' '}
 							<Link className="font-semibold text-accent-fg" to="/goals">

@@ -1,5 +1,6 @@
 import type { RangeKind } from '$lib/date-range';
-import { getCoachPlan, getDebriefPrompt } from '$lib/server/functions';
+import type { CoachPlanData } from '$lib/coach/plan-data';
+import { getDebriefPrompt } from '$lib/server/functions';
 import type { CoachSearch, CoachTab } from '$lib/coach/search';
 
 export const DEFAULT_BRIEF_RANGE: RangeKind = '30d';
@@ -53,7 +54,7 @@ export function visibleTab(tab: CoachTab, authed: boolean): CoachTab {
 
 export type DebriefPrompt = Awaited<ReturnType<typeof getDebriefPrompt>>;
 export type CoachDebriefUnit = NonNullable<DebriefPrompt['units']>[number];
-export type CoachPlanData = Awaited<ReturnType<typeof getCoachPlan>>;
+export type { CoachPlanData } from '$lib/coach/plan-data';
 
 export function coachDebriefUnits(debrief: DebriefPrompt): CoachDebriefUnit[] {
 	if (debrief.units?.length) return debrief.units;

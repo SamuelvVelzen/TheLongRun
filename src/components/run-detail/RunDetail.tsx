@@ -823,8 +823,8 @@ export function RunDetail() {
 				onClose={() => setPendingDelete(false)}
 				onConfirm={async () => {
 					await deleteRun({ data: r.id });
+					await router.navigate({ to: '/timeline' });
 					await router.invalidate();
-					router.navigate({ to: '/timeline' });
 				}}
 			/>
 		</>

@@ -83,7 +83,8 @@ export function debriefWriteupUnitsFromCoach(debrief: {
 	runs?: DebriefWriteupRun[];
 	run?: DebriefWriteupRun | null;
 	units?: { slug: string; members: DebriefWriteupRun[] }[];
-}): DebriefWriteupUnit[] {
+} | null | undefined): DebriefWriteupUnit[] {
+	if (!debrief) return [];
 	if (debrief.units?.length) {
 		return debrief.units.map((u) => ({ slug: u.slug, members: u.members }));
 	}

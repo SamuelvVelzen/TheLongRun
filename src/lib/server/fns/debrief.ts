@@ -29,6 +29,7 @@ import type { ActivityFeelInput, DebriefRaceHint } from '$lib/debrief-types';
 import type { GoalBriefDraft } from '$lib/goal-brief';
 import type { PlanPeekData } from '$lib/plan-peek';
 import type { CreateRunInput, UpdateRunInput } from '$lib/run-input';
+import { assertCoachDebriefData } from '$lib/coach/debrief-data-schema';
 import { createServerFn } from '@tanstack/react-start';
 import { requireAuth } from '../auth';
 import { currentPlanWeek, loadActivityHabits, loadGear, loadFuelLog, loadSettings, loadTrainingContext, rememberGearName, weekSetupFromSettings } from '../context';
@@ -129,7 +130,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 					);
 		const units = collapseDebriefSessions(featured, activityGroups, allRuns);
 		if (!units.length) {
-			return {
+			return assertCoachDebriefData({
 				prompt: '',
 				run: null,
 				runs: [],
@@ -140,7 +141,7 @@ export const getDebriefPrompt = createServerFn({ method: 'GET' })
 				habits,
 				weekView,
 				error: 'Import this session’s GPX first — the prompt needs those numbers.'
-			};
+			});
 		}
 
 		const featuredMembers = units.flatMap((u) => u.members);
@@ -333,7 +334,7 @@ ${rules.join('\n')}`;
 		});
 		const raceBySlug: Record<string, DebriefRaceHint | null> = {};
 		for (const r of featuredMembers) raceBySlug[r.slug] = debriefRaceHint(r, goals);
-		return {
+		return assertCoachDebriefData({
 			prompt,
 			run: runs[runs.length - 1] ?? null,
 			runs,
@@ -344,7 +345,7 @@ ${rules.join('\n')}`;
 			habits,
 			weekView,
 			error: null as string | null
-		};
+		});
 	});
 
 export type { ActivityFeelInput } from '$lib/debrief-types';

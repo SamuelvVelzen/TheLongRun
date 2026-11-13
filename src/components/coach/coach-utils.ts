@@ -1,6 +1,6 @@
 import type { RangeKind } from '$lib/date-range';
+import type { CoachDebriefData } from '$lib/coach/debrief-data';
 import type { CoachPlanData } from '$lib/coach/plan-data';
-import { getDebriefPrompt } from '$lib/server/functions';
 import type { CoachSearch, CoachTab } from '$lib/coach/search';
 
 export const DEFAULT_BRIEF_RANGE: RangeKind = '30d';
@@ -52,11 +52,12 @@ export function visibleTab(tab: CoachTab, authed: boolean): CoachTab {
 	return tab;
 }
 
-export type DebriefPrompt = Awaited<ReturnType<typeof getDebriefPrompt>>;
+export type DebriefPrompt = CoachDebriefData;
 export type CoachDebriefUnit = NonNullable<DebriefPrompt['units']>[number];
 export type { CoachPlanData } from '$lib/coach/plan-data';
 
-export function coachDebriefUnits(debrief: DebriefPrompt): CoachDebriefUnit[] {
+export function coachDebriefUnits(debrief: DebriefPrompt | null | undefined): CoachDebriefUnit[] {
+	if (!debrief) return [];
 	if (debrief.units?.length) return debrief.units;
 	const runs = debrief.runs?.length ? debrief.runs : debrief.run ? [debrief.run] : [];
 	return runs.map((run) => ({

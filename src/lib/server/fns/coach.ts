@@ -32,6 +32,7 @@ import type { ActivityFeelInput, DebriefRaceHint } from '$lib/debrief-types';
 import type { GoalBriefDraft } from '$lib/goal-brief';
 import type { PlanPeekData } from '$lib/plan-peek';
 import type { CreateRunInput, UpdateRunInput } from '$lib/run-input';
+import { assertCoachPlanData } from '$lib/coach/plan-data';
 import { createServerFn } from '@tanstack/react-start';
 import { requireAuth } from '../auth';
 import { loadActivityHabits, loadGear, loadFuelLog, loadWardrobe, loadSettings, loadTrainingContext, saveWeekSetupSetting, weekSetupFromSettings } from '../context';
@@ -66,7 +67,7 @@ export const getCoachPlan = createServerFn({ method: 'GET' }).handler(async () =
 			.map((w) => attachPlanRoutes(buildWeekView(w, runs, calendar, undefined, groups), planRefs))
 			.filter((v): v is NonNullable<typeof v> => v != null)
 	);
-	return {
+	return assertCoachPlanData({
 		views,
 		currentWeek: weekToPlan(calendar),
 		generateWeek: weekToGenerate(plan, runs, calendar, undefined, groups),
@@ -78,7 +79,7 @@ export const getCoachPlan = createServerFn({ method: 'GET' }).handler(async () =
 			name: r.name,
 			distance_km: r.distance_km
 		}))
-	};
+	});
 });
 
 export const getCoachBrief = createServerFn({ method: 'GET' })

@@ -1,6 +1,5 @@
 import type { Goal, SessionRouteRef } from '$lib/types';
-import type { PlanCalendar } from '$lib/plan';
-import type { WeekView } from '$lib/plan';
+import type { PlanCalendar, WeekView } from '$lib/plan';
 import { z } from 'zod';
 
 function isRecord(v: unknown): v is Record<string, unknown> {

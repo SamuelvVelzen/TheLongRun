@@ -18,6 +18,7 @@ import {
 import { formatHorizonShort } from '$lib/goals';
 import { collapseRuns, groupedSessionTitle } from '$lib/group';
 import { buildDashboardStats, daysUntil, type DashboardStats } from '$lib/plan';
+import { parseDashboardPageData, type DashboardPageData } from '$lib/dashboard/page-data';
 import { getDashboardData } from '$lib/server/functions';
 import { appHead } from '$lib/title';
 import { buildTrainingTrends } from '$lib/trends';
@@ -134,7 +135,7 @@ function Dashboard() {
 	const authed = useAuthed();
 	return (
 		<DeferredData promise={page}>
-			{(data) => <DashboardBody data={data} authed={authed} />}
+			{(data) => <DashboardBody data={parseDashboardPageData(data)} authed={authed} />}
 		</DeferredData>
 	);
 }
@@ -143,7 +144,7 @@ function DashboardBody({
 	data,
 	authed
 }: {
-	data: Awaited<ReturnType<typeof getDashboardData>>;
+	data: DashboardPageData;
 	authed: boolean;
 }) {
 	const search = Route.useSearch();

@@ -6,6 +6,7 @@ import type { ActivityFeelInput, DebriefRaceHint } from '$lib/debrief-types';
 import type { GoalBriefDraft } from '$lib/goal-brief';
 import type { PlanPeekData } from '$lib/plan-peek';
 import type { CreateRunInput, UpdateRunInput } from '$lib/run-input';
+import { assertDashboardPageData } from '$lib/dashboard/page-data';
 import { createServerFn } from '@tanstack/react-start';
 import { loadGear, loadTrainingContext } from '../context';
 import { enrichAllGroupEfforts, listActivityGroups } from '../groups';
@@ -36,7 +37,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 	const weekNum = weekToPlan(calendar);
 	const week = plan.find((w) => w.week === weekNum) ?? plan[plan.length - 1] ?? null;
 	const weekView = attachPlanRoutes(pickBannerWeekView(plan, runs, calendar, undefined, groups), planRefs);
-	return {
+	return assertDashboardPageData({
 		runs: withMap(runs, routeIds),
 		tracks,
 		gear,
@@ -53,20 +54,7 @@ export const getDashboardData = createServerFn({ method: 'GET' }).handler(async 
 		nextIntention,
 		lastMedal: medals[0] ?? null,
 		calendar
-	} satisfies {
-		runs: RunWithMap[];
-		tracks: RouteTrack[];
-		gear: GearContext;
-		groups: ActivityGroupInfo[];
-		week: PlanWeek | null;
-		weekView: WeekView | null;
-		planRoutes: SessionRouteRef[];
-		streak: number;
-		activeGoal: Goal | null;
-		nextIntention: Goal | null;
-		lastMedal: Goal | null;
-		calendar: PlanCalendar;
-	};
+	});
 });
 
 export type { PlanPeekData } from '$lib/plan-peek';

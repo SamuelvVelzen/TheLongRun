@@ -26,3 +26,5 @@ jobs:
         run: npm run check
       - name: ESLint (errors only)
         run: npm run lint:eslint:ci
+      - name: Production build
+        run: npm run build

@@ -96,6 +96,7 @@ import {
 	withCoachSearch
 } from '$lib/coach/search';
 
+import { parseCoachDebriefData } from '$lib/coach/debrief-data';
 import { parseCoachPlanData } from '$lib/coach/plan-data';
 import {
 	coachDebriefUnits,
@@ -181,7 +182,7 @@ export function CoachPanels({
 		});
 	}
 
-	const [debrief, setDebrief] = useState(initialDebrief);
+	const [debrief, setDebrief] = useState(() => parseCoachDebriefData(initialDebrief));
 	const [writeups, setWriteups] = useState(readDebriefWriteups);
 	const [habitDrafts, setHabitDrafts] = useState(readDebriefHabits);
 	const [debriefPrompt, setDebriefPrompt] = useState(() =>
@@ -209,7 +210,7 @@ export function CoachPanels({
 
 	// Fresh loader data (e.g. after save) replaces the debrief prompt.
 	useEffect(() => {
-		setDebrief(initialDebrief);
+		setDebrief(parseCoachDebriefData(initialDebrief));
 	}, [initialDebrief]);
 
 	// Soft id updates (e.g. after GPX import) refresh the prompt without remounting the page.
@@ -225,7 +226,7 @@ export function CoachPanels({
 		let cancelled = false;
 		getDebriefPrompt({ data: { id: debriefIds, includePlan } }).then((next) => {
 			if (cancelled) return;
-			setDebrief(next);
+			setDebrief(parseCoachDebriefData(next));
 		});
 		return () => {
 			cancelled = true;
@@ -325,7 +326,7 @@ export function CoachPanels({
 
 	async function refreshDebrief() {
 		const next = await getDebriefPrompt({ data: { id: debriefIds, includePlan } });
-		setDebrief(next);
+		setDebrief(parseCoachDebriefData(next));
 		const nextRuns = next.runs?.length ? next.runs : next.run ? [next.run] : [];
 		const nextIds = nextRuns.map((r) => String(r.id)).join(',');
 		if (nextIds !== debriefIds) {

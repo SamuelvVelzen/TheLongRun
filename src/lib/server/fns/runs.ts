@@ -13,6 +13,7 @@ import type { ActivityFeelInput, DebriefRaceHint } from '$lib/debrief-types';
 import type { GoalBriefDraft } from '$lib/goal-brief';
 import type { PlanPeekData } from '$lib/plan-peek';
 import type { CreateRunInput, UpdateRunInput } from '$lib/run-input';
+import { assertTimelinePageData } from '$lib/timeline/page-data';
 import { createServerFn } from '@tanstack/react-start';
 import { requireAuth } from '../auth';
 import { brouterAlongPins } from '../brouter';
@@ -41,7 +42,7 @@ export const getTimelineRuns = createServerFn({ method: 'GET' }).handler(async (
 	]);
 	await hydrateBestEfforts(runs);
 	const groups = await enrichAllGroupEfforts(groupsRaw, runs);
-	return { runs: withMap(runs, routeIds), groups, gear };
+	return assertTimelinePageData({ runs: withMap(runs, routeIds), groups, gear });
 });
 
 export const getRunDetail = createServerFn({ method: 'GET' })

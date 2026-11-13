@@ -1,4 +1,5 @@
 import { getTimelineRuns } from '$lib/server/functions';
+import { parseTimelinePageData, type TimelinePageData } from '$lib/timeline/page-data';
 import { appHead } from '$lib/title';
 import type { RangeKind } from '$lib/date-range';
 import { createFileRoute } from '@tanstack/react-router';
@@ -46,8 +47,11 @@ export const Route = createFileRoute('/timeline')({
 function Timeline() {
 	const { page } = Route.useLoaderData();
 	return (
-		<DeferredData promise={page}>
-			{(data) => <TimelineBody allRuns={data.runs} groups={data.groups} gear={data.gear} />}
+		<DeferredData<TimelinePageData> promise={page}>
+			{(data) => {
+				const page = parseTimelinePageData(data);
+				return <TimelineBody allRuns={page.runs} groups={page.groups} gear={page.gear} />;
+			}}
 		</DeferredData>
 	);
 }

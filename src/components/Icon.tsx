@@ -10,6 +10,7 @@ export type IconName =
 	| 'routes'
 	| 'more'
 	| 'plus'
+	| 'minus'
 	| 'upload'
 	| 'profile'
 	| 'gear'
@@ -94,6 +95,8 @@ function Paths({ name }: { name: IconName }) {
 			);
 		case 'plus':
 			return <path d="M12 5v14M5 12h14" />;
+		case 'minus':
+			return <path d="M5 12h14" />;
 		case 'upload':
 			return (
 				<>

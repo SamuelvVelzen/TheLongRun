@@ -35,6 +35,14 @@ export { Panel } from './Panel';
 export { PanelTitle } from './PanelTitle';
 export { FeelChips, WantedFasterChips } from './ScoreChips';
 export { SegmentedToggle, type SegmentedOption } from './SegmentedToggle';
+export {
+	ReorderableList,
+	reorderOnDragEnd,
+	SortableDragHandle,
+	SortableGripIcon,
+	SortableItem,
+	sortableDraggingClass
+} from './SortableList';
 export { Select, type SelectOption } from './Select';
 export { errorMessage, SnackAction, SnackbarProvider, useSnackbar } from './Snackbar';
 export type { ShowSnackbarOptions, SnackbarAction, SnackbarVariant } from './Snackbar';
